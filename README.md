@@ -7,8 +7,6 @@
 | 檔案 | 說明 |
 |---|---|
 | `pokemon_battle.html` | 寶可夢卡牌對戰遊戲（主要專案） |
-| `index.html` | 天氣三神獸資訊頁（固拉多・蓋歐卡・列空座） |
-| `bmi.html` | BMI 健康計算機 |
 | `start.bat` | Windows 快速開啟捷徑 |
 | `start.command` | macOS 快速開啟捷徑 |
 
