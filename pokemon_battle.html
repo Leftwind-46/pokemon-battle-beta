@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>寶可夢卡牌對戰</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #07091a;
+      --surface: rgba(255,255,255,0.05);
+      --border:  rgba(255,255,255,0.10);
+      --text:    #e8eaf6;
+      --muted:   #7986cb;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    #stars {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* ── Screens ── */
+    .screen {
+      position: relative;
+      z-index: 1;
+      display: none;
+      min-height: 100vh;
+    }
+    .screen.active { display: flex; flex-direction: column; }
+
+    /* ── Buttons ── */
+    .btn {
+      padding: 0.75rem 2rem;
+      border: none;
+      border-radius: 999px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.03em;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #f8d030, #f05030);
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(248,208,48,0.3);
+    }
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 28px rgba(248,208,48,0.5);
+    }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ══════════════════════════════
+       START SCREEN
+    ══════════════════════════════ */
+    #start-screen {
+      align-items: center;
+      justify-content: center;
+      gap: 2rem;
+      text-align: center;
+    }
+
+    .pokeball {
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      background: linear-gradient(180deg, #e63946 50%, #f1f1f1 50%);
+      border: 5px solid #111;
+      position: relative;
+      animation: spin 5s linear infinite;
+    }
+    .pokeball::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #f1f1f1;
+      border: 5px solid #111;
+      z-index: 2;
+    }
+    .pokeball::after {
+      content: '';
+      position: absolute;
+      top: calc(50% - 2.5px);
+      left: 0; right: 0;
+      height: 5px;
+      background: #111;
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+
+    .logo h1 {
+      font-size: clamp(2rem, 6vw, 3.5rem);
+      font-weight: 900;
+      background: linear-gradient(135deg, #f8d030 0%, #f05030 50%, #6890f0 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.5rem;
+    }
+    .logo p { color: var(--muted); font-size: 1rem; }
+
+    .type-badge {
+      display: inline-block;
+      padding: 0.12rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      margin-top: 0.2rem;
+      color: #fff;
+    }
+
+    /* ── Buff tags on active card ── */
+    .buff-tags { display:flex; gap:0.25rem; flex-wrap:wrap; justify-content:center; margin-top:0.3rem; min-height:1rem; }
+    .buff-tag  { font-size:0.6rem; font-weight:700; padding:0.08rem 0.32rem; border-radius:4px; }
+    .buff-tag.atk  { background:rgba(248,208,48,0.25); color:#f8d030; border:1px solid rgba(248,208,48,0.55); }
+    .buff-tag.def  { background:rgba(144,202,249,0.2); color:#90caf9; border:1px solid rgba(144,202,249,0.45); }
+    .buff-tag.mult { background:rgba(255,128,64,0.25); color:#ff8042; border:1px solid rgba(255,128,64,0.55); }
+
+    /* ══════════════════════════════
+       BATTLE SCREEN
+    ══════════════════════════════ */
+    #battle-screen {
+      flex-direction: column;
+      padding: 1rem;
+      gap: 0.75rem;
+      max-width: 620px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .field {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1rem;
+    }
+    .field-label {
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.6rem;
+    }
+    .active-area {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+
+    /* Battle card */
+    .b-card {
+      background: rgba(255,255,255,0.04);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 0.6rem 0.7rem;
+      min-width: 120px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .b-card .type-strip {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      border-radius: 10px 10px 0 0;
+    }
+    .b-card img {
+      width: 72px;
+      height: 72px;
+      image-rendering: pixelated;
+      margin-top: 0.2rem;
+    }
+    .b-card .b-name { font-size: 0.85rem; font-weight: 700; margin-top: 0.2rem; }
+
+    /* HP bar */
+    .hp-wrap { flex: 1; }
+    .hp-meta { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--muted); margin-bottom: 0.3rem; }
+    .hp-track { background: rgba(255,255,255,0.1); border-radius: 999px; height: 10px; overflow: hidden; }
+    .hp-fill   { height: 100%; border-radius: 999px; transition: width 0.5s ease, background-color 0.4s ease; }
+
+    /* Bench row */
+    .bench-row { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.7rem; }
+    .b-bench {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.3rem 0.55rem;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.73rem;
+    }
+    .b-bench img { width: 26px; height: 26px; image-rendering: pixelated; }
+    .b-bench.ko  { opacity: 0.28; }
+    .b-bench.switchable {
+      cursor: pointer;
+      border-color: rgba(144,202,249,0.35);
+      transition: all 0.15s;
+    }
+    .b-bench.switchable:hover {
+      border-color: #90caf9;
+      background: rgba(144,202,249,0.12);
+      transform: translateY(-2px);
+      box-shadow: 0 0 10px rgba(144,202,249,0.3);
+    }
+    .switch-hint {
+      font-size: 0.62rem;
+      color: #90caf9;
+      border: 1px solid rgba(144,202,249,0.5);
+      border-radius: 4px;
+      padding: 0.05rem 0.3rem;
+      margin-left: 0.2rem;
+    }
+
+    /* Battle log */
+    #battle-log {
+      background: rgba(0,0,0,0.45);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.65rem 0.9rem;
+      height: 106px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 0.2rem;
+      font-size: 0.83rem;
+    }
+    .log-msg { animation: fadeUp 0.25s ease; line-height: 1.45; }
+    .log-msg.player  { color: #90caf9; }
+    .log-msg.cpu     { color: #ef9a9a; }
+    .log-msg.system  { color: var(--muted); }
+    .log-msg.special { color: #fff176; font-weight: 700; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(5px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    /* Attack buttons */
+    #action-area { display: flex; gap: 0.7rem; }
+    .btn-atk {
+      flex: 1;
+      padding: 0.7rem 0.9rem;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      background: rgba(255,255,255,0.05);
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.18s;
+      text-align: left;
+    }
+    .btn-atk:hover:not(:disabled) {
+      border-color: rgba(255,255,255,0.3);
+      background: rgba(255,255,255,0.1);
+      transform: translateY(-1px);
+    }
+    .btn-atk:disabled { opacity: 0.45; cursor: not-allowed; }
+    .atk-name { font-weight: 700; font-size: 0.9rem; }
+    .atk-dmg  { font-size: 0.77rem; color: var(--muted); margin-top: 0.1rem; }
+
+    /* ── Animations ── */
+    @keyframes shake {
+      0%,100%{ transform:translateX(0); }
+      20%    { transform:translateX(-8px); }
+      40%    { transform:translateX(8px); }
+      60%    { transform:translateX(-5px); }
+      80%    { transform:translateX(5px); }
+    }
+    @keyframes flashHit {
+      0%,100%{ filter:brightness(1); }
+      50%    { filter:brightness(3.5) saturate(0); }
+    }
+    @keyframes koFade {
+      to { transform:scale(0.65) rotate(-12deg); opacity:0.15; }
+    }
+    @keyframes slideIn {
+      from { transform:translateY(20px); opacity:0; }
+      to   { transform:none; opacity:1; }
+    }
+
+    .anim-shake   { animation: shake    0.4s ease; }
+    .anim-flash   { animation: flashHit 0.3s ease 3; }
+    .anim-ko      { animation: koFade   0.6s ease forwards; }
+    .anim-slidein { animation: slideIn  0.4s ease; }
+
+    .ko-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.2rem;
+      font-weight: 900;
+      color: #ef5350;
+      border-radius: 10px;
+      z-index: 10;
+      animation: fadeUp 0.3s ease;
+    }
+
+    /* ══════════════════════════════
+       RESULT SCREEN
+    ══════════════════════════════ */
+    #result-screen {
+      align-items: center;
+      justify-content: center;
+      gap: 1.5rem;
+      text-align: center;
+    }
+    #result-title {
+      font-size: clamp(3rem, 10vw, 5rem);
+      font-weight: 900;
+    }
+    #result-title.win {
+      background: linear-gradient(135deg, #f8d030, #4caf50);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    #result-title.lose {
+      background: linear-gradient(135deg, #ef5350, #7986cb);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    #result-sub { color: var(--muted); font-size: 1.05rem; }
+
+    /* ── Hand / Trainer cards ── */
+    #hand-section { }
+    .hand-label {
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.45rem;
+    }
+    #hand-area { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .t-card {
+      flex: 1;
+      min-width: 110px;
+      background: rgba(255,255,255,0.04);
+      border: 2px solid transparent;
+      border-radius: 10px;
+      padding: 0.55rem 0.6rem;
+      font-size: 0.78rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.18rem;
+    }
+    .t-card.item      { border-color: rgba(76,175,80,0.55); }
+    .t-card.supporter { border-color: rgba(121,134,203,0.55); }
+    .t-badge {
+      display: inline-block;
+      font-size: 0.62rem;
+      padding: 0.05rem 0.38rem;
+      border-radius: 4px;
+      font-weight: 700;
+      color: #fff;
+      width: fit-content;
+    }
+    .t-card.item .t-badge      { background: rgba(76,175,80,0.7); }
+    .t-card.supporter .t-badge { background: rgba(121,134,203,0.7); }
+    .t-name { font-weight: 700; font-size: 0.82rem; }
+    .t-desc { color: var(--muted); font-size: 0.7rem; line-height: 1.3; flex: 1; }
+    .t-use-btn {
+      width: 100%;
+      margin-top: 0.3rem;
+      padding: 0.28rem 0;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 6px;
+      background: rgba(255,255,255,0.07);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 0.73rem;
+      transition: background 0.15s;
+    }
+    .t-use-btn:hover:not(:disabled) { background: rgba(255,255,255,0.18); }
+    .t-use-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* ── Ghost button ── */
+    .btn-ghost {
+      background: rgba(255,255,255,0.07);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover:not(:disabled) {
+      background: rgba(255,255,255,0.14);
+      transform: translateY(-2px);
+    }
+    .btn-ghost:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    /* ══════════════════════════════
+       SWAP SCREEN
+    ══════════════════════════════ */
+    #swap-screen {
+      align-items: center;
+      padding: 2rem 1rem 2.5rem;
+      gap: 1.4rem;
+      max-width: 620px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    #swap-screen h2 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      text-align: center;
+    }
+    .swap-section-label {
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.55rem;
+      text-align: center;
+    }
+    .swap-cards {
+      display: flex;
+      gap: 0.7rem;
+      justify-content: center;
+      width: 100%;
+    }
+    .swap-card {
+      background: rgba(255,255,255,0.04);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 0.75rem 0.6rem 0.65rem;
+      text-align: center;
+      flex: 1;
+      max-width: 160px;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.18s;
+    }
+    .swap-card.selectable { cursor: pointer; }
+    .swap-card.selectable:hover {
+      border-color: rgba(255,255,255,0.3);
+      transform: translateY(-3px);
+    }
+    .swap-card.hi-new {
+      border-color: #f8d030;
+      box-shadow: 0 0 18px rgba(248,208,48,0.45);
+      background: rgba(248,208,48,0.07);
+    }
+    .swap-card.hi-old {
+      border-color: rgba(239,83,80,0.7);
+      background: rgba(239,83,80,0.07);
+    }
+    .swap-card img { width: 64px; height: 64px; image-rendering: pixelated; margin-top: 0.3rem; }
+    .swap-card .sc-name { font-size: 0.85rem; font-weight: 700; margin-top: 0.25rem; }
+    .swap-card .sc-hp   { font-size: 0.7rem; color: var(--muted); margin-top: 0.1rem; }
+    .swap-hint {
+      font-size: 0.88rem;
+      color: var(--muted);
+      text-align: center;
+      min-height: 1.3em;
+    }
+    .swap-btn-row { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+    .swap-divider {
+      width: 100%;
+      border: none;
+      border-top: 1px solid var(--border);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+  </style>
+</head>
+<body>
+
+<canvas id="stars"></canvas>
+
+<!-- ══ START ══ -->
+<div id="start-screen" class="screen active">
+  <div class="pokeball" style="margin-bottom:0.5rem"></div>
+  <div class="logo">
+    <h1>寶可夢卡牌對戰</h1>
+    <p>Pokémon Card Battle</p>
+  </div>
+  <button class="btn btn-primary" onclick="startRandomBattle()">開始遊戲</button>
+</div>
+
+<!-- ══ SWAP ══ -->
+<div id="swap-screen" class="screen">
+  <h2>出戰前確認</h2>
+
+  <!-- Player team -->
+  <div style="width:100%">
+    <div class="swap-section-label">你的隊伍</div>
+    <div class="swap-cards" id="swap-team-cards"></div>
+  </div>
+
+  <div class="swap-hint" id="swap-hint">想換掉其中一隻嗎？</div>
+
+  <!-- Candidates (hidden until player clicks 換一隻) -->
+  <div id="swap-cand-section" style="display:none; width:100%">
+    <hr class="swap-divider">
+    <div class="swap-section-label" style="margin-top:1rem">選擇替補</div>
+    <div class="swap-cards" id="swap-cand-cards"></div>
+  </div>
+
+  <!-- Buttons -->
+  <div class="swap-btn-row" id="swap-btn-row">
+    <button class="btn btn-primary" onclick="startBattle()">開始對戰！</button>
+    <button class="btn btn-ghost" id="swap-reroll-btn" onclick="showSwapCandidates()">換一隻</button>
+  </div>
+</div>
+
+<!-- ══ BATTLE ══ -->
+<div id="battle-screen" class="screen">
+
+  <!-- CPU field -->
+  <div class="field" id="cpu-field">
+    <div class="field-label">對手 &nbsp;<span id="cpu-hand-count" style="font-size:0.62rem;color:var(--muted);font-weight:400;letter-spacing:0"></span></div>
+    <div class="active-area">
+      <div class="b-card" id="cpu-bcard">
+        <div class="type-strip" id="cpu-strip"></div>
+        <img id="cpu-sprite" src="" alt="">
+        <div class="b-name" id="cpu-name"></div>
+        <div class="type-badge" id="cpu-badge"></div>
+      </div>
+      <div class="hp-wrap">
+        <div class="hp-meta">
+          <span>HP</span>
+          <span id="cpu-hp-text"></span>
+        </div>
+        <div class="hp-track">
+          <div class="hp-fill" id="cpu-hp-fill"></div>
+        </div>
+      </div>
+    </div>
+    <div class="bench-row" id="cpu-bench"></div>
+  </div>
+
+  <!-- Log -->
+  <div id="battle-log"></div>
+
+  <!-- Player field -->
+  <div class="field" id="player-field">
+    <div class="field-label">你的寶可夢 &nbsp;<span style="font-size:0.65rem;color:#90caf9;font-weight:400;letter-spacing:0">(點備戰欄可換場)</span></div>
+    <div class="active-area">
+      <div class="b-card" id="player-bcard">
+        <div class="type-strip" id="player-strip"></div>
+        <img id="player-sprite" src="" alt="">
+        <div class="b-name" id="player-name"></div>
+        <div class="type-badge" id="player-badge"></div>
+        <div class="buff-tags" id="player-buff-tags"></div>
+      </div>
+      <div class="hp-wrap">
+        <div class="hp-meta">
+          <span>HP</span>
+          <span id="player-hp-text"></span>
+        </div>
+        <div class="hp-track">
+          <div class="hp-fill" id="player-hp-fill"></div>
+        </div>
+      </div>
+    </div>
+    <div class="bench-row" id="player-bench"></div>
+  </div>
+
+  <!-- Actions -->
+  <div id="action-area">
+    <button class="btn-atk" id="btn-atk0" onclick="playerAttack(0)">
+      <div class="atk-name" id="atk-name0"></div>
+      <div class="atk-dmg"  id="atk-dmg0"></div>
+    </button>
+    <button class="btn-atk" id="btn-atk1" onclick="playerAttack(1)">
+      <div class="atk-name" id="atk-name1"></div>
+      <div class="atk-dmg"  id="atk-dmg1"></div>
+    </button>
+  </div>
+
+  <!-- Hand -->
+  <div id="hand-section">
+    <div class="hand-label">手牌</div>
+    <div id="hand-area"></div>
+  </div>
+
+</div>
+
+<!-- ══ RESULT ══ -->
+<div id="result-screen" class="screen">
+  <div id="result-title"></div>
+  <div id="result-sub"></div>
+  <button class="btn btn-primary" onclick="resetGame()">再玩一次</button>
+</div>
+
+<script>
+/* ─────────────────────────────────────────
+   STAR CANVAS
+───────────────────────────────────────── */
+(function () {
+  const cvs = document.getElementById('stars');
+  const ctx = cvs.getContext('2d');
+  let stars = [];
+
+  function resize() {
+    cvs.width = innerWidth;
+    cvs.height = innerHeight;
+    stars = Array.from({ length: 130 }, () => ({
+      x: Math.random() * cvs.width,
+      y: Math.random() * cvs.height,
+      r: Math.random() * 1.3 + 0.2,
+      a: Math.random(),
+      da: (Math.random() - 0.5) * 0.007
+    }));
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, cvs.width, cvs.height);
+    for (const s of stars) {
+      s.a += s.da;
+      if (s.a <= 0.05 || s.a >= 1) s.da = -s.da;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,255,255,${s.a.toFixed(2)})`;
+      ctx.fill();
+    }
+    requestAnimationFrame(draw);
+  }
+
+  resize();
+  draw();
+  addEventListener('resize', resize);
+})();
+
+/* ─────────────────────────────────────────
+   DATA
+───────────────────────────────────────── */
+const POKEMON = [
+  { id:383, name:'固拉多',   type:'ground',   hp:170, attacks:[{name:'地震',    dmg:60},{name:'原始大地', dmg:110}] },
+  { id:382, name:'蓋歐卡',   type:'water',    hp:170, attacks:[{name:'源起之波', dmg:60},{name:'原始海洋', dmg:110}] },
+  { id:384, name:'列空座',   type:'dragon',   hp:180, attacks:[{name:'神速',    dmg:50},{name:'龍之隕星', dmg:120}] },
+  { id:1008,name:'密勒頓',   type:'electric', hp:180, attacks:[{name:'電磁衝浪', dmg:70},{name:'未來雷霆', dmg:120}] },
+  { id:6,   name:'噴火龍',   type:'fire',     hp:150, attacks:[{name:'火焰噴射', dmg:40},{name:'大火焰',   dmg:90}] },
+  { id:9,   name:'水箭龜',   type:'water',    hp:140, attacks:[{name:'水槍',    dmg:30},{name:'海浪',     dmg:80}] },
+  { id:3,   name:'妙蛙花',   type:'grass',    hp:130, attacks:[{name:'藤鞭',    dmg:20},{name:'太陽射線', dmg:80}] },
+  { id:150, name:'超夢',     type:'psychic',  hp:160, attacks:[{name:'念力',    dmg:30},{name:'精神強擊', dmg:100}] },
+  { id:94,  name:'耿鬼',     type:'ghost',    hp:110, attacks:[{name:'影拳',    dmg:30},{name:'暗影球',   dmg:60}] },
+  { id:68,  name:'怪力',     type:'fighting', hp:130, attacks:[{name:'空手劈',  dmg:30},{name:'動感拳',   dmg:70}] },
+  { id:149, name:'快龍',     type:'dragon',   hp:160, attacks:[{name:'龍息',    dmg:40},{name:'破壞光線', dmg:100}] },
+  { id:65,  name:'胡地',     type:'psychic',  hp:90,  attacks:[{name:'混亂',    dmg:30},{name:'超能力',   dmg:60}] },
+  { id:143, name:'卡比獸',   type:'normal',   hp:200, attacks:[{name:'磚塊',    dmg:40},{name:'破壞光線', dmg:80}] },
+  { id:59,  name:'風速狗',   type:'fire',     hp:120, attacks:[{name:'咬碎',    dmg:30},{name:'噴射火焰', dmg:70}] },
+  { id:131, name:'拉普拉斯', type:'ice',      hp:150, attacks:[{name:'衝浪',    dmg:40},{name:'暴風雪',   dmg:70}] },
+  { id:130, name:'暴鯉龍',   type:'water',    hp:130, attacks:[{name:'咬碎',    dmg:30},{name:'大浪',     dmg:70}] },
+  { id:26,  name:'雷丘',     type:'electric', hp:90,  attacks:[{name:'電磁波',  dmg:20},{name:'電光一閃', dmg:60}] },
+{ id:376, name:'巨金怪',   type:'steel',    hp:130, attacks:[{name:'子彈拳',  dmg:30},{name:'隕石衝擊', dmg:70}] },
+  { id:448, name:'路卡利歐', type:'fighting', hp:110, attacks:[{name:'金屬爪',  dmg:30},{name:'波導彈',   dmg:70}] },
+  { id:445, name:'烈咬陸鯊', type:'dragon',   hp:140, attacks:[{name:'龍爪',    dmg:30},{name:'地震',     dmg:80}] },
+  { id:250, name:'鳳王',     type:'fire',     hp:170, attacks:[{name:'聖焰',    dmg:70},{name:'神聖之焰', dmg:120}] },
+  { id:249, name:'路奇亞',   type:'flying',   hp:170, attacks:[{name:'怒風',    dmg:60},{name:'究極衝撞', dmg:110}] },
+];
+
+const TYPE_COLOR = {
+  fire:'#f05030', water:'#6890f0', grass:'#78c850', electric:'#f8d030',
+  psychic:'#f85888', fighting:'#c03028', ghost:'#705898', dragon:'#7038f8',
+  steel:'#b8b8d0', ice:'#98d8d8', normal:'#a8a878', dark:'#705848', ground:'#e0c068',
+  flying:'#a890f0',
+};
+const TYPE_ZH = {
+  fire:'火', water:'水', grass:'草', electric:'電', psychic:'超能',
+  fighting:'格鬥', ghost:'幽靈', dragon:'龍', steel:'鋼', ice:'冰',
+  normal:'一般', dark:'惡', ground:'地面', flying:'飛行',
+};
+
+/* effectiveness multipliers: attacker type → {defender type: multiplier} */
+const EFF = {
+  fire:     {grass:2, ice:2, steel:2, water:0.5, fire:0.5, rock:0.5},
+  water:    {fire:2, ground:2, rock:2, water:0.5, grass:0.5, electric:0.5},
+  grass:    {water:2, ground:2, rock:2, fire:0.5, grass:0.5, ice:0.5},
+  electric: {water:2, flying:2, grass:0.5, electric:0.5, ground:0},
+  psychic:  {fighting:2, poison:2, psychic:0.5, ghost:0, dark:0},
+  fighting: {normal:2, ice:2, rock:2, steel:2, dark:2, psychic:0.5, flying:0.5, ghost:0},
+  ghost:    {ghost:2, psychic:2, normal:0, dark:0.5},
+  dragon:   {dragon:2, steel:0.5},
+  steel:    {ice:2, rock:2, fire:0.5, water:0.5, electric:0.5, steel:0.5},
+  ice:      {grass:2, ground:2, flying:2, dragon:2, fire:0.5, water:0.5, ice:0.5, steel:0.5},
+  normal:   {},
+  dark:     {psychic:2, ghost:2, dark:0.5, fighting:0.5},
+  flying:   {fighting:2, grass:2, electric:0.5, steel:0.5},
+};
+
+function eff(atkType, defType) {
+  return (EFF[atkType] || {})[defType] ?? 1;
+}
+
+const TRAINERS = [
+  {id:'potion',    name:'傷藥',     cat:'item',      desc:'回復上場寶可夢 40 HP'},
+  {id:'x-atk',    name:'攻擊強化', cat:'item',      desc:'下次攻擊威力 +40'},
+  {id:'x-def',    name:'防禦強化', cat:'item',      desc:'下次受傷害減少 40'},
+  {id:'energize', name:'能量強化', cat:'item',      desc:'下次攻擊傷害 ×2'},
+  {id:'revive',   name:'復活藥',   cat:'item',      desc:'復活備戰欄第一隻倒下的寶可夢（回復 30 HP）'},
+  {id:'nurse',    name:'治療師',   cat:'supporter', desc:'上場寶可夢完全回復 HP'},
+  {id:'switch',   name:'換人命令', cat:'supporter', desc:'免費換場，不消耗回合'},
+  {id:'all-out',  name:'全力出擊', cat:'supporter', desc:'下次攻擊傷害 ×3'},
+];
+
+function dealHand(n) {
+  return [...TRAINERS].sort(() => Math.random() - 0.5).slice(0, n);
+}
+
+function spriteUrl(id) {
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
+}
+
+/* ─────────────────────────────────────────
+   STATE
+───────────────────────────────────────── */
+let G = {
+  playerDeck: [],
+  cpuDeck:    [],
+  playerIdx:  0,
+  cpuIdx:     0,
+  round:      0,
+  busy:       false,
+  playerHand:      [],
+  cpuHand:         [],
+  playerSuppUsed:  false,
+  cpuSuppUsed:     false,
+  freeSwitch:      false,
+  playerBuff: { atkBonus:0, atkMult:1, shield:0 },
+  cpuBuff:    { atkBonus:0, atkMult:1, shield:0 },
+  playerDmgDealt:  0,
+  cpuDmgDealt:     0,
+  playerCardsUsed: 0,
+  swapCandidates:  [],
+  swapDone:        false,
+};
+
+const P  = () => G.playerDeck[G.playerIdx];
+const CP = () => G.cpuDeck[G.cpuIdx];
+
+function clone(p) {
+  return { ...p, attacks: p.attacks.map(a => ({...a})), cur: p.hp };
+}
+
+/* ─────────────────────────────────────────
+   SCREEN HELPERS
+───────────────────────────────────────── */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+/* ─────────────────────────────────────────
+   SWAP SCREEN
+───────────────────────────────────────── */
+let _swapPickedIdx = null; // index of the highlighted candidate
+
+function showSwapScreen() {
+  _swapPickedIdx = null;
+  document.getElementById('swap-cand-section').style.display = 'none';
+  document.getElementById('swap-btn-row').style.display = 'flex';
+  document.getElementById('swap-hint').textContent = '想換掉其中一隻嗎？';
+  const rerollBtn = document.getElementById('swap-reroll-btn');
+  rerollBtn.disabled   = G.swapDone;
+  rerollBtn.textContent = G.swapDone ? '已換過一次' : '換一隻';
+  renderSwapTeam(false);
+  showScreen('swap-screen');
+}
+
+function renderSwapTeam(selectable) {
+  const area = document.getElementById('swap-team-cards');
+  area.innerHTML = '';
+  G.playerDeck.forEach((p, i) => {
+    const col = TYPE_COLOR[p.type] || '#888';
+    const el  = document.createElement('div');
+    el.className = 'swap-card' + (selectable ? ' selectable' : '');
+    el.innerHTML = `
+      <div style="position:absolute;top:0;left:0;right:0;height:4px;border-radius:10px 10px 0 0;background:${col}"></div>
+      <img src="${spriteUrl(p.id)}" alt="${p.name}">
+      <div class="sc-name">${p.name}</div>
+      <div class="type-badge" style="background:${col};margin-top:0.2rem">${TYPE_ZH[p.type]||p.type}</div>
+      <div class="sc-hp">HP ${p.hp}</div>
+    `;
+    if (selectable) el.addEventListener('click', () => confirmSwap(i));
+    area.appendChild(el);
+  });
+}
+
+function showSwapCandidates() {
+  if (G.swapDone) return;
+  const usedIds = new Set([...G.playerDeck, ...G.cpuDeck].map(p => p.id));
+  const pool    = POKEMON.filter(p => !usedIds.has(p.id)).sort(() => Math.random() - 0.5);
+  G.swapCandidates = pool.slice(0, 3).map(p => clone(p));
+  _swapPickedIdx   = null;
+
+  document.getElementById('swap-cand-section').style.display = '';
+  document.getElementById('swap-hint').textContent = '選擇一隻替補寶可夢 ▼';
+  renderSwapTeam(false);
+  renderSwapCandidates();
+}
+
+function renderSwapCandidates() {
+  const area = document.getElementById('swap-cand-cards');
+  area.innerHTML = '';
+  G.swapCandidates.forEach((p, i) => {
+    const col = TYPE_COLOR[p.type] || '#888';
+    const el  = document.createElement('div');
+    el.className = 'swap-card selectable' + (_swapPickedIdx === i ? ' hi-new' : '');
+    el.innerHTML = `
+      <div style="position:absolute;top:0;left:0;right:0;height:4px;border-radius:10px 10px 0 0;background:${col}"></div>
+      <img src="${spriteUrl(p.id)}" alt="${p.name}">
+      <div class="sc-name">${p.name}</div>
+      <div class="type-badge" style="background:${col};margin-top:0.2rem">${TYPE_ZH[p.type]||p.type}</div>
+      <div class="sc-hp">HP ${p.hp}</div>
+    `;
+    el.addEventListener('click', () => pickCandidate(i));
+    area.appendChild(el);
+  });
+}
+
+function pickCandidate(i) {
+  _swapPickedIdx = i;
+  document.getElementById('swap-hint').textContent = '選擇要換掉的那隻 ▲';
+  renderSwapCandidates();
+  renderSwapTeam(true);
+}
+
+function confirmSwap(teamIdx) {
+  if (_swapPickedIdx === null) return;
+  G.playerDeck[teamIdx] = G.swapCandidates[_swapPickedIdx];
+  G.swapDone = true;
+  showSwapScreen();
+}
+
+/* ─────────────────────────────────────────
+   BATTLE START
+───────────────────────────────────────── */
+function startRandomBattle() {
+  const shuffled = [...POKEMON].sort(() => Math.random() - 0.5);
+  G.playerDeck     = shuffled.slice(0, 3).map(p => clone(p));
+  G.cpuDeck        = shuffled.slice(3, 6).map(p => clone(p));
+  G.swapDone       = false;
+  G.swapCandidates = [];
+  showSwapScreen();
+}
+
+function startBattle() {
+  G.playerIdx      = 0;
+  G.cpuIdx         = 0;
+  G.round          = 0;
+  G.busy           = false;
+  G.playerHand     = dealHand(3);
+  G.cpuHand        = dealHand(3);
+  G.playerSuppUsed = false;
+  G.cpuSuppUsed    = false;
+  G.freeSwitch     = false;
+  G.playerBuff     = { atkBonus:0, atkMult:1, shield:0 };
+  G.cpuBuff        = { atkBonus:0, atkMult:1, shield:0 };
+  G.playerDmgDealt  = 0;
+  G.cpuDmgDealt     = 0;
+  G.playerCardsUsed = 0;
+
+  document.getElementById('battle-log').innerHTML = '';
+  showScreen('battle-screen');
+  renderBattle();
+  log('⚔️  對戰開始！', 'system');
+  log(`對手派出了 ${CP().name}！`, 'system');
+}
+
+/* ─────────────────────────────────────────
+   BATTLE RENDER
+───────────────────────────────────────── */
+function renderBattle() {
+  renderSide('player', P(),  G.playerDeck, G.playerIdx);
+  renderSide('cpu',    CP(), G.cpuDeck,    G.cpuIdx);
+  renderActions();
+  renderHand();
+}
+
+function renderSide(side, poke, deck, activeIdx) {
+  const col = TYPE_COLOR[poke.type] || '#888';
+  const pct = Math.max(0, poke.cur / poke.hp * 100);
+  const hpC = pct > 50 ? '#4caf50' : pct > 20 ? '#ffc107' : '#ef5350';
+
+  document.getElementById(`${side}-strip`).style.background  = col;
+  document.getElementById(`${side}-sprite`).src              = spriteUrl(poke.id);
+  document.getElementById(`${side}-sprite`).alt              = poke.name;
+  document.getElementById(`${side}-name`).textContent        = poke.name;
+
+  const badge = document.getElementById(`${side}-badge`);
+  badge.textContent    = TYPE_ZH[poke.type] || poke.type;
+  badge.style.background = col;
+
+  document.getElementById(`${side}-hp-text`).textContent = `${poke.cur} / ${poke.hp}`;
+  const fill = document.getElementById(`${side}-hp-fill`);
+  fill.style.width      = pct + '%';
+  fill.style.background = hpC;
+
+  // Buff tags (player only)
+  if (side === 'player') {
+    const buf   = G.playerBuff;
+    const tags  = document.getElementById('player-buff-tags');
+    const parts = [];
+    if (buf.atkBonus > 0) parts.push(`<span class="buff-tag atk">⚔️+${buf.atkBonus}</span>`);
+    if (buf.atkMult > 1)  parts.push(`<span class="buff-tag mult">×${buf.atkMult}</span>`);
+    if (buf.shield > 0)   parts.push(`<span class="buff-tag def">🛡-${buf.shield}</span>`);
+    tags.innerHTML = parts.join('');
+  }
+
+  // CPU hand count
+  if (side === 'cpu') {
+    document.getElementById('cpu-hand-count').textContent = `手牌 ${G.cpuHand.length} 張`;
+  }
+
+  // Bench
+  const benchEl = document.getElementById(`${side}-bench`);
+  benchEl.innerHTML = '';
+  deck.forEach((p, i) => {
+    if (i === activeIdx) return;
+    const canSwitch = side === 'player' && p.cur > 0 && !G.busy;
+    const b = document.createElement('div');
+    b.className = 'b-bench' + (p.cur <= 0 ? ' ko' : '') + (canSwitch ? ' switchable' : '');
+    b.innerHTML = `<img src="${spriteUrl(p.id)}" alt="${p.name}"><span>${p.name}</span>`
+      + (canSwitch ? '<span class="switch-hint">換</span>' : '');
+    if (canSwitch) b.addEventListener('click', () => playerSwitch(i));
+    benchEl.appendChild(b);
+  });
+  if (!benchEl.children.length) {
+    benchEl.innerHTML = '<span style="font-size:0.72rem;color:var(--muted)">無備戰寶可夢</span>';
+  }
+}
+
+function renderActions() {
+  const p = P();
+  [0, 1].forEach(i => {
+    const a = p.attacks[i];
+    document.getElementById(`atk-name${i}`).textContent = `⚔️ ${a.name}`;
+    document.getElementById(`atk-dmg${i}`).textContent  = `威力 ${a.dmg}`;
+    document.getElementById(`btn-atk${i}`).disabled     = G.busy;
+  });
+}
+
+function renderHand() {
+  const area = document.getElementById('hand-area');
+  area.innerHTML = '';
+  if (!G.playerHand.length) {
+    area.innerHTML = '<span style="font-size:0.75rem;color:var(--muted)">無手牌</span>';
+    return;
+  }
+  G.playerHand.forEach((card, i) => {
+    const isSupp = card.cat === 'supporter';
+    const noSwitchTarget = card.id === 'switch' &&
+      G.playerDeck.filter((p, j) => j !== G.playerIdx && p.cur > 0).length === 0;
+    const disabled = G.busy || (isSupp && G.playerSuppUsed) || noSwitchTarget;
+    const el = document.createElement('div');
+    el.className = `t-card ${card.cat}`;
+    el.innerHTML = `
+      <div class="t-badge">${isSupp ? '支援者' : '道具'}</div>
+      <div class="t-name">${card.name}</div>
+      <div class="t-desc">${card.desc}</div>
+      <button class="t-use-btn" ${disabled ? 'disabled' : ''} onclick="useTrainer(${i})">使用</button>
+    `;
+    area.appendChild(el);
+  });
+}
+
+function useTrainer(idx) {
+  if (G.busy) return;
+  const card = G.playerHand[idx];
+  if (!card) return;
+  if (card.cat === 'supporter' && G.playerSuppUsed) return;
+  if (card.id === 'switch' &&
+      G.playerDeck.filter((p, j) => j !== G.playerIdx && p.cur > 0).length === 0) return;
+
+  if (card.cat === 'supporter') G.playerSuppUsed = true;
+  G.playerHand.splice(idx, 1);
+  G.playerCardsUsed++;
+  applyTrainer(card, 'player');
+  renderBattle();
+}
+
+function applyTrainer(card, side) {
+  const deck   = side === 'player' ? G.playerDeck : G.cpuDeck;
+  const idx    = side === 'player' ? G.playerIdx  : G.cpuIdx;
+  const buff   = side === 'player' ? G.playerBuff : G.cpuBuff;
+  const active = deck[idx];
+  const tag    = side === 'player' ? 'player' : 'cpu';
+  const pron   = side === 'player' ? '你' : '對手';
+
+  switch (card.id) {
+    case 'potion': {
+      const gain = Math.min(active.hp - active.cur, 40);
+      active.cur = Math.min(active.hp, active.cur + 40);
+      log(`${pron}使用了【${card.name}】，回復了 ${gain} HP！`, tag);
+      updateHp(side, active);
+      break;
+    }
+    case 'x-atk':
+      buff.atkBonus += 40;
+      log(`${pron}使用了【${card.name}】，下次攻擊 +40！`, tag);
+      break;
+    case 'x-def':
+      buff.shield += 40;
+      log(`${pron}使用了【${card.name}】，下次防禦 +40！`, tag);
+      break;
+    case 'energize':
+      buff.atkMult = Math.max(buff.atkMult, 2);
+      log(`${pron}使用了【${card.name}】，下次攻擊 ×2！`, tag);
+      break;
+    case 'revive': {
+      const fainted = deck.find(p => p.cur <= 0);
+      if (fainted) {
+        fainted.cur = 30;
+        log(`${pron}使用了【${card.name}】，${fainted.name} 復活了！`, tag);
+      } else {
+        log(`${pron}使用了【${card.name}】，但沒有倒下的寶可夢。`, 'system');
+      }
+      break;
+    }
+    case 'nurse':
+      active.cur = active.hp;
+      log(`${pron}使用了【${card.name}】，${active.name} 完全回復！`, tag);
+      updateHp(side, active);
+      break;
+    case 'switch':
+      if (side === 'player') {
+        G.freeSwitch = true;
+        log('使用了【換人命令】！點擊備戰欄免費換場。', 'player');
+      } else {
+        /* CPU picks healthiest bench Pokémon */
+        const bench = deck.map((p, i) => ({p, i})).filter(({p, i}) => i !== idx && p.cur > 0);
+        if (bench.length) {
+          const best = bench.reduce((a, b) => a.p.cur > b.p.cur ? a : b);
+          G.cpuIdx = best.i;
+          log(`對手使用了【換人命令】，換出了 ${CP().name}！`, 'cpu');
+          renderBattle();
+        }
+      }
+      break;
+    case 'all-out':
+      buff.atkMult = Math.max(buff.atkMult, 3);
+      log(`${pron}使用了【${card.name}】，下次攻擊 ×3！`, tag);
+      break;
+  }
+}
+
+/* ─────────────────────────────────────────
+   BATTLE LOG
+───────────────────────────────────────── */
+function log(msg, cls = 'system') {
+  const el = document.createElement('div');
+  el.className = `log-msg ${cls}`;
+  el.textContent = msg;
+  document.getElementById('battle-log').prepend(el);
+}
+
+/* ─────────────────────────────────────────
+   COMBAT FLOW
+   Turn order:  player attacks → CPU counter-attacks → repeat
+   On KO:  losing side sends next → the winner of that exchange attacks again
+───────────────────────────────────────── */
+function playerAttack(atkIdx) {
+  if (G.busy) return;
+  G.freeSwitch = false;
+  G.busy = true;
+  renderBattle();
+  G.round++;
+
+  doAttack(P(), CP(), P().attacks[atkIdx], 'player', 'cpu', () => {
+    if (CP().cur <= 0) {
+      handleKO('cpu', () => {
+        /* cpu lost → cpu sends next → cpu retaliates with new pokemon */
+        setTimeout(cpuAttack, 700);
+      });
+    } else {
+      setTimeout(cpuAttack, 700);
+    }
+  });
+}
+
+function playerSwitch(deckIdx) {
+  if (G.busy) return;
+  const wasFree = G.freeSwitch;
+  G.freeSwitch = false;
+  G.busy = true;
+  if (!wasFree) G.round++;
+
+  const outName = P().name;
+  G.playerIdx = deckIdx;
+  log(`你將 ${outName} 換回，派出了 ${P().name}！`, 'player');
+
+  renderBattle();
+  const nc = document.getElementById('player-bcard');
+  nc.classList.add('anim-slidein');
+  nc.addEventListener('animationend', () => nc.classList.remove('anim-slidein'), {once:true});
+
+  if (wasFree) {
+    setTimeout(() => { G.busy = false; renderBattle(); }, 500);
+  } else {
+    setTimeout(cpuAttack, 700);
+  }
+}
+
+function cpuUseTrainers() {
+  G.cpuSuppUsed = false;
+  const cpu = CP();
+  const hand = G.cpuHand;
+
+  const useCard = (id) => {
+    const i = hand.findIndex(c => c.id === id);
+    if (i === -1) return false;
+    const card = hand[i];
+    if (card.cat === 'supporter' && G.cpuSuppUsed) return false;
+    if (card.cat === 'supporter') G.cpuSuppUsed = true;
+    hand.splice(i, 1);
+    applyTrainer(card, 'cpu');
+    return true;
+  };
+
+  /* Heal when below 40% HP */
+  if (cpu.cur < cpu.hp * 0.4) {
+    useCard('nurse') || useCard('potion');
+  }
+  /* Revive a fainted bench Pokémon */
+  if (G.cpuDeck.some(p => p.cur <= 0)) useCard('revive');
+  /* Offensive buffs — always good before attacking */
+  useCard('all-out') || useCard('energize') || useCard('x-atk');
+  /* Shield if player has big hitter */
+  if (P().attacks.some(a => a.dmg >= 60)) useCard('x-def');
+}
+
+function cpuAttack() {
+  cpuUseTrainers();
+  const cpu = CP();
+  /* AI: prefer higher-damage attack when above half HP, else random */
+  const atkIdx = (cpu.cur > cpu.hp * 0.5)
+    ? (cpu.attacks[0].dmg >= cpu.attacks[1].dmg ? 0 : 1)
+    : Math.floor(Math.random() * 2);
+
+  doAttack(CP(), P(), CP().attacks[atkIdx], 'cpu', 'player', () => {
+    if (P().cur <= 0) {
+      handleKO('player', () => {
+        G.busy = false;
+        G.playerSuppUsed = false;
+        G.freeSwitch     = false;
+        renderBattle();
+      });
+    } else {
+      G.busy = false;
+      G.playerSuppUsed = false;
+      G.freeSwitch     = false;
+      renderBattle();
+    }
+  });
+}
+
+function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
+  const aBuff  = aSide === 'player' ? G.playerBuff : G.cpuBuff;
+  const dBuff  = dSide === 'player' ? G.playerBuff : G.cpuBuff;
+  const mult   = eff(attacker.type, defender.type);
+  let dmg = mult === 0 ? 0
+    : Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus) * aBuff.atkMult * mult) - dBuff.shield);
+  aBuff.atkBonus = 0; aBuff.atkMult = 1; dBuff.shield = 0;
+  const aLabel = aSide === 'player' ? '你的' : '對手的';
+
+  log(`${aLabel}${attacker.name} 使用了【${atk.name}】！`, aSide);
+  if (mult >= 2)    log('超級有效！(×2)',   'special');
+  else if (mult <= 0) log('完全沒有效果…(×0)', 'system');
+  else if (mult < 1)  log('效果不佳…(×0.5)', 'system');
+
+  /* attacker shakes */
+  const aCard = document.getElementById(`${aSide}-bcard`);
+  aCard.classList.add('anim-shake');
+  aCard.addEventListener('animationend', () => aCard.classList.remove('anim-shake'), {once:true});
+
+  setTimeout(() => {
+    /* defender flashes */
+    const dCard = document.getElementById(`${dSide}-bcard`);
+    dCard.classList.add('anim-flash');
+    dCard.addEventListener('animationend', () => dCard.classList.remove('anim-flash'), {once:true});
+
+    defender.cur = Math.max(0, defender.cur - dmg);
+    if (aSide === 'player') G.playerDmgDealt += dmg;
+    else G.cpuDmgDealt += dmg;
+    log(`造成了 ${dmg} 點傷害！`, 'system');
+    updateHp(dSide, defender);
+
+    setTimeout(onDone, 600);
+  }, 380);
+}
+
+function updateHp(side, poke) {
+  const pct = Math.max(0, poke.cur / poke.hp * 100);
+  const hpC = pct > 50 ? '#4caf50' : pct > 20 ? '#ffc107' : '#ef5350';
+  document.getElementById(`${side}-hp-text`).textContent = `${poke.cur} / ${poke.hp}`;
+  const fill = document.getElementById(`${side}-hp-fill`);
+  fill.style.width      = pct + '%';
+  fill.style.background = hpC;
+}
+
+/* ─────────────────────────────────────────
+   KO HANDLER
+───────────────────────────────────────── */
+function handleKO(side, onNext) {
+  const deck     = side === 'cpu' ? G.cpuDeck    : G.playerDeck;
+  const idxKey   = side === 'cpu' ? 'cpuIdx'     : 'playerIdx';
+  const fainted  = deck[G[idxKey]];
+  const label    = side === 'cpu' ? '對手的' : '你的';
+
+  log(`${label}${fainted.name} 倒下了！`, 'special');
+
+  /* KO animation */
+  const card = document.getElementById(`${side}-bcard`);
+  const overlay = document.createElement('div');
+  overlay.className = 'ko-overlay';
+  overlay.textContent = 'KO!';
+  card.appendChild(overlay);
+  card.classList.add('anim-ko');
+
+  setTimeout(() => {
+    card.classList.remove('anim-ko');
+    overlay.remove();
+
+    /* any survivors left? */
+    const alive = deck.filter(p => p.cur > 0);
+    if (!alive.length) {
+      showResult(side === 'cpu' ? 'player' : 'cpu');
+      return;
+    }
+
+    /* find next alive Pokémon */
+    const nextIdx = deck.findIndex(p => p.cur > 0);
+    G[idxKey] = nextIdx;
+
+    const newLabel = side === 'cpu' ? '對手派出了' : '你派出了';
+    log(`${newLabel} ${deck[nextIdx].name}！`, 'system');
+
+    renderBattle();
+    /* slide in animation on the swapped card */
+    const nc = document.getElementById(`${side}-bcard`);
+    nc.classList.add('anim-slidein');
+    nc.addEventListener('animationend', () => nc.classList.remove('anim-slidein'), {once:true});
+
+    setTimeout(onNext, 300);
+  }, 1000);
+}
+
+/* ─────────────────────────────────────────
+   RESULT
+───────────────────────────────────────── */
+function showResult(winner) {
+  showScreen('result-screen');
+  const title = document.getElementById('result-title');
+  const sub   = document.getElementById('result-sub');
+
+  if (winner === 'player') {
+    title.textContent = '勝利！🏆';
+    title.className   = 'win';
+  } else {
+    title.textContent = '失敗…';
+    title.className   = 'lose';
+  }
+  sub.innerHTML = `共進行了 ${G.round} 回合<br>
+    造成傷害 <b style="color:#90caf9">${G.playerDmgDealt}</b> ／ 承受傷害 <b style="color:#ef9a9a">${G.cpuDmgDealt}</b><br>
+    使用手牌 <b>${G.playerCardsUsed}</b> 張`;
+}
+
+function resetGame() {
+  G = {
+    playerDeck:[], cpuDeck:[], playerIdx:0, cpuIdx:0, round:0, busy:false,
+    playerHand:[], cpuHand:[], playerSuppUsed:false, cpuSuppUsed:false, freeSwitch:false,
+    playerBuff:{atkBonus:0,atkMult:1,shield:0}, cpuBuff:{atkBonus:0,atkMult:1,shield:0},
+    playerDmgDealt:0, cpuDmgDealt:0, playerCardsUsed:0,
+    swapCandidates:[], swapDone:false,
+  };
+  showScreen('start-screen');
+}
+</script>
+</body>
+</html>
