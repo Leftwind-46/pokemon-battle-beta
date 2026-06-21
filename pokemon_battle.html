@@ -345,6 +345,28 @@
     }
     #result-sub { color: var(--muted); font-size: 1.05rem; }
 
+    /* ── MVP card ── */
+    .mvp-label {
+      font-size: 0.72rem;
+      color: #f8d030;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 0.55rem;
+    }
+    .mvp-card {
+      display: inline-block;
+      background: rgba(248,208,48,0.07);
+      border: 2px solid rgba(248,208,48,0.5);
+      border-radius: 16px;
+      padding: 1rem 2rem;
+      box-shadow: 0 0 32px rgba(248,208,48,0.18);
+      position: relative;
+      overflow: hidden;
+    }
+    .mvp-card img { width: 96px; height: 96px; image-rendering: pixelated; }
+    .mvp-name { font-size: 1.1rem; font-weight: 800; margin-top: 0.35rem; }
+    .mvp-dmg  { font-size: 0.85rem; color: #f8d030; margin-top: 0.25rem; }
+
     /* ── Hand / Trainer cards ── */
     #hand-section { }
     .hand-label {
@@ -604,6 +626,7 @@
 <div id="result-screen" class="screen">
   <div id="result-title"></div>
   <div id="result-sub"></div>
+  <div id="result-mvp"></div>
   <button class="btn btn-primary" onclick="resetGame()">再玩一次</button>
 </div>
 
@@ -755,7 +778,7 @@ const P  = () => G.playerDeck[G.playerIdx];
 const CP = () => G.cpuDeck[G.cpuIdx];
 
 function clone(p) {
-  return { ...p, attacks: p.attacks.map(a => ({...a})), cur: p.hp };
+  return { ...p, attacks: p.attacks.map(a => ({...a})), cur: p.hp, dmgDealt: 0 };
 }
 
 /* ─────────────────────────────────────────
@@ -1196,6 +1219,7 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
     dCard.addEventListener('animationend', () => dCard.classList.remove('anim-flash'), {once:true});
 
     defender.cur = Math.max(0, defender.cur - dmg);
+    attacker.dmgDealt += dmg;
     if (aSide === 'player') G.playerDmgDealt += dmg;
     else G.cpuDmgDealt += dmg;
     log(`造成了 ${dmg} 點傷害！`, 'system');
@@ -1279,6 +1303,24 @@ function showResult(winner) {
   sub.innerHTML = `共進行了 ${G.round} 回合<br>
     造成傷害 <b style="color:#90caf9">${G.playerDmgDealt}</b> ／ 承受傷害 <b style="color:#ef9a9a">${G.cpuDmgDealt}</b><br>
     使用手牌 <b>${G.playerCardsUsed}</b> 張`;
+
+  const mvpEl = document.getElementById('result-mvp');
+  if (winner === 'player') {
+    const mvp = G.playerDeck.reduce((a, b) => a.dmgDealt > b.dmgDealt ? a : b);
+    const col = TYPE_COLOR[mvp.type] || '#888';
+    mvpEl.innerHTML = `
+      <div class="mvp-label">⭐ MVP</div>
+      <div class="mvp-card">
+        <div style="position:absolute;top:0;left:0;right:0;height:4px;background:${col};border-radius:14px 14px 0 0"></div>
+        <img src="${spriteUrl(mvp.id)}" alt="${mvp.name}">
+        <div class="mvp-name">${mvp.name}</div>
+        <div class="type-badge" style="background:${col};margin-top:0.3rem">${TYPE_ZH[mvp.type]||mvp.type}</div>
+        <div class="mvp-dmg">造成傷害 ${mvp.dmgDealt}</div>
+      </div>
+    `;
+  } else {
+    mvpEl.innerHTML = '';
+  }
 }
 
 function resetGame() {
