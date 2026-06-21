@@ -345,6 +345,41 @@
     }
     #result-sub { color: var(--muted); font-size: 1.05rem; }
 
+    /* ── Nurse Joy panel ── */
+    .nj-panel {
+      background: rgba(240,100,150,0.07);
+      border: 2px solid rgba(240,100,150,0.4);
+      border-radius: 16px;
+      padding: 1.2rem 1.8rem;
+      box-shadow: 0 0 30px rgba(240,100,150,0.15);
+      text-align: center;
+    }
+    .nj-label {
+      font-size: 0.72rem;
+      color: #f48fb1;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 0.5rem;
+    }
+    .nj-msg {
+      font-size: 0.9rem;
+      color: #f48fb1;
+      margin-bottom: 1rem;
+      line-height: 1.5;
+    }
+    .nj-pokes { display: flex; gap: 1.2rem; justify-content: center; }
+    .nj-poke  { text-align: center; }
+    .nj-poke img {
+      width: 64px; height: 64px;
+      image-rendering: pixelated;
+      animation: healGlow 1.2s ease-in-out infinite alternate;
+    }
+    .nj-poke .nj-name { font-size: 0.73rem; margin-top: 0.2rem; }
+    @keyframes healGlow {
+      from { filter: brightness(0.6) sepia(1) saturate(4) hue-rotate(290deg); }
+      to   { filter: brightness(1.15); }
+    }
+
     /* ── MVP card ── */
     .mvp-label {
       font-size: 0.72rem;
@@ -1319,7 +1354,19 @@ function showResult(winner) {
       </div>
     `;
   } else {
-    mvpEl.innerHTML = '';
+    const pokesHtml = G.playerDeck.map(p => `
+      <div class="nj-poke">
+        <img src="${spriteUrl(p.id)}" alt="${p.name}">
+        <div class="nj-name">${p.name}</div>
+      </div>
+    `).join('');
+    mvpEl.innerHTML = `
+      <div class="nj-panel">
+        <div class="nj-label">👩‍⚕️ 寶可夢中心</div>
+        <div class="nj-msg">您好！我是喬伊小姐。<br>您的寶可夢已完全恢復健康！<br>請再接再厲！</div>
+        <div class="nj-pokes">${pokesHtml}</div>
+      </div>
+    `;
   }
 }
 
