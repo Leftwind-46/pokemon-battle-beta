@@ -159,53 +159,53 @@
 
     /* ── Type Chart Panel ── */
     .tc-panel {
-      width: 176px;
+      width: 230px;
       flex-shrink: 0;
       position: sticky;
       top: 1rem;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 16px;
-      padding: 0.85rem 0.75rem;
+      padding: 1.1rem 1rem;
     }
     .tc-title {
-      font-size: 0.72rem;
+      font-size: 0.8rem;
       font-weight: 700;
       color: var(--muted);
       text-transform: uppercase;
       letter-spacing: 0.1em;
-      margin-bottom: 0.7rem;
+      margin-bottom: 0.85rem;
     }
-    .tc-section { margin-bottom: 0.75rem; }
+    .tc-section { margin-bottom: 0.9rem; }
     .tc-heading {
-      font-size: 0.78rem;
+      font-size: 0.9rem;
       font-weight: 700;
       color: var(--text);
-      margin-bottom: 0.4rem;
+      margin-bottom: 0.55rem;
       display: flex;
       align-items: center;
-      gap: 0.35rem;
+      gap: 0.4rem;
       flex-wrap: wrap;
     }
     .tc-row {
       display: flex;
       align-items: center;
-      gap: 0.3rem;
+      gap: 0.35rem;
       flex-wrap: wrap;
-      margin-bottom: 0.28rem;
+      margin-bottom: 0.38rem;
     }
     .tc-mul {
-      font-size: 0.62rem;
+      font-size: 0.7rem;
       font-weight: 700;
       border-radius: 4px;
-      padding: 0.08rem 0.28rem;
+      padding: 0.1rem 0.38rem;
       flex-shrink: 0;
     }
     .tc-mul.x2  { background: rgba(239,83,80,0.25);  color: #ef5350; border: 1px solid rgba(239,83,80,0.4); }
     .tc-mul.x05 { background: rgba(144,202,249,0.2); color: #90caf9; border: 1px solid rgba(144,202,249,0.35); }
     .tc-mul.x0  { background: rgba(120,120,120,0.2); color: #888;    border: 1px solid rgba(120,120,120,0.3); }
-    .tc-empty   { font-size: 0.72rem; color: var(--muted); }
-    .tc-divider { border: none; border-top: 1px solid var(--border); margin: 0.65rem 0; }
+    .tc-empty   { font-size: 0.8rem; color: var(--muted); }
+    .tc-divider { border: none; border-top: 1px solid var(--border); margin: 0.8rem 0; }
 
     /* Type chart toggle button — hidden on wide screens */
     #tc-toggle-btn {
@@ -233,13 +233,13 @@
     }
     #tc-backdrop.open { display: block; }
 
-    @media (max-width: 840px) {
+    @media (max-width: 900px) {
       .tc-panel {
         position: fixed !important;
         top: 0;
-        left: -210px;
+        left: -250px;
         bottom: 0;
-        width: 200px;
+        width: 240px;
         z-index: 50;
         border-radius: 0 16px 16px 0;
         overflow-y: auto;
@@ -310,20 +310,53 @@
       align-items: center;
       gap: 0.35rem;
       font-size: 0.73rem;
+      cursor: pointer;
+      transition: all 0.15s;
     }
+    .b-bench:hover { background: rgba(255,255,255,0.09); transform: translateY(-1px); }
     .b-bench img { width: 26px; height: 26px; image-rendering: pixelated; }
     .b-bench.ko  { opacity: 0.28; }
     .b-bench.switchable {
-      cursor: pointer;
       border-color: rgba(144,202,249,0.35);
-      transition: all 0.15s;
     }
     .b-bench.switchable:hover {
       border-color: #90caf9;
       background: rgba(144,202,249,0.12);
-      transform: translateY(-2px);
       box-shadow: 0 0 10px rgba(144,202,249,0.3);
     }
+
+    /* ── Bench popup ── */
+    .bench-popup {
+      position: fixed;
+      z-index: 60;
+      background: #0f1228;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 14px;
+      padding: 0.9rem;
+      width: 210px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.65);
+    }
+    .bp-header { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.45rem; }
+    .bp-header img { width: 52px; height: 52px; image-rendering: pixelated; flex-shrink:0; }
+    .bp-pname { font-weight: 700; font-size: 0.92rem; margin-bottom: 0.22rem; }
+    .bp-hp { font-size: 0.78rem; margin-bottom: 0.5rem; }
+    .bp-moves { display: flex; flex-direction: column; gap: 0.32rem; margin-bottom: 0.6rem; }
+    .bp-move { display: flex; align-items: center; gap: 0.35rem; }
+    .bp-move-name { font-size: 0.82rem; font-weight: 700; }
+    .bp-move-dmg  { font-size: 0.7rem; color: var(--muted); }
+    .bp-switch-btn {
+      width: 100%;
+      padding: 0.4rem;
+      background: linear-gradient(135deg, #f8d030, #f05030);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.84rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .bp-switch-btn:hover { opacity: 0.88; }
     .switch-hint {
       font-size: 0.62rem;
       color: #90caf9;
@@ -357,7 +390,17 @@
     }
 
     /* Attack buttons */
-    #action-area { display: flex; gap: 0.7rem; }
+    #action-area { display: flex; gap: 0.5rem; margin-top: 0.55rem; }
+    #cpu-bcard { cursor: pointer; }
+    #cpu-bcard:hover { background: rgba(255,255,255,0.09); }
+    .info-hint {
+      position: absolute;
+      bottom: 0.28rem;
+      right: 0.35rem;
+      font-size: 0.62rem;
+      color: rgba(255,255,255,0.3);
+      line-height: 1;
+    }
     .btn-atk {
       flex: 1;
       padding: 0.7rem 0.9rem;
@@ -648,6 +691,154 @@
       border-top: 1px solid var(--border);
     }
 
+    /* ── KO Switch Modal ── */
+    #ko-switch-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.78);
+      z-index: 80;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    #ko-switch-modal.open { display: flex; }
+    .ko-switch-inner {
+      background: #0f1228;
+      border: 1px solid rgba(239,83,80,0.4);
+      border-radius: 20px;
+      padding: 1.5rem 1.25rem;
+      max-width: 580px;
+      width: 100%;
+      text-align: center;
+    }
+    .ko-switch-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: #ef5350;
+      margin-bottom: 1.1rem;
+    }
+
+    /* ══════════════════════════════
+       PICK SCREEN (選敵方寶可夢)
+    ══════════════════════════════ */
+    #pick-screen {
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem 2.5rem;
+      gap: 1.5rem;
+      text-align: center;
+    }
+    #pick-screen h2 {
+      font-size: 1.6rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, #f8d030, #f05030);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .pick-subtitle {
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+
+    /* ══════════════════════════════
+       TEAM SELECT SCREEN (選隊伍)
+    ══════════════════════════════ */
+    #team-select-screen {
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem 2.5rem;
+      gap: 1.5rem;
+      text-align: center;
+    }
+    #team-select-screen h2 {
+      font-size: 1.6rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, #90caf9, #6890f0);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .team-select-subtitle {
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+
+    /* ── Shared selection cards (.sel-card) ── */
+    .sel-cards-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.8rem;
+      justify-content: center;
+    }
+    .sel-card {
+      background: rgba(255,255,255,0.04);
+      border: 2px solid var(--border);
+      border-radius: 14px;
+      padding: 0.8rem 0.65rem 0.7rem;
+      width: 150px;
+      text-align: center;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.18s;
+    }
+    .sel-card:hover {
+      border-color: rgba(255,255,255,0.35);
+      transform: translateY(-3px);
+      background: rgba(255,255,255,0.08);
+    }
+    .sel-card.sel-selected {
+      border-color: #f8d030;
+      box-shadow: 0 0 20px rgba(248,208,48,0.45);
+      background: rgba(248,208,48,0.07);
+    }
+    .sel-card .sel-strip {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      border-radius: 12px 12px 0 0;
+    }
+    .sel-card img {
+      width: 72px;
+      height: 72px;
+      image-rendering: pixelated;
+      margin-top: 0.25rem;
+    }
+    .sel-card .sel-name {
+      font-size: 0.88rem;
+      font-weight: 700;
+      margin-top: 0.22rem;
+    }
+    .sel-card .sel-hp {
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-top: 0.1rem;
+    }
+    .sel-card .sel-moves {
+      margin-top: 0.4rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.22rem;
+    }
+    .sel-card .sel-move {
+      display: flex;
+      align-items: center;
+      gap: 0.28rem;
+      font-size: 0.68rem;
+      justify-content: center;
+    }
+    .sel-card .sel-move-badge {
+      display: inline-block;
+      padding: 0.05rem 0.35rem;
+      border-radius: 999px;
+      font-size: 0.6rem;
+      font-weight: 700;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
     /* ── Secondary button ── */
     .btn-secondary {
       background: rgba(255,255,255,0.07);
@@ -752,7 +943,7 @@
     <p>Pokémon Card Battle</p>
   </div>
   <div style="display:flex; flex-direction:column; gap:0.75rem; align-items:center;">
-    <button class="btn btn-primary" onclick="startRandomBattle()">開始遊戲</button>
+    <button class="btn btn-primary" onclick="startGame()">開始遊戲</button>
     <button class="btn btn-secondary" onclick="openGuide()">遊戲說明</button>
   </div>
 </div>
@@ -763,25 +954,45 @@
     <button class="guide-close" onclick="closeGuide()">✕</button>
     <h2>遊戲說明</h2>
 
-    <h3>基本規則</h3>
+    <h3>遊戲目標</h3>
     <ul>
-      <li>雙方各出 3 隻寶可夢，全滅者落敗。</li>
+      <li>共三關，難度依序為弱、中、強。</li>
+      <li>每關擊敗對手的 3 隻寶可夢即可通關。</li>
+      <li>三關全勝即獲得最終勝利！</li>
+    </ul>
+
+    <h3>開局流程</h3>
+    <ul>
+      <li>開始時隨機獲得 3 隻寶可夢。</li>
+      <li>出戰前可選擇「換一隻」，從其他寶可夢中換掉一隻（每場只能換一次）。</li>
+    </ul>
+
+    <h3>對戰規則</h3>
+    <ul>
       <li>每回合可選擇一個技能攻擊，或切換備戰寶可夢（消耗回合）。</li>
-      <li>HP 歸零的寶可夢退場，自動換上下一隻。</li>
+      <li>每回合只能派 3 隻寶可夢出場，全滅者落敗。</li>
+      <li>我方寶可夢 HP 歸零後，可自由選擇下一隻上場。</li>
+    </ul>
+
+    <h3>通關獎勵</h3>
+    <ul>
+      <li>每關通關後，可從打敗的 3 隻敵方寶可夢中選 1 隻加入陣容。</li>
+      <li>第 2、3 關開始前，可從手上的所有寶可夢中選 3 隻出戰。</li>
+      <li>兩關之間所有寶可夢 HP 完全恢復。</li>
     </ul>
 
     <h3>屬性相剋</h3>
     <ul>
-      <li>攻擊屬性克制對方時，傷害 × 2（超級有效！）。</li>
-      <li>攻擊屬性被對方抵抗時，傷害 × 0.5（效果不好⋯）。</li>
-      <li>無相剋關係則維持原傷害。</li>
+      <li>每個招式都有自己的屬性，傷害計算以<b>招式屬性</b>對上對方寶可夢屬性為準。</li>
+      <li>克制：傷害 × 2（超級有效！）／被抵抗：傷害 × 0.5（效果不好⋯）。</li>
+      <li>對戰時左側的屬性相剋表會即時顯示當前的相剋關係。</li>
     </ul>
 
     <h3>訓練師牌</h3>
     <ul>
       <li><b>道具牌</b>（黃色）：立即生效，不限使用次數。</li>
       <li><b>支援者牌</b>（藍色）：每回合只能用一張。</li>
-      <li>常見效果：回血、攻擊強化、防禦強化、強制換場等。</li>
+      <li>常見效果：回血、攻擊強化、防禦強化、強制換場、復活等。</li>
     </ul>
 
     <h3>電腦 AI</h3>
@@ -789,11 +1000,11 @@
   </div>
 </div>
 
+<!-- ══ PICK SCREEN (選敵方寶可夢) ══ -->
 <!-- ══ SWAP ══ -->
 <div id="swap-screen" class="screen">
   <h2>出戰前確認</h2>
 
-  <!-- Player team -->
   <div style="width:100%">
     <div class="swap-section-label">你的隊伍</div>
     <div class="swap-cards" id="swap-team-cards"></div>
@@ -801,18 +1012,26 @@
 
   <div class="swap-hint" id="swap-hint">想換掉其中一隻嗎？</div>
 
-  <!-- Candidates (hidden until player clicks 換一隻) -->
   <div id="swap-cand-section" style="display:none; width:100%">
     <hr class="swap-divider">
     <div class="swap-section-label" style="margin-top:1rem">選擇替補</div>
     <div class="swap-cards" id="swap-cand-cards"></div>
   </div>
 
-  <!-- Buttons -->
   <div class="swap-btn-row" id="swap-btn-row">
     <button class="btn btn-primary" onclick="startBattle()">開始對戰！</button>
     <button class="btn btn-ghost" id="swap-reroll-btn" onclick="showSwapCandidates()">換一隻</button>
   </div>
+</div>
+
+<!-- ══ PICK SCREEN (通關後選寶可夢) ══ -->
+<div id="pick-screen" class="screen">
+  <!-- content rendered by JS -->
+</div>
+
+<!-- ══ TEAM SELECT SCREEN (選隊伍) ══ -->
+<div id="team-select-screen" class="screen">
+  <!-- content rendered by JS -->
 </div>
 
 <!-- ══ BATTLE ══ -->
@@ -828,13 +1047,14 @@
 
   <!-- CPU field -->
   <div class="field" id="cpu-field">
-    <div class="field-label">對手 &nbsp;<span id="cpu-hand-count" style="font-size:0.62rem;color:var(--muted);font-weight:400;letter-spacing:0"></span></div>
+    <div class="field-label">對手 &nbsp;<span id="stage-label" style="font-size:0.62rem;color:#f8d030;font-weight:700;letter-spacing:0;margin-right:0.4rem"></span><span id="cpu-hand-count" style="font-size:0.62rem;color:var(--muted);font-weight:400;letter-spacing:0"></span></div>
     <div class="active-area">
-      <div class="b-card" id="cpu-bcard">
+      <div class="b-card" id="cpu-bcard" onclick="cpuCardClick(event)">
         <div class="type-strip" id="cpu-strip"></div>
         <img id="cpu-sprite" src="" alt="">
         <div class="b-name" id="cpu-name"></div>
         <div class="type-badge" id="cpu-badge"></div>
+        <div class="info-hint">ℹ</div>
       </div>
       <div class="hp-wrap">
         <div class="hp-meta">
@@ -871,27 +1091,25 @@
         <div class="hp-track">
           <div class="hp-fill" id="player-hp-fill"></div>
         </div>
+        <div id="action-area">
+          <button class="btn-atk" id="btn-atk0" onclick="playerAttack(0)">
+            <div class="atk-name" id="atk-name0"></div>
+            <div class="atk-meta">
+              <span class="atk-type-badge" id="atk-type0"></span>
+              <span class="atk-dmg" id="atk-dmg0"></span>
+            </div>
+          </button>
+          <button class="btn-atk" id="btn-atk1" onclick="playerAttack(1)">
+            <div class="atk-name" id="atk-name1"></div>
+            <div class="atk-meta">
+              <span class="atk-type-badge" id="atk-type1"></span>
+              <span class="atk-dmg" id="atk-dmg1"></span>
+            </div>
+          </button>
+        </div>
       </div>
     </div>
     <div class="bench-row" id="player-bench"></div>
-  </div>
-
-  <!-- Actions -->
-  <div id="action-area">
-    <button class="btn-atk" id="btn-atk0" onclick="playerAttack(0)">
-      <div class="atk-name" id="atk-name0"></div>
-      <div class="atk-meta">
-        <span class="atk-type-badge" id="atk-type0"></span>
-        <span class="atk-dmg" id="atk-dmg0"></span>
-      </div>
-    </button>
-    <button class="btn-atk" id="btn-atk1" onclick="playerAttack(1)">
-      <div class="atk-name" id="atk-name1"></div>
-      <div class="atk-meta">
-        <span class="atk-type-badge" id="atk-type1"></span>
-        <span class="atk-dmg" id="atk-dmg1"></span>
-      </div>
-    </button>
   </div>
 
   <!-- Hand -->
@@ -954,41 +1172,64 @@
    DATA
 ───────────────────────────────────────── */
 const POKEMON = [
-  { id:383, name:'固拉多',   type:'ground',   hp:170, attacks:[{name:'地震',     dmg:60,  type:'ground'},   {name:'原始大地',  dmg:110, type:'fire'}] },
-  { id:382, name:'蓋歐卡',   type:'water',    hp:170, attacks:[{name:'源起之波', dmg:60,  type:'water'},    {name:'原始海洋',  dmg:110, type:'ice'}] },
-  { id:384, name:'列空座',   type:'dragon',   hp:180, attacks:[{name:'神速',     dmg:50,  type:'normal'},   {name:'龍之隕星',  dmg:120, type:'dragon'}] },
-  { id:1008,name:'密勒頓',   type:'electric', hp:180, attacks:[{name:'電磁衝浪', dmg:70,  type:'electric'}, {name:'未來雷霆',  dmg:120, type:'psychic'}] },
-  { id:6,   name:'噴火龍',   type:'fire',     hp:150, attacks:[{name:'火焰噴射', dmg:40,  type:'fire'},     {name:'破空飛翔',  dmg:90,  type:'flying'}] },
-  { id:9,   name:'水箭龜',   type:'water',    hp:140, attacks:[{name:'水槍',     dmg:30,  type:'water'},    {name:'冰凍光束',  dmg:80,  type:'ice'}] },
-  { id:3,   name:'妙蛙花',   type:'grass',    hp:130, attacks:[{name:'藤鞭',     dmg:20,  type:'grass'},    {name:'大地之力',  dmg:80,  type:'ground'}] },
-  { id:150, name:'超夢',     type:'psychic',  hp:160, attacks:[{name:'念力',     dmg:30,  type:'psychic'},  {name:'暗影球',    dmg:100, type:'ghost'}] },
-  { id:94,  name:'耿鬼',     type:'ghost',    hp:110, attacks:[{name:'影拳',     dmg:30,  type:'ghost'},    {name:'咬碎',      dmg:60,  type:'dark'}] },
-  { id:68,  name:'怪力',     type:'fighting', hp:130, attacks:[{name:'動感拳',   dmg:30,  type:'fighting'}, {name:'地震',      dmg:70,  type:'ground'}] },
-  { id:149, name:'快龍',     type:'dragon',   hp:160, attacks:[{name:'龍息',     dmg:40,  type:'dragon'},   {name:'破壞光線',  dmg:100, type:'normal'}] },
-  { id:65,  name:'胡地',     type:'psychic',  hp:90,  attacks:[{name:'超能力',   dmg:30,  type:'psychic'},  {name:'閃電拳',    dmg:60,  type:'electric'}] },
-  { id:143, name:'卡比獸',   type:'normal',   hp:200, attacks:[{name:'磚塊',     dmg:40,  type:'rock'},     {name:'破壞光線',  dmg:80,  type:'normal'}] },
-  { id:59,  name:'風速狗',   type:'fire',     hp:120, attacks:[{name:'咬碎',     dmg:30,  type:'dark'},     {name:'噴射火焰',  dmg:70,  type:'fire'}] },
-  { id:131, name:'拉普拉斯', type:'ice',      hp:150, attacks:[{name:'衝浪',     dmg:40,  type:'water'},    {name:'暴風雪',    dmg:70,  type:'ice'}] },
-  { id:130, name:'暴鯉龍',   type:'water',    hp:130, attacks:[{name:'大浪',     dmg:30,  type:'water'},    {name:'咬碎',      dmg:70,  type:'dark'}] },
-  { id:26,  name:'雷丘',     type:'electric', hp:90,  attacks:[{name:'快速攻擊', dmg:20,  type:'normal'},   {name:'雷電',      dmg:60,  type:'electric'}] },
-  { id:376, name:'巨金怪',   type:'steel',    hp:130, attacks:[{name:'子彈拳',   dmg:30,  type:'steel'},    {name:'隕石衝擊',  dmg:70,  type:'rock'}] },
-  { id:448, name:'路卡利歐', type:'fighting', hp:110, attacks:[{name:'波導彈',   dmg:30,  type:'fighting'}, {name:'金屬爪',    dmg:70,  type:'steel'}] },
-  { id:445, name:'烈咬陸鯊', type:'dragon',   hp:140, attacks:[{name:'龍爪',     dmg:30,  type:'dragon'},   {name:'地震',      dmg:80,  type:'ground'}] },
-  { id:250, name:'鳳王',     type:'fire',     hp:170, attacks:[{name:'聖焰',     dmg:70,  type:'fire'},     {name:'神聖之焰',  dmg:120, type:'flying'}] },
-  { id:249, name:'路奇亞',   type:'flying',   hp:170, attacks:[{name:'怒風',     dmg:60,  type:'flying'},   {name:'心靈衝擊',  dmg:110, type:'psychic'}] },
-  { id:1007,name:'故勒頓',   type:'fighting', hp:180, attacks:[{name:'決勝衝擊', dmg:70,  type:'fighting'}, {name:'遠古之力',  dmg:120, type:'rock'}] },
+  /* ── Tier 1 弱 ── */
+  { id:3,   name:'妙蛙花',    type:'grass',    hp:130, tier:1, attacks:[{name:'太陽射線',  dmg:60, type:'grass'},    {name:'大地之力',   dmg:80, type:'ground'}] },
+  { id:94,  name:'耿鬼',      type:'ghost',    hp:110, tier:1, attacks:[{name:'幽靈之爪',  dmg:60, type:'ghost'},    {name:'咬碎',       dmg:75, type:'dark'}] },
+  { id:68,  name:'怪力',      type:'fighting', hp:130, tier:1, attacks:[{name:'動感拳',    dmg:60, type:'fighting'}, {name:'地震',       dmg:80, type:'ground'}] },
+  { id:65,  name:'胡地',      type:'psychic',  hp:90,  tier:1, attacks:[{name:'超能力',    dmg:60, type:'psychic'},  {name:'閃電拳',     dmg:75, type:'electric'}] },
+  { id:26,  name:'雷丘',      type:'electric', hp:90,  tier:1, attacks:[{name:'十萬伏特',  dmg:60, type:'electric'}, {name:'鐵尾',       dmg:75, type:'steel'}] },
+  { id:376, name:'巨金怪',    type:'steel',    hp:130, tier:1, attacks:[{name:'子彈拳',    dmg:60, type:'steel'},    {name:'隕石衝擊',   dmg:80, type:'rock'}] },
+  { id:448, name:'路卡利歐',  type:'fighting', hp:110, tier:1, attacks:[{name:'波導彈',    dmg:60, type:'fighting'}, {name:'金屬爪',     dmg:80, type:'steel'}] },
+  { id:130, name:'暴鯉龍',    type:'water',    hp:130, tier:1, attacks:[{name:'大浪',      dmg:60, type:'water'},    {name:'咬碎',       dmg:80, type:'dark'}] },
+  { id:35,  name:'皮皮',      type:'fairy',    hp:110, tier:1, attacks:[{name:'月亮力量',  dmg:60, type:'fairy'},    {name:'元氣拳',     dmg:75, type:'normal'}] },
+  { id:39,  name:'胖丁',      type:'fairy',    hp:120, tier:1, attacks:[{name:'歌唱衝擊',  dmg:60, type:'fairy'},    {name:'破壞光線',   dmg:80, type:'normal'}] },
+  { id:209, name:'布魯',      type:'fairy',    hp:110, tier:1, attacks:[{name:'仙女之氣',  dmg:60, type:'fairy'},    {name:'咬碎',       dmg:75, type:'dark'}] },
+  { id:87,  name:'白海獅',    type:'ice',      hp:120, tier:1, attacks:[{name:'冷凍光線',  dmg:60, type:'ice'},      {name:'衝浪',       dmg:75, type:'water'}] },
+  { id:82,  name:'三合磁怪',  type:'electric', hp:100, tier:1, attacks:[{name:'電磁炮',    dmg:60, type:'electric'}, {name:'閃光炮',     dmg:75, type:'steel'}] },
+  { id:147, name:'迷你龍',    type:'dragon',   hp:100, tier:1, attacks:[{name:'龍之怒',    dmg:60, type:'dragon'},   {name:'閃電',       dmg:75, type:'electric'}] },
+  { id:80,  name:'呆殼獸',    type:'water',    hp:130, tier:1, attacks:[{name:'衝浪',      dmg:60, type:'water'},    {name:'念力',       dmg:75, type:'psychic'}] },
+  /* ── Tier 2 中 ── */
+  { id:6,   name:'噴火龍',    type:'fire',     hp:150, tier:2, attacks:[{name:'火焰噴射',  dmg:65, type:'fire'},     {name:'破空飛翔',   dmg:95, type:'flying'}] },
+  { id:9,   name:'水箭龜',    type:'water',    hp:140, tier:2, attacks:[{name:'水砲',      dmg:65, type:'water'},    {name:'冰凍光束',   dmg:85, type:'ice'}] },
+  { id:150, name:'超夢',      type:'psychic',  hp:160, tier:2, attacks:[{name:'念力衝擊',  dmg:65, type:'psychic'},  {name:'暗影球',     dmg:100,type:'ghost'}] },
+  { id:149, name:'快龍',      type:'dragon',   hp:160, tier:2, attacks:[{name:'龍息',      dmg:65, type:'dragon'},   {name:'破壞光線',   dmg:100,type:'normal'}] },
+  { id:143, name:'卡比獸',    type:'normal',   hp:200, tier:2, attacks:[{name:'磚塊',      dmg:65, type:'rock'},     {name:'破壞光線',   dmg:90, type:'normal'}] },
+  { id:59,  name:'風速狗',    type:'fire',     hp:120, tier:2, attacks:[{name:'夜斬',      dmg:65, type:'dark'},     {name:'噴射火焰',   dmg:85, type:'fire'}] },
+  { id:131, name:'拉普拉斯',  type:'ice',      hp:150, tier:2, attacks:[{name:'衝浪',      dmg:65, type:'water'},    {name:'暴風雪',     dmg:85, type:'ice'}] },
+  { id:445, name:'烈咬陸鯊',  type:'dragon',   hp:140, tier:2, attacks:[{name:'龍爪',      dmg:65, type:'dragon'},   {name:'地震',       dmg:90, type:'ground'}] },
+  { id:210, name:'布比獸',    type:'fairy',    hp:150, tier:2, attacks:[{name:'仙女之力',  dmg:65, type:'fairy'},    {name:'地震',       dmg:90, type:'ground'}] },
+  { id:700, name:'仙子伊布',  type:'fairy',    hp:150, tier:2, attacks:[{name:'妖精風',    dmg:65, type:'fairy'},    {name:'暗影球',     dmg:90, type:'ghost'}] },
+  { id:478, name:'雪妖女',    type:'ice',      hp:140, tier:2, attacks:[{name:'冰凍光束',  dmg:65, type:'ice'},      {name:'暗影球',     dmg:90, type:'ghost'}] },
+  { id:614, name:'冰熊王',    type:'ice',      hp:160, tier:2, attacks:[{name:'冰耳光',    dmg:65, type:'ice'},      {name:'地震',       dmg:90, type:'ground'}] },
+  { id:430, name:'夜巡使',    type:'dark',     hp:150, tier:2, attacks:[{name:'夜斬',      dmg:65, type:'dark'},     {name:'怒風',       dmg:90, type:'flying'}] },
+  { id:466, name:'電擊魔獸',  type:'electric', hp:150, tier:2, attacks:[{name:'電磁衝浪',  dmg:65, type:'electric'}, {name:'冰凍拳',     dmg:90, type:'ice'}] },
+  { id:467, name:'鴨嘴火獸',  type:'fire',     hp:150, tier:2, attacks:[{name:'火焰衝擊',  dmg:65, type:'fire'},     {name:'雷電',       dmg:90, type:'electric'}] },
+  /* ── Tier 3 強 ── */
+  { id:383, name:'固拉多',    type:'ground',   hp:170, tier:3, attacks:[{name:'地震',      dmg:70, type:'ground'},   {name:'原始大地',   dmg:120,type:'fire'}] },
+  { id:382, name:'蓋歐卡',    type:'water',    hp:170, tier:3, attacks:[{name:'源起之波',  dmg:70, type:'water'},    {name:'原始海洋',   dmg:120,type:'ice'}] },
+  { id:384, name:'列空座',    type:'dragon',   hp:180, tier:3, attacks:[{name:'神速',      dmg:65, type:'normal'},   {name:'龍之隕星',   dmg:130,type:'dragon'}] },
+  { id:1008,name:'密勒頓',    type:'electric', hp:180, tier:3, attacks:[{name:'電磁衝浪',  dmg:75, type:'electric'}, {name:'未來雷霆',   dmg:125,type:'psychic'}] },
+  { id:250, name:'鳳王',      type:'fire',     hp:170, tier:3, attacks:[{name:'聖焰',      dmg:75, type:'fire'},     {name:'神聖之焰',   dmg:125,type:'flying'}] },
+  { id:249, name:'路奇亞',    type:'flying',   hp:170, tier:3, attacks:[{name:'怒風',      dmg:70, type:'flying'},   {name:'心靈衝擊',   dmg:120,type:'psychic'}] },
+  { id:1007,name:'故勒頓',    type:'fighting', hp:180, tier:3, attacks:[{name:'決勝衝擊',  dmg:75, type:'fighting'}, {name:'遠古之力',   dmg:125,type:'rock'}] },
+  { id:282, name:'沙奈朵',    type:'fairy',    hp:160, tier:3, attacks:[{name:'妖精之力',  dmg:70, type:'fairy'},    {name:'精神強擊',   dmg:120,type:'psychic'}] },
+  { id:144, name:'急凍鳥',    type:'ice',      hp:170, tier:3, attacks:[{name:'暴風雪',    dmg:70, type:'ice'},      {name:'怒風',       dmg:115,type:'flying'}] },
+  { id:145, name:'閃電鳥',    type:'electric', hp:170, tier:3, attacks:[{name:'雷霆',      dmg:70, type:'electric'}, {name:'怒風',       dmg:115,type:'flying'}] },
+  { id:146, name:'火焰鳥',    type:'fire',     hp:170, tier:3, attacks:[{name:'火焰衝擊',  dmg:70, type:'fire'},     {name:'怒風',       dmg:115,type:'flying'}] },
+  { id:716, name:'哲爾尼亞斯',type:'fairy',    hp:185, tier:3, attacks:[{name:'月亮力量',  dmg:75, type:'fairy'},    {name:'精神強擊',   dmg:125,type:'psychic'}] },
+  { id:378, name:'雷吉艾斯',  type:'ice',      hp:185, tier:3, attacks:[{name:'暴風雪',    dmg:70, type:'ice'},      {name:'電磁砲',     dmg:115,type:'electric'}] },
 ];
 
 const TYPE_COLOR = {
   fire:'#f05030', water:'#6890f0', grass:'#78c850', electric:'#f8d030',
   psychic:'#f85888', fighting:'#c03028', ghost:'#705898', dragon:'#7038f8',
   steel:'#b8b8d0', ice:'#98d8d8', normal:'#a8a878', dark:'#705848', ground:'#e0c068',
-  flying:'#a890f0', rock:'#b8a038',
+  flying:'#a890f0', rock:'#b8a038', fairy:'#ee99ac',
 };
 const TYPE_ZH = {
   fire:'火', water:'水', grass:'草', electric:'電', psychic:'超能',
   fighting:'格鬥', ghost:'幽靈', dragon:'龍', steel:'鋼', ice:'冰',
-  normal:'一般', dark:'惡', ground:'地面', flying:'飛行', rock:'岩石',
+  normal:'一般', dark:'惡', ground:'地面', flying:'飛行', rock:'岩石', fairy:'妖精',
 };
 
 /* effectiveness multipliers: attacker type → {defender type: multiplier} */
@@ -1008,6 +1249,7 @@ const EFF = {
   flying:   {fighting:2, grass:2, electric:0.5, steel:0.5},
   ground:   {fire:2, electric:2, steel:2, grass:0.5, flying:0},
   rock:     {fire:2, ice:2, flying:2, fighting:0.5, ground:0.5, steel:0.5},
+  fairy:    {dragon:2, dark:2, fighting:2, fire:0.5, steel:0.5},
 };
 
 function eff(atkType, defType) {
@@ -1055,6 +1297,10 @@ let G = {
   playerCardsUsed: 0,
   swapCandidates:  [],
   swapDone:        false,
+  // Three-stage mode
+  stage:           1,
+  playerRoster:    [],
+  selectedIndices: [],
 };
 
 const P  = () => G.playerDeck[G.playerIdx];
@@ -1157,6 +1403,67 @@ function confirmSwap(teamIdx) {
 /* ─────────────────────────────────────────
    BATTLE START
 ───────────────────────────────────────── */
+/* ── Bench popup ── */
+let _pendingSwitchIdx = null;
+
+function showBenchPopup(poke, canSwitch, switchIdx, anchorEl) {
+  _pendingSwitchIdx = canSwitch ? switchIdx : null;
+  const popup = document.getElementById('bench-popup');
+
+  document.getElementById('bp-sprite').src = spriteUrl(poke.id);
+  const pname = document.getElementById('bp-pname');
+  pname.textContent = poke.name;
+
+  const badge = document.getElementById('bp-type-badge');
+  badge.textContent = TYPE_ZH[poke.type] || poke.type;
+  badge.style.background = TYPE_COLOR[poke.type] || '#888';
+
+  const hpPct = poke.cur <= 0 ? 0 : Math.round(poke.cur / poke.hp * 100);
+  const hpC   = hpPct > 50 ? '#4caf50' : hpPct > 20 ? '#ffc107' : '#ef5350';
+  document.getElementById('bp-hp').innerHTML = poke.cur <= 0
+    ? `<span style="color:#ef5350;font-weight:700">已倒下</span>`
+    : `<span style="color:var(--muted)">HP</span> <span style="color:${hpC};font-weight:700">${poke.cur} / ${poke.hp}</span>`;
+
+  poke.attacks.forEach((atk, i) => {
+    const col = TYPE_COLOR[atk.type] || '#888';
+    document.getElementById(`bp-move${i}`).innerHTML =
+      `<span class="type-badge" style="background:${col};font-size:0.6rem;padding:0.05rem 0.38rem">${TYPE_ZH[atk.type]||atk.type}</span>` +
+      `<span class="bp-move-name">${atk.name}</span>` +
+      `<span class="bp-move-dmg">威力${atk.dmg}</span>`;
+  });
+
+  document.getElementById('bp-switch-btn').style.display = canSwitch ? '' : 'none';
+  popup.style.display = 'block';
+
+  // Position near anchor element
+  const rect = anchorEl.getBoundingClientRect();
+  const pw = 210, ph = popup.offsetHeight;
+  let left = rect.left + rect.width / 2 - pw / 2;
+  let top  = rect.top - ph - 10;
+  if (top < 8) top = rect.bottom + 10;
+  if (left < 8) left = 8;
+  if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+  popup.style.left = left + 'px';
+  popup.style.top  = top  + 'px';
+}
+
+function hideBenchPopup() {
+  document.getElementById('bench-popup').style.display = 'none';
+  _pendingSwitchIdx = null;
+}
+
+function confirmBenchSwitch() {
+  const idx = _pendingSwitchIdx;
+  hideBenchPopup();
+  if (idx !== null && !G.busy) playerSwitch(idx);
+}
+
+function cpuCardClick(e) {
+  e.stopPropagation();
+  if (!G.cpuDeck.length) return;
+  showBenchPopup(CP(), false, null, document.getElementById('cpu-bcard'));
+}
+
 function toggleTypeChart() {
   document.getElementById('type-chart').classList.toggle('open');
   document.getElementById('tc-backdrop').classList.toggle('open');
@@ -1176,13 +1483,167 @@ function closeGuideOnBackdrop(e) {
   if (e.target === document.getElementById('guide-backdrop')) closeGuide();
 }
 
-function startRandomBattle() {
+/* ─────────────────────────────────────────
+   THREE-STAGE GAME FLOW
+───────────────────────────────────────── */
+
+/* Render a selection card (shared by pick & team-select screens) */
+function renderSelCard(p, isSelected, onClick) {
+  const col = TYPE_COLOR[p.type] || '#888';
+  const el  = document.createElement('div');
+  el.className = 'sel-card' + (isSelected ? ' sel-selected' : '');
+  const movesHtml = p.attacks.map(a => {
+    const mc = TYPE_COLOR[a.type] || '#888';
+    return `<div class="sel-move">
+      <span class="sel-move-badge" style="background:${mc}">${TYPE_ZH[a.type]||a.type}</span>
+      <span style="font-weight:700">${a.name}</span>
+      <span style="color:var(--muted);font-size:0.62rem">${a.dmg}</span>
+    </div>`;
+  }).join('');
+  el.innerHTML = `
+    <div class="sel-strip" style="background:${col}"></div>
+    <img src="${spriteUrl(p.id)}" alt="${p.name}">
+    <div class="sel-name">${p.name}</div>
+    <div><span class="type-badge" style="background:${col};margin-top:0.2rem">${TYPE_ZH[p.type]||p.type}</span></div>
+    <div class="sel-hp">HP ${p.hp}</div>
+    <div class="sel-moves">${movesHtml}</div>
+  `;
+  el.addEventListener('click', onClick);
+  return el;
+}
+
+function startGame() {
+  // Give player 3 random Tier-1 Pokémon
   const shuffled = [...POKEMON].sort(() => Math.random() - 0.5);
-  G.playerDeck     = shuffled.slice(0, 3).map(p => clone(p));
-  G.cpuDeck        = shuffled.slice(3, 6).map(p => clone(p));
-  G.swapDone       = false;
-  G.swapCandidates = [];
-  showSwapScreen();
+  G.playerRoster = shuffled.slice(0, 3).map(p => clone(p));
+  G.stage = 1;
+  launchStage();
+}
+
+function launchStage() {
+  // Restore all playerRoster HP
+  G.playerRoster.forEach(p => { p.cur = p.hp; p.dmgDealt = 0; });
+
+  // Build CPU deck from the current stage's tier
+  const tierPoke = POKEMON.filter(p => p.tier === G.stage).sort(() => Math.random() - 0.5);
+  G.cpuDeck = tierPoke.slice(0, 3).map(p => clone(p));
+
+  // Update stage label
+  const stageLabel = document.getElementById('stage-label');
+  if (stageLabel) {
+    const tierNames = { 1:'第1關', 2:'第2關', 3:'第3關' };
+    stageLabel.textContent = tierNames[G.stage] || '';
+  }
+
+  if (G.playerRoster.length <= 3) {
+    G.playerDeck = G.playerRoster.slice();
+    G.swapDone = false;
+    G.swapCandidates = [];
+    showSwapScreen();
+  } else {
+    showTeamSelectScreen();
+  }
+}
+
+function showTeamSelectScreen() {
+  G.selectedIndices = [];
+  const screen = document.getElementById('team-select-screen');
+  const tierNames = { 1:'第1關（弱）', 2:'第2關（中）', 3:'第3關（強）' };
+
+  function render() {
+    screen.innerHTML = `
+      <h2>選出戰陣容</h2>
+      <div class="team-select-subtitle">${tierNames[G.stage]} — 選出3隻寶可夢迎戰！</div>
+      <div class="sel-cards-row" id="ts-cards-row"></div>
+      <div style="font-size:0.88rem;color:var(--muted)">已選 <b style="color:#f8d030">${G.selectedIndices.length}</b> / 3</div>
+      <button class="btn btn-primary" id="ts-confirm-btn" ${G.selectedIndices.length < 3 ? 'disabled' : ''} onclick="confirmTeamSelect()">出戰！</button>
+    `;
+
+    const row = screen.querySelector('#ts-cards-row');
+    G.playerRoster.forEach((p, i) => {
+      const isSelected = G.selectedIndices.includes(i);
+      const card = renderSelCard(p, isSelected, () => {
+        if (isSelected) {
+          G.selectedIndices = G.selectedIndices.filter(x => x !== i);
+        } else if (G.selectedIndices.length < 3) {
+          G.selectedIndices.push(i);
+        }
+        render();
+      });
+      row.appendChild(card);
+    });
+  }
+
+  render();
+  showScreen('team-select-screen');
+}
+
+function confirmTeamSelect() {
+  if (G.selectedIndices.length < 3) return;
+  G.playerDeck = G.selectedIndices.map(i => G.playerRoster[i]);
+  startBattle();
+}
+
+function showPickScreen() {
+  const screen = document.getElementById('pick-screen');
+  const tierNames = { 1:'第1關', 2:'第2關', 3:'第3關' };
+  const nextTier  = { 1:'中等', 2:'強力', 3:'' };
+
+  screen.innerHTML = `
+    <h2>選擇同伴！</h2>
+    <div class="pick-subtitle">${tierNames[G.stage]} 通過！從打敗的敵方寶可夢中選1隻加入陣容</div>
+    <div class="sel-cards-row" id="pick-cards-row"></div>
+    <div style="font-size:0.82rem;color:var(--muted)">下一關將面對${nextTier[G.stage]||''}等級的對手</div>
+  `;
+
+  const row = screen.querySelector('#pick-cards-row');
+  G.cpuDeck.forEach((p, i) => {
+    const card = renderSelCard(p, false, () => pickEnemy(i));
+    row.appendChild(card);
+  });
+
+  showScreen('pick-screen');
+}
+
+function pickEnemy(idx) {
+  const picked = G.cpuDeck[idx];
+  // Find original data and clone fresh
+  const original = POKEMON.find(p => p.id === picked.id);
+  if (original) G.playerRoster.push(clone(original));
+  G.stage++;
+  launchStage();
+}
+
+function showFinalVictory() {
+  showScreen('result-screen');
+  const title = document.getElementById('result-title');
+  const sub   = document.getElementById('result-sub');
+  const mvpEl = document.getElementById('result-mvp');
+
+  title.textContent = '三關全勝！🏆';
+  title.className   = 'win';
+
+  sub.innerHTML = `共進行了 ${G.round} 回合<br>
+    造成傷害 <b style="color:#90caf9">${G.playerDmgDealt}</b> ／ 承受傷害 <b style="color:#ef9a9a">${G.cpuDmgDealt}</b><br>
+    使用手牌 <b>${G.playerCardsUsed}</b> 張`;
+
+  const mvp = G.playerDeck.reduce((a, b) => a.dmgDealt > b.dmgDealt ? a : b);
+  const col  = TYPE_COLOR[mvp.type] || '#888';
+  mvpEl.innerHTML = `
+    <div class="mvp-label">⭐ MVP</div>
+    <div class="mvp-card">
+      <div style="position:absolute;top:0;left:0;right:0;height:4px;background:${col};border-radius:14px 14px 0 0"></div>
+      <img src="${spriteUrl(mvp.id)}" alt="${mvp.name}">
+      <div class="mvp-name">${mvp.name}</div>
+      <div class="type-badge" style="background:${col};margin-top:0.3rem">${TYPE_ZH[mvp.type]||mvp.type}</div>
+      <div class="mvp-dmg">造成傷害 ${mvp.dmgDealt}</div>
+    </div>
+  `;
+}
+
+/* Legacy — kept for any internal references but no longer called from start */
+function startRandomBattle() {
+  startGame();
 }
 
 function startBattle() {
@@ -1202,6 +1663,12 @@ function startBattle() {
   G.playerCardsUsed = 0;
 
   document.getElementById('battle-log').innerHTML = '';
+  // Update stage label in battle screen
+  const stageLabel = document.getElementById('stage-label');
+  if (stageLabel) {
+    const tierNames = { 1:'第1關', 2:'第2關', 3:'第3關' };
+    stageLabel.textContent = tierNames[G.stage] || '';
+  }
   showScreen('battle-screen');
   renderBattle();
   log('⚔️  對戰開始！', 'system');
@@ -1224,7 +1691,7 @@ function renderTypeChart() {
   const panel = document.getElementById('type-chart');
   if (!p || !cp || !panel) return;
 
-  const badge = t => `<span class="type-badge" style="background:${TYPE_COLOR[t]||'#888'};font-size:0.62rem;padding:0.08rem 0.38rem">${TYPE_ZH[t]||t}</span>`;
+  const badge = t => `<span class="type-badge" style="background:${TYPE_COLOR[t]||'#888'};font-size:0.72rem;padding:0.1rem 0.48rem">${TYPE_ZH[t]||t}</span>`;
 
   function attackSection(type) {
     const map = EFF[type] || {};
@@ -1310,7 +1777,7 @@ function renderSide(side, poke, deck, activeIdx) {
     b.className = 'b-bench' + (p.cur <= 0 ? ' ko' : '') + (canSwitch ? ' switchable' : '');
     b.innerHTML = `<img src="${spriteUrl(p.id)}" alt="${p.name}"><span>${p.name}</span>`
       + (canSwitch ? '<span class="switch-hint">換</span>' : '');
-    if (canSwitch) b.addEventListener('click', () => playerSwitch(i));
+    b.addEventListener('click', e => { e.stopPropagation(); showBenchPopup(p, canSwitch, i, b); });
     benchEl.appendChild(b);
   });
   if (!benchEl.children.length) {
@@ -1596,6 +2063,45 @@ function updateHp(side, poke) {
 /* ─────────────────────────────────────────
    KO HANDLER
 ───────────────────────────────────────── */
+let _koOnNext = null;
+
+function showKOSwitchModal(deck, idxKey, onNext) {
+  _koOnNext = onNext;
+  const options = deck.map((p, i) => ({p, i})).filter(({p}) => p.cur > 0);
+
+  /* only 1 alive — auto-send */
+  if (options.length === 1) {
+    const {p, i} = options[0];
+    G[idxKey] = i;
+    log(`你派出了 ${p.name}！`, 'system');
+    renderBattle();
+    const nc = document.getElementById('player-bcard');
+    nc.classList.add('anim-slidein');
+    nc.addEventListener('animationend', () => nc.classList.remove('anim-slidein'), {once:true});
+    setTimeout(() => { _koOnNext?.(); _koOnNext = null; }, 300);
+    return;
+  }
+
+  const row = document.getElementById('ko-switch-cards');
+  row.innerHTML = '';
+  options.forEach(({p, i}) => {
+    const card = renderSelCard(p, false, () => selectKOSwitch(i, deck, idxKey));
+    row.appendChild(card);
+  });
+  document.getElementById('ko-switch-modal').classList.add('open');
+}
+
+function selectKOSwitch(i, deck, idxKey) {
+  document.getElementById('ko-switch-modal').classList.remove('open');
+  G[idxKey] = i;
+  log(`你派出了 ${deck[i].name}！`, 'system');
+  renderBattle();
+  const nc = document.getElementById('player-bcard');
+  nc.classList.add('anim-slidein');
+  nc.addEventListener('animationend', () => nc.classList.remove('anim-slidein'), {once:true});
+  setTimeout(() => { _koOnNext?.(); _koOnNext = null; }, 300);
+}
+
 function handleKO(side, onNext) {
   const deck     = side === 'cpu' ? G.cpuDeck    : G.playerDeck;
   const idxKey   = side === 'cpu' ? 'cpuIdx'     : 'playerIdx';
@@ -1604,7 +2110,6 @@ function handleKO(side, onNext) {
 
   log(`${label}${fainted.name} 倒下了！`, 'special');
 
-  /* KO animation */
   const card = document.getElementById(`${side}-bcard`);
   const overlay = document.createElement('div');
   overlay.className = 'ko-overlay';
@@ -1616,27 +2121,26 @@ function handleKO(side, onNext) {
     card.classList.remove('anim-ko');
     overlay.remove();
 
-    /* any survivors left? */
     const alive = deck.filter(p => p.cur > 0);
     if (!alive.length) {
       showResult(side === 'cpu' ? 'player' : 'cpu');
       return;
     }
 
-    /* find next alive Pokémon */
-    const nextIdx = deck.findIndex(p => p.cur > 0);
-    G[idxKey] = nextIdx;
-
-    const newLabel = side === 'cpu' ? '對手派出了' : '你派出了';
-    log(`${newLabel} ${deck[nextIdx].name}！`, 'system');
-
-    renderBattle();
-    /* slide in animation on the swapped card */
-    const nc = document.getElementById(`${side}-bcard`);
-    nc.classList.add('anim-slidein');
-    nc.addEventListener('animationend', () => nc.classList.remove('anim-slidein'), {once:true});
-
-    setTimeout(onNext, 300);
+    if (side === 'player') {
+      /* player chooses next */
+      showKOSwitchModal(deck, idxKey, onNext);
+    } else {
+      /* CPU auto-selects next alive */
+      const nextIdx = deck.findIndex(p => p.cur > 0);
+      G[idxKey] = nextIdx;
+      log(`對手派出了 ${deck[nextIdx].name}！`, 'system');
+      renderBattle();
+      const nc = document.getElementById('cpu-bcard');
+      nc.classList.add('anim-slidein');
+      nc.addEventListener('animationend', () => nc.classList.remove('anim-slidein'), {once:true});
+      setTimeout(onNext, 300);
+    }
   }, 1000);
 }
 
@@ -1644,50 +2148,45 @@ function handleKO(side, onNext) {
    RESULT
 ───────────────────────────────────────── */
 function showResult(winner) {
+  if (winner === 'player') {
+    if (G.stage < 3) {
+      // Mid-game victory: pick a Pokémon from defeated CPU
+      showPickScreen();
+      return;
+    } else {
+      // Beat all three stages
+      showFinalVictory();
+      return;
+    }
+  }
+
+  // Player lost — show defeat screen
   showScreen('result-screen');
   const title = document.getElementById('result-title');
   const sub   = document.getElementById('result-sub');
+  const mvpEl = document.getElementById('result-mvp');
 
-  if (winner === 'player') {
-    title.textContent = '勝利！🏆';
-    title.className   = 'win';
-  } else {
-    title.textContent = '失敗…';
-    title.className   = 'lose';
-  }
-  sub.innerHTML = `共進行了 ${G.round} 回合<br>
+  title.textContent = '失敗…';
+  title.className   = 'lose';
+
+  const tierNames = { 1:'第1關', 2:'第2關', 3:'第3關' };
+  sub.innerHTML = `${tierNames[G.stage]||''}敗北！<br>共進行了 ${G.round} 回合<br>
     造成傷害 <b style="color:#90caf9">${G.playerDmgDealt}</b> ／ 承受傷害 <b style="color:#ef9a9a">${G.cpuDmgDealt}</b><br>
     使用手牌 <b>${G.playerCardsUsed}</b> 張`;
 
-  const mvpEl = document.getElementById('result-mvp');
-  if (winner === 'player') {
-    const mvp = G.playerDeck.reduce((a, b) => a.dmgDealt > b.dmgDealt ? a : b);
-    const col = TYPE_COLOR[mvp.type] || '#888';
-    mvpEl.innerHTML = `
-      <div class="mvp-label">⭐ MVP</div>
-      <div class="mvp-card">
-        <div style="position:absolute;top:0;left:0;right:0;height:4px;background:${col};border-radius:14px 14px 0 0"></div>
-        <img src="${spriteUrl(mvp.id)}" alt="${mvp.name}">
-        <div class="mvp-name">${mvp.name}</div>
-        <div class="type-badge" style="background:${col};margin-top:0.3rem">${TYPE_ZH[mvp.type]||mvp.type}</div>
-        <div class="mvp-dmg">造成傷害 ${mvp.dmgDealt}</div>
-      </div>
-    `;
-  } else {
-    const pokesHtml = G.playerDeck.map(p => `
-      <div class="nj-poke">
-        <img src="${spriteUrl(p.id)}" alt="${p.name}">
-        <div class="nj-name">${p.name}</div>
-      </div>
-    `).join('');
-    mvpEl.innerHTML = `
-      <div class="nj-panel">
-        <div class="nj-label">👩‍⚕️ 寶可夢中心</div>
-        <div class="nj-msg">您好！我是喬伊小姐。<br>您的寶可夢已完全恢復健康！<br>請再接再厲！</div>
-        <div class="nj-pokes">${pokesHtml}</div>
-      </div>
-    `;
-  }
+  const pokesHtml = G.playerDeck.map(p => `
+    <div class="nj-poke">
+      <img src="${spriteUrl(p.id)}" alt="${p.name}">
+      <div class="nj-name">${p.name}</div>
+    </div>
+  `).join('');
+  mvpEl.innerHTML = `
+    <div class="nj-panel">
+      <div class="nj-label">👩‍⚕️ 寶可夢中心</div>
+      <div class="nj-msg">您好！我是喬伊小姐。<br>您的寶可夢已完全恢復健康！<br>請再接再厲！</div>
+      <div class="nj-pokes">${pokesHtml}</div>
+    </div>
+  `;
 }
 
 function resetGame() {
@@ -1697,10 +2196,38 @@ function resetGame() {
     playerBuff:{atkBonus:0,atkMult:1,shield:0}, cpuBuff:{atkBonus:0,atkMult:1,shield:0},
     playerDmgDealt:0, cpuDmgDealt:0, playerCardsUsed:0,
     swapCandidates:[], swapDone:false,
+    stage:1, playerRoster:[], selectedIndices:[],
   };
   showScreen('start-screen');
 }
+
+document.addEventListener('click', hideBenchPopup);
 </script>
+<!-- KO switch modal -->
+<div id="ko-switch-modal">
+  <div class="ko-switch-inner">
+    <div class="ko-switch-title">你的寶可夢倒下了！選擇下一隻出場</div>
+    <div id="ko-switch-cards" class="sel-cards-row"></div>
+  </div>
+</div>
+
 <div id="tc-backdrop" onclick="closeTypeChart()"></div>
+
+<!-- Bench info popup -->
+<div id="bench-popup" class="bench-popup" style="display:none" onclick="event.stopPropagation()">
+  <div class="bp-header">
+    <img id="bp-sprite" src="" alt="">
+    <div>
+      <div class="bp-pname" id="bp-pname"></div>
+      <span id="bp-type-badge" class="type-badge" style="font-size:0.65rem;padding:0.1rem 0.45rem"></span>
+    </div>
+  </div>
+  <div class="bp-hp" id="bp-hp"></div>
+  <div class="bp-moves">
+    <div class="bp-move" id="bp-move0"></div>
+    <div class="bp-move" id="bp-move1"></div>
+  </div>
+  <button class="bp-switch-btn" id="bp-switch-btn" style="display:none" onclick="confirmBenchSwitch()">換場</button>
+</div>
 </body>
 </html>
