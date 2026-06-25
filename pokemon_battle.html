@@ -1186,7 +1186,7 @@ const POKEMON = [
   { id:209, name:'布魯',      type:'fairy',    hp:110, tier:1, attacks:[{name:'仙女之氣',  dmg:60, type:'fairy'},    {name:'咬碎',       dmg:75, type:'dark'}] },
   { id:87,  name:'白海獅',    type:'ice',      hp:120, tier:1, attacks:[{name:'冷凍光線',  dmg:60, type:'ice'},      {name:'衝浪',       dmg:75, type:'water'}] },
   { id:82,  name:'三合磁怪',  type:'electric', hp:100, tier:1, attacks:[{name:'電磁炮',    dmg:60, type:'electric'}, {name:'閃光炮',     dmg:75, type:'steel'}] },
-  { id:147, name:'迷你龍',    type:'dragon',   hp:100, tier:1, attacks:[{name:'龍之怒',    dmg:60, type:'dragon'},   {name:'閃電',       dmg:75, type:'electric'}] },
+  { id:28,  name:'沙包蛇',    type:'ground',   hp:120, tier:1, attacks:[{name:'地震',      dmg:60, type:'ground'},   {name:'岩石滑落',   dmg:75, type:'rock'}] },
   { id:80,  name:'呆殼獸',    type:'water',    hp:130, tier:1, attacks:[{name:'衝浪',      dmg:60, type:'water'},    {name:'念力',       dmg:75, type:'psychic'}] },
   /* ── Tier 2 中 ── */
   { id:6,   name:'噴火龍',    type:'fire',     hp:150, tier:2, attacks:[{name:'火焰噴射',  dmg:65, type:'fire'},     {name:'破空飛翔',   dmg:95, type:'flying'}] },
@@ -1237,17 +1237,17 @@ const EFF = {
   fire:     {grass:2, ice:2, steel:2, water:0.5, fire:0.5, rock:0.5},
   water:    {fire:2, ground:2, rock:2, water:0.5, grass:0.5, electric:0.5},
   grass:    {water:2, ground:2, rock:2, fire:0.5, grass:0.5, ice:0.5},
-  electric: {water:2, flying:2, grass:0.5, electric:0.5, ground:0},
-  psychic:  {fighting:2, poison:2, psychic:0.5, ghost:0, dark:0},
-  fighting: {normal:2, ice:2, rock:2, steel:2, dark:2, psychic:0.5, flying:0.5, ghost:0},
-  ghost:    {ghost:2, psychic:2, normal:0, dark:0.5},
-  dragon:   {dragon:2, steel:0.5},
-  steel:    {ice:2, rock:2, fire:0.5, water:0.5, electric:0.5, steel:0.5},
+  electric: {water:2, flying:2, grass:0.5, electric:0.5, ground:0.5},
+  psychic:  {fighting:2, psychic:0.5, ghost:0.5, dark:0.5},
+  fighting: {normal:2, ice:2, rock:2, steel:2, dark:2, psychic:0.5, flying:0.5, ghost:0.5, fairy:0.5},
+  ghost:    {ghost:2, psychic:2, normal:0.5, dark:0.5},
+  dragon:   {dragon:2, steel:0.5, fairy:0.5},
+  steel:    {ice:2, rock:2, fairy:2, fire:0.5, water:0.5, electric:0.5, steel:0.5},
   ice:      {grass:2, ground:2, flying:2, dragon:2, fire:0.5, water:0.5, ice:0.5, steel:0.5},
   normal:   {},
-  dark:     {psychic:2, ghost:2, dark:0.5, fighting:0.5},
+  dark:     {psychic:2, ghost:2, dark:0.5, fighting:0.5, fairy:0.5},
   flying:   {fighting:2, grass:2, electric:0.5, steel:0.5},
-  ground:   {fire:2, electric:2, steel:2, grass:0.5, flying:0},
+  ground:   {fire:2, electric:2, steel:2, grass:0.5, flying:0.5},
   rock:     {fire:2, ice:2, flying:2, fighting:0.5, ground:0.5, steel:0.5},
   fairy:    {dragon:2, dark:2, fighting:2, fire:0.5, steel:0.5},
 };
@@ -1395,7 +1395,8 @@ function pickCandidate(i) {
 
 function confirmSwap(teamIdx) {
   if (_swapPickedIdx === null) return;
-  G.playerDeck[teamIdx] = G.swapCandidates[_swapPickedIdx];
+  G.playerRoster[teamIdx] = G.swapCandidates[_swapPickedIdx];
+  G.playerDeck[teamIdx]   = G.swapCandidates[_swapPickedIdx];
   G.swapDone = true;
   showSwapScreen();
 }
@@ -1721,12 +1722,12 @@ function renderTypeChart() {
   panel.innerHTML = `
     <div class="tc-title">屬性相剋</div>
     <div class="tc-section">
-      <div class="tc-heading">你的攻擊 ${badge(p.type)}</div>
+      <div class="tc-heading">你的屬性 ${badge(p.type)}</div>
       ${attackSection(p.type)}
     </div>
     <hr class="tc-divider">
     <div class="tc-section">
-      <div class="tc-heading">對手弱點 ${badge(cp.type)}</div>
+      <div class="tc-heading">對手的屬性 ${badge(cp.type)}</div>
       ${defenseSection(cp.type)}
     </div>
   `;
@@ -2018,16 +2019,14 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   const aBuff  = aSide === 'player' ? G.playerBuff : G.cpuBuff;
   const dBuff  = dSide === 'player' ? G.playerBuff : G.cpuBuff;
   const mult   = eff(atk.type, defender.type);
-  let dmg = mult === 0 ? 0
-    : Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus) * aBuff.atkMult * mult) - dBuff.shield);
+  let dmg = Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus) * aBuff.atkMult * mult) - dBuff.shield);
   aBuff.atkBonus = 0; aBuff.atkMult = 1; dBuff.shield = 0;
   const aLabel = aSide === 'player' ? '你的' : '對手的';
   const atkTypeName = TYPE_ZH[atk.type] || atk.type;
 
   log(`${aLabel}${attacker.name} 使用了【${atk.name}(${atkTypeName})】！`, aSide);
-  if (mult >= 2)    log('超級有效！(×2)',   'special');
-  else if (mult <= 0) log('完全沒有效果…(×0)', 'system');
-  else if (mult < 1)  log('效果不佳…(×0.5)', 'system');
+  if (mult >= 2)   log('超級有效！(×2)',   'special');
+  else if (mult < 1) log('效果不佳…(×0.5)', 'system');
 
   /* attacker shakes */
   const aCard = document.getElementById(`${aSide}-bcard`);
