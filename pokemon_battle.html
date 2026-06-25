@@ -963,8 +963,8 @@
 
     <h3>開局流程</h3>
     <ul>
-      <li>開始時隨機從牌庫獲得 3 隻寶可夢。</li>
-      <li>出戰前可點「換一隻」，從替補池換走隊內一隻（整場限換一次）。</li>
+      <li>開始時隨機從牌庫獲得 5 隻寶可夢。</li>
+      <li>每關出戰前從手上的寶可夢中選出 3 隻參戰。</li>
     </ul>
 
     <h3>對戰規則</h3>
@@ -1527,9 +1527,8 @@ function renderSelCard(p, isSelected, onClick) {
 }
 
 function startGame() {
-  // Give player 3 random Tier-1 Pokémon
   const shuffled = [...POKEMON].sort(() => Math.random() - 0.5);
-  G.playerRoster = shuffled.slice(0, 3).map(p => clone(p));
+  G.playerRoster = shuffled.slice(0, 5).map(p => clone(p));
   G.stage = 1;
   launchStage();
 }
@@ -1549,14 +1548,7 @@ function launchStage() {
     stageLabel.textContent = tierNames[G.stage] || '';
   }
 
-  if (G.playerRoster.length <= 3) {
-    G.playerDeck = G.playerRoster.slice();
-    G.swapDone = false;
-    G.swapCandidates = [];
-    showSwapScreen();
-  } else {
-    showTeamSelectScreen();
-  }
+  showTeamSelectScreen();
 }
 
 function showTeamSelectScreen() {
