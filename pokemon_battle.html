@@ -498,7 +498,7 @@
     }
     #result-sub { color: var(--muted); font-size: 1.05rem; }
 
-    /* ── Nurse Joy panel ── */
+    /* ── Nurse Joy healing animation ── */
     .nj-panel {
       background: rgba(240,100,150,0.07);
       border: 2px solid rgba(240,100,150,0.4);
@@ -517,20 +517,104 @@
     .nj-msg {
       font-size: 0.9rem;
       color: #f48fb1;
-      margin-bottom: 1rem;
+      margin-bottom: 1.2rem;
       line-height: 1.5;
     }
-    .nj-pokes { display: flex; gap: 1.2rem; justify-content: center; }
-    .nj-poke  { text-align: center; }
-    .nj-poke img {
+    .nj-counter { display: flex; gap: 2rem; justify-content: center; }
+    .nj-slot    { display: flex; flex-direction: column; align-items: center; }
+    .nj-slot-inner {
+      position: relative;
       width: 64px; height: 64px;
-      image-rendering: pixelated;
-      animation: healGlow 1.2s ease-in-out infinite alternate;
+      display: flex; align-items: center; justify-content: center;
     }
-    .nj-poke .nj-name { font-size: 0.73rem; margin-top: 0.2rem; }
-    @keyframes healGlow {
-      from { filter: brightness(0.6) sepia(1) saturate(4) hue-rotate(290deg); }
-      to   { filter: brightness(1.15); }
+    .nj-sprite, .nj-healed {
+      position: absolute;
+      width: 56px; height: 56px;
+      image-rendering: pixelated;
+    }
+    /* Phase 1 — Pokémon shrinks into ball */
+    .nj-sprite { animation: njSpriteIn 0.45s ease var(--d) forwards; }
+    /* Phase 2 — ball appears, glows, fades */
+    .nj-ball-small {
+      position: absolute;
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      background: linear-gradient(180deg, #e63946 50%, #f0f0f0 50%);
+      border: 3px solid #1a1a2e;
+      opacity: 0;
+      animation:
+        njBallIn   0.3s ease                      calc(var(--d) + 0.45s) forwards,
+        njBallGlow 0.85s ease-in-out              calc(var(--d) + 0.8s)  2 alternate,
+        njBallOut  0.3s ease                      calc(var(--d) + 2.55s) forwards;
+    }
+    .nj-ball-small::before {
+      content: ''; position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 11px; height: 11px; border-radius: 50%;
+      background: #f0f0f0; border: 2.5px solid #1a1a2e; z-index: 2;
+    }
+    .nj-ball-small::after {
+      content: ''; position: absolute;
+      top: calc(50% - 1.5px); left: 0; right: 0; height: 3px; background: #1a1a2e;
+    }
+    /* Phase 3 — Pokémon bounces back out */
+    .nj-healed {
+      opacity: 0;
+      animation: njHealed 0.55s ease calc(var(--d) + 2.85s) forwards;
+    }
+    .nj-slot-name { font-size: 0.72rem; margin-top: 0.3rem; color: var(--muted); }
+    @keyframes njSpriteIn {
+      0%   { opacity: 1; transform: scale(1) translateY(0); }
+      100% { opacity: 0; transform: scale(0.1) translateY(14px); }
+    }
+    @keyframes njBallIn {
+      from { opacity: 0; transform: scale(0.3) translateY(12px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    @keyframes njBallGlow {
+      from { box-shadow: none; }
+      to   { box-shadow: 0 0 24px 10px rgba(160,80,255,0.75), 0 0 8px 2px rgba(255,160,210,0.8);
+             filter: brightness(1.4); }
+    }
+    @keyframes njBallOut {
+      from { opacity: 1; transform: scale(1); }
+      to   { opacity: 0; transform: scale(0.15) translateY(12px); }
+    }
+    @keyframes njHealed {
+      0%   { opacity: 0; transform: scale(0.2) translateY(14px); }
+      60%  { opacity: 1; transform: scale(1.18) translateY(-6px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    /* ── Victory roster (Champion-style) ── */
+    .vic-wrapper { text-align: center; width: 100%; }
+    .vic-team-label {
+      font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase;
+      color: #f8d030; margin-bottom: 0.9rem;
+    }
+    .vic-roster {
+      display: flex; flex-wrap: wrap; justify-content: center;
+      gap: 0.8rem 1.2rem; margin-bottom: 1.2rem;
+    }
+    .vic-poke {
+      display: flex; flex-direction: column; align-items: center;
+      opacity: 0;
+      animation: vicAppear 0.5s ease var(--vi) forwards;
+    }
+    .vic-poke img {
+      width: 72px; height: 72px;
+      image-rendering: pixelated;
+      filter: drop-shadow(0 2px 8px rgba(0,0,0,0.6));
+    }
+    .vic-poke.in-deck img {
+      filter: drop-shadow(0 0 12px rgba(248,208,48,0.95)) drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+    }
+    .vic-poke-name  { font-size: 0.72rem; margin-top: 0.22rem; font-weight: 600; }
+    .vic-poke-badge { font-size: 0.62rem; padding: 0.06rem 0.38rem; border-radius: 4px; margin-top: 0.1rem; }
+    .vic-stats { font-size: 0.88rem; color: var(--muted); line-height: 1.9; margin-top: 0.6rem; }
+    @keyframes vicAppear {
+      from { opacity: 0; transform: translateY(22px) scale(0.72); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
     }
 
     /* ── MVP card ── */
@@ -1626,23 +1710,34 @@ function showFinalVictory() {
   const sub   = document.getElementById('result-sub');
   const mvpEl = document.getElementById('result-mvp');
 
-  title.textContent = '三關全勝！🏆';
+  title.textContent = '三關全勝！';
   title.className   = 'win';
+  sub.innerHTML = '你打倒了所有對手，成為了冠軍！';
 
-  sub.innerHTML = `共進行了 ${G.round} 回合<br>
-    造成傷害 <b style="color:#90caf9">${G.playerDmgDealt}</b> ／ 承受傷害 <b style="color:#ef9a9a">${G.cpuDmgDealt}</b><br>
-    使用手牌 <b>${G.playerCardsUsed}</b> 張`;
+  const deckIds = new Set(G.playerDeck.map(p => p.id));
+  const rosterHtml = G.playerRoster.map((p, i) => {
+    const col    = TYPE_COLOR[p.type] || '#888';
+    const inDeck = deckIds.has(p.id);
+    const delay  = (i * 0.13).toFixed(2) + 's';
+    return `
+      <div class="vic-poke ${inDeck ? 'in-deck' : ''}" style="--vi:${delay}">
+        <img src="${spriteUrl(p.id)}" alt="${p.name}">
+        <div class="vic-poke-name">${p.name}</div>
+        <div class="vic-poke-badge" style="background:${col}">${TYPE_ZH[p.type]||p.type}</div>
+      </div>
+    `;
+  }).join('');
 
-  const mvp = G.playerDeck.reduce((a, b) => a.dmgDealt > b.dmgDealt ? a : b);
-  const col  = TYPE_COLOR[mvp.type] || '#888';
   mvpEl.innerHTML = `
-    <div class="mvp-label">⭐ MVP</div>
-    <div class="mvp-card">
-      <div style="position:absolute;top:0;left:0;right:0;height:4px;background:${col};border-radius:14px 14px 0 0"></div>
-      <img src="${spriteUrl(mvp.id)}" alt="${mvp.name}">
-      <div class="mvp-name">${mvp.name}</div>
-      <div class="type-badge" style="background:${col};margin-top:0.3rem">${TYPE_ZH[mvp.type]||mvp.type}</div>
-      <div class="mvp-dmg">造成傷害 ${mvp.dmgDealt}</div>
+    <div class="vic-wrapper">
+      <div class="vic-team-label">✦ 你的夥伴 ✦</div>
+      <div class="vic-roster">${rosterHtml}</div>
+      <div class="vic-stats">
+        共 ${G.round} 回合 ／
+        造成傷害 <b style="color:#90caf9">${G.playerDmgDealt}</b> ／
+        承受傷害 <b style="color:#ef9a9a">${G.cpuDmgDealt}</b><br>
+        使用手牌 <b>${G.playerCardsUsed}</b> 張
+      </div>
     </div>
   `;
 }
@@ -2180,17 +2275,24 @@ function showResult(winner) {
     造成傷害 <b style="color:#90caf9">${G.playerDmgDealt}</b> ／ 承受傷害 <b style="color:#ef9a9a">${G.cpuDmgDealt}</b><br>
     使用手牌 <b>${G.playerCardsUsed}</b> 張`;
 
-  const pokesHtml = G.playerDeck.map(p => `
-    <div class="nj-poke">
-      <img src="${spriteUrl(p.id)}" alt="${p.name}">
-      <div class="nj-name">${p.name}</div>
-    </div>
-  `).join('');
+  const pokesHtml = G.playerDeck.map((p, i) => {
+    const d = (i * 0.3).toFixed(1) + 's';
+    return `
+      <div class="nj-slot" style="--d:${d}">
+        <div class="nj-slot-inner">
+          <img class="nj-sprite" src="${spriteUrl(p.id)}" alt="${p.name}">
+          <div class="nj-ball-small"></div>
+          <img class="nj-healed" src="${spriteUrl(p.id)}" alt="${p.name}">
+        </div>
+        <div class="nj-slot-name">${p.name}</div>
+      </div>
+    `;
+  }).join('');
   mvpEl.innerHTML = `
     <div class="nj-panel">
       <div class="nj-label">👩‍⚕️ 寶可夢中心</div>
       <div class="nj-msg">您好！我是喬伊小姐。<br>您的寶可夢已完全恢復健康！<br>請再接再厲！</div>
-      <div class="nj-pokes">${pokesHtml}</div>
+      <div class="nj-counter">${pokesHtml}</div>
     </div>
   `;
 }
