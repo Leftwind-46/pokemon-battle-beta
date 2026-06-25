@@ -520,6 +520,16 @@
       margin-bottom: 1.2rem;
       line-height: 1.5;
     }
+    .nj-header {
+      display: flex; align-items: center; gap: 1rem;
+      margin-bottom: 1.2rem; text-align: left;
+    }
+    .nj-portrait {
+      width: 80px; height: 80px;
+      image-rendering: pixelated;
+      flex-shrink: 0;
+    }
+    .nj-header .nj-msg { margin-bottom: 0; }
     .nj-counter { display: flex; gap: 2rem; justify-content: center; }
     .nj-slot    { display: flex; flex-direction: column; align-items: center; }
     .nj-slot-inner {
@@ -2290,8 +2300,13 @@ function showResult(winner) {
   }).join('');
   mvpEl.innerHTML = `
     <div class="nj-panel">
-      <div class="nj-label">👩‍⚕️ 寶可夢中心</div>
-      <div class="nj-msg">您好！我是喬伊小姐。<br>您的寶可夢已完全恢復健康！<br>請再接再厲！</div>
+      <div class="nj-header">
+        <img class="nj-portrait" src="https://play.pokemonshowdown.com/sprites/trainers/nurse.png" alt="喬伊小姐">
+        <div>
+          <div class="nj-label">👩‍⚕️ 寶可夢中心</div>
+          <div class="nj-msg">您好！我是喬伊小姐。<br>您的寶可夢已完全恢復健康！<br>請再接再厲！</div>
+        </div>
+      </div>
       <div class="nj-counter">${pokesHtml}</div>
     </div>
   `;
