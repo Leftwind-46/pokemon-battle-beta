@@ -1234,20 +1234,20 @@ const TYPE_ZH = {
 
 /* effectiveness multipliers: attacker type → {defender type: multiplier} */
 const EFF = {
-  fire:     {grass:2, ice:2, steel:2, water:0.5, fire:0.5, rock:0.5},
-  water:    {fire:2, ground:2, rock:2, water:0.5, grass:0.5, electric:0.5},
-  grass:    {water:2, ground:2, rock:2, fire:0.5, grass:0.5, ice:0.5},
-  electric: {water:2, flying:2, grass:0.5, electric:0.5, ground:0.5},
-  psychic:  {fighting:2, psychic:0.5, ghost:0.5, dark:0.5},
-  fighting: {normal:2, ice:2, rock:2, steel:2, dark:2, psychic:0.5, flying:0.5, ghost:0.5, fairy:0.5},
-  ghost:    {ghost:2, psychic:2, normal:0.5, dark:0.5},
-  dragon:   {dragon:2, steel:0.5, fairy:0.5},
+  fire:     {grass:2, ice:2, steel:2, water:0.5, fire:0.5, rock:0.5, dragon:0.5},
+  water:    {fire:2, ground:2, rock:2, water:0.5, grass:0.5, dragon:0.5},
+  grass:    {water:2, ground:2, rock:2, fire:0.5, grass:0.5, flying:0.5, dragon:0.5, steel:0.5},
+  electric: {water:2, flying:2, electric:0.5, grass:0.5, dragon:0.5, ground:0},
+  psychic:  {fighting:2, psychic:0.5, ghost:0, dark:0},
+  fighting: {normal:2, ice:2, rock:2, steel:2, dark:2, psychic:0.5, flying:0.5, fairy:0.5, ghost:0},
+  ghost:    {ghost:2, psychic:2, dark:0.5, normal:0},
+  dragon:   {dragon:2, steel:0.5, fairy:0},
   steel:    {ice:2, rock:2, fairy:2, fire:0.5, water:0.5, electric:0.5, steel:0.5},
   ice:      {grass:2, ground:2, flying:2, dragon:2, fire:0.5, water:0.5, ice:0.5, steel:0.5},
-  normal:   {},
+  normal:   {rock:0.5, steel:0.5, ghost:0},
   dark:     {psychic:2, ghost:2, dark:0.5, fighting:0.5, fairy:0.5},
-  flying:   {fighting:2, grass:2, electric:0.5, steel:0.5},
-  ground:   {fire:2, electric:2, steel:2, grass:0.5, flying:0.5},
+  flying:   {fighting:2, grass:2, electric:0.5, rock:0.5, steel:0.5},
+  ground:   {fire:2, electric:2, rock:2, steel:2, grass:0.5, flying:0},
   rock:     {fire:2, ice:2, flying:2, fighting:0.5, ground:0.5, steel:0.5},
   fairy:    {dragon:2, dark:2, fighting:2, fire:0.5, steel:0.5},
 };
@@ -2019,14 +2019,16 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   const aBuff  = aSide === 'player' ? G.playerBuff : G.cpuBuff;
   const dBuff  = dSide === 'player' ? G.playerBuff : G.cpuBuff;
   const mult   = eff(atk.type, defender.type);
-  let dmg = Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus) * aBuff.atkMult * mult) - dBuff.shield);
+  let dmg = mult === 0 ? 0
+    : Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus) * aBuff.atkMult * mult) - dBuff.shield);
   aBuff.atkBonus = 0; aBuff.atkMult = 1; dBuff.shield = 0;
   const aLabel = aSide === 'player' ? '你的' : '對手的';
   const atkTypeName = TYPE_ZH[atk.type] || atk.type;
 
   log(`${aLabel}${attacker.name} 使用了【${atk.name}(${atkTypeName})】！`, aSide);
-  if (mult >= 2)   log('超級有效！(×2)',   'special');
-  else if (mult < 1) log('效果不佳…(×0.5)', 'system');
+  if (mult >= 2)     log('超級有效！(×2)',       'special');
+  else if (mult <= 0) log('完全無效！(×0)',       'system');
+  else if (mult < 1)  log('效果不佳…(×0.5)',     'system');
 
   /* attacker shakes */
   const aCard = document.getElementById(`${aSide}-bcard`);
