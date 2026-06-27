@@ -352,10 +352,9 @@ function applyTrainer(card, role, G, log) {
 
 // Draws 1-2 cards for each player after a turn.
 function drawForBoth(G) {
+  const itemsOnly = TRAINERS.filter(c => c.cat !== 'supporter');
   for (const role of ['p1', 'p2']) {
-    const drawPool = G[`${role}SuppStageUsed`] >= 2
-      ? TRAINERS.filter(c => c.cat !== 'supporter')
-      : TRAINERS;
+    const drawPool = itemsOnly;
     const n = Math.floor(Math.random() * 2) + 1;
     for (let i = 0; i < n; i++) {
       G[`${role}Hand`].push(drawPool[Math.floor(Math.random() * drawPool.length)]);
