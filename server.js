@@ -8,10 +8,17 @@ const crypto    = require('crypto');
 const app    = express();
 const server = http.createServer(app);
 const wss    = new WebSocketServer({ server });
-const pool   = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
-});
+// Zeabur auto-injects POSTGRES_* when PostgreSQL is in the same project.
+// Fall back gracefully if no DB is configured.
+const pgUri = process.env.DATABASE_URL
+  || process.env.POSTGRES_URI
+  || (process.env.POSTGRES_HOST
+      ? `postgresql://${process.env.POSTGRES_USERNAME||'postgres'}:${process.env.POSTGRES_PASSWORD}@${process.env.POSTGRES_HOST}:${process.env.POSTGRES_PORT||5432}/${process.env.POSTGRES_DB||'postgres'}`
+      : null);
+
+const pool = pgUri
+  ? new Pool({ connectionString: pgUri, ssl: { rejectUnauthorized: false } })
+  : null;
 
 app.use(express.static('public'));
 app.use(express.json());
@@ -280,12 +287,12 @@ function applyTrainer(card, role, G, log) {
 // Draws 1-2 cards for each player after a turn.
 function drawForBoth(G) {
   for (const role of ['p1', 'p2']) {
-    const pool = G[`${role}SuppStageUsed`] >= 2
+    const drawPool = G[`${role}SuppStageUsed`] >= 2
       ? TRAINERS.filter(c => c.cat !== 'supporter')
       : TRAINERS;
     const n = Math.floor(Math.random() * 2) + 1;
     for (let i = 0; i < n; i++) {
-      G[`${role}Hand`].push(pool[Math.floor(Math.random() * pool.length)]);
+      G[`${role}Hand`].push(drawPool[Math.floor(Math.random() * drawPool.length)]);
     }
     G[`${role}NeedsDiscard`] = G[`${role}Hand`].length > 5;
   }
@@ -542,13 +549,9 @@ wss.on('connection', ws => {
    DB + LISTEN
 ═══════════════════════════════════════════ */
 async function initDB() {
+  if (!pool) { console.log('No DB configured, running in-memory only'); return; }
   try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS rooms (
-        code TEXT PRIMARY KEY,
-        created_at TIMESTAMPTZ DEFAULT NOW()
-      )
-    `);
+    await pool.query(`CREATE TABLE IF NOT EXISTS rooms (code TEXT PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW())`);
     console.log('PostgreSQL connected');
   } catch (e) {
     console.warn('PostgreSQL not available, running without DB:', e.message);
