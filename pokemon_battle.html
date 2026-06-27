@@ -136,6 +136,13 @@
     .buff-tag.atk  { background:rgba(248,208,48,0.25); color:#f8d030; border:1px solid rgba(248,208,48,0.55); }
     .buff-tag.def  { background:rgba(144,202,249,0.2); color:#90caf9; border:1px solid rgba(144,202,249,0.45); }
     .buff-tag.mult { background:rgba(255,128,64,0.25); color:#ff8042; border:1px solid rgba(255,128,64,0.55); }
+    .status-tag { display:inline-block; font-size:0.65rem; font-weight:700; padding:0.12rem 0.5rem; border-radius:999px; margin-top:0.22rem; letter-spacing:0.02em; color:#fff; }
+    .status-tag.poison    { background:#7b1fa2; }
+    .status-tag.paralysis { background:#f57f17; color:#111; }
+    .status-tag.sleep     { background:#283593; }
+    .status-tag.confusion { background:#880e4f; }
+    .status-tag.burn      { background:#bf360c; }
+    .status-tag.freeze    { background:#006064; }
 
     /* ══════════════════════════════
        BATTLE SCREEN
@@ -1018,6 +1025,27 @@
       transition: background 0.15s;
     }
     .guide-close:hover { background: rgba(255,255,255,0.15); }
+    .guide-tabs { display:flex; gap:0.5rem; margin-bottom:1.2rem; }
+    .guide-tab { flex:1; padding:0.45rem; border:1px solid var(--border); border-radius:8px; background:transparent; color:var(--muted); font-size:0.8rem; font-weight:700; cursor:pointer; transition:all 0.15s; }
+    .guide-tab.active { background:rgba(248,208,48,0.15); color:#f8d030; border-color:rgba(248,208,48,0.35); }
+    .dex-tier-label { font-size:0.72rem; font-weight:700; color:#f8d030; letter-spacing:0.08em; text-transform:uppercase; margin:0.8rem 0 0.4rem; }
+    .dex-card { display:flex; align-items:flex-start; gap:0.6rem; padding:0.5rem 0.7rem; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:10px; margin-bottom:0.4rem; }
+    .dex-sprite { width:44px; height:44px; image-rendering:pixelated; flex-shrink:0; }
+    .dex-info { flex:1; min-width:0; }
+    .dex-name { font-size:0.85rem; font-weight:700; margin-bottom:0.1rem; }
+    .dex-hp { font-size:0.72rem; color:var(--muted); margin-bottom:0.2rem; }
+    .dex-move { font-size:0.72rem; color:#b0b8e0; margin-bottom:0.1rem; }
+    .dex-move-badge { display:inline-block; font-size:0.58rem; font-weight:700; padding:0.04rem 0.3rem; border-radius:4px; color:#fff; margin-right:0.22rem; vertical-align:middle; }
+    #discard-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
+    #discard-modal.open { display:flex; }
+    .discard-inner { background:#0f1228; border:1px solid rgba(248,208,48,0.3); border-radius:20px; padding:1.5rem 1.25rem; max-width:620px; width:100%; text-align:center; max-height:85vh; overflow-y:auto; }
+    .discard-title { font-size:1rem; font-weight:800; color:#f8d030; margin-bottom:0.4rem; }
+    .discard-sub { font-size:0.78rem; color:var(--muted); margin-bottom:1rem; }
+    #discard-cards { display:flex; gap:0.6rem; flex-wrap:wrap; justify-content:center; }
+    #warn-modal { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:95; display:none; align-items:center; justify-content:center; padding:1.5rem; }
+    #warn-modal.open { display:flex; }
+    .warn-inner { background:#0f1228; border:1px solid rgba(239,83,80,0.4); border-radius:16px; padding:1.75rem 2rem; max-width:300px; width:100%; text-align:center; }
+    .warn-msg { font-size:0.95rem; font-weight:700; color:#ef9a9a; line-height:1.6; margin-bottom:1.2rem; white-space:pre-line; }
 
     /* Scrollbar */
     ::-webkit-scrollbar { width: 4px; }
@@ -1047,63 +1075,85 @@
   <div class="guide-modal">
     <button class="guide-close" onclick="closeGuide()">✕</button>
     <h2>遊戲說明</h2>
+    <div class="guide-tabs">
+      <button class="guide-tab active" id="tab-btn-rules" onclick="showGuideTab('rules')">規則說明</button>
+      <button class="guide-tab" id="tab-btn-dex" onclick="showGuideTab('dex')">寶可夢圖鑑</button>
+    </div>
 
-    <h3>遊戲目標</h3>
-    <ul>
-      <li>共三關，難度依序為弱、中、強。</li>
-      <li>每關擊敗對手全部 3 隻寶可夢即可通關。</li>
-      <li>三關全勝即獲得最終勝利！</li>
-    </ul>
-
-    <h3>開局流程</h3>
-    <ul>
-      <li>開始時隨機從牌庫獲得 5 隻寶可夢。</li>
-      <li>每關出戰前從手上的寶可夢中選出 3 隻參戰。</li>
-    </ul>
-
-    <h3>對戰規則</h3>
-    <ul>
-      <li>每回合選一個技能攻擊，或切換備戰寶可夢（切換會消耗回合）。</li>
-      <li>我方寶可夢 HP 歸零後，可立即自由選擇下一隻上場（不消耗回合）。</li>
-      <li>點擊場上或備戰欄的寶可夢可查看屬性、HP 與招式資訊。</li>
-      <li>己方全部 3 隻 HP 歸零即落敗。</li>
-    </ul>
-
-    <h3>通關獎勵</h3>
-    <ul>
-      <li>每關通關後，可從打敗的 3 隻敵方寶可夢中選 1 隻加入陣容。</li>
-      <li>第 2、3 關開始前，可從手上全部寶可夢中選 3 隻出戰。</li>
-      <li>兩關之間所有寶可夢 HP 完全恢復。</li>
-    </ul>
-
-    <h3>屬性相剋</h3>
-    <ul>
-      <li>傷害以<b>招式屬性</b>對上對方<b>寶可夢屬性</b>計算，與我方寶可夢本身屬性無關。</li>
-      <li>克制 ×2（超級有效！）／抵抗 ×0.5（效果不佳⋯）／完全無效 ×0（完全無效！）</li>
-      <li>對戰畫面左側的相剋表：<b>你的屬性</b> 顯示你招式打出去的效果；<b>對手的屬性</b> 顯示對手寶可夢的弱點與抵抗。</li>
-      <li>共 16 種屬性，含妖精（克制龍、惡、格鬥；被鋼屬性 ×2）。</li>
-    </ul>
-
-    <h3>訓練師牌</h3>
-    <ul>
-      <li><b>道具牌</b>（黃色）每回合可用多張：</li>
+    <div id="guide-tab-rules">
+      <h3>遊戲目標</h3>
       <ul>
-        <li>傷藥 — 回復上場寶可夢 40 HP</li>
-        <li>攻擊強化 — 下次攻擊 +40 傷害</li>
-        <li>防禦強化 — 下次受到的傷害 −40</li>
-        <li>能量強化 — 下次攻擊傷害 ×2</li>
-        <li>復活藥 — 復活備戰欄第一隻倒下的寶可夢（回復 30 HP）</li>
+        <li>共三關，難度依序遞增（第1關 → 第2關 → 第3關）。</li>
+        <li>每關擊敗對手全部 3 隻寶可夢即可通關。</li>
+        <li>三關全勝即獲得最終勝利！</li>
       </ul>
-      <li><b>支援者牌</b>（藍色）每回合只能用一張：</li>
-      <ul>
-        <li>治療師 — 上場寶可夢完全回復 HP</li>
-        <li>換人命令 — 免費換場，不消耗回合</li>
-        <li>全力出擊 — 下次攻擊傷害 ×3</li>
-      </ul>
-    </ul>
 
-    <h3>電腦 AI</h3>
-    <p>電腦會在 HP 不足 40% 時優先使用補血牌，並在攻擊前使用增幅牌。</p>
+      <h3>開局流程</h3>
+      <ul>
+        <li>開始時隨機從牌庫獲得 5 隻寶可夢。</li>
+        <li>每關出戰前從手上的寶可夢中選出 3 隻參戰。</li>
+        <li>每關之間可用一次機會替換隊伍中一隻寶可夢。</li>
+      </ul>
+
+      <h3>對戰規則</h3>
+      <ul>
+        <li>每回合選一個技能攻擊，或切換備戰寶可夢（切換消耗回合）。</li>
+        <li>每次攻擊結束後隨機抽 1–2 張訓練師牌，手牌上限 5 張。</li>
+        <li>若抽牌後超過 5 張，可選擇丟棄一張。</li>
+        <li>我方寶可夢 HP 歸零後，立即自由選擇下一隻上場（不消耗回合）。</li>
+        <li>點擊場上或備戰欄的寶可夢可查看屬性、HP 與招式資訊。</li>
+      </ul>
+
+      <h3>通關獎勵</h3>
+      <ul>
+        <li>每關通關後，可從打敗的 3 隻敵方寶可夢中選 1 隻加入陣容。</li>
+        <li>第 2、3 關開始前，可從全部寶可夢中選 3 隻出戰。</li>
+        <li>關卡間所有寶可夢 HP 與異常狀態完全恢復。</li>
+      </ul>
+
+      <h3>屬性相剋</h3>
+      <ul>
+        <li>傷害以<b>招式屬性</b>對上對方<b>寶可夢屬性</b>計算，與我方屬性無關。</li>
+        <li>克制 ×2（超級有效！）／抵抗 ×0.5（效果不佳…）／完全無效 ×0</li>
+        <li>對戰畫面左側相剋表：<b>你的屬性</b> 顯示招式效果；<b>對手屬性</b> 顯示弱點與抵抗。</li>
+        <li>共 16 種屬性，含妖精（克制龍・惡・格鬥；被鋼屬性 ×2）。</li>
+      </ul>
+
+      <h3>異常狀態</h3>
+      <ul>
+        <li><b>☠ 中毒</b>：每回合行動前損失 1/8 最大 HP。</li>
+        <li><b>🔥 燒傷</b>：每回合損失 1/16 最大 HP，且攻擊力降低 30%。</li>
+        <li><b>⚡ 麻痺</b>：每回合 25% 機率完全無法行動。</li>
+        <li><b>💤 睡眠</b>：無法行動 2–3 回合後自然醒來。</li>
+        <li><b>❄ 結凍</b>：無法行動；每回合 20% 機率自行解凍，或被火系招式命中立即解凍。</li>
+        <li><b>💫 混亂</b>：每回合 50% 機率攻擊自己（60 傷害），持續 2–4 回合；換場可解除。</li>
+        <li>每隻寶可夢同一時間只能有一種異常狀態。使用<b>萬能藥</b>或<b>治療師</b>可解除。</li>
+      </ul>
+
+      <h3>訓練師牌</h3>
+      <ul>
+        <li><b>道具牌</b>（黃色）每回合可使用多張：</li>
+        <ul>
+          <li>傷藥 — 回復上場寶可夢 80 HP</li>
+          <li>攻擊強化 — 下次攻擊 +40 傷害</li>
+          <li>防禦強化 — 下次承受傷害 −40</li>
+          <li>能量強化 — 下次攻擊傷害 ×2</li>
+          <li>復活藥 — 復活備戰欄第一隻倒下的寶可夢（回復 80 HP）</li>
+          <li>萬能藥 — 解除上場寶可夢的所有異常狀態</li>
+        </ul>
+        <li><b>支援者牌</b>（藍色）每回合限用 1 張，<b>每關合計最多使用 2 張</b>：</li>
+        <ul>
+          <li>治療師 — 上場寶可夢完全回復 HP 並解除異常狀態</li>
+          <li>換人命令 — 免費換場，不消耗回合</li>
+          <li>全力出擊 — 下次攻擊傷害 ×3</li>
+        </ul>
+      </ul>
+
+      <h3>電腦 AI</h3>
+      <p>電腦 HP 低於 40% 時優先使用補血牌；陷入睡眠、結凍、麻痺或燒傷時會嘗試使用萬能藥；每回合攻擊前會使用增幅牌。</p>
+    </div>
+
+    <div id="guide-tab-dex" style="display:none"></div>
   </div>
 </div>
 
@@ -1161,6 +1211,7 @@
         <img id="cpu-sprite" src="" alt="">
         <div class="b-name" id="cpu-name"></div>
         <div class="type-badge" id="cpu-badge"></div>
+        <div id="cpu-status" style="display:none"></div>
         <div class="info-hint">ℹ</div>
       </div>
       <div class="hp-wrap">
@@ -1188,6 +1239,7 @@
         <img id="player-sprite" src="" alt="">
         <div class="b-name" id="player-name"></div>
         <div class="type-badge" id="player-badge"></div>
+        <div id="player-status" style="display:none"></div>
         <div class="buff-tags" id="player-buff-tags"></div>
       </div>
       <div class="hp-wrap">
@@ -1280,51 +1332,51 @@
 ───────────────────────────────────────── */
 const POKEMON = [
   /* ── Tier 1 弱 ── */
-  { id:3,   name:'妙蛙花',    type:'grass',    hp:130, tier:1, attacks:[{name:'太陽射線',  dmg:60, type:'grass'},    {name:'大地之力',   dmg:80, type:'ground'}] },
-  { id:94,  name:'耿鬼',      type:'ghost',    hp:110, tier:1, attacks:[{name:'幽靈之爪',  dmg:60, type:'ghost'},    {name:'咬碎',       dmg:75, type:'dark'}] },
-  { id:68,  name:'怪力',      type:'fighting', hp:130, tier:1, attacks:[{name:'動感拳',    dmg:60, type:'fighting'}, {name:'地震',       dmg:80, type:'ground'}] },
-  { id:65,  name:'胡地',      type:'psychic',  hp:90,  tier:1, attacks:[{name:'超能力',    dmg:60, type:'psychic'},  {name:'閃電拳',     dmg:75, type:'electric'}] },
-  { id:26,  name:'雷丘',      type:'electric', hp:90,  tier:1, attacks:[{name:'十萬伏特',  dmg:60, type:'electric'}, {name:'鐵尾',       dmg:75, type:'steel'}] },
-  { id:376, name:'巨金怪',    type:'steel',    hp:130, tier:1, attacks:[{name:'子彈拳',    dmg:60, type:'steel'},    {name:'隕石衝擊',   dmg:80, type:'rock'}] },
-  { id:448, name:'路卡利歐',  type:'fighting', hp:110, tier:1, attacks:[{name:'波導彈',    dmg:60, type:'fighting'}, {name:'金屬爪',     dmg:80, type:'steel'}] },
-  { id:130, name:'暴鯉龍',    type:'water',    hp:130, tier:1, attacks:[{name:'大浪',      dmg:60, type:'water'},    {name:'咬碎',       dmg:80, type:'dark'}] },
-  { id:35,  name:'皮皮',      type:'fairy',    hp:110, tier:1, attacks:[{name:'月亮力量',  dmg:60, type:'fairy'},    {name:'元氣拳',     dmg:75, type:'normal'}] },
-  { id:39,  name:'胖丁',      type:'fairy',    hp:120, tier:1, attacks:[{name:'歌唱衝擊',  dmg:60, type:'fairy'},    {name:'破壞光線',   dmg:80, type:'normal'}] },
-  { id:209, name:'布魯',      type:'fairy',    hp:110, tier:1, attacks:[{name:'仙女之氣',  dmg:60, type:'fairy'},    {name:'咬碎',       dmg:75, type:'dark'}] },
-  { id:87,  name:'白海獅',    type:'ice',      hp:120, tier:1, attacks:[{name:'冷凍光線',  dmg:60, type:'ice'},      {name:'衝浪',       dmg:75, type:'water'}] },
-  { id:82,  name:'三合磁怪',  type:'electric', hp:100, tier:1, attacks:[{name:'電磁炮',    dmg:60, type:'electric'}, {name:'閃光炮',     dmg:75, type:'steel'}] },
-  { id:28,  name:'沙包蛇',    type:'ground',   hp:120, tier:1, attacks:[{name:'地震',      dmg:60, type:'ground'},   {name:'岩石滑落',   dmg:75, type:'rock'}] },
-  { id:80,  name:'呆殼獸',    type:'water',    hp:130, tier:1, attacks:[{name:'衝浪',      dmg:60, type:'water'},    {name:'念力',       dmg:75, type:'psychic'}] },
+  { id:3,   name:'妙蛙花',    type:'grass',    hp:250, tier:1, attacks:[{name:'太陽射線',  dmg:40, type:'grass',    status:{effect:'sleep',    chance:0.20}}, {name:'大地之力',  dmg:58, type:'ground',   status:{effect:'poison',   chance:0.30}}] },
+  { id:94,  name:'耿鬼',      type:'ghost',    hp:220, tier:1, attacks:[{name:'幽靈之爪',  dmg:40, type:'ghost',    status:{effect:'poison',   chance:0.20}}, {name:'咬碎',      dmg:52, type:'dark'}] },
+  { id:68,  name:'怪力',      type:'fighting', hp:260, tier:1, attacks:[{name:'動感拳',    dmg:42, type:'fighting'}, {name:'地震',        dmg:58, type:'ground'}] },
+  { id:65,  name:'胡地',      type:'psychic',  hp:200, tier:1, attacks:[{name:'超能力',    dmg:40, type:'psychic',  status:{effect:'confusion',chance:0.30}}, {name:'閃電拳',    dmg:52, type:'electric', status:{effect:'paralysis',chance:0.20}}] },
+  { id:26,  name:'雷丘',      type:'electric', hp:200, tier:1, attacks:[{name:'十萬伏特',  dmg:40, type:'electric', status:{effect:'paralysis',chance:0.30}}, {name:'鐵尾',      dmg:52, type:'steel'}] },
+  { id:376, name:'巨金怪',    type:'steel',    hp:260, tier:1, attacks:[{name:'子彈拳',    dmg:42, type:'steel'},    {name:'隕石衝擊',    dmg:58, type:'rock'}] },
+  { id:448, name:'路卡利歐',  type:'fighting', hp:220, tier:1, attacks:[{name:'波導彈',    dmg:40, type:'fighting'}, {name:'金屬爪',      dmg:58, type:'steel'}] },
+  { id:130, name:'暴鯉龍',    type:'water',    hp:260, tier:1, attacks:[{name:'大浪',      dmg:42, type:'water'},    {name:'咬碎',        dmg:58, type:'dark'}] },
+  { id:35,  name:'皮皮',      type:'fairy',    hp:220, tier:1, attacks:[{name:'月亮力量',  dmg:40, type:'fairy',    status:{effect:'confusion',chance:0.25}}, {name:'元氣拳',    dmg:52, type:'normal'}] },
+  { id:39,  name:'胖丁',      type:'fairy',    hp:240, tier:1, attacks:[{name:'歌唱衝擊',  dmg:40, type:'fairy',    status:{effect:'sleep',    chance:0.35}}, {name:'破壞光線',  dmg:58, type:'normal'}] },
+  { id:209, name:'布魯',      type:'fairy',    hp:220, tier:1, attacks:[{name:'仙女之氣',  dmg:40, type:'fairy'},    {name:'咬碎',        dmg:52, type:'dark'}] },
+  { id:87,  name:'白海獅',    type:'ice',      hp:240, tier:1, attacks:[{name:'冷凍光線',  dmg:40, type:'ice',      status:{effect:'freeze',   chance:0.15}}, {name:'衝浪',      dmg:52, type:'water'}] },
+  { id:82,  name:'三合磁怪',  type:'electric', hp:210, tier:1, attacks:[{name:'電磁炮',    dmg:40, type:'electric', status:{effect:'paralysis',chance:0.30}}, {name:'閃光炮',    dmg:52, type:'steel'}] },
+  { id:28,  name:'沙包蛇',    type:'ground',   hp:240, tier:1, attacks:[{name:'地震',      dmg:40, type:'ground'},   {name:'岩石滑落',    dmg:52, type:'rock'}] },
+  { id:80,  name:'呆殼獸',    type:'water',    hp:260, tier:1, attacks:[{name:'衝浪',      dmg:40, type:'water'},    {name:'念力',        dmg:52, type:'psychic', status:{effect:'confusion',chance:0.20}}] },
   /* ── Tier 2 中 ── */
-  { id:6,   name:'噴火龍',    type:'fire',     hp:150, tier:2, attacks:[{name:'火焰噴射',  dmg:65, type:'fire'},     {name:'破空飛翔',   dmg:95, type:'flying'}] },
-  { id:9,   name:'水箭龜',    type:'water',    hp:140, tier:2, attacks:[{name:'水砲',      dmg:65, type:'water'},    {name:'冰凍光束',   dmg:85, type:'ice'}] },
-  { id:150, name:'超夢',      type:'psychic',  hp:160, tier:2, attacks:[{name:'念力衝擊',  dmg:65, type:'psychic'},  {name:'暗影球',     dmg:100,type:'ghost'}] },
-  { id:149, name:'快龍',      type:'dragon',   hp:160, tier:2, attacks:[{name:'龍息',      dmg:65, type:'dragon'},   {name:'破壞光線',   dmg:100,type:'normal'}] },
-  { id:143, name:'卡比獸',    type:'normal',   hp:200, tier:2, attacks:[{name:'磚塊',      dmg:65, type:'rock'},     {name:'破壞光線',   dmg:90, type:'normal'}] },
-  { id:59,  name:'風速狗',    type:'fire',     hp:120, tier:2, attacks:[{name:'夜斬',      dmg:65, type:'dark'},     {name:'噴射火焰',   dmg:85, type:'fire'}] },
-  { id:131, name:'拉普拉斯',  type:'ice',      hp:150, tier:2, attacks:[{name:'衝浪',      dmg:65, type:'water'},    {name:'暴風雪',     dmg:85, type:'ice'}] },
-  { id:445, name:'烈咬陸鯊',  type:'dragon',   hp:140, tier:2, attacks:[{name:'龍爪',      dmg:65, type:'dragon'},   {name:'地震',       dmg:90, type:'ground'}] },
-  { id:210, name:'布比獸',    type:'fairy',    hp:150, tier:2, attacks:[{name:'仙女之力',  dmg:65, type:'fairy'},    {name:'地震',       dmg:90, type:'ground'}] },
-  { id:700, name:'仙子伊布',  type:'fairy',    hp:150, tier:2, attacks:[{name:'妖精風',    dmg:65, type:'fairy'},    {name:'暗影球',     dmg:90, type:'ghost'}] },
-  { id:478, name:'雪妖女',    type:'ice',      hp:140, tier:2, attacks:[{name:'冰凍光束',  dmg:65, type:'ice'},      {name:'暗影球',     dmg:90, type:'ghost'}] },
-  { id:614, name:'冰熊王',    type:'ice',      hp:160, tier:2, attacks:[{name:'冰耳光',    dmg:65, type:'ice'},      {name:'地震',       dmg:90, type:'ground'}] },
-  { id:430, name:'夜巡使',    type:'dark',     hp:150, tier:2, attacks:[{name:'夜斬',      dmg:65, type:'dark'},     {name:'怒風',       dmg:90, type:'flying'}] },
-  { id:466, name:'電擊魔獸',  type:'electric', hp:150, tier:2, attacks:[{name:'電磁衝浪',  dmg:65, type:'electric'}, {name:'冰凍拳',     dmg:90, type:'ice'}] },
-  { id:467, name:'鴨嘴火獸',  type:'fire',     hp:150, tier:2, attacks:[{name:'火焰衝擊',  dmg:65, type:'fire'},     {name:'雷電',       dmg:90, type:'electric'}] },
+  { id:6,   name:'噴火龍',    type:'fire',     hp:290, tier:2, attacks:[{name:'火焰噴射',  dmg:45, type:'fire',     status:{effect:'burn',     chance:0.25}}, {name:'破空飛翔',  dmg:70, type:'flying'}] },
+  { id:9,   name:'水箭龜',    type:'water',    hp:280, tier:2, attacks:[{name:'水砲',      dmg:45, type:'water'},    {name:'冰凍光束',    dmg:65, type:'ice',     status:{effect:'freeze',   chance:0.15}}] },
+  { id:150, name:'超夢',      type:'psychic',  hp:320, tier:2, attacks:[{name:'念力衝擊',  dmg:45, type:'psychic',  status:{effect:'confusion',chance:0.30}}, {name:'暗影球',    dmg:75, type:'ghost'}] },
+  { id:149, name:'快龍',      type:'dragon',   hp:320, tier:2, attacks:[{name:'龍息',      dmg:45, type:'dragon'},   {name:'破壞光線',    dmg:75, type:'normal'}] },
+  { id:143, name:'卡比獸',    type:'normal',   hp:380, tier:2, attacks:[{name:'磚塊',      dmg:45, type:'rock'},     {name:'破壞光線',    dmg:68, type:'normal'}] },
+  { id:59,  name:'風速狗',    type:'fire',     hp:260, tier:2, attacks:[{name:'夜斬',      dmg:45, type:'dark'},     {name:'噴射火焰',    dmg:65, type:'fire',    status:{effect:'burn',     chance:0.25}}] },
+  { id:131, name:'拉普拉斯',  type:'ice',      hp:290, tier:2, attacks:[{name:'衝浪',      dmg:45, type:'water'},    {name:'暴風雪',      dmg:65, type:'ice',     status:{effect:'freeze',   chance:0.20}}] },
+  { id:445, name:'烈咬陸鯊',  type:'dragon',   hp:280, tier:2, attacks:[{name:'龍爪',      dmg:45, type:'dragon'},   {name:'地震',        dmg:68, type:'ground'}] },
+  { id:210, name:'布比獸',    type:'fairy',    hp:300, tier:2, attacks:[{name:'仙女之力',  dmg:45, type:'fairy'},    {name:'地震',        dmg:68, type:'ground'}] },
+  { id:700, name:'仙子伊布',  type:'fairy',    hp:300, tier:2, attacks:[{name:'妖精風',    dmg:45, type:'fairy'},    {name:'暗影球',      dmg:68, type:'ghost'}] },
+  { id:478, name:'雪妖女',    type:'ice',      hp:280, tier:2, attacks:[{name:'冰凍光束',  dmg:45, type:'ice',      status:{effect:'freeze',   chance:0.15}}, {name:'暗影球',    dmg:68, type:'ghost'}] },
+  { id:614, name:'冰熊王',    type:'ice',      hp:320, tier:2, attacks:[{name:'冰耳光',    dmg:45, type:'ice',      status:{effect:'freeze',   chance:0.15}}, {name:'地震',      dmg:68, type:'ground'}] },
+  { id:430, name:'夜巡使',    type:'dark',     hp:300, tier:2, attacks:[{name:'夜斬',      dmg:45, type:'dark'},     {name:'怒風',        dmg:68, type:'flying'}] },
+  { id:466, name:'電擊魔獸',  type:'electric', hp:300, tier:2, attacks:[{name:'電磁衝浪',  dmg:45, type:'electric', status:{effect:'paralysis',chance:0.25}}, {name:'冰凍拳',    dmg:68, type:'ice',     status:{effect:'freeze',   chance:0.15}}] },
+  { id:467, name:'鴨嘴火獸',  type:'fire',     hp:300, tier:2, attacks:[{name:'火焰衝擊',  dmg:45, type:'fire',     status:{effect:'burn',     chance:0.25}}, {name:'雷電',      dmg:68, type:'electric', status:{effect:'paralysis',chance:0.20}}] },
   /* ── Tier 3 強 ── */
-  { id:383, name:'固拉多',    type:'ground',   hp:170, tier:3, attacks:[{name:'地震',      dmg:70, type:'ground'},   {name:'原始大地',   dmg:120,type:'fire'}] },
-  { id:382, name:'蓋歐卡',    type:'water',    hp:170, tier:3, attacks:[{name:'源起之波',  dmg:70, type:'water'},    {name:'原始海洋',   dmg:120,type:'ice'}] },
-  { id:384, name:'列空座',    type:'dragon',   hp:180, tier:3, attacks:[{name:'神速',      dmg:65, type:'normal'},   {name:'龍之隕星',   dmg:130,type:'dragon'}] },
-  { id:1008,name:'密勒頓',    type:'electric', hp:180, tier:3, attacks:[{name:'電磁衝浪',  dmg:75, type:'electric'}, {name:'未來雷霆',   dmg:125,type:'psychic'}] },
-  { id:250, name:'鳳王',      type:'fire',     hp:170, tier:3, attacks:[{name:'聖焰',      dmg:75, type:'fire'},     {name:'神聖之焰',   dmg:125,type:'flying'}] },
-  { id:249, name:'路奇亞',    type:'flying',   hp:170, tier:3, attacks:[{name:'怒風',      dmg:70, type:'flying'},   {name:'心靈衝擊',   dmg:120,type:'psychic'}] },
-  { id:1007,name:'故勒頓',    type:'fighting', hp:180, tier:3, attacks:[{name:'決勝衝擊',  dmg:75, type:'fighting'}, {name:'遠古之力',   dmg:125,type:'rock'}] },
-  { id:282, name:'沙奈朵',    type:'fairy',    hp:160, tier:3, attacks:[{name:'妖精之力',  dmg:70, type:'fairy'},    {name:'精神強擊',   dmg:120,type:'psychic'}] },
-  { id:144, name:'急凍鳥',    type:'ice',      hp:170, tier:3, attacks:[{name:'暴風雪',    dmg:70, type:'ice'},      {name:'怒風',       dmg:115,type:'flying'}] },
-  { id:145, name:'閃電鳥',    type:'electric', hp:170, tier:3, attacks:[{name:'雷霆',      dmg:70, type:'electric'}, {name:'怒風',       dmg:115,type:'flying'}] },
-  { id:146, name:'火焰鳥',    type:'fire',     hp:170, tier:3, attacks:[{name:'火焰衝擊',  dmg:70, type:'fire'},     {name:'怒風',       dmg:115,type:'flying'}] },
-  { id:716, name:'哲爾尼亞斯',type:'fairy',    hp:185, tier:3, attacks:[{name:'月亮力量',  dmg:75, type:'fairy'},    {name:'精神強擊',   dmg:125,type:'psychic'}] },
-  { id:378, name:'雷吉艾斯',  type:'ice',      hp:185, tier:3, attacks:[{name:'暴風雪',    dmg:70, type:'ice'},      {name:'電磁砲',     dmg:115,type:'electric'}] },
+  { id:383, name:'固拉多',    type:'ground',   hp:340, tier:3, attacks:[{name:'地震',      dmg:50, type:'ground'},   {name:'原始大地',    dmg:90, type:'fire',    status:{effect:'burn',     chance:0.30}}] },
+  { id:382, name:'蓋歐卡',    type:'water',    hp:340, tier:3, attacks:[{name:'源起之波',  dmg:50, type:'water'},    {name:'原始海洋',    dmg:90, type:'ice',     status:{effect:'freeze',   chance:0.20}}] },
+  { id:384, name:'列空座',    type:'dragon',   hp:360, tier:3, attacks:[{name:'神速',      dmg:48, type:'normal'},   {name:'龍之隕星',    dmg:95, type:'dragon'}] },
+  { id:1008,name:'密勒頓',    type:'electric', hp:360, tier:3, attacks:[{name:'電磁衝浪',  dmg:52, type:'electric', status:{effect:'paralysis',chance:0.25}}, {name:'未來雷霆',  dmg:92, type:'psychic', status:{effect:'confusion',chance:0.25}}] },
+  { id:250, name:'鳳王',      type:'fire',     hp:340, tier:3, attacks:[{name:'聖焰',      dmg:52, type:'fire',     status:{effect:'burn',     chance:0.30}}, {name:'神聖之焰',  dmg:92, type:'flying'}] },
+  { id:249, name:'路奇亞',    type:'flying',   hp:340, tier:3, attacks:[{name:'怒風',      dmg:50, type:'flying'},   {name:'心靈衝擊',    dmg:90, type:'psychic', status:{effect:'confusion',chance:0.30}}] },
+  { id:1007,name:'故勒頓',    type:'fighting', hp:360, tier:3, attacks:[{name:'決勝衝擊',  dmg:52, type:'fighting'}, {name:'遠古之力',    dmg:92, type:'rock'}] },
+  { id:282, name:'沙奈朵',    type:'fairy',    hp:320, tier:3, attacks:[{name:'妖精之力',  dmg:50, type:'fairy'},    {name:'精神強擊',    dmg:90, type:'psychic', status:{effect:'confusion',chance:0.30}}] },
+  { id:144, name:'急凍鳥',    type:'ice',      hp:340, tier:3, attacks:[{name:'暴風雪',    dmg:50, type:'ice',      status:{effect:'freeze',   chance:0.25}}, {name:'怒風',      dmg:88, type:'flying'}] },
+  { id:145, name:'閃電鳥',    type:'electric', hp:340, tier:3, attacks:[{name:'雷霆',      dmg:50, type:'electric', status:{effect:'paralysis',chance:0.30}}, {name:'怒風',      dmg:88, type:'flying'}] },
+  { id:146, name:'火焰鳥',    type:'fire',     hp:340, tier:3, attacks:[{name:'火焰衝擊',  dmg:50, type:'fire',     status:{effect:'burn',     chance:0.30}}, {name:'怒風',      dmg:88, type:'flying'}] },
+  { id:716, name:'哲爾尼亞斯',type:'fairy',    hp:370, tier:3, attacks:[{name:'月亮力量',  dmg:52, type:'fairy'},    {name:'精神強擊',    dmg:92, type:'psychic', status:{effect:'confusion',chance:0.25}}] },
+  { id:378, name:'雷吉艾斯',  type:'ice',      hp:370, tier:3, attacks:[{name:'暴風雪',    dmg:50, type:'ice',      status:{effect:'freeze',   chance:0.20}}, {name:'電磁砲',    dmg:88, type:'electric', status:{effect:'paralysis',chance:0.30}}] },
 ];
 
 const TYPE_COLOR = {
@@ -1338,6 +1390,16 @@ const TYPE_ZH = {
   fighting:'格鬥', ghost:'幽靈', dragon:'龍', steel:'鋼', ice:'冰',
   normal:'一般', dark:'惡', ground:'地面', flying:'飛行', rock:'岩石', fairy:'妖精',
 };
+
+const STATUS_INFO = {
+  poison:    { label:'☠ 中毒',  cls:'poison' },
+  burn:      { label:'🔥 燒傷',  cls:'burn' },
+  paralysis: { label:'⚡ 麻痺',  cls:'paralysis' },
+  sleep:     { label:'💤 睡眠',  cls:'sleep' },
+  freeze:    { label:'❄ 結凍',  cls:'freeze' },
+  confusion: { label:'💫 混亂',  cls:'confusion' },
+};
+const STATUS_EFFECT_ZH = { poison:'中毒', burn:'燒傷', paralysis:'麻痺', sleep:'睡眠', freeze:'結凍', confusion:'混亂' };
 
 /* effectiveness multipliers: attacker type → {defender type: multiplier} */
 const EFF = {
@@ -1364,12 +1426,13 @@ function eff(atkType, defType) {
 }
 
 const TRAINERS = [
-  {id:'potion',    name:'傷藥',     cat:'item',      desc:'回復上場寶可夢 40 HP'},
+  {id:'potion',    name:'傷藥',     cat:'item',      desc:'回復上場寶可夢 80 HP'},
   {id:'x-atk',    name:'攻擊強化', cat:'item',      desc:'下次攻擊威力 +40'},
   {id:'x-def',    name:'防禦強化', cat:'item',      desc:'下次受傷害減少 40'},
   {id:'energize', name:'能量強化', cat:'item',      desc:'下次攻擊傷害 ×2'},
-  {id:'revive',   name:'復活藥',   cat:'item',      desc:'復活備戰欄第一隻倒下的寶可夢（回復 30 HP）'},
-  {id:'nurse',    name:'治療師',   cat:'supporter', desc:'上場寶可夢完全回復 HP'},
+  {id:'revive',   name:'復活藥',   cat:'item',      desc:'復活備戰欄第一隻倒下的寶可夢（回復 80 HP）'},
+  {id:'antidote', name:'萬能藥',   cat:'item',      desc:'解除上場寶可夢的異常狀態（中毒・麻痺・睡眠・混亂）'},
+  {id:'nurse',    name:'治療師',   cat:'supporter', desc:'上場寶可夢完全回復 HP 並解除異常狀態'},
   {id:'switch',   name:'換人命令', cat:'supporter', desc:'免費換場，不消耗回合'},
   {id:'all-out',  name:'全力出擊', cat:'supporter', desc:'下次攻擊傷害 ×3'},
 ];
@@ -1394,8 +1457,10 @@ let G = {
   busy:       false,
   playerHand:      [],
   cpuHand:         [],
-  playerSuppUsed:  false,
-  cpuSuppUsed:     false,
+  playerSuppUsed:       false,
+  playerSuppStageUsed:  0,
+  cpuSuppUsed:          false,
+  cpuSuppStageUsed:     0,
   freeSwitch:      false,
   playerBuff: { atkBonus:0, atkMult:1, shield:0 },
   cpuBuff:    { atkBonus:0, atkMult:1, shield:0 },
@@ -1414,7 +1479,7 @@ const P  = () => G.playerDeck[G.playerIdx];
 const CP = () => G.cpuDeck[G.cpuIdx];
 
 function clone(p) {
-  return { ...p, attacks: p.attacks.map(a => ({...a})), cur: p.hp, dmgDealt: 0 };
+  return { ...p, attacks: p.attacks.map(a => ({...a})), cur: p.hp, dmgDealt: 0, status: null };
 }
 
 /* ─────────────────────────────────────────
@@ -1629,7 +1694,7 @@ function startGame() {
 
 function launchStage() {
   // Restore all playerRoster HP
-  G.playerRoster.forEach(p => { p.cur = p.hp; p.dmgDealt = 0; });
+  G.playerRoster.forEach(p => { p.cur = p.hp; p.dmgDealt = 0; p.status = null; });
 
   // Build CPU deck from the current stage's tier
   const tierPoke = POKEMON.filter(p => p.tier === G.stage).sort(() => Math.random() - 0.5);
@@ -1764,9 +1829,11 @@ function startBattle() {
   G.busy           = false;
   G.playerHand     = dealHand(3);
   G.cpuHand        = dealHand(3);
-  G.playerSuppUsed = false;
-  G.cpuSuppUsed    = false;
-  G.freeSwitch     = false;
+  G.playerSuppUsed      = false;
+  G.playerSuppStageUsed = 0;
+  G.cpuSuppUsed         = false;
+  G.cpuSuppStageUsed    = 0;
+  G.freeSwitch          = false;
   G.playerBuff     = { atkBonus:0, atkMult:1, shield:0 };
   G.cpuBuff        = { atkBonus:0, atkMult:1, shield:0 };
   G.playerDmgDealt  = 0;
@@ -1862,6 +1929,22 @@ function renderSide(side, poke, deck, activeIdx) {
   fill.style.width      = pct + '%';
   fill.style.background = hpC;
 
+  // Status badge
+  const statusEl = document.getElementById(`${side}-status`);
+  if (statusEl) {
+    if (poke.status) {
+      const info = STATUS_INFO[poke.status.type];
+      const turns = (poke.status.type === 'sleep' || poke.status.type === 'confusion')
+        ? ` (${poke.status.turnsLeft})` : '';
+      statusEl.textContent  = info.label + turns;
+      statusEl.className    = `status-tag ${info.cls}`;
+      statusEl.style.display = '';
+    } else {
+      statusEl.style.display = 'none';
+      statusEl.textContent   = '';
+    }
+  }
+
   // Buff tags (player only)
   if (side === 'player') {
     const buf   = G.playerBuff;
@@ -1907,7 +1990,8 @@ function renderActions() {
     document.getElementById(`atk-name${i}`).textContent     = a.name;
     document.getElementById(`atk-type${i}`).textContent     = TYPE_ZH[a.type] || a.type;
     document.getElementById(`atk-type${i}`).style.background = col;
-    document.getElementById(`atk-dmg${i}`).textContent      = `威力 ${a.dmg}`;
+    const statusHint = a.status ? ` · ${STATUS_EFFECT_ZH[a.status.effect]}${Math.round(a.status.chance*100)}%` : '';
+    document.getElementById(`atk-dmg${i}`).textContent = `威力 ${a.dmg}${statusHint}`;
   });
 }
 
@@ -1922,13 +2006,18 @@ function renderHand() {
     const isSupp = card.cat === 'supporter';
     const noSwitchTarget = card.id === 'switch' &&
       G.playerDeck.filter((p, j) => j !== G.playerIdx && p.cur > 0).length === 0;
+    const stageFull = isSupp && G.playerSuppStageUsed >= 2;
     const disabled = G.busy || (isSupp && G.playerSuppUsed) || noSwitchTarget;
+    const suppMeta = isSupp
+      ? `<div style="font-size:0.6rem;color:${stageFull?'#ef5350':'var(--muted)'};margin-top:0.1rem">本關 ${G.playerSuppStageUsed}/2 張</div>`
+      : '';
     const el = document.createElement('div');
     el.className = `t-card ${card.cat}`;
     el.innerHTML = `
       <div class="t-badge">${isSupp ? '支援者' : '道具'}</div>
       <div class="t-name">${card.name}</div>
       <div class="t-desc">${card.desc}</div>
+      ${suppMeta}
       <button class="t-use-btn" ${disabled ? 'disabled' : ''} onclick="useTrainer(${i})">使用</button>
     `;
     area.appendChild(el);
@@ -1940,10 +2029,17 @@ function useTrainer(idx) {
   const card = G.playerHand[idx];
   if (!card) return;
   if (card.cat === 'supporter' && G.playerSuppUsed) return;
+  if (card.cat === 'supporter' && G.playerSuppStageUsed >= 2) {
+    showWarn('本關支援者牌已使用 2 張！\n每關最多使用 2 張支援者牌。');
+    return;
+  }
   if (card.id === 'switch' &&
       G.playerDeck.filter((p, j) => j !== G.playerIdx && p.cur > 0).length === 0) return;
 
-  if (card.cat === 'supporter') G.playerSuppUsed = true;
+  if (card.cat === 'supporter') {
+    G.playerSuppUsed = true;
+    G.playerSuppStageUsed++;
+  }
   G.playerHand.splice(idx, 1);
   G.playerCardsUsed++;
   applyTrainer(card, 'player');
@@ -1960,8 +2056,8 @@ function applyTrainer(card, side) {
 
   switch (card.id) {
     case 'potion': {
-      const gain = Math.min(active.hp - active.cur, 40);
-      active.cur = Math.min(active.hp, active.cur + 40);
+      const gain = Math.min(active.hp - active.cur, 80);
+      active.cur = Math.min(active.hp, active.cur + 80);
       log(`${pron}使用了【${card.name}】，回復了 ${gain} HP！`, tag);
       updateHp(side, active);
       break;
@@ -1981,7 +2077,7 @@ function applyTrainer(card, side) {
     case 'revive': {
       const fainted = deck.find(p => p.cur <= 0);
       if (fainted) {
-        fainted.cur = 30;
+        fainted.cur = 80;
         log(`${pron}使用了【${card.name}】，${fainted.name} 復活了！`, tag);
       } else {
         log(`${pron}使用了【${card.name}】，但沒有倒下的寶可夢。`, 'system');
@@ -1990,9 +2086,20 @@ function applyTrainer(card, side) {
     }
     case 'nurse':
       active.cur = active.hp;
+      active.status = null;
       log(`${pron}使用了【${card.name}】，${active.name} 完全回復！`, tag);
       updateHp(side, active);
       break;
+    case 'antidote': {
+      if (active.status) {
+        const effectName = STATUS_EFFECT_ZH[active.status.type] || active.status.type;
+        active.status = null;
+        log(`${pron}使用了【${card.name}】，${active.name} 的${effectName}解除了！`, tag);
+      } else {
+        log(`${pron}使用了【${card.name}】，但沒有異常狀態。`, 'system');
+      }
+      break;
+    }
     case 'switch':
       if (side === 'player') {
         G.freeSwitch = true;
@@ -2037,16 +2144,19 @@ function playerAttack(atkIdx) {
   renderBattle();
   G.round++;
 
-  doAttack(P(), CP(), P().attacks[atkIdx], 'player', 'cpu', () => {
+  const afterPlayerTurn = () => {
     if (CP().cur <= 0) {
-      handleKO('cpu', () => {
-        /* cpu lost → cpu sends next → cpu retaliates with new pokemon */
-        setTimeout(cpuAttack, 700);
-      });
+      handleKO('cpu', () => setTimeout(cpuAttack, 700));
     } else {
       setTimeout(cpuAttack, 700);
     }
-  });
+  };
+
+  handleAttackerStatus(P(), 'player',
+    () => doAttack(P(), CP(), P().attacks[atkIdx], 'player', 'cpu', afterPlayerTurn),
+    () => setTimeout(cpuAttack, 700),
+    () => handleKO('player', () => setTimeout(cpuAttack, 700))
+  );
 }
 
 function playerSwitch(deckIdx) {
@@ -2056,7 +2166,12 @@ function playerSwitch(deckIdx) {
   G.busy = true;
   if (!wasFree) G.round++;
 
-  const outName = P().name;
+  const outPoke = P();
+  if (outPoke.status?.type === 'confusion') {
+    outPoke.status = null;
+    log(`${outPoke.name} 的混亂因換場消失了！`, 'system');
+  }
+  const outName = outPoke.name;
   G.playerIdx = deckIdx;
   log(`你將 ${outName} 換回，派出了 ${P().name}！`, 'player');
 
@@ -2082,12 +2197,17 @@ function cpuUseTrainers() {
     if (i === -1) return false;
     const card = hand[i];
     if (card.cat === 'supporter' && G.cpuSuppUsed) return false;
-    if (card.cat === 'supporter') G.cpuSuppUsed = true;
+    if (card.cat === 'supporter' && G.cpuSuppStageUsed >= 2) return false;
+    if (card.cat === 'supporter') { G.cpuSuppUsed = true; G.cpuSuppStageUsed++; }
     hand.splice(i, 1);
     applyTrainer(card, 'cpu');
     return true;
   };
 
+  /* Cure bad status first (sleep / freeze / paralysis / burn) */
+  if (cpu.status && ['sleep','freeze','paralysis','burn'].includes(cpu.status.type)) {
+    useCard('antidote') || useCard('nurse');
+  }
   /* Heal when below 40% HP */
   if (cpu.cur < cpu.hp * 0.4) {
     useCard('nurse') || useCard('potion');
@@ -2108,29 +2228,152 @@ function cpuAttack() {
     ? (cpu.attacks[0].dmg >= cpu.attacks[1].dmg ? 0 : 1)
     : Math.floor(Math.random() * 2);
 
-  doAttack(CP(), P(), CP().attacks[atkIdx], 'cpu', 'player', () => {
-    if (P().cur <= 0) {
-      handleKO('player', () => {
-        G.busy = false;
-        G.playerSuppUsed = false;
-        G.freeSwitch     = false;
-        renderBattle();
-      });
-    } else {
+  const endTurn = () => {
+    G.playerSuppUsed = false;
+    G.freeSwitch     = false;
+    drawAfterTurn(() => {
       G.busy = false;
-      G.playerSuppUsed = false;
-      G.freeSwitch     = false;
       renderBattle();
+    });
+  };
+
+  handleAttackerStatus(CP(), 'cpu',
+    () => doAttack(CP(), P(), CP().attacks[atkIdx], 'cpu', 'player', () => {
+      if (P().cur <= 0) {
+        handleKO('player', endTurn);
+      } else {
+        endTurn();
+      }
+    }),
+    endTurn,
+    () => handleKO('cpu', endTurn)
+  );
+}
+
+/* ─────────────────────────────────────────
+   STATUS EFFECT HELPERS
+───────────────────────────────────────── */
+function handleAttackerStatus(poke, side, onProceed, onSkip, onKO) {
+  const st = poke.status;
+  if (!st) { onProceed(); return; }
+  const label = side === 'player' ? '你的' : '對手的';
+
+  if (st.type === 'sleep') {
+    st.turnsLeft--;
+    if (st.turnsLeft > 0) {
+      log(`${label}${poke.name} 睡著了，無法行動！`, 'special');
+      renderBattle();
+      setTimeout(onSkip, 500);
+    } else {
+      poke.status = null;
+      log(`${label}${poke.name} 從睡眠中醒來了！`, 'special');
+      renderBattle();
+      setTimeout(onProceed, 400);
     }
-  });
+    return;
+  }
+
+  if (st.type === 'paralysis') {
+    if (Math.random() < 0.25) {
+      log(`${label}${poke.name} 因麻痺無法行動！`, 'special');
+      setTimeout(onSkip, 400);
+    } else {
+      onProceed();
+    }
+    return;
+  }
+
+  if (st.type === 'freeze') {
+    if (Math.random() < 0.20) {
+      poke.status = null;
+      log(`${label}${poke.name} 從結凍中解脫了！`, 'special');
+      renderBattle();
+      setTimeout(onProceed, 400);
+    } else {
+      log(`${label}${poke.name} 被冰凍住了，無法行動！`, 'special');
+      setTimeout(onSkip, 400);
+    }
+    return;
+  }
+
+  if (st.type === 'confusion') {
+    st.turnsLeft--;
+    if (st.turnsLeft <= 0) {
+      poke.status = null;
+      log(`${label}${poke.name} 從混亂中清醒了！`, 'special');
+      renderBattle();
+      setTimeout(onProceed, 400);
+      return;
+    }
+    if (Math.random() < 0.5) {
+      const selfDmg = 60;
+      log(`${label}${poke.name} 因混亂攻擊了自己！`, 'special');
+      poke.cur = Math.max(0, poke.cur - selfDmg);
+      log(`${poke.name} 受到了 ${selfDmg} 點傷害！`, 'system');
+      updateHp(side, poke);
+      if (poke.cur <= 0) {
+        setTimeout(onKO, 200);
+      } else {
+        setTimeout(onSkip, 500);
+      }
+    } else {
+      onProceed();
+    }
+    return;
+  }
+
+  if (st.type === 'poison') {
+    const poisonDmg = Math.max(1, Math.floor(poke.hp / 8));
+    poke.cur = Math.max(0, poke.cur - poisonDmg);
+    log(`${label}${poke.name} 因中毒受到了 ${poisonDmg} 點傷害！`, 'special');
+    updateHp(side, poke);
+    if (poke.cur <= 0) {
+      setTimeout(onKO, 200);
+      return;
+    }
+    onProceed();
+    return;
+  }
+
+  if (st.type === 'burn') {
+    const burnDmg = Math.max(1, Math.floor(poke.hp / 16));
+    poke.cur = Math.max(0, poke.cur - burnDmg);
+    log(`${label}${poke.name} 因燒傷受到了 ${burnDmg} 點傷害！`, 'special');
+    updateHp(side, poke);
+    if (poke.cur <= 0) {
+      setTimeout(onKO, 200);
+      return;
+    }
+    onProceed(); // can still attack, but at 70% power (handled in doAttack)
+    return;
+  }
+
+  onProceed();
+}
+
+function tryInflictStatus(atk, target, targetSide) {
+  if (!atk.status) return;
+  if (target.status) return;
+  if (target.cur <= 0) return;
+  if (Math.random() >= atk.status.chance) return;
+  const effect = atk.status.effect;
+  const turnsLeft = effect === 'sleep'     ? (Math.floor(Math.random() * 2) + 2)
+                  : effect === 'confusion' ? (Math.floor(Math.random() * 3) + 2)
+                  : 999;
+  target.status = { type: effect, turnsLeft };
+  const label = targetSide === 'player' ? '你的' : '對手的';
+  const effectVerb = { poison:'中毒', burn:'燒傷', paralysis:'麻痺', sleep:'進入睡眠', freeze:'結凍', confusion:'陷入混亂' };
+  log(`${label}${target.name} ${effectVerb[effect]}了！`, 'special');
+  renderBattle();
 }
 
 function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   const aBuff  = aSide === 'player' ? G.playerBuff : G.cpuBuff;
   const dBuff  = dSide === 'player' ? G.playerBuff : G.cpuBuff;
-  const mult   = eff(atk.type, defender.type);
+  const mult      = eff(atk.type, defender.type);
+  const burnMult  = attacker.status?.type === 'burn' ? 0.7 : 1;
   let dmg = mult === 0 ? 0
-    : Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus) * aBuff.atkMult * mult) - dBuff.shield);
+    : Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus) * aBuff.atkMult * burnMult * mult) - dBuff.shield);
   aBuff.atkBonus = 0; aBuff.atkMult = 1; dBuff.shield = 0;
   const aLabel = aSide === 'player' ? '你的' : '對手的';
   const atkTypeName = TYPE_ZH[atk.type] || atk.type;
@@ -2157,6 +2400,14 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
     else G.cpuDmgDealt += dmg;
     log(`造成了 ${dmg} 點傷害！`, 'system');
     updateHp(dSide, defender);
+
+    if (dmg > 0 && atk.type === 'fire' && defender.status?.type === 'freeze') {
+      defender.status = null;
+      const dLabel = dSide === 'player' ? '你的' : '對手的';
+      log(`${dLabel}${defender.name} 被火焰融化，從結凍中解脫！`, 'special');
+      renderBattle();
+    }
+    if (dmg > 0) tryInflictStatus(atk, defender, dSide);
 
     setTimeout(onDone, 600);
   }, 380);
@@ -2315,7 +2566,7 @@ function showResult(winner) {
 function resetGame() {
   G = {
     playerDeck:[], cpuDeck:[], playerIdx:0, cpuIdx:0, round:0, busy:false,
-    playerHand:[], cpuHand:[], playerSuppUsed:false, cpuSuppUsed:false, freeSwitch:false,
+    playerHand:[], cpuHand:[], playerSuppUsed:false, playerSuppStageUsed:0, cpuSuppUsed:false, cpuSuppStageUsed:0, freeSwitch:false,
     playerBuff:{atkBonus:0,atkMult:1,shield:0}, cpuBuff:{atkBonus:0,atkMult:1,shield:0},
     playerDmgDealt:0, cpuDmgDealt:0, playerCardsUsed:0,
     swapCandidates:[], swapDone:false,
@@ -2325,12 +2576,148 @@ function resetGame() {
 }
 
 document.addEventListener('click', hideBenchPopup);
+
+/* ─────────────────────────────────────────
+   WARNING MODAL
+───────────────────────────────────────── */
+function showWarn(msg) {
+  document.getElementById('warn-msg').textContent = msg;
+  document.getElementById('warn-modal').classList.add('open');
+}
+function closeWarn() {
+  document.getElementById('warn-modal').classList.remove('open');
+}
+
+/* ─────────────────────────────────────────
+   CARD DRAW
+───────────────────────────────────────── */
+let _discardOnDone = null;
+
+function drawAfterTurn(onDone) {
+  // CPU draws 1-2 cards (up to max 5); exclude supporters if stage limit reached
+  const cpuPool = G.cpuSuppStageUsed >= 2 ? TRAINERS.filter(c => c.cat !== 'supporter') : TRAINERS;
+  const cpuN = Math.floor(Math.random() * 2) + 1;
+  for (let i = 0; i < cpuN && G.cpuHand.length < 5; i++) {
+    G.cpuHand.push(cpuPool[Math.floor(Math.random() * cpuPool.length)]);
+  }
+
+  // Player draws 1-2 cards; exclude supporters if stage limit reached
+  const playerPool = G.playerSuppStageUsed >= 2 ? TRAINERS.filter(c => c.cat !== 'supporter') : TRAINERS;
+  const n = Math.floor(Math.random() * 2) + 1;
+  const newCards = [];
+  for (let i = 0; i < n; i++) {
+    newCards.push(playerPool[Math.floor(Math.random() * playerPool.length)]);
+  }
+  G.playerHand.push(...newCards);
+  log(`抽到了：${newCards.map(c => c.name).join('、')}`, 'system');
+
+  if (G.playerHand.length <= 5) {
+    onDone();
+  } else {
+    showDiscardModal(onDone);
+  }
+}
+
+function showDiscardModal(onDone) {
+  _discardOnDone = onDone;
+  const row = document.getElementById('discard-cards');
+  row.innerHTML = '';
+  G.playerHand.forEach((card, i) => {
+    const isSupp = card.cat === 'supporter';
+    const el = document.createElement('div');
+    el.className = `t-card ${card.cat}`;
+    el.innerHTML = `
+      <div class="t-badge">${isSupp ? '支援者' : '道具'}</div>
+      <div class="t-name">${card.name}</div>
+      <div class="t-desc">${card.desc}</div>
+      <button class="t-use-btn" onclick="discardCard(${i})">丟棄</button>
+    `;
+    row.appendChild(el);
+  });
+  document.getElementById('discard-modal').classList.add('open');
+}
+
+function discardCard(idx) {
+  G.playerHand.splice(idx, 1);
+  document.getElementById('discard-modal').classList.remove('open');
+  if (G.playerHand.length > 5) {
+    setTimeout(() => showDiscardModal(_discardOnDone), 80);
+  } else {
+    const cb = _discardOnDone;
+    _discardOnDone = null;
+    cb?.();
+  }
+}
+
+/* ─────────────────────────────────────────
+   GUIDE TABS + DEX
+───────────────────────────────────────── */
+function showGuideTab(tab) {
+  document.getElementById('guide-tab-rules').style.display = tab === 'rules' ? '' : 'none';
+  document.getElementById('guide-tab-dex').style.display   = tab === 'dex'   ? '' : 'none';
+  document.getElementById('tab-btn-rules').classList.toggle('active', tab === 'rules');
+  document.getElementById('tab-btn-dex').classList.toggle('active',   tab === 'dex');
+  if (tab === 'dex') renderDex();
+}
+
+function renderDex() {
+  const container = document.getElementById('guide-tab-dex');
+  if (container.dataset.rendered) return;
+  container.dataset.rendered = '1';
+  const tiers = [
+    { tier:1, label:'第 1 關（弱）' },
+    { tier:2, label:'第 2 關（中）' },
+    { tier:3, label:'第 3 關（強）' },
+  ];
+  let html = '';
+  tiers.forEach(({ tier, label }) => {
+    html += `<div class="dex-tier-label">${label}</div>`;
+    POKEMON.filter(p => p.tier === tier).forEach(p => {
+      const col = TYPE_COLOR[p.type] || '#888';
+      const movesHtml = p.attacks.map(a => {
+        const mc = TYPE_COLOR[a.type] || '#888';
+        const statusHint = a.status
+          ? ` <span style="color:#f8d030;font-size:0.62rem">${STATUS_EFFECT_ZH[a.status.effect]} ${Math.round(a.status.chance*100)}%</span>`
+          : '';
+        return `<div class="dex-move">
+          <span class="dex-move-badge" style="background:${mc}">${TYPE_ZH[a.type]||a.type}</span>${a.name} <span style="color:var(--muted)">${a.dmg}</span>${statusHint}
+        </div>`;
+      }).join('');
+      html += `<div class="dex-card">
+        <img class="dex-sprite" src="${spriteUrl(p.id)}" alt="${p.name}">
+        <div class="dex-info">
+          <div class="dex-name">${p.name}&nbsp;<span class="type-badge" style="background:${col};font-size:0.58rem;padding:0.04rem 0.28rem;vertical-align:middle">${TYPE_ZH[p.type]||p.type}</span></div>
+          <div class="dex-hp">HP ${p.hp}</div>
+          <div class="dex-moves">${movesHtml}</div>
+        </div>
+      </div>`;
+    });
+  });
+  container.innerHTML = html;
+}
 </script>
 <!-- KO switch modal -->
 <div id="ko-switch-modal">
   <div class="ko-switch-inner">
     <div class="ko-switch-title">你的寶可夢倒下了！選擇下一隻出場</div>
     <div id="ko-switch-cards" class="sel-cards-row"></div>
+  </div>
+</div>
+
+<!-- Warning modal -->
+<div id="warn-modal">
+  <div class="warn-inner">
+    <div class="warn-msg" id="warn-msg"></div>
+    <button class="btn btn-primary" style="font-size:0.88rem;padding:0.5rem 1.8rem" onclick="closeWarn()">了解</button>
+  </div>
+</div>
+
+<!-- Discard modal -->
+<div id="discard-modal">
+  <div class="discard-inner">
+    <div class="discard-title">手牌已達上限！</div>
+    <div class="discard-sub">請選擇一張手牌丟棄</div>
+    <div id="discard-cards"></div>
   </div>
 </div>
 
