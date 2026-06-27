@@ -213,6 +213,14 @@
     .warn-inner { background:#0f1228; border:1px solid rgba(239,83,80,0.4); border-radius:16px; padding:1.75rem 2rem; max-width:300px; width:100%; text-align:center; }
     .warn-msg { font-size:0.95rem; font-weight:700; color:#ef9a9a; line-height:1.6; margin-bottom:1.2rem; white-space:pre-line; }
 
+    /* ── Coin flip ── */
+    #coin-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.82); z-index:150; display:none; align-items:center; justify-content:center; flex-direction:column; gap:1.5rem; text-align:center; }
+    #coin-overlay.open { display:flex; }
+    .coin { width:90px; height:90px; border-radius:50%; background:linear-gradient(135deg,#f8d030,#f0a030); border:5px solid #c8880a; font-size:2.5rem; display:flex; align-items:center; justify-content:center; animation:coinSpin 1s ease-in-out; box-shadow:0 0 32px rgba(248,208,48,0.6); }
+    @keyframes coinSpin { 0%{transform:rotateY(0deg) scale(0.3)} 50%{transform:rotateY(720deg) scale(1.2)} 100%{transform:rotateY(1440deg) scale(1)} }
+    .coin-result { font-size:1.3rem; font-weight:900; color:#f8d030; }
+    .coin-sub    { font-size:0.9rem; color:var(--muted); }
+
     /* ── Chat ── */
     #chat-btn { position:fixed; bottom:1.2rem; right:1.2rem; z-index:40; width:48px; height:48px; border-radius:50%; background:linear-gradient(135deg,#6890f0,#7986cb); border:none; font-size:1.3rem; cursor:pointer; box-shadow:0 4px 16px rgba(104,144,240,0.4); transition:transform 0.18s; display:none; }
     #chat-btn:hover { transform:scale(1.12); }
@@ -300,10 +308,13 @@
 <!-- ══ TEAM SELECT ══ -->
 <div id="team-select-screen" class="screen">
   <h2>選擇出戰隊伍</h2>
-  <div class="ts-subtitle">從你的 5 隻寶可夢中選出 3 隻（<span id="ts-count">0</span>/3）</div>
+  <div class="ts-subtitle">從你的 6 隻寶可夢中選出 3 隻（<span id="ts-count">0</span>/3）</div>
   <div class="sel-cards-row" id="ts-cards-row"></div>
   <div id="ts-opponent-status" class="ts-waiting" style="display:none">對手正在選隊伍…</div>
-  <button class="btn btn-primary" id="ts-confirm-btn" disabled onclick="confirmTeam()">確認出戰</button>
+  <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;justify-content:center">
+    <button class="btn btn-secondary" id="ts-reroll-btn" onclick="rerollRoster()" style="font-size:0.88rem;padding:0.55rem 1.4rem">重新生成（剩 <span id="ts-rerolls">3</span> 次）</button>
+    <button class="btn btn-primary" id="ts-confirm-btn" disabled onclick="confirmTeam()">確認出戰</button>
+  </div>
 </div>
 
 <!-- ══ BATTLE ══ -->
@@ -447,6 +458,13 @@
 <div id="dc-overlay">
   <p>對手已離線</p>
   <button class="btn btn-primary" onclick="backToLobby()">返回大廳</button>
+</div>
+
+<!-- ── Coin Flip ── -->
+<div id="coin-overlay">
+  <div class="coin" id="coin-icon">🪙</div>
+  <div class="coin-result" id="coin-result"></div>
+  <div class="coin-sub" id="coin-sub"></div>
 </div>
 
 <!-- ── Chat ── -->
@@ -609,14 +627,21 @@ function handleMsg(msg) {
       document.getElementById('ts-opponent-status').style.display = '';
       break;
 
+    case 'roster_update':
+      myRoster  = msg.roster;
+      tsSelected = [];
+      document.getElementById('ts-rerolls').textContent = msg.rerollsLeft;
+      if (msg.rerollsLeft === 0) document.getElementById('ts-reroll-btn').disabled = true;
+      renderTeamSelect();
+      break;
+
     case 'battle_start':
       applyServerState(msg.state);
       showScreen('battle-screen');
       document.getElementById('battle-log').innerHTML = '';
       document.getElementById('chat-log').innerHTML = '';
-      log('⚔️  對戰開始！', 'system');
       showChatBtn();
-      renderBattle();
+      showCoinFlip(msg.coinFlip);
       break;
 
     case 'update': {
@@ -755,12 +780,32 @@ function toggleTSCard(i) {
   renderTeamSelect();
 }
 
+function rerollRoster() {
+  if (tsConfirmed) return;
+  send({ type: 'reroll' });
+}
+
 function confirmTeam() {
   if (tsSelected.length !== 3 || tsConfirmed) return;
   tsConfirmed = true;
   document.getElementById('ts-confirm-btn').disabled = true;
+  document.getElementById('ts-reroll-btn').disabled  = true;
   document.getElementById('ts-opponent-status').style.display = '';
   send({ type: 'select_team', indices: tsSelected });
+}
+
+function showCoinFlip(firstTurn) {
+  const overlay = document.getElementById('coin-overlay');
+  const isMe    = firstTurn === myRole;
+  document.getElementById('coin-result').textContent = isMe ? '🎉 你先攻！' : '對手先攻！';
+  document.getElementById('coin-sub').textContent    = isMe ? '硬幣正面朝上，你獲得先攻權！' : '硬幣反面朝上，對手先攻！';
+  overlay.classList.add('open');
+  setTimeout(() => {
+    overlay.classList.remove('open');
+    log('⚔️  對戰開始！', 'system');
+    log(isMe ? '🎉 你獲得先攻！' : '對手獲得先攻！', 'system');
+    renderBattle();
+  }, 2800);
 }
 
 /* ─────────────────────────────────────────
@@ -868,8 +913,9 @@ function renderHand() {
   G.playerHand.forEach((card, i) => {
     const isSupp = card.cat === 'supporter';
     const noSwitch = card.id === 'switch' && G.playerDeck.filter((p,j)=>j!==G.playerIdx&&p.cur>0).length===0;
+    const noSwitcher = card.id === 'switcher' && G.cpuDeck.filter((p,j)=>j!==G.cpuIdx&&p.cur>0).length===0;
     const stageFull = isSupp && G.playerSuppStageUsed >= 2;
-    const disabled  = G.busy || (isSupp && G.playerSuppUsed) || noSwitch;
+    const disabled  = G.busy || (isSupp && G.playerSuppUsed) || noSwitch || noSwitcher;
     const suppMeta  = isSupp
       ? `<div style="font-size:0.6rem;color:${stageFull?'#ef5350':'var(--muted)'};margin-top:0.1rem">本場 ${G.playerSuppStageUsed}/2 張</div>`
       : '';

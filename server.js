@@ -95,15 +95,29 @@ const EFF = {
 };
 
 const TRAINERS = [
-  {id:'potion',    name:'傷藥',     cat:'item',      desc:'回復上場寶可夢 80 HP'},
-  {id:'x-atk',    name:'攻擊強化', cat:'item',      desc:'下次攻擊威力 +40'},
-  {id:'x-def',    name:'防禦強化', cat:'item',      desc:'下次受傷害減少 40'},
-  {id:'energize', name:'能量強化', cat:'item',      desc:'下次攻擊傷害 ×2'},
-  {id:'revive',   name:'復活藥',   cat:'item',      desc:'復活備戰欄第一隻倒下的寶可夢（回復 80 HP）'},
-  {id:'antidote', name:'萬能藥',   cat:'item',      desc:'解除上場寶可夢的異常狀態'},
-  {id:'nurse',    name:'治療師',   cat:'supporter', desc:'上場寶可夢完全回復 HP 並解除異常狀態'},
-  {id:'switch',   name:'換人命令', cat:'supporter', desc:'免費換場，不消耗回合'},
-  {id:'all-out',  name:'全力出擊', cat:'supporter', desc:'下次攻擊傷害 ×3'},
+  // ── items ──
+  {id:'potion',     name:'傷藥',       cat:'item',      desc:'回復上場寶可夢 80 HP'},
+  {id:'x-atk',      name:'攻擊強化',   cat:'item',      desc:'下次攻擊威力 +40'},
+  {id:'x-def',      name:'防禦強化',   cat:'item',      desc:'下次受傷害減少 40'},
+  {id:'energize',   name:'能量強化',   cat:'item',      desc:'下次攻擊傷害 ×2，但自身損失 50 HP'},
+  {id:'antidote',   name:'萬能藥',     cat:'item',      desc:'解除上場寶可夢的異常狀態'},
+  {id:'fire-bomb',  name:'火焰彈',     cat:'item',      desc:'讓對手上場寶可夢陷入燒傷'},
+  {id:'gas-attack', name:'瓦斯攻擊',   cat:'item',      desc:'讓對手上場寶可夢陷入中毒'},
+  {id:'switcher',   name:'交換器',     cat:'item',      desc:'讓對手上場寶可夢與備戰寶可夢隨機互換'},
+  {id:'reflect',    name:'反彈鏡',     cat:'item',      desc:'下回合對手的攻擊傷害反彈回自身'},
+  {id:'orb-fire',   name:'火焰寶珠',   cat:'item',      desc:'本回合攻擊改為火屬性'},
+  {id:'orb-water',  name:'水流寶珠',   cat:'item',      desc:'本回合攻擊改為水屬性'},
+  {id:'orb-elec',   name:'電氣寶珠',   cat:'item',      desc:'本回合攻擊改為電屬性'},
+  {id:'orb-psychic',name:'超能寶珠',   cat:'item',      desc:'本回合攻擊改為超能屬性'},
+  {id:'orb-ice',    name:'冰晶寶珠',   cat:'item',      desc:'本回合攻擊改為冰屬性'},
+  {id:'orb-dragon', name:'龍紋寶珠',   cat:'item',      desc:'本回合攻擊改為龍屬性'},
+  {id:'orb-dark',   name:'暗影寶珠',   cat:'item',      desc:'本回合攻擊改為惡屬性'},
+  {id:'orb-fairy',  name:'妖精寶珠',   cat:'item',      desc:'本回合攻擊改為妖精屬性'},
+  // ── supporters ──
+  {id:'revive',     name:'復活藥',     cat:'supporter', desc:'復活備戰欄第一隻倒下的寶可夢（回復 80 HP）'},
+  {id:'nurse',      name:'治療師',     cat:'supporter', desc:'上場寶可夢完全回復 HP 並解除異常狀態'},
+  {id:'switch',     name:'換人命令',   cat:'supporter', desc:'免費換場，不消耗回合'},
+  {id:'all-out',    name:'全力出擊',   cat:'supporter', desc:'下次攻擊傷害 ×3'},
 ];
 
 const STATUS_ZH = {poison:'中毒',burn:'燒傷',paralysis:'麻痺',sleep:'睡眠',freeze:'結凍',confusion:'混亂'};
@@ -196,9 +210,21 @@ function handleStatus(poke, log) {
 
 // Executes attack and mutates defender/buffs. Returns { damage, mult }.
 function doAttack(attacker, defender, atk, aBuff, dBuff, log) {
-  const mult      = srvEff(atk.type, defender.type);
+  const atkType   = aBuff.typeOverride || atk.type;
   const burnMult  = attacker.status?.type === 'burn' ? 0.7 : 1;
 
+  // Reflect mirror: bounce damage back to attacker
+  if (dBuff.reflect) {
+    dBuff.reflect = false;
+    const rawMult = srvEff(atkType, attacker.type);
+    const dmg     = Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus) * aBuff.atkMult * burnMult * (rawMult || 1)));
+    attacker.cur  = Math.max(0, attacker.cur - dmg);
+    log.push({ text: `反彈鏡！攻擊被反彈，${attacker.name} 承受了 ${dmg} 傷害！`, cls: 'special' });
+    aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; dBuff.shield = 0;
+    return { damage: dmg, mult: 1 };
+  }
+
+  const mult = srvEff(atkType, defender.type);
   let damage;
   if (mult === 0) {
     damage = 0;
@@ -207,18 +233,18 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log) {
     damage = Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus) * aBuff.atkMult * burnMult * mult) - dBuff.shield);
     defender.cur = Math.max(0, defender.cur - damage);
 
-    if (mult >= 2)   log.push({ text: `超級有效！`, cls: 'super' });
+    if (mult >= 2)        log.push({ text: `超級有效！`, cls: 'super' });
     else if (mult <= 0.5) log.push({ text: `效果不佳…`, cls: 'resist' });
     log.push({ text: `${attacker.name} 使用了 ${atk.name}，造成 ${damage} 傷害！`, cls: 'attack' });
 
     // Fire thaws freeze
-    if (damage > 0 && atk.type === 'fire' && defender.status?.type === 'freeze') {
+    if (damage > 0 && atkType === 'fire' && defender.status?.type === 'freeze') {
       defender.status = null;
       log.push({ text: `被火焰融化，${defender.name} 從結凍中解脫！`, cls: 'special' });
     }
     // Inflict status
     if (damage > 0 && atk.status && !defender.status && defender.cur > 0 && Math.random() < atk.status.chance) {
-      const effect = atk.status.effect;
+      const effect    = atk.status.effect;
       const turnsLeft = effect === 'sleep' ? (Math.floor(Math.random()*2)+2)
                       : effect === 'confusion' ? (Math.floor(Math.random()*3)+2)
                       : 999;
@@ -228,7 +254,7 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log) {
   }
 
   // Consume buffs
-  aBuff.atkBonus = 0; aBuff.atkMult = 1; dBuff.shield = 0;
+  aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; dBuff.shield = 0;
   return { damage, mult };
 }
 
@@ -255,18 +281,20 @@ function applyTrainer(card, role, G, log) {
       break;
     case 'energize':
       buff.atkMult *= 2;
-      log.push({ text: `使用了能量強化，下次攻擊傷害 ×2！`, cls: 'system' });
+      active.cur = Math.max(1, active.cur - 50);
+      log.push({ text: `使用了能量強化，下次攻擊傷害 ×2！但 ${active.name} 損失 50 HP！`, cls: 'system' });
       break;
     case 'revive': {
       const di = deck.findIndex((p, i) => i !== idx && p.cur <= 0);
       if (di >= 0) { deck[di].cur = 80; log.push({ text: `${deck[di].name} 被復活了！`, cls: 'system' }); }
+      else log.push({ text: `沒有可復活的寶可夢！`, cls: 'system' });
       break;
     }
     case 'antidote':
       if (active.status) {
         const st = STATUS_ZH[active.status.type] || active.status.type;
         active.status = null;
-        log.push({ text: `萬能藥解除了${active.name}的${st}！`, cls: 'system' });
+        log.push({ text: `萬能藥解除了 ${active.name} 的${st}！`, cls: 'system' });
       }
       break;
     case 'nurse':
@@ -281,6 +309,44 @@ function applyTrainer(card, role, G, log) {
       buff.atkMult *= 3;
       log.push({ text: `使用了全力出擊，下次攻擊傷害 ×3！`, cls: 'system' });
       break;
+    case 'fire-bomb': {
+      const opDeck = G[`${op}Deck`]; const opActive = opDeck[G[`${op}Idx`]];
+      if (!opActive.status) { opActive.status = { type: 'burn', turnsLeft: 999 }; log.push({ text: `火焰彈讓 ${opActive.name} 陷入燒傷！`, cls: 'special' }); }
+      else log.push({ text: `${opActive.name} 已有異常狀態，火焰彈無效！`, cls: 'system' });
+      break;
+    }
+    case 'gas-attack': {
+      const opDeck = G[`${op}Deck`]; const opActive = opDeck[G[`${op}Idx`]];
+      if (!opActive.status) { opActive.status = { type: 'poison', turnsLeft: 999 }; log.push({ text: `瓦斯攻擊讓 ${opActive.name} 陷入中毒！`, cls: 'special' }); }
+      else log.push({ text: `${opActive.name} 已有異常狀態，瓦斯攻擊無效！`, cls: 'system' });
+      break;
+    }
+    case 'switcher': {
+      const opRole    = op;
+      const opDeck    = G[`${opRole}Deck`];
+      const opIdx     = G[`${opRole}Idx`];
+      const aliveOpts = opDeck.map((p,i)=>i).filter(i => i !== opIdx && p.cur > 0 && opDeck[i].cur > 0);
+      if (aliveOpts.length > 0) {
+        const newIdx = aliveOpts[Math.floor(Math.random() * aliveOpts.length)];
+        G[`${opRole}Idx`] = newIdx;
+        log.push({ text: `交換器強制換出 ${opDeck[newIdx].name} 上場！`, cls: 'special' });
+      } else {
+        log.push({ text: `對手沒有可換的備戰寶可夢！`, cls: 'system' });
+      }
+      break;
+    }
+    case 'reflect':
+      buff.reflect = true;
+      log.push({ text: `設置了反彈鏡！下次對手攻擊將反彈！`, cls: 'special' });
+      break;
+    case 'orb-fire':    buff.typeOverride = 'fire';    log.push({ text: `火焰寶珠：本回合攻擊改為火屬性！`, cls: 'system' }); break;
+    case 'orb-water':   buff.typeOverride = 'water';   log.push({ text: `水流寶珠：本回合攻擊改為水屬性！`, cls: 'system' }); break;
+    case 'orb-elec':    buff.typeOverride = 'electric'; log.push({ text: `電氣寶珠：本回合攻擊改為電屬性！`, cls: 'system' }); break;
+    case 'orb-psychic': buff.typeOverride = 'psychic'; log.push({ text: `超能寶珠：本回合攻擊改為超能屬性！`, cls: 'system' }); break;
+    case 'orb-ice':     buff.typeOverride = 'ice';     log.push({ text: `冰晶寶珠：本回合攻擊改為冰屬性！`, cls: 'system' }); break;
+    case 'orb-dragon':  buff.typeOverride = 'dragon';  log.push({ text: `龍紋寶珠：本回合攻擊改為龍屬性！`, cls: 'system' }); break;
+    case 'orb-dark':    buff.typeOverride = 'dark';    log.push({ text: `暗影寶珠：本回合攻擊改為惡屬性！`, cls: 'system' }); break;
+    case 'orb-fairy':   buff.typeOverride = 'fairy';   log.push({ text: `妖精寶珠：本回合攻擊改為妖精屬性！`, cls: 'system' }); break;
   }
 }
 
@@ -307,20 +373,23 @@ function genCode() {
   return crypto.randomBytes(2).toString('hex').toUpperCase();
 }
 
+function freshBuff() { return { atkBonus:0, atkMult:1, shield:0, typeOverride:null, reflect:false }; }
+
 function buildG(room) {
+  const firstTurn = Math.random() < 0.5 ? 'p1' : 'p2';
+  room.coinFlip   = firstTurn;
   return {
     p1Deck: room.p1Team.map(clonePoke),
     p2Deck: room.p2Team.map(clonePoke),
     p1Idx: 0, p2Idx: 0,
     round:  1,
-    turn:   'p1',
+    turn:   firstTurn,
     pendingKOSwitch: null,
     p1Hand: dealHand(3), p2Hand: dealHand(3),
     p1SuppUsed: false, p1SuppStageUsed: 0,
     p2SuppUsed: false, p2SuppStageUsed: 0,
     p1FreeSwitch: false, p2FreeSwitch: false,
-    p1Buff: {atkBonus:0,atkMult:1,shield:0},
-    p2Buff: {atkBonus:0,atkMult:1,shield:0},
+    p1Buff: freshBuff(), p2Buff: freshBuff(),
     p1NeedsDiscard: false, p2NeedsDiscard: false,
     winner: null,
   };
@@ -334,7 +403,7 @@ function broadcast(room, msg) {
 }
 
 function randomRoster() {
-  return [...POKEMON].sort(() => Math.random() - 0.5).slice(0, 5);
+  return [...POKEMON].sort(() => Math.random() - 0.5).slice(0, 6);
 }
 
 /* ═══════════════════════════════════════════
@@ -353,7 +422,7 @@ wss.on('connection', ws => {
     if (type === 'create_room') {
       const code   = genCode();
       const roster = randomRoster();
-      const room   = { code, p1: ws, p2: null, phase: 'waiting', p1Roster: roster, p2Roster: null, p1Team: null, p2Team: null, p1Ready: false, p2Ready: false, G: null };
+      const room   = { code, p1: ws, p2: null, phase: 'waiting', p1Roster: roster, p2Roster: null, p1Team: null, p2Team: null, p1Ready: false, p2Ready: false, G: null, p1Rerolls: 0, p2Rerolls: 0, coinFlip: null };
       rooms.set(code, room);
       ws.roomCode = code; ws.role = 'p1';
       send(ws, { type: 'room_created', code, role: 'p1', roster });
@@ -390,8 +459,19 @@ wss.on('connection', ws => {
       if (room.p1Ready && room.p2Ready) {
         room.G     = buildG(room);
         room.phase = 'battle';
-        broadcast(room, { type: 'battle_start', state: room.G });
+        broadcast(room, { type: 'battle_start', state: room.G, coinFlip: room.coinFlip });
       }
+      return;
+    }
+
+    if (type === 'reroll') {
+      if (room.phase !== 'selecting' && room.phase !== 'waiting') return;
+      const key = `${role}Rerolls`;
+      if (room[key] >= 3) { send(ws, { type: 'error', message: '重新生成次數已用完！' }); return; }
+      room[key]++;
+      const newRoster = randomRoster();
+      room[`${role}Roster`] = newRoster;
+      send(ws, { type: 'roster_update', roster: newRoster, rerollsLeft: 3 - room[key] });
       return;
     }
 
