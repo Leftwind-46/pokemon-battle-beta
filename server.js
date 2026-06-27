@@ -534,6 +534,13 @@ wss.on('connection', ws => {
       const log = [{ text: `${deck[newIdx].name} 上場！`, cls: 'system' }];
       broadcast(room, { type: 'update', state: G, log, actor: role }); return;
     }
+
+    if (type === 'chat') {
+      const text    = typeof msg.text    === 'string' ? msg.text.slice(0, 80) : null;
+      const sticker = typeof msg.sticker === 'string' ? msg.sticker.slice(0, 10) : null;
+      if (!text && !sticker) return;
+      broadcast(room, { type: 'chat', role, text, sticker }); return;
+    }
   });
 
   ws.on('close', () => {
