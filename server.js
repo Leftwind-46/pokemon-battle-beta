@@ -260,10 +260,10 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log) {
 
 // Applies a trainer card effect to the given role's side.
 function applyTrainer(card, role, G, log) {
+  const op     = role === 'p1' ? 'p2' : 'p1';
   const deck   = G[`${role}Deck`];
   const idx    = G[`${role}Idx`];
   const buff   = G[`${role}Buff`];
-  const opBuff = G[role === 'p1' ? 'p2Buff' : 'p1Buff'];
   const active = deck[idx];
 
   switch (card.id) {
@@ -276,7 +276,7 @@ function applyTrainer(card, role, G, log) {
       log.push({ text: `使用了攻擊強化，下次攻擊 +40 傷害！`, cls: 'system' });
       break;
     case 'x-def':
-      opBuff.shield += 40;
+      buff.shield += 40;
       log.push({ text: `使用了防禦強化，下次承受傷害 -40！`, cls: 'system' });
       break;
     case 'energize':
@@ -325,7 +325,7 @@ function applyTrainer(card, role, G, log) {
       const opRole    = op;
       const opDeck    = G[`${opRole}Deck`];
       const opIdx     = G[`${opRole}Idx`];
-      const aliveOpts = opDeck.map((p,i)=>i).filter(i => i !== opIdx && p.cur > 0 && opDeck[i].cur > 0);
+      const aliveOpts = opDeck.map((_,i)=>i).filter(i => i !== opIdx && opDeck[i].cur > 0);
       if (aliveOpts.length > 0) {
         const newIdx = aliveOpts[Math.floor(Math.random() * aliveOpts.length)];
         G[`${opRole}Idx`] = newIdx;
@@ -415,6 +415,19 @@ wss.on('connection', ws => {
   ws.on('message', raw => {
     let msg;
     try { msg = JSON.parse(raw); } catch { return; }
+    try { handleMessage(ws, msg); } catch(e) { console.error('WS handler error:', e); }
+  });
+
+  ws.on('close', () => {
+    const room = rooms.get(ws.roomCode);
+    if (!room) return;
+    const op = ws.role === 'p1' ? 'p2' : 'p1';
+    send(room[op], { type: 'opponent_disconnected' });
+    if (room.phase !== 'done') rooms.delete(ws.roomCode);
+  });
+});
+
+function handleMessage(ws, msg) {
     const { type } = msg;
 
     /* ── Lobby ── */
@@ -621,15 +634,6 @@ wss.on('connection', ws => {
       broadcast(room, { type: 'chat', role, text, sticker }); return;
     }
   });
-
-  ws.on('close', () => {
-    const room = rooms.get(ws.roomCode);
-    if (!room) return;
-    const op = ws.role === 'p1' ? 'p2' : 'p1';
-    send(room[op], { type: 'opponent_disconnected' });
-    if (room.phase !== 'done') rooms.delete(ws.roomCode);
-  });
-});
 
 /* ═══════════════════════════════════════════
    DB + LISTEN
