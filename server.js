@@ -633,7 +633,7 @@ function handleMessage(ws, msg) {
       if (!text && !sticker) return;
       broadcast(room, { type: 'chat', role, text, sticker }); return;
     }
-  });
+}
 
 /* ═══════════════════════════════════════════
    DB + LISTEN
