@@ -147,7 +147,14 @@
     .log-msg.super   { color:#f8d030; font-weight:700; }
     .log-msg.resist  { color:#90a4ae; }
     @keyframes fadeUp { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:none} }
-    #action-area { display:flex; gap:0.5rem; margin-top:0.55rem; }
+    #action-area { display:grid; grid-template-columns:1fr 1fr; gap:0.4rem; margin-top:0.35rem; }
+    @keyframes hitPulse { 0%{opacity:1;transform:scale(1);} 60%{opacity:0.85;transform:scale(1.15);} 100%{opacity:0;transform:scale(1.3);} }
+    @keyframes stadiumPop { 0%{transform:scaleY(0);opacity:0;} 60%{transform:scaleY(1.08);} 100%{transform:scaleY(1);opacity:1;} }
+    .active-stadium-bar { display:flex; align-items:center; gap:0.6rem; background:linear-gradient(135deg,rgba(255,140,0,0.22),rgba(255,80,0,0.12)); border:2px solid rgba(255,140,0,0.6); border-radius:10px; padding:0.5rem 0.9rem; margin-bottom:0.35rem; font-size:0.8rem; box-shadow:0 0 12px rgba(255,140,0,0.25); animation:stadiumPop 0.35s ease forwards; }
+    .active-stadium-bar strong { color:#ffb347; font-size:0.88rem; }
+    .stadium-badge { background:rgba(255,140,0,0.5); border:1px solid rgba(255,140,0,0.7); border-radius:999px; padding:0.15rem 0.6rem; font-size:0.65rem; font-weight:800; color:#ffcc70; white-space:nowrap; letter-spacing:0.05em; }
+    .t-card.stadium { border-color:rgba(255,140,0,0.4) !important; }
+    .t-card.stadium .t-badge { background:rgba(255,140,0,0.25); color:#ffa726; }
     #cpu-bcard { cursor:pointer; }
     #cpu-bcard:hover { background:rgba(255,255,255,0.09); }
     .info-hint { position:absolute; bottom:0.28rem; right:0.35rem; font-size:0.62rem; color:rgba(255,255,255,0.3); line-height:1; }
@@ -361,6 +368,7 @@
         <div class="hp-wrap">
           <div class="hp-meta"><span>HP</span><span id="player-hp-text"></span></div>
           <div class="hp-track"><div class="hp-fill" id="player-hp-fill"></div></div>
+          <div id="active-stadium"></div>
           <div id="action-area">
             <button class="btn-atk" id="btn-atk0" onclick="playerAttack(0)">
               <div class="atk-name" id="atk-name0"></div>
@@ -369,6 +377,14 @@
             <button class="btn-atk" id="btn-atk1" onclick="playerAttack(1)">
               <div class="atk-name" id="atk-name1"></div>
               <div class="atk-meta"><span class="atk-type-badge" id="atk-type1"></span><span class="atk-dmg" id="atk-dmg1"></span></div>
+            </button>
+            <button class="btn-atk" id="btn-atk2" onclick="playerAttack(2)">
+              <div class="atk-name" id="atk-name2"></div>
+              <div class="atk-meta"><span class="atk-type-badge" id="atk-type2"></span><span class="atk-dmg" id="atk-dmg2"></span></div>
+            </button>
+            <button class="btn-atk" id="btn-atk3" onclick="playerAttack(3)">
+              <div class="atk-name" id="atk-name3"></div>
+              <div class="atk-meta"><span class="atk-type-badge" id="atk-type3"></span><span class="atk-dmg" id="atk-dmg3"></span></div>
             </button>
           </div>
         </div>
@@ -544,25 +560,53 @@ const STATUS_INFO = {
 };
 const STATUS_EFFECT_ZH = {poison:'中毒',burn:'燒傷',paralysis:'麻痺',sleep:'睡眠',freeze:'結凍',confusion:'混亂'};
 const EFF = {
-  fire:    {grass:2,ice:2,steel:2,water:0.5,fire:0.5,rock:0.5,dragon:0.5},
+  fire:    {grass:2,ice:2,steel:2,bug:2,water:0.5,fire:0.5,rock:0.5,dragon:0.5},
   water:   {fire:2,ground:2,rock:2,water:0.5,grass:0.5,dragon:0.5},
-  grass:   {water:2,ground:2,rock:2,fire:0.5,grass:0.5,flying:0.5,dragon:0.5,steel:0.5},
+  grass:   {water:2,ground:2,rock:2,fire:0.5,grass:0.5,flying:0.5,poison:0.5,dragon:0.5,steel:0.5},
   electric:{water:2,flying:2,electric:0.5,grass:0.5,dragon:0.5,ground:0},
-  psychic: {fighting:2,psychic:0.5,dark:0},
-  fighting:{normal:2,ice:2,rock:2,steel:2,dark:2,psychic:0.5,flying:0.5,fairy:0.5,ghost:0},
+  psychic: {fighting:2,poison:2,psychic:0.5,steel:0.5,dark:0},
+  fighting:{normal:2,ice:2,rock:2,steel:2,dark:2,psychic:0.5,flying:0.5,poison:0.5,fairy:0.5,ghost:0},
   ghost:   {ghost:2,psychic:2,dark:0.5,normal:0},
   dragon:  {dragon:2,steel:0.5,fairy:0},
   steel:   {ice:2,rock:2,fairy:2,fire:0.5,water:0.5,electric:0.5,steel:0.5},
   ice:     {grass:2,ground:2,flying:2,dragon:2,fire:0.5,water:0.5,ice:0.5,steel:0.5},
   normal:  {rock:0.5,steel:0.5,ghost:0},
   dark:    {psychic:2,ghost:2,dark:0.5,fighting:0.5,fairy:0.5},
-  flying:  {fighting:2,grass:2,electric:0.5,rock:0.5,steel:0.5},
-  ground:  {fire:2,electric:2,rock:2,steel:2,grass:0.5,flying:0},
-  rock:    {fire:2,ice:2,flying:2,fighting:0.5,ground:0.5,steel:0.5},
-  fairy:   {dragon:2,dark:2,fighting:2,fire:0.5,steel:0.5},
+  flying:  {fighting:2,grass:2,bug:2,electric:0.5,rock:0.5,steel:0.5},
+  ground:  {fire:2,electric:2,poison:2,rock:2,steel:2,grass:0.5,flying:0},
+  rock:    {fire:2,ice:2,flying:2,bug:2,fighting:0.5,ground:0.5,steel:0.5},
+  fairy:   {dragon:2,dark:2,fighting:2,fire:0.5,poison:0.5,steel:0.5},
+  poison:  {grass:2,fairy:2,poison:0.5,ground:0.5,rock:0.5,ghost:0.5,steel:0},
 };
 
 function spriteUrl(id){ return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`; }
+
+const HIT_COLORS = {
+  fire:'rgba(255,80,0,0.75)', water:'rgba(30,120,255,0.65)', electric:'rgba(255,220,0,0.85)',
+  ice:'rgba(80,210,255,0.75)', grass:'rgba(50,200,60,0.65)', psychic:'rgba(200,0,200,0.65)',
+  fighting:'rgba(200,0,0,0.65)', ghost:'rgba(90,0,130,0.75)', dragon:'rgba(70,0,255,0.65)',
+  dark:'rgba(0,0,0,0.80)', steel:'rgba(170,170,190,0.75)', ground:'rgba(180,120,0,0.65)',
+  flying:'rgba(150,130,255,0.55)', rock:'rgba(130,110,0,0.65)', fairy:'rgba(255,80,180,0.65)',
+  normal:'rgba(200,200,200,0.55)', poison:'rgba(140,0,200,0.65)',
+};
+const HIT_EMOJI = {
+  fire:'🔥',water:'💧',electric:'⚡',ice:'❄️',grass:'🌿',psychic:'🔮',
+  fighting:'👊',ghost:'👻',dragon:'🐲',dark:'🌑',steel:'⚙️',ground:'💥',
+  flying:'💨',rock:'🪨',fairy:'✨',normal:'💫',poison:'☠️',
+};
+function showHitEffect(atkType, targetEl) {
+  const bg = HIT_COLORS[atkType] || 'rgba(200,200,200,0.5)';
+  const emoji = HIT_EMOJI[atkType] || '💥';
+  const overlay = document.createElement('div');
+  overlay.style.cssText = `position:absolute;inset:0;border-radius:10px;pointer-events:none;z-index:20;
+    background:radial-gradient(circle,${bg} 0%,transparent 70%);
+    display:flex;align-items:center;justify-content:center;font-size:2rem;
+    animation:hitPulse 0.55s ease forwards;`;
+  overlay.textContent = emoji;
+  targetEl.style.position = 'relative';
+  targetEl.appendChild(overlay);
+  setTimeout(() => overlay.remove(), 600);
+}
 
 /* ─────────────────────────────────────────
    CLIENT STATE
@@ -663,10 +707,13 @@ function handleMsg(msg) {
       for (const entry of (msg.log || [])) log(entry.text, entry.cls);
       applyServerState(msg.state);
       renderBattle();
-      // Animate attacker's card
+      // Animate attacker's card + hit effect on defender
       const actorDeck = msg.actor === myRole ? 'player' : 'cpu';
+      const defDeck   = msg.actor === myRole ? 'cpu' : 'player';
       const card = document.getElementById(`${actorDeck}-bcard`);
       if (card) { card.classList.add('anim-flash'); card.addEventListener('animationend', ()=>card.classList.remove('anim-flash'),{once:true}); }
+      const defCard = document.getElementById(`${defDeck}-bcard`);
+      if (defCard && msg.atkType) showHitEffect(msg.atkType, defCard);
       // KO switch check
       if (msg.state.pendingKOSwitch === myRole) showKOSwitch();
       // Discard check
@@ -846,12 +893,21 @@ function renderBattle() {
 function renderSide(side, poke, deck, activeIdx) {
   if (!poke) return;
   const col = TYPE_COLOR[poke.type] || '#888';
-  document.getElementById(`${side}-strip`).style.background  = col;
+  const stripEl = document.getElementById(`${side}-strip`);
+  stripEl.style.background = poke.type2
+    ? `linear-gradient(90deg, ${col} 50%, ${TYPE_COLOR[poke.type2]||'#888'} 50%)`
+    : col;
   document.getElementById(`${side}-sprite`).src              = spriteUrl(poke.id);
   document.getElementById(`${side}-name`).textContent        = poke.name;
   const badge = document.getElementById(`${side}-badge`);
-  badge.textContent       = TYPE_ZH[poke.type] || poke.type;
-  badge.style.background  = col;
+  if (poke.type2) {
+    const col2 = TYPE_COLOR[poke.type2] || '#888';
+    badge.innerHTML = `<span style="background:${col};border-radius:999px;padding:0.1rem 0.4rem;font-size:0.65rem;font-weight:700;color:#fff;margin-right:2px">${TYPE_ZH[poke.type]||poke.type}</span><span style="background:${col2};border-radius:999px;padding:0.1rem 0.4rem;font-size:0.65rem;font-weight:700;color:#fff">${TYPE_ZH[poke.type2]||poke.type2}</span>`;
+    badge.style.background = 'transparent';
+  } else {
+    badge.textContent      = TYPE_ZH[poke.type] || poke.type;
+    badge.style.background = col;
+  }
   const cur = Math.max(0, poke.cur ?? poke.hp);
   const pct = Math.round((cur / poke.hp) * 100);
   document.getElementById(`${side}-hp-text`).textContent = `${cur} / ${poke.hp}`;
@@ -901,21 +957,23 @@ function renderSide(side, poke, deck, activeIdx) {
 
 function renderActions() {
   if (!P()) return;
-  const atks = P().attacks;
-  for (let i = 0; i < 2; i++) {
-    const a   = atks[i];
+  const p = P(); const cp = CP();
+  p.attacks.forEach((a, i) => {
+    const btn = document.getElementById(`btn-atk${i}`);
+    if (!btn) return;
     const col = TYPE_COLOR[a.type] || '#888';
-    const mult = (EFF[a.type]||{})[CP()?.type] ?? 1;
-    let borderColor = col;
-    document.getElementById(`btn-atk${i}`).disabled = G.busy;
-    document.getElementById(`btn-atk${i}`).style.borderLeftColor = borderColor;
+    const mult = eff(a.type, cp?.type, cp?.type2);
+    btn.disabled = G.busy;
+    btn.style.borderLeftColor = col;
     document.getElementById(`atk-name${i}`).textContent = a.name;
     document.getElementById(`atk-type${i}`).textContent = TYPE_ZH[a.type] || a.type;
     document.getElementById(`atk-type${i}`).style.background = col;
+    const stab = (a.type === p.type || (p.type2 && a.type === p.type2)) ? ' ★' : '';
     const statusHint = a.status ? ` · ${STATUS_EFFECT_ZH[a.status.effect]}${Math.round(a.status.chance*100)}%` : '';
-    const effHint = mult===2 ? ' ⚡×2' : mult===0 ? ' ✕' : mult===0.5 ? ' ▽×0.5' : '';
-    document.getElementById(`atk-dmg${i}`).textContent = `威力 ${a.dmg}${statusHint}${effHint}`;
-  }
+    const effHint = mult>=4 ? ' ×4' : mult===2 ? ' ×2' : mult===0 ? ' ✕' : mult<1 ? ' ▽' : '';
+    document.getElementById(`atk-dmg${i}`).textContent = `威力 ${a.dmg}${statusHint}${stab}${effHint}`;
+  });
+  renderActiveStadium();
 }
 
 function renderHand() {
@@ -933,10 +991,12 @@ function renderHand() {
     const suppMeta  = isSupp
       ? `<div style="font-size:0.6rem;color:${stageFull?'#ef5350':'var(--muted)'};margin-top:0.1rem">本場 ${G.playerSuppStageUsed}/2 張</div>`
       : '';
+    const isStadium = card.cat === 'stadium';
+    const badgeLabel = isSupp ? '支援者' : isStadium ? '競技場' : '道具';
     const el = document.createElement('div');
     el.className = `t-card ${card.cat}`;
     el.innerHTML = `
-      <div class="t-badge">${isSupp?'支援者':'道具'}</div>
+      <div class="t-badge">${badgeLabel}</div>
       <div class="t-name">${card.name}</div>
       <div class="t-desc">${card.desc}</div>
       ${suppMeta}
@@ -1038,34 +1098,58 @@ function showResult(iWon) {
 /* ─────────────────────────────────────────
    TYPE CHART
 ───────────────────────────────────────── */
+function eff(atkType, defType, defType2) {
+  const m1 = (EFF[atkType] || {})[defType] ?? 1;
+  const m2 = defType2 ? ((EFF[atkType] || {})[defType2] ?? 1) : 1;
+  return m1 * m2;
+}
+
+function renderActiveStadium() {
+  const el = document.getElementById('active-stadium');
+  if (!el) return;
+  const st = G.activeStadium || G.serverState?.activeStadium;
+  if (st) {
+    el.className = 'active-stadium-bar';
+    el.innerHTML = `<span class="stadium-badge">🏟 競技場</span><strong>${st.name}</strong><span style="font-size:0.72rem;color:rgba(255,200,120,0.8)">${st.desc}</span>`;
+  } else {
+    el.className = '';
+    el.innerHTML = '';
+  }
+}
+
 function renderTypeChart() {
   const p = P(), cp = CP();
   if (!p || !cp) return;
   const panel = document.getElementById('type-chart');
-  const playerAtks = p.attacks;
-  const offRows = playerAtks.map(a => {
-    const m = (EFF[a.type]||{})[cp.type]??1;
-    const cls = m>=2?'x2':m===0?'x0':m<1?'x05':'';
-    const label = m>=2?'×2':m===0?'×0':m<1?'×0.5':'×1';
-    return cls ? `<div class="tc-row"><span class="tc-mul ${cls}">${label}</span><span class="type-badge" style="background:${TYPE_COLOR[a.type]||'#888'};font-size:0.62rem">${TYPE_ZH[a.type]||a.type}</span><span style="font-size:0.78rem">${a.name}</span></div>` : '';
+  const typeBadge = (t) => `<span class="type-badge" style="background:${TYPE_COLOR[t]||'#888'};font-size:0.6rem">${TYPE_ZH[t]||t}</span>`;
+  const offRows = p.attacks.map(a => {
+    const m = eff(a.type, cp.type, cp.type2);
+    const cls = m>=4?'x2':m>=2?'x2':m===0?'x0':m<1?'x05':'';
+    const label = m>=4?'×4':m>=2?'×2':m===0?'×0':m<1?`×${m}`:'×1';
+    return cls ? `<div class="tc-row"><span class="tc-mul ${cls}">${label}</span>${typeBadge(a.type)}<span style="font-size:0.78rem">${a.name}</span></div>` : '';
   }).join('');
-  const defTypes = Object.entries(EFF).filter(([at]) => (EFF[at][cp.type]??1)!==1);
-  const weakRows  = defTypes.filter(([,v])=>v[cp.type]>=2).map(([at])=>`<span class="type-badge" style="background:${TYPE_COLOR[at]||'#888'};font-size:0.6rem">${TYPE_ZH[at]||at}</span>`).join('');
-  const resistRows= defTypes.filter(([,v])=>v[cp.type]>0&&v[cp.type]<1).map(([at])=>`<span class="type-badge" style="background:${TYPE_COLOR[at]||'#888'};font-size:0.6rem">${TYPE_ZH[at]||at}</span>`).join('');
-  const immuneRows= defTypes.filter(([,v])=>v[cp.type]===0).map(([at])=>`<span class="type-badge" style="background:${TYPE_COLOR[at]||'#888'};font-size:0.6rem">${TYPE_ZH[at]||at}</span>`).join('');
+  const combined = {};
+  Object.keys(EFF).forEach(at => { const m = eff(at, cp.type, cp.type2); if (m !== 1) combined[at] = m; });
+  const x4rows    = Object.entries(combined).filter(([,v])=>v>=4).map(([t])=>typeBadge(t)).join('');
+  const weakRows   = Object.entries(combined).filter(([,v])=>v===2).map(([t])=>typeBadge(t)).join('');
+  const resistRows = Object.entries(combined).filter(([,v])=>v>0&&v<1).map(([t])=>typeBadge(t)).join('');
+  const immuneRows = Object.entries(combined).filter(([,v])=>v===0).map(([t])=>typeBadge(t)).join('');
+  const cpTypeBadge = `${typeBadge(cp.type)}${cp.type2?typeBadge(cp.type2):''}`;
+  const pTypeBadge  = `${typeBadge(p.type)}${p.type2?typeBadge(p.type2):''}`;
   panel.innerHTML = `
     <div class="tc-title">屬性相剋</div>
     <div class="tc-section">
-      <div class="tc-heading">你的屬性 <span class="type-badge" style="background:${TYPE_COLOR[p.type]||'#888'};font-size:0.65rem">${TYPE_ZH[p.type]||p.type}</span></div>
+      <div class="tc-heading">你的屬性 ${pTypeBadge}</div>
       ${offRows || '<div class="tc-empty">無特殊效果</div>'}
     </div>
     <hr class="tc-divider">
     <div class="tc-section">
-      <div class="tc-heading">對手的屬性 <span class="type-badge" style="background:${TYPE_COLOR[cp.type]||'#888'};font-size:0.65rem">${TYPE_ZH[cp.type]||cp.type}</span></div>
-      ${weakRows   ? `<div class="tc-row"><span class="tc-mul x2">×2 弱</span>${weakRows}</div>` : ''}
-      ${resistRows ? `<div class="tc-row"><span class="tc-mul x05">×0.5</span>${resistRows}</div>` : ''}
-      ${immuneRows ? `<div class="tc-row"><span class="tc-mul x0">免疫</span>${immuneRows}</div>` : ''}
-      ${!weakRows&&!resistRows&&!immuneRows ? '<div class="tc-empty">無特殊效果</div>' : ''}
+      <div class="tc-heading">對手的屬性 ${cpTypeBadge}</div>
+      ${x4rows    ? `<div class="tc-row"><span class="tc-mul x2" style="background:rgba(200,0,0,0.3)">×4弱</span>${x4rows}</div>` : ''}
+      ${weakRows  ? `<div class="tc-row"><span class="tc-mul x2">×2 弱</span>${weakRows}</div>` : ''}
+      ${resistRows? `<div class="tc-row"><span class="tc-mul x05">抵抗</span>${resistRows}</div>` : ''}
+      ${immuneRows? `<div class="tc-row"><span class="tc-mul x0">免疫</span>${immuneRows}</div>` : ''}
+      ${!x4rows&&!weakRows&&!resistRows&&!immuneRows ? '<div class="tc-empty">無特殊效果</div>' : ''}
     </div>
   `;
 }
@@ -1089,12 +1173,17 @@ function showBenchPopup(e, poke, deckIdx, canSwitch, freeSwitch) {
   const cur   = Math.max(0, poke.cur ?? poke.hp);
   const pct   = Math.round((cur / poke.hp) * 100);
   const hpCol = pct>50?'#4caf50':pct>20?'#ff9800':'#ef5350';
-  const movesHtml = poke.attacks.map(a => `
-    <div class="bp-move">
+  const typeBadges = poke.type2
+    ? `<span class="type-badge" style="background:${col};font-size:0.6rem;margin-right:2px">${TYPE_ZH[poke.type]||poke.type}</span><span class="type-badge" style="background:${TYPE_COLOR[poke.type2]||'#888'};font-size:0.6rem">${TYPE_ZH[poke.type2]||poke.type2}</span>`
+    : `<span class="type-badge" style="background:${col};font-size:0.6rem">${TYPE_ZH[poke.type]||poke.type}</span>`;
+  const movesHtml = poke.attacks.map(a => {
+    const stab = (a.type === poke.type || (poke.type2 && a.type === poke.type2)) ? ' ★' : '';
+    return `<div class="bp-move">
       <span class="type-badge" style="background:${TYPE_COLOR[a.type]||'#888'};font-size:0.6rem">${TYPE_ZH[a.type]||a.type}</span>
-      <span class="bp-move-name">${a.name}</span>
+      <span class="bp-move-name">${a.name}${stab}</span>
       <span class="bp-move-dmg">${a.dmg}</span>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   const switchBtn = canSwitch
     ? `<button class="bp-switch-btn" onclick="playerSwitch(${deckIdx})">${freeSwitch?'免費換場 ⚡':'換上場'}</button>`
     : (poke.cur<=0 ? '<div style="font-size:0.78rem;color:#ef5350;text-align:center">已倒下</div>' : '');
@@ -1102,7 +1191,7 @@ function showBenchPopup(e, poke, deckIdx, canSwitch, freeSwitch) {
     <div class="bp-header">
       <img src="${spriteUrl(poke.id)}" alt="${poke.name}">
       <div>
-        <div class="bp-pname">${poke.name} <span class="type-badge" style="background:${col};font-size:0.6rem">${TYPE_ZH[poke.type]||poke.type}</span></div>
+        <div class="bp-pname">${poke.name} ${typeBadges}</div>
         <div class="bp-hp">HP <span style="color:${hpCol}">${cur}</span> / ${poke.hp}</div>
       </div>
     </div>
@@ -1125,15 +1214,18 @@ function cpuCardClick(e) {
   const cp = CP();
   const col = TYPE_COLOR[cp.type]||'#888';
   const cur = Math.max(0, cp.cur??cp.hp);
+  const cpTypeBadges = cp.type2
+    ? `<span class="type-badge" style="background:${col};font-size:0.6rem;margin-right:2px">${TYPE_ZH[cp.type]||cp.type}</span><span class="type-badge" style="background:${TYPE_COLOR[cp.type2]||'#888'};font-size:0.6rem">${TYPE_ZH[cp.type2]||cp.type2}</span>`
+    : `<span class="type-badge" style="background:${col};font-size:0.6rem">${TYPE_ZH[cp.type]||cp.type}</span>`;
   popup.innerHTML = `
     <div class="bp-header">
       <img src="${spriteUrl(cp.id)}" alt="${cp.name}">
       <div>
-        <div class="bp-pname">${cp.name} <span class="type-badge" style="background:${col};font-size:0.6rem">${TYPE_ZH[cp.type]||cp.type}</span></div>
+        <div class="bp-pname">${cp.name} ${cpTypeBadges}</div>
         <div class="bp-hp">HP ${cur} / ${cp.hp}</div>
       </div>
     </div>
-    <div class="bp-moves">${cp.attacks.map(a=>`<div class="bp-move"><span class="type-badge" style="background:${TYPE_COLOR[a.type]||'#888'};font-size:0.6rem">${TYPE_ZH[a.type]||a.type}</span><span class="bp-move-name">${a.name}</span><span class="bp-move-dmg">${a.dmg}</span></div>`).join('')}</div>
+    <div class="bp-moves">${cp.attacks.map(a=>{const stab=(a.type===cp.type||(cp.type2&&a.type===cp.type2))?'★':'';return`<div class="bp-move"><span class="type-badge" style="background:${TYPE_COLOR[a.type]||'#888'};font-size:0.6rem">${TYPE_ZH[a.type]||a.type}</span><span class="bp-move-name">${a.name}${stab}</span><span class="bp-move-dmg">${a.dmg}</span></div>`;}).join('')}</div>
   `;
   popup.style.display = 'block';
   const rect = e.currentTarget.getBoundingClientRect();
