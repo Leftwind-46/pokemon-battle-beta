@@ -164,103 +164,61 @@
       gap: 0.75rem;
     }
 
-    /* ── Type Chart Panel ── */
-    .tc-panel {
-      width: 230px;
+    /* ── Hand Drawer (right panel) ── */
+    #hand-drawer {
+      width: 175px;
       flex-shrink: 0;
       position: sticky;
       top: 1rem;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 1.1rem 1rem;
-    }
-    .tc-title {
-      font-size: 0.8rem;
-      font-weight: 700;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      margin-bottom: 0.85rem;
-    }
-    .tc-section { margin-bottom: 0.9rem; }
-    .tc-heading {
-      font-size: 0.9rem;
-      font-weight: 700;
-      color: var(--text);
-      margin-bottom: 0.55rem;
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-      flex-wrap: wrap;
-    }
-    .tc-row {
-      display: flex;
-      align-items: center;
-      gap: 0.35rem;
-      flex-wrap: wrap;
-      margin-bottom: 0.38rem;
-    }
-    .tc-mul {
-      font-size: 0.7rem;
-      font-weight: 700;
-      border-radius: 4px;
-      padding: 0.1rem 0.38rem;
-      flex-shrink: 0;
-    }
-    .tc-mul.x2  { background: rgba(239,83,80,0.25);  color: #ef5350; border: 1px solid rgba(239,83,80,0.4); }
-    .tc-mul.x05 { background: rgba(144,202,249,0.2); color: #90caf9; border: 1px solid rgba(144,202,249,0.35); }
-    .tc-mul.x0  { background: rgba(120,120,120,0.2); color: #888;    border: 1px solid rgba(120,120,120,0.3); }
-    .tc-empty   { font-size: 0.8rem; color: var(--muted); }
-    .tc-divider { border: none; border-top: 1px solid var(--border); margin: 0.8rem 0; }
-
-    /* Type chart toggle button — hidden on wide screens */
-    #tc-toggle-btn {
-      display: none;
       align-self: flex-start;
-      background: rgba(255,255,255,0.07);
+      display: flex;
+      flex-direction: column;
+    }
+    #hand-drawer-btn {
+      background: rgba(255,255,255,0.06);
       border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.55rem 0.85rem;
       color: var(--text);
-      border-radius: 999px;
-      padding: 0.32rem 0.85rem;
-      font-size: 0.78rem;
+      font-size: 0.82rem;
       font-weight: 700;
       cursor: pointer;
+      text-align: center;
       transition: background 0.15s;
+      width: 100%;
     }
-    #tc-toggle-btn:hover { background: rgba(255,255,255,0.14); }
-
-    /* Backdrop for mobile overlay */
-    #tc-backdrop {
+    #hand-drawer-btn:hover { background: rgba(255,255,255,0.12); }
+    #hand-drawer-btn.open {
+      background: rgba(121,134,203,0.18);
+      border-color: rgba(121,134,203,0.5);
+      border-radius: 12px 12px 0 0;
+    }
+    #hand-panel {
       display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.55);
-      z-index: 49;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 12px 12px;
+      padding: 0.6rem;
     }
-    #tc-backdrop.open { display: block; }
+    #hand-panel.open { display: block; }
+    #hand-area { display: flex; flex-direction: column; gap: 0.5rem; }
+    #hand-panel .t-card { flex: none; min-width: unset; width: 100%; }
 
     @media (max-width: 900px) {
-      /* On mobile: log is inline (no sticky panel), type-chart is fixed slide-in */
       #battle-log {
         width: 100% !important;
         position: relative !important;
         max-height: 100px;
         order: 2;
       }
-      .tc-panel {
-        position: fixed !important;
+      #hand-drawer {
+        width: 100%;
+        position: relative;
         top: 0;
-        left: -250px;
-        bottom: 0;
-        width: 240px;
-        z-index: 50;
-        border-radius: 0 16px 16px 0;
-        overflow-y: auto;
-        transition: left 0.25s ease;
       }
-      .tc-panel.open { left: 0; }
-      #tc-toggle-btn { display: inline-flex; }
+      #hand-panel.open { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+      #hand-panel .t-card { flex: 1; min-width: 110px; width: auto; }
     }
 
     .field {
@@ -347,7 +305,7 @@
       border: 1px solid rgba(255,255,255,0.15);
       border-radius: 14px;
       padding: 0.9rem;
-      width: 210px;
+      width: 260px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.65);
     }
     .bp-header { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.45rem; }
@@ -1279,8 +1237,6 @@
   <!-- Main battle content -->
   <div class="battle-main">
 
-  <button id="tc-toggle-btn" onclick="toggleTypeChart()">⚡ 屬性表</button>
-
   <!-- CPU field -->
   <div class="field" id="cpu-field">
     <div class="field-label">對手 &nbsp;<span id="stage-label" style="font-size:0.62rem;color:#f8d030;font-weight:700;letter-spacing:0;margin-right:0.4rem"></span><span id="cpu-hand-count" style="font-size:0.62rem;color:var(--muted);font-weight:400;letter-spacing:0"></span></div>
@@ -1306,20 +1262,20 @@
     <div class="bench-row" id="cpu-bench"></div>
   </div>
 
-  <!-- Type Chart (inline center on desktop) -->
-  <div id="type-chart" class="tc-panel"></div>
+  <div id="active-stadium"></div>
 
   <!-- Player field -->
   <div class="field" id="player-field">
     <div class="field-label">你的寶可夢 &nbsp;<span style="font-size:0.65rem;color:#90caf9;font-weight:400;letter-spacing:0">(點備戰欄可換場)</span></div>
     <div class="active-area">
-      <div class="b-card" id="player-bcard">
+      <div class="b-card" id="player-bcard" onclick="playerCardClick(event)">
         <div class="type-strip" id="player-strip"></div>
         <img id="player-sprite" src="" alt="">
         <div class="b-name" id="player-name"></div>
         <div class="type-badge" id="player-badge"></div>
         <div id="player-status" style="display:none"></div>
         <div class="buff-tags" id="player-buff-tags"></div>
+        <div class="info-hint">ℹ</div>
       </div>
       <div class="hp-wrap">
         <div class="hp-meta">
@@ -1364,13 +1320,16 @@
     <div class="bench-row" id="player-bench"></div>
   </div>
 
-  <!-- Hand -->
-  <div id="hand-section">
-    <div class="hand-label">手牌</div>
-    <div id="hand-area"></div>
+  </div><!-- /.battle-main -->
+
+  <!-- Hand Drawer (right panel) -->
+  <div id="hand-drawer">
+    <button id="hand-drawer-btn" onclick="toggleHandDrawer()">🃏 <span id="hand-count-label">手牌</span></button>
+    <div id="hand-panel">
+      <div id="hand-area"></div>
+    </div>
   </div>
 
-  </div><!-- /.battle-main -->
 </div>
 
 <!-- ══ RESULT ══ -->
@@ -1965,12 +1924,17 @@ function showBenchPopup(poke, canSwitch, switchIdx, anchorEl) {
   const popup = document.getElementById('bench-popup');
 
   document.getElementById('bp-sprite').src = spriteUrl(poke.id);
-  const pname = document.getElementById('bp-pname');
-  pname.textContent = poke.name;
+  document.getElementById('bp-pname').textContent = poke.name;
 
   const badge = document.getElementById('bp-type-badge');
   badge.textContent = TYPE_ZH[poke.type] || poke.type;
   badge.style.background = TYPE_COLOR[poke.type] || '#888';
+  const badge2 = document.getElementById('bp-type-badge2');
+  if (poke.type2) {
+    badge2.textContent = TYPE_ZH[poke.type2] || poke.type2;
+    badge2.style.background = TYPE_COLOR[poke.type2] || '#888';
+    badge2.style.display = '';
+  } else { badge2.style.display = 'none'; }
 
   const hpPct = poke.cur <= 0 ? 0 : Math.round(poke.cur / poke.hp * 100);
   const hpC   = hpPct > 50 ? '#4caf50' : hpPct > 20 ? '#ffc107' : '#ef5350';
@@ -1979,20 +1943,43 @@ function showBenchPopup(poke, canSwitch, switchIdx, anchorEl) {
     : `<span style="color:var(--muted)">HP</span> <span style="color:${hpC};font-weight:700">${poke.cur} / ${poke.hp}</span>`;
 
   poke.attacks.forEach((atk, i) => {
+    const el = document.getElementById(`bp-move${i}`);
+    if (!el) return;
     const col = TYPE_COLOR[atk.type] || '#888';
     const stabMark = (atk.type === poke.type || (poke.type2 && atk.type === poke.type2)) ? ' ★' : '';
-    document.getElementById(`bp-move${i}`).innerHTML =
+    el.innerHTML =
       `<span class="type-badge" style="background:${col};font-size:0.6rem;padding:0.05rem 0.38rem">${TYPE_ZH[atk.type]||atk.type}</span>` +
       `<span class="bp-move-name">${atk.name}${stabMark}</span>` +
       `<span class="bp-move-dmg">威力${atk.dmg}</span>`;
   });
 
+  // Defensive type chart
+  const tcEl = document.getElementById('bp-type-chart');
+  if (tcEl) {
+    const b = t => `<span class="type-badge" style="background:${TYPE_COLOR[t]||'#888'};font-size:0.62rem;padding:0.04rem 0.38rem">${TYPE_ZH[t]||t}</span>`;
+    const weak4=[], weak2=[], res025=[], res05=[], imm=[];
+    for (const at of Object.keys(EFF)) {
+      const m = eff(at, poke.type, poke.type2);
+      if      (m >= 4)    weak4.push(at);
+      else if (m >= 2)    weak2.push(at);
+      else if (m === 0)   imm.push(at);
+      else if (m <= 0.25) res025.push(at);
+      else if (m <= 0.5)  res05.push(at);
+    }
+    let h = '';
+    if (weak4.length)  h += `<div style="margin-bottom:0.22rem"><span style="color:#ef5350;font-weight:700;font-size:0.65rem">弱×4　</span>${weak4.map(b).join('')}</div>`;
+    if (weak2.length)  h += `<div style="margin-bottom:0.22rem"><span style="color:#ef9090;font-weight:700;font-size:0.65rem">弱×2　</span>${weak2.map(b).join('')}</div>`;
+    const resAll = [...res025.map(t=>b(t)+'<sup style="color:#90caf9;font-size:0.5rem">¼</sup>'), ...res05.map(b)];
+    if (resAll.length) h += `<div style="margin-bottom:0.22rem"><span style="color:#90caf9;font-weight:700;font-size:0.65rem">抵抗　</span>${resAll.join('')}</div>`;
+    if (imm.length)    h += `<div><span style="color:#888;font-weight:700;font-size:0.65rem">無效　</span>${imm.map(b).join('')}</div>`;
+    tcEl.innerHTML = h || '';
+  }
+
   document.getElementById('bp-switch-btn').style.display = canSwitch ? '' : 'none';
   popup.style.display = 'block';
 
-  // Position near anchor element
   const rect = anchorEl.getBoundingClientRect();
-  const pw = 210, ph = popup.offsetHeight;
+  const pw = 260, ph = popup.offsetHeight || 380;
   let left = rect.left + rect.width / 2 - pw / 2;
   let top  = rect.top - ph - 10;
   if (top < 8) top = rect.bottom + 10;
@@ -2005,6 +1992,17 @@ function showBenchPopup(poke, canSwitch, switchIdx, anchorEl) {
 function hideBenchPopup() {
   document.getElementById('bench-popup').style.display = 'none';
   _pendingSwitchIdx = null;
+}
+
+function playerCardClick(e) {
+  e.stopPropagation();
+  if (!G.playerDeck || !G.playerDeck.length) return;
+  showBenchPopup(P(), false, null, document.getElementById('player-bcard'));
+}
+
+function toggleHandDrawer() {
+  document.getElementById('hand-drawer-btn').classList.toggle('open');
+  document.getElementById('hand-panel').classList.toggle('open');
 }
 
 function confirmBenchSwitch() {
@@ -2244,7 +2242,6 @@ function renderBattle() {
   renderSide('cpu',    CP(), G.cpuDeck,    G.cpuIdx);
   renderActions();
   renderHand();
-  renderTypeChart();
   renderActiveStadium();
 }
 
@@ -2412,6 +2409,8 @@ function renderActions() {
 function renderHand() {
   const area = document.getElementById('hand-area');
   area.innerHTML = '';
+  const lbl = document.getElementById('hand-count-label');
+  if (lbl) lbl.textContent = `手牌 ${G.playerHand.length}`;
   if (!G.playerHand.length) {
     area.innerHTML = '<span style="font-size:0.75rem;color:var(--muted)">無手牌</span>';
     return;
@@ -3271,7 +3270,6 @@ function renderDex() {
   </div>
 </div>
 
-<div id="tc-backdrop" onclick="closeTypeChart()"></div>
 
 <!-- Bench info popup -->
 <div id="bench-popup" class="bench-popup" style="display:none" onclick="event.stopPropagation()">
@@ -3279,14 +3277,21 @@ function renderDex() {
     <img id="bp-sprite" src="" alt="">
     <div>
       <div class="bp-pname" id="bp-pname"></div>
-      <span id="bp-type-badge" class="type-badge" style="font-size:0.65rem;padding:0.1rem 0.45rem"></span>
+      <div style="display:flex;gap:0.28rem;flex-wrap:wrap;margin-top:0.18rem">
+        <span id="bp-type-badge" class="type-badge" style="font-size:0.65rem;padding:0.1rem 0.45rem"></span>
+        <span id="bp-type-badge2" class="type-badge" style="font-size:0.65rem;padding:0.1rem 0.45rem;display:none"></span>
+      </div>
     </div>
   </div>
   <div class="bp-hp" id="bp-hp"></div>
   <div class="bp-moves">
     <div class="bp-move" id="bp-move0"></div>
     <div class="bp-move" id="bp-move1"></div>
+    <div class="bp-move" id="bp-move2"></div>
+    <div class="bp-move" id="bp-move3"></div>
   </div>
+  <hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:0.5rem 0 0.4rem">
+  <div id="bp-type-chart" style="font-size:0.72rem"></div>
   <button class="bp-switch-btn" id="bp-switch-btn" style="display:none" onclick="confirmBenchSwitch()">換場</button>
 </div>
 </body>
