@@ -2678,6 +2678,7 @@ function playerStandby() {
   if (G.busy) return;
   G.busy = true;
   G.switchedThisTurn = false;
+  G.cpuBuff.reflect = false; // reflect expires if opponent never attacked
   const supporters = TRAINERS.filter(c => c.cat === 'supporter');
   const card = supporters[Math.floor(Math.random() * supporters.length)];
   G.playerHand.push(card);

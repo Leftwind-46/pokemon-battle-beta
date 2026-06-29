@@ -1282,27 +1282,54 @@ function showBenchPopup(e, poke, deckIdx, canSwitch, freeSwitch) {
     return `<div class="bp-move">
       <span class="type-badge" style="background:${TYPE_COLOR[a.type]||'#888'};font-size:0.6rem">${TYPE_ZH[a.type]||a.type}</span>
       <span class="bp-move-name">${a.name}${stab}</span>
-      <span class="bp-move-dmg">${a.dmg}</span>
+      <span class="bp-move-dmg">威力${a.dmg}</span>
     </div>`;
   }).join('');
+
+  // Defensive type chart
+  const b = t => `<span class="type-badge" style="background:${TYPE_COLOR[t]||'#888'};font-size:0.62rem;padding:0.04rem 0.38rem">${TYPE_ZH[t]||t}</span>`;
+  const weak4=[], weak2=[], res025=[], res05=[], imm=[];
+  for (const at of Object.keys(EFF)) {
+    const m = eff(at, poke.type, poke.type2);
+    if      (m >= 4)    weak4.push(at);
+    else if (m >= 2)    weak2.push(at);
+    else if (m === 0)   imm.push(at);
+    else if (m <= 0.25) res025.push(at);
+    else if (m <= 0.5)  res05.push(at);
+  }
+  let tcHtml = '';
+  if (weak4.length)  tcHtml += `<div style="margin-bottom:0.22rem"><span style="color:#ef5350;font-weight:700;font-size:0.65rem">弱×4　</span>${weak4.map(b).join('')}</div>`;
+  if (weak2.length)  tcHtml += `<div style="margin-bottom:0.22rem"><span style="color:#ef9090;font-weight:700;font-size:0.65rem">弱×2　</span>${weak2.map(b).join('')}</div>`;
+  const resAll = [...res025.map(t=>b(t)+'<sup style="color:#90caf9;font-size:0.5rem">¼</sup>'), ...res05.map(b)];
+  if (resAll.length) tcHtml += `<div style="margin-bottom:0.22rem"><span style="color:#90caf9;font-weight:700;font-size:0.65rem">抵抗　</span>${resAll.join('')}</div>`;
+  if (imm.length)    tcHtml += `<div><span style="color:#888;font-weight:700;font-size:0.65rem">無效　</span>${imm.map(b).join('')}</div>`;
+
   const switchBtn = canSwitch
-    ? `<button class="bp-switch-btn" onclick="playerSwitch(${deckIdx})">${freeSwitch?'免費換場 ⚡':'換上場'}</button>`
+    ? `<button class="bp-switch-btn" onclick="playerSwitch(${deckIdx})">換上場</button>`
     : (poke.cur<=0 ? '<div style="font-size:0.78rem;color:#ef5350;text-align:center">已倒下</div>' : '');
   popup.innerHTML = `
     <div class="bp-header">
       <img src="${spriteUrl(poke.id)}" alt="${poke.name}">
       <div>
-        <div class="bp-pname">${poke.name} ${typeBadges}</div>
-        <div class="bp-hp">HP <span style="color:${hpCol}">${cur}</span> / ${poke.hp}</div>
+        <div class="bp-pname">${poke.name}</div>
+        <div style="display:flex;gap:0.28rem;flex-wrap:wrap;margin-top:0.18rem">${typeBadges}</div>
+        <div class="bp-hp" style="margin-top:0.2rem">HP <span style="color:${hpCol}">${cur}</span> / ${poke.hp}</div>
       </div>
     </div>
     <div class="bp-moves">${movesHtml}</div>
+    ${tcHtml ? `<hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:0.5rem 0 0.4rem"><div style="font-size:0.72rem">${tcHtml}</div>` : ''}
     ${switchBtn}
   `;
   popup.style.display = 'block';
-  const rect = e.currentTarget.getBoundingClientRect();
-  popup.style.top  = (rect.bottom + 8 + scrollY) + 'px';
-  popup.style.left = Math.min(rect.left, innerWidth - 220) + 'px';
+  const rect = e.currentTarget?.getBoundingClientRect?.() || { left:100, bottom:200, width:120 };
+  const pw = 260, ph = popup.offsetHeight || 380;
+  let left = rect.left + rect.width / 2 - pw / 2;
+  let top  = rect.top - ph - 10 + scrollY;
+  if (top < 8) top = rect.bottom + 10 + scrollY;
+  if (left < 8) left = 8;
+  if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+  popup.style.left = left + 'px';
+  popup.style.top  = top  + 'px';
 }
 
 function hideBenchPopup() {

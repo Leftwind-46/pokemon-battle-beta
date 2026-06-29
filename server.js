@@ -637,6 +637,7 @@ function handleMessage(ws, msg) {
       G[`${role}SuppUsed`] = false;
       G[`${role}FreeSwitch`] = false;
       G[`${role}SwitchedThisTurn`] = false;
+      G[`${op}Buff`].reflect = false; // reflect expires when opponent skips attack
       G.turn = op;
       G.round++;
       drawForBoth(G);
