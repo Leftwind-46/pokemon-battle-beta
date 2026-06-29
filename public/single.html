@@ -2788,8 +2788,9 @@ function handleAttackerStatus(poke, side, onProceed, onSkip, onKO) {
   }
 
   if (st.type === 'paralysis') {
-    if (Math.random() < 0.25) {
+    if (Math.random() < 0.50) {
       log(`${label}${poke.name} 因麻痺無法行動！`, 'special');
+      renderBattle();
       setTimeout(onSkip, 400);
     } else {
       onProceed();
@@ -2798,13 +2799,15 @@ function handleAttackerStatus(poke, side, onProceed, onSkip, onKO) {
   }
 
   if (st.type === 'freeze') {
-    if (Math.random() < 0.20) {
+    st.turnsLeft--;
+    if (st.turnsLeft <= 0) {
       poke.status = null;
-      log(`${label}${poke.name} 從結凍中解脫了！`, 'special');
+      log(`${label}${poke.name} 解凍了，恢復行動！`, 'special');
       renderBattle();
       setTimeout(onProceed, 400);
     } else {
-      log(`${label}${poke.name} 被冰凍住了，無法行動！`, 'special');
+      log(`${label}${poke.name} 被冰凍住了，無法行動！（剩 ${st.turnsLeft} 回合）`, 'special');
+      renderBattle();
       setTimeout(onSkip, 400);
     }
     return;
@@ -2873,6 +2876,7 @@ function tryInflictStatus(atk, target, targetSide) {
   const effect = atk.status.effect;
   const turnsLeft = effect === 'sleep'     ? (Math.floor(Math.random() * 2) + 2)
                   : effect === 'confusion' ? (Math.floor(Math.random() * 3) + 2)
+                  : effect === 'freeze'    ? 2
                   : 999;
   target.status = { type: effect, turnsLeft };
   const label = targetSide === 'player' ? '你的' : '對手的';

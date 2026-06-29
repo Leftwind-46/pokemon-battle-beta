@@ -178,7 +178,7 @@ function handleStatus(poke, log) {
   }
 
   if (st.type === 'paralysis') {
-    if (Math.random() < 0.25) {
+    if (Math.random() < 0.50) {
       log.push({ text: `${poke.name} 因麻痺無法行動！`, cls: 'special' });
       return { skipped: true, died: false };
     }
@@ -186,12 +186,13 @@ function handleStatus(poke, log) {
   }
 
   if (st.type === 'freeze') {
-    if (Math.random() < 0.20) {
+    st.turnsLeft--;
+    if (st.turnsLeft <= 0) {
       poke.status = null;
-      log.push({ text: `${poke.name} 從結凍中解脫了！`, cls: 'special' });
+      log.push({ text: `${poke.name} 解凍了，恢復行動！`, cls: 'special' });
       return { skipped: false, died: false };
     }
-    log.push({ text: `${poke.name} 被凍住了，無法行動！`, cls: 'special' });
+    log.push({ text: `${poke.name} 被冰凍住了，無法行動！（剩 ${st.turnsLeft} 回合）`, cls: 'special' });
     return { skipped: true, died: false };
   }
 
@@ -275,6 +276,7 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G) {
       const effect    = atk.status.effect;
       const turnsLeft = effect === 'sleep' ? (Math.floor(Math.random()*2)+2)
                       : effect === 'confusion' ? (Math.floor(Math.random()*3)+2)
+                      : effect === 'freeze'    ? 2
                       : 999;
       defender.status = { type: effect, turnsLeft };
       log.push({ text: `${defender.name} 陷入了${STATUS_ZH[effect]}！`, cls: 'special' });
