@@ -2677,6 +2677,7 @@ function playerSwitch(deckIdx) {
 function playerStandby() {
   if (G.busy) return;
   G.busy = true;
+  G.round++;
   G.switchedThisTurn = false;
   G.cpuBuff.reflect = false; // reflect expires if opponent never attacked
   const supporters = TRAINERS.filter(c => c.cat === 'supporter');
@@ -2740,8 +2741,9 @@ function cpuAttack() {
     : Math.floor(Math.random() * cpu.attacks.length);
 
   const endTurn = () => {
-    G.playerSuppUsed = false;
-    G.freeSwitch     = false;
+    G.playerSuppUsed  = false;
+    G.cpuSuppUsed     = false;
+    G.freeSwitch      = false;
     G.switchedThisTurn = false;
     drawAfterTurn(() => {
       G.busy = false;

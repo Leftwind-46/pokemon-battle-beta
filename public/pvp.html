@@ -1093,7 +1093,9 @@ function playerAttack(idx) {
 }
 
 function playerSwitch(deckIdx) {
-  if (G.busy) return;
+  if (G.busy || G.playerNeedsDiscard) return;
+  G.busy = true; // briefly lock until server confirms (turn stays mine, applyServerState will unlock)
+  renderBattle();
   send({ type: 'switch', deckIdx });
   hideBenchPopup();
 }
@@ -1338,27 +1340,8 @@ function hideBenchPopup() {
 
 function cpuCardClick(e) {
   e.stopPropagation();
-  const popup = document.getElementById('bench-popup');
-  const cp = CP();
-  const col = TYPE_COLOR[cp.type]||'#888';
-  const cur = Math.max(0, cp.cur??cp.hp);
-  const cpTypeBadges = cp.type2
-    ? `<span class="type-badge" style="background:${col};font-size:0.6rem;margin-right:2px">${TYPE_ZH[cp.type]||cp.type}</span><span class="type-badge" style="background:${TYPE_COLOR[cp.type2]||'#888'};font-size:0.6rem">${TYPE_ZH[cp.type2]||cp.type2}</span>`
-    : `<span class="type-badge" style="background:${col};font-size:0.6rem">${TYPE_ZH[cp.type]||cp.type}</span>`;
-  popup.innerHTML = `
-    <div class="bp-header">
-      <img src="${spriteUrl(cp.id)}" alt="${cp.name}">
-      <div>
-        <div class="bp-pname">${cp.name} ${cpTypeBadges}</div>
-        <div class="bp-hp">HP ${cur} / ${cp.hp}</div>
-      </div>
-    </div>
-    <div class="bp-moves">${cp.attacks.map(a=>{const stab=(a.type===cp.type||(cp.type2&&a.type===cp.type2))?'★':'';return`<div class="bp-move"><span class="type-badge" style="background:${TYPE_COLOR[a.type]||'#888'};font-size:0.6rem">${TYPE_ZH[a.type]||a.type}</span><span class="bp-move-name">${a.name}${stab}</span><span class="bp-move-dmg">${a.dmg}</span></div>`;}).join('')}</div>
-  `;
-  popup.style.display = 'block';
-  const rect = e.currentTarget.getBoundingClientRect();
-  popup.style.top  = (rect.bottom + 8 + scrollY) + 'px';
-  popup.style.left = Math.min(rect.left, innerWidth - 220) + 'px';
+  if (!G.cpuDeck?.length) return;
+  showBenchPopup(e, CP(), G.cpuIdx, false, false);
 }
 
 document.addEventListener('click', hideBenchPopup);
