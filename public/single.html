@@ -456,6 +456,47 @@
     .anim-ko      { animation: koFade   0.6s ease forwards; }
     .anim-slidein { animation: slideIn  0.4s ease; }
 
+    /* === Pokémon sprite life animations === */
+    @keyframes sprite-float {
+      0%,100% { transform: translateY(0); }
+      50%     { transform: translateY(-7px); }
+    }
+    @keyframes sprite-enter {
+      from { transform: scale(0.25) translateY(24px); opacity: 0; }
+      to   { transform: none; opacity: 1; }
+    }
+    @keyframes sprite-lunge-right {
+      0%    { transform: none; }
+      38%   { transform: translateX(22px) translateY(-10px) scale(1.13); }
+      68%   { transform: translateX(-6px) scale(0.95); }
+      100%  { transform: none; }
+    }
+    @keyframes sprite-lunge-left {
+      0%    { transform: none; }
+      38%   { transform: translateX(-22px) translateY(-10px) scale(1.13); }
+      68%   { transform: translateX(6px) scale(0.95); }
+      100%  { transform: none; }
+    }
+    @keyframes sprite-take-hit {
+      0%,100% { transform: none; filter: brightness(1); }
+      12%     { transform: translateX(-9px); filter: brightness(20) saturate(0); }
+      30%     { transform: translateX(9px);  filter: brightness(1); }
+      50%     { transform: translateX(-6px); filter: brightness(14) saturate(0); }
+      70%     { transform: translateX(6px);  filter: brightness(1); }
+      88%     { transform: translateX(-2px); }
+    }
+    @keyframes sprite-danger {
+      0%,100% { transform: translateX(0) rotate(0deg); }
+      25%     { transform: translateX(-2px) rotate(-2deg); }
+      75%     { transform: translateX(2px) rotate(2deg); }
+    }
+    .b-card img.sprite-idle    { animation: sprite-float      2.6s ease-in-out infinite; }
+    .b-card img.sprite-enter   { animation: sprite-enter      0.4s cubic-bezier(.34,1.56,.64,1); }
+    .b-card img.sprite-lunge-r { animation: sprite-lunge-right 0.52s ease; }
+    .b-card img.sprite-lunge-l { animation: sprite-lunge-left  0.52s ease; }
+    .b-card img.sprite-hit     { animation: sprite-take-hit    0.48s ease; }
+    .b-card img.sprite-danger  { animation: sprite-danger      0.22s linear infinite; }
+
     .ko-overlay {
       position: absolute;
       inset: 0;
@@ -1813,6 +1854,32 @@ function dealHand(n) {
 function spriteUrl(id) {
   return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
 }
+function animatedSpriteUrl(id) {
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${id}.gif`;
+}
+function setSprite(el, id) {
+  if (el.dataset.pokeId === String(id)) return; // already loaded, don't restart GIF
+  el.dataset.pokeId = String(id);
+  el.onerror = null;
+  el.onload = null;
+  el.classList.remove('sprite-idle','sprite-danger','sprite-enter','sprite-hit','sprite-lunge-r','sprite-lunge-l');
+  el.onload = () => {
+    el.onload = null;
+    el.classList.add('sprite-enter');
+    el.addEventListener('animationend', () => el.classList.remove('sprite-enter'), { once: true });
+  };
+  el.src = animatedSpriteUrl(id);
+  el.onerror = () => { el.onerror = null; el.src = spriteUrl(id); };
+}
+function syncSpriteAnim(side, poke) {
+  const el = document.getElementById(`${side}-sprite`);
+  if (!el) return;
+  const busy = ['sprite-lunge-r','sprite-lunge-l','sprite-hit','sprite-enter'].some(c => el.classList.contains(c));
+  if (busy) return;
+  const pct = poke.cur / poke.hp * 100;
+  el.classList.toggle('sprite-danger', pct <= 25);
+  el.classList.toggle('sprite-idle',   pct > 25);
+}
 
 /* ─────────────────────────────────────────
    STATE
@@ -2351,8 +2418,10 @@ function renderSide(side, poke, deck, activeIdx) {
   stripEl.style.background = poke.type2
     ? `linear-gradient(90deg, ${col} 50%, ${TYPE_COLOR[poke.type2]||'#888'} 50%)`
     : col;
-  document.getElementById(`${side}-sprite`).src              = spriteUrl(poke.id);
-  document.getElementById(`${side}-sprite`).alt              = poke.name;
+  const sprEl = document.getElementById(`${side}-sprite`);
+  sprEl.alt = poke.name;
+  setSprite(sprEl, poke.id);
+  syncSpriteAnim(side, poke);
   document.getElementById(`${side}-name`).textContent        = poke.name;
 
   const badge = document.getElementById(`${side}-badge`);
@@ -2928,17 +2997,30 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   else if (mult <= 0) log(`完全無效！(×0 — ${atkTypeName} ▶ ${defTypeStr})`, 'system');
   else if (mult < 1)  log(`效果不佳…(×${mult} — ${atkTypeName} ▶ ${defTypeStr})`, 'system');
 
-  /* attacker shakes */
+  /* attacker: card wobble + sprite lunge */
   const aCard = document.getElementById(`${aSide}-bcard`);
   aCard.classList.add('anim-shake');
   aCard.addEventListener('animationend', () => aCard.classList.remove('anim-shake'), {once:true});
+  const aSpr = document.getElementById(`${aSide}-sprite`);
+  const lungeClass = aSide === 'player' ? 'sprite-lunge-r' : 'sprite-lunge-l';
+  aSpr.classList.remove('sprite-idle','sprite-danger');
+  aSpr.classList.add(lungeClass);
+  aSpr.addEventListener('animationend', () => {
+    aSpr.classList.remove(lungeClass);
+    syncSpriteAnim(aSide, aSide === 'player' ? P() : CP());
+  }, { once: true });
 
   setTimeout(() => {
-    /* defender flashes + hit effect */
+    /* defender: sprite hit flash + shake (replaces card-level flash) */
     const dCard = document.getElementById(`${dSide}-bcard`);
-    dCard.classList.add('anim-flash');
-    dCard.addEventListener('animationend', () => dCard.classList.remove('anim-flash'), {once:true});
     showHitEffect(atkType, dCard);
+    const dSpr = document.getElementById(`${dSide}-sprite`);
+    dSpr.classList.remove('sprite-idle','sprite-danger');
+    dSpr.classList.add('sprite-hit');
+    dSpr.addEventListener('animationend', () => {
+      dSpr.classList.remove('sprite-hit');
+      syncSpriteAnim(dSide, dSide === 'player' ? P() : CP());
+    }, { once: true });
 
     defender.cur = Math.max(0, defender.cur - dmg);
     if (aSide === 'player') G.playerDmgDealt += dmg;
@@ -2964,6 +3046,7 @@ function updateHp(side, poke) {
   const fill = document.getElementById(`${side}-hp-fill`);
   fill.style.width      = pct + '%';
   fill.style.background = hpC;
+  syncSpriteAnim(side, poke);
 }
 
 /* ─────────────────────────────────────────
