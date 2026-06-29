@@ -1137,7 +1137,8 @@
 
       <h3>對戰規則</h3>
       <ul>
-        <li>每回合選一個技能攻擊，或切換備戰寶可夢（切換消耗回合）。</li>
+        <li>每回合可先換場（換場不消耗回合，每回合限換一次），再攻擊或待機。</li>
+        <li><b>💤 待機</b>：跳過攻擊，抽 1 張支援者牌進入手牌。</li>
         <li>每次攻擊結束後隨機抽 1–2 張訓練師牌，手牌上限 5 張。</li>
         <li>若抽牌後超過 5 張，可選擇丟棄一張。</li>
         <li>我方寶可夢 HP 歸零後，立即自由選擇下一隻上場（不消耗回合）。</li>
@@ -1191,7 +1192,6 @@
         <ul>
           <li>復活藥 — 復活備戰欄第一隻倒下的寶可夢（回復 80 HP）</li>
           <li>治療師 — 上場寶可夢完全回復 HP 並解除異常狀態</li>
-          <li>換人命令 — 免費換場，不消耗回合</li>
           <li>全力出擊 — 下次攻擊傷害 ×3</li>
         </ul>
         <li><b>競技場牌</b>（橘框）效果持續整場，放置新競技場會取代舊的：</li>
@@ -1199,6 +1199,7 @@
           <li>訓練場 — 場上所有技能威力 +20（雙方均有效）</li>
           <li>地熱溫泉 — 每回合結束，雙方上場寶可夢各回復 15 HP</li>
           <li>逆轉鬥技場 — HP 低於 50% 時，攻擊威力 +30</li>
+          <li>反轉世界 — 場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×2）</li>
         </ul>
       </ul>
 
@@ -1329,6 +1330,10 @@
               <span class="atk-type-badge" id="atk-type3"></span>
               <span class="atk-dmg" id="atk-dmg3"></span>
             </div>
+          </button>
+          <button class="btn-atk" id="btn-standby" onclick="playerStandby()" style="grid-column:span 2">
+            <div class="atk-name">💤 待機</div>
+            <div class="atk-meta"><span style="font-size:0.72rem;color:var(--muted)">跳過攻擊，抽 1 張支援者牌</span></div>
           </button>
         </div>
       </div>
@@ -1762,6 +1767,15 @@ function eff(atkType, defType, defType2) {
   return m1 * m2;
 }
 
+function effActive(atkType, defType, defType2) {
+  let m = eff(atkType, defType, defType2);
+  if (G.activeStadium?.id === 'stadium-invert') {
+    if (m === 0) m = 2;
+    else if (m !== 1) m = 1 / m;
+  }
+  return m;
+}
+
 const TRAINERS = [
   // ── 道具牌 ──
   {id:'potion',     name:'傷藥',       cat:'item',      desc:'回復上場寶可夢 80 HP'},
@@ -1784,12 +1798,12 @@ const TRAINERS = [
   // ── 支援者牌 ──
   {id:'revive',     name:'復活藥',     cat:'supporter', desc:'復活備戰欄第一隻倒下的寶可夢（回復 80 HP）'},
   {id:'nurse',      name:'治療師',     cat:'supporter', desc:'上場寶可夢完全回復 HP 並解除異常狀態'},
-  {id:'switch',     name:'換人命令',   cat:'supporter', desc:'免費換場，不消耗回合'},
   {id:'all-out',    name:'全力出擊',   cat:'supporter', desc:'下次攻擊傷害 ×3'},
   // ── 競技場牌 ──
-  {id:'stadium-training', name:'訓練場',   cat:'stadium', desc:'場上所有技能威力 +20（雙方）'},
-  {id:'stadium-spring',   name:'地熱溫泉', cat:'stadium', desc:'每回合結束，雙方上場寶可夢各回復 15 HP'},
-  {id:'stadium-reversal', name:'逆轉鬥技場',cat:'stadium', desc:'HP 低於 50% 時，攻擊威力 +30'},
+  {id:'stadium-training', name:'訓練場',     cat:'stadium', desc:'場上所有技能威力 +20（雙方）'},
+  {id:'stadium-spring',   name:'地熱溫泉',   cat:'stadium', desc:'每回合結束，雙方上場寶可夢各回復 15 HP'},
+  {id:'stadium-reversal', name:'逆轉鬥技場', cat:'stadium', desc:'HP 低於 50% 時，攻擊威力 +30'},
+  {id:'stadium-invert',   name:'反轉世界',   cat:'stadium', desc:'場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×2）'},
 ];
 
 function dealHand(n) {
@@ -1817,6 +1831,7 @@ let G = {
   cpuSuppUsed:          false,
   cpuSuppStageUsed:     0,
   freeSwitch:      false,
+  switchedThisTurn: false,
   playerBuff: { atkBonus:0, atkMult:1, shield:0, typeOverride:null, reflect:false },
   cpuBuff:    { atkBonus:0, atkMult:1, shield:0, typeOverride:null, reflect:false },
   playerDmgDealt:  0,
@@ -2230,6 +2245,7 @@ function startBattle() {
   G.cpuSuppUsed         = false;
   G.cpuSuppStageUsed    = 0;
   G.freeSwitch          = false;
+  G.switchedThisTurn    = false;
   G.playerBuff     = { atkBonus:0, atkMult:1, shield:0 };
   G.cpuBuff        = { atkBonus:0, atkMult:1, shield:0 };
   G.activeStadium  = null;
@@ -2392,7 +2408,7 @@ function renderSide(side, poke, deck, activeIdx) {
   benchEl.innerHTML = '';
   deck.forEach((p, i) => {
     if (i === activeIdx) return;
-    const canSwitch = side === 'player' && p.cur > 0 && !G.busy;
+    const canSwitch = side === 'player' && p.cur > 0 && !G.busy && !G.switchedThisTurn;
     const b = document.createElement('div');
     b.className = 'b-bench' + (p.cur <= 0 ? ' ko' : '') + (canSwitch ? ' switchable' : '');
     b.innerHTML = `<img src="${spriteUrl(p.id)}" alt="${p.name}"><span>${p.name}</span>`
@@ -2407,6 +2423,7 @@ function renderSide(side, poke, deck, activeIdx) {
 
 function renderActions() {
   const p = P();
+  const cp = CP();
   p.attacks.forEach((a, i) => {
     const col = TYPE_COLOR[a.type] || '#888';
     const btn = document.getElementById(`btn-atk${i}`);
@@ -2418,8 +2435,12 @@ function renderActions() {
     document.getElementById(`atk-type${i}`).style.background = col;
     const stab = (a.type === p.type || (p.type2 && a.type === p.type2)) ? ' ★STAB' : '';
     const statusHint = a.status ? ` · ${STATUS_EFFECT_ZH[a.status.effect]}${Math.round(a.status.chance*100)}%` : '';
-    document.getElementById(`atk-dmg${i}`).textContent = `威力 ${a.dmg}${statusHint}${stab}`;
+    const mult = effActive(a.type, cp?.type, cp?.type2);
+    const effHint = mult >= 4 ? ' ×4' : mult === 2 ? ' ×2' : mult === 0 ? ' ✕' : mult < 1 ? ' ▽' : '';
+    document.getElementById(`atk-dmg${i}`).textContent = `威力 ${a.dmg}${statusHint}${stab}${effHint}`;
   });
+  const standbyBtn = document.getElementById('btn-standby');
+  if (standbyBtn) standbyBtn.disabled = G.busy;
 }
 
 function renderHand() {
@@ -2434,10 +2455,8 @@ function renderHand() {
   G.playerHand.forEach((card, i) => {
     const isSupp = card.cat === 'supporter';
     const isStadium = card.cat === 'stadium';
-    const noSwitchTarget = card.id === 'switch' &&
-      G.playerDeck.filter((p, j) => j !== G.playerIdx && p.cur > 0).length === 0;
     const stageFull = isSupp && G.playerSuppStageUsed >= 2;
-    const disabled = G.busy || (isSupp && G.playerSuppUsed) || noSwitchTarget;
+    const disabled = G.busy || (isSupp && G.playerSuppUsed);
     const suppMeta = isSupp
       ? `<div style="font-size:0.6rem;color:${stageFull?'#ef5350':'var(--muted)'};margin-top:0.1rem">本關 ${G.playerSuppStageUsed}/2 張</div>`
       : '';
@@ -2464,9 +2483,6 @@ function useTrainer(idx) {
     showWarn('本關支援者牌已使用 2 張！\n每關最多使用 2 張支援者牌。');
     return;
   }
-  if (card.id === 'switch' &&
-      G.playerDeck.filter((p, j) => j !== G.playerIdx && p.cur > 0).length === 0) return;
-
   if (card.cat === 'supporter') {
     G.playerSuppUsed = true;
     G.playerSuppStageUsed++;
@@ -2537,20 +2553,6 @@ function applyTrainer(card, side) {
       }
       break;
     }
-    case 'switch':
-      if (side === 'player') {
-        G.freeSwitch = true;
-        log('使用了【換人命令】！點擊備戰欄免費換場，不消耗回合。', 'player');
-      } else {
-        const bench = deck.map((p, i) => ({p, i})).filter(({p, i}) => i !== idx && p.cur > 0);
-        if (bench.length) {
-          const best = bench.reduce((a, b) => a.p.cur > b.p.cur ? a : b);
-          G.cpuIdx = best.i;
-          log(`對手使用了【換人命令】，換出了 ${CP().name}！`, 'cpu');
-          renderBattle();
-        }
-      }
-      break;
     case 'all-out':
       buff.atkMult = Math.max(buff.atkMult, 3);
       log(`${pron}使用了【${card.name}】，下次攻擊傷害 ×3！`, tag);
@@ -2600,7 +2602,8 @@ function applyTrainer(card, side) {
     case 'orb-fairy':   buff.typeOverride = 'fairy';    log(`${pron}使用了【${card.name}】，本回合攻擊改為妖精屬性！`, tag); break;
     case 'stadium-training':
     case 'stadium-spring':
-    case 'stadium-reversal': {
+    case 'stadium-reversal':
+    case 'stadium-invert': {
       const oldStadium = G.activeStadium;
       G.activeStadium = card;
       if (oldStadium) log(`🏟 新競技場【${card.name}】取代了【${oldStadium.name}】！`, 'special');
@@ -2650,10 +2653,9 @@ function playerAttack(atkIdx) {
 
 function playerSwitch(deckIdx) {
   if (G.busy) return;
-  const wasFree = G.freeSwitch;
+  if (G.switchedThisTurn) return; // already switched once this turn
   G.freeSwitch = false;
-  G.busy = true;
-  if (!wasFree) G.round++;
+  G.switchedThisTurn = true;
 
   const outPoke = P();
   if (outPoke.status?.type === 'confusion') {
@@ -2665,13 +2667,26 @@ function playerSwitch(deckIdx) {
   log(`你將 ${outName} 換回，派出了 ${P().name}！`, 'player');
 
   renderBattle();
+  hideBenchPopup();
   const nc = document.getElementById('player-bcard');
   nc.classList.add('anim-slidein');
   nc.addEventListener('animationend', () => nc.classList.remove('anim-slidein'), {once:true});
+  // No turn end — player can still attack
+}
 
-  if (wasFree) {
-    setTimeout(() => { G.busy = false; renderBattle(); }, 500);
+function playerStandby() {
+  if (G.busy) return;
+  G.busy = true;
+  G.switchedThisTurn = false;
+  const supporters = TRAINERS.filter(c => c.cat === 'supporter');
+  const card = supporters[Math.floor(Math.random() * supporters.length)];
+  G.playerHand.push(card);
+  log(`你選擇待機，抽到了【${card.name}】！`, 'player');
+  if (G.playerHand.length > 5) {
+    renderBattle();
+    showDiscardModal(() => setTimeout(cpuAttack, 500));
   } else {
+    renderBattle();
     setTimeout(cpuAttack, 700);
   }
 }
@@ -2726,6 +2741,7 @@ function cpuAttack() {
   const endTurn = () => {
     G.playerSuppUsed = false;
     G.freeSwitch     = false;
+    G.switchedThisTurn = false;
     drawAfterTurn(() => {
       G.busy = false;
       renderBattle();
@@ -2889,7 +2905,7 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
     return;
   }
 
-  const mult = eff(atkType, defender.type, defender.type2);
+  const mult = effActive(atkType, defender.type, defender.type2);
   const stabMult = (atkType === attacker.type || (attacker.type2 && atkType === attacker.type2)) ? 1.5 : 1;
   const stadiumBonus = G.activeStadium?.id === 'stadium-training' ? 20 : 0;
   const reversalBonus = G.activeStadium?.id === 'stadium-reversal' && attacker.cur <= attacker.hp * 0.5 ? 30 : 0;

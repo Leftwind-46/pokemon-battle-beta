@@ -124,12 +124,12 @@ const TRAINERS = [
   // ── supporters ──
   {id:'revive',     name:'復活藥',     cat:'supporter', desc:'復活備戰欄第一隻倒下的寶可夢（回復 80 HP）'},
   {id:'nurse',      name:'治療師',     cat:'supporter', desc:'上場寶可夢完全回復 HP 並解除異常狀態'},
-  {id:'switch',     name:'換人命令',   cat:'supporter', desc:'免費換場，不消耗回合'},
   {id:'all-out',    name:'全力出擊',   cat:'supporter', desc:'下次攻擊傷害 ×3'},
   // ── stadium ──
   {id:'stadium-training', name:'訓練場',     cat:'stadium', desc:'場上所有技能威力 +20（雙方）'},
   {id:'stadium-spring',   name:'地熱溫泉',   cat:'stadium', desc:'每回合結束，雙方上場寶可夢各回復 15 HP'},
   {id:'stadium-reversal', name:'逆轉鬥技場', cat:'stadium', desc:'HP 低於 50% 時，攻擊威力 +30'},
+  {id:'stadium-invert',   name:'反轉世界',   cat:'stadium', desc:'場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×2）'},
 ];
 
 const STATUS_ZH = {poison:'中毒',burn:'燒傷',paralysis:'麻痺',sleep:'睡眠',freeze:'結凍',confusion:'混亂'};
@@ -145,6 +145,15 @@ function srvEff(atkType, defType, defType2) {
   const m1 = (EFF[atkType] || {})[defType] ?? 1;
   const m2 = defType2 ? ((EFF[atkType] || {})[defType2] ?? 1) : 1;
   return m1 * m2;
+}
+
+function srvEffActive(atkType, defType, defType2, G) {
+  let m = srvEff(atkType, defType, defType2);
+  if (G?.activeStadium?.id === 'stadium-invert') {
+    if (m === 0) m = 2;
+    else if (m !== 1) m = 1 / m;
+  }
+  return m;
 }
 
 function dealHand(n) {
@@ -238,7 +247,7 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G) {
     return { damage: dmg, mult: 1 };
   }
 
-  const mult = srvEff(atkType, defender.type, defender.type2);
+  const mult = srvEffActive(atkType, defender.type, defender.type2, G);
   const stabMult = (atkType === attacker.type || (attacker.type2 && atkType === attacker.type2)) ? 1.5 : 1;
   const stadiumBonus = G?.activeStadium?.id === 'stadium-training' ? 20 : 0;
   const reversalBonus = G?.activeStadium?.id === 'stadium-reversal' && attacker.cur <= attacker.hp * 0.5 ? 30 : 0;
@@ -320,10 +329,6 @@ function applyTrainer(card, role, G, log) {
       active.cur = active.hp; active.status = null;
       log.push({ text: `治療師讓 ${active.name} 完全回復！`, cls: 'system' });
       break;
-    case 'switch':
-      G[`${role}FreeSwitch`] = true;
-      log.push({ text: `使用換人命令，可免費換場！`, cls: 'system' });
-      break;
     case 'all-out':
       buff.atkMult *= 3;
       log.push({ text: `使用了全力出擊，下次攻擊傷害 ×3！`, cls: 'system' });
@@ -368,7 +373,8 @@ function applyTrainer(card, role, G, log) {
     case 'orb-fairy':   buff.typeOverride = 'fairy';   log.push({ text: `妖精寶珠：本回合攻擊改為妖精屬性！`, cls: 'system' }); break;
     case 'stadium-training':
     case 'stadium-spring':
-    case 'stadium-reversal': {
+    case 'stadium-reversal':
+    case 'stadium-invert': {
       const old = G.activeStadium;
       G.activeStadium = card;
       if (old) log.push({ text: `新競技場【${card.name}】取代了【${old.name}】！`, cls: 'special' });
@@ -425,6 +431,7 @@ function buildG(room) {
     p1SuppUsed: false, p1SuppStageUsed: 0,
     p2SuppUsed: false, p2SuppStageUsed: 0,
     p1FreeSwitch: false, p2FreeSwitch: false,
+    p1SwitchedThisTurn: false, p2SwitchedThisTurn: false,
     p1Buff: freshBuff(), p2Buff: freshBuff(),
     p1NeedsDiscard: false, p2NeedsDiscard: false,
     activeStadium: null,
@@ -591,6 +598,7 @@ function handleMessage(ws, msg) {
         G.turn = op;
         G[`${role}SuppUsed`] = false;
         G[`${role}FreeSwitch`] = false;
+        G[`${role}SwitchedThisTurn`] = false;
         drawForBoth(G);
         broadcast(room, { type: 'update', state: G, log, actor: role }); return;
       }
@@ -598,6 +606,7 @@ function handleMessage(ws, msg) {
       doAttack(attacker, defender, atk, aBuff, dBuff, log, G);
       G[`${role}SuppUsed`]  = false;
       G[`${role}FreeSwitch`] = false;
+      G[`${role}SwitchedThisTurn`] = false;
 
       if (defender.cur <= 0) {
         const opAlive = G[`${op}Deck`].filter(p => p.cur > 0).length;
@@ -617,29 +626,29 @@ function handleMessage(ws, msg) {
       broadcast(room, { type: 'update', state: G, log, actor: role, atkType: atk.type }); return;
     }
 
-    // Regular switch (costs a turn)
-    if (type === 'switch') {
+    // Standby (skip attack, draw 1 supporter card)
+    if (type === 'standby') {
       if (G.turn !== role || G.pendingKOSwitch) return;
       if (G[`${role}NeedsDiscard`]) return;
-      const deck   = G[`${role}Deck`];
-      const curIdx = G[`${role}Idx`];
-      const newIdx = msg.deckIdx;
-      if (newIdx === curIdx || !deck[newIdx] || deck[newIdx].cur <= 0) return;
-
-      if (deck[curIdx].status?.type === 'confusion') deck[curIdx].status = null;
-      G[`${role}Idx`] = newIdx;
-      G[`${role}SuppUsed`]  = false;
+      const supporters = TRAINERS.filter(c => c.cat === 'supporter');
+      const card = supporters[Math.floor(Math.random() * supporters.length)];
+      G[`${role}Hand`].push(card);
+      G[`${role}NeedsDiscard`] = G[`${role}Hand`].length > 5;
+      G[`${role}SuppUsed`] = false;
       G[`${role}FreeSwitch`] = false;
+      G[`${role}SwitchedThisTurn`] = false;
       G.turn = op;
       G.round++;
       drawForBoth(G);
-      const log = [{ text: `換上了 ${deck[newIdx].name}！`, cls: 'player' }];
+      const log = [{ text: `選擇待機，${role === 'p1' ? 'P1' : 'P2'} 抽到【${card.name}】！`, cls: 'system' }];
       broadcast(room, { type: 'update', state: G, log, actor: role }); return;
     }
 
-    // Free switch (after 換人命令)
-    if (type === 'free_switch') {
-      if (G.turn !== role || !G[`${role}FreeSwitch`]) return;
+    // Switch (free — doesn't end turn, limit once per turn)
+    if (type === 'switch') {
+      if (G.turn !== role || G.pendingKOSwitch) return;
+      if (G[`${role}NeedsDiscard`]) return;
+      if (G[`${role}SwitchedThisTurn`]) return; // already switched this turn
       const deck   = G[`${role}Deck`];
       const curIdx = G[`${role}Idx`];
       const newIdx = msg.deckIdx;
@@ -647,8 +656,9 @@ function handleMessage(ws, msg) {
 
       if (deck[curIdx].status?.type === 'confusion') deck[curIdx].status = null;
       G[`${role}Idx`] = newIdx;
-      G[`${role}FreeSwitch`] = false;
-      const log = [{ text: `免費換上了 ${deck[newIdx].name}！`, cls: 'system' }];
+      G[`${role}SwitchedThisTurn`] = true;
+      // DON'T change G.turn — player can still attack this turn
+      const log = [{ text: `換上了 ${deck[newIdx].name}！`, cls: 'player' }];
       broadcast(room, { type: 'update', state: G, log, actor: role }); return;
     }
 

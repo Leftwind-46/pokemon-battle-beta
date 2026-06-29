@@ -74,25 +74,58 @@
     /* ══ BATTLE ══ */
     #battle-screen { flex-direction:row; align-items:flex-start; justify-content:center; padding:1rem; gap:1rem; width:100%; }
     .battle-main { flex:1; max-width:620px; display:flex; flex-direction:column; gap:0.75rem; }
-    .tc-panel { width:230px; flex-shrink:0; position:sticky; top:1rem; background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:1.1rem 1rem; }
-    .tc-title  { font-size:0.8rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:0.85rem; }
-    .tc-section { margin-bottom:0.9rem; }
-    .tc-heading { font-size:0.9rem; font-weight:700; color:var(--text); margin-bottom:0.55rem; display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap; }
-    .tc-row { display:flex; align-items:center; gap:0.35rem; flex-wrap:wrap; margin-bottom:0.38rem; }
-    .tc-mul { font-size:0.7rem; font-weight:700; border-radius:4px; padding:0.1rem 0.38rem; flex-shrink:0; }
-    .tc-mul.x2  { background:rgba(239,83,80,0.25);  color:#ef5350; border:1px solid rgba(239,83,80,0.4); }
-    .tc-mul.x05 { background:rgba(144,202,249,0.2); color:#90caf9; border:1px solid rgba(144,202,249,0.35); }
-    .tc-mul.x0  { background:rgba(120,120,120,0.2); color:#888;    border:1px solid rgba(120,120,120,0.3); }
-    .tc-empty { font-size:0.8rem; color:var(--muted); }
-    .tc-divider { border:none; border-top:1px solid var(--border); margin:0.8rem 0; }
-    #tc-toggle-btn { display:none; align-self:flex-start; background:rgba(255,255,255,0.07); border:1px solid var(--border); color:var(--text); border-radius:999px; padding:0.32rem 0.85rem; font-size:0.78rem; font-weight:700; cursor:pointer; transition:background 0.15s; }
-    #tc-toggle-btn:hover { background:rgba(255,255,255,0.14); }
-    #tc-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:49; }
-    #tc-backdrop.open { display:block; }
-    @media(max-width:900px) {
-      .tc-panel { position:fixed!important; top:0; left:-250px; bottom:0; width:240px; z-index:50; border-radius:0 16px 16px 0; overflow-y:auto; transition:left 0.25s ease; }
-      .tc-panel.open { left:0; }
-      #tc-toggle-btn { display:inline-flex; }
+
+    /* ── Hand Drawer (right panel) ── */
+    #hand-drawer {
+      width: 175px;
+      flex-shrink: 0;
+      position: sticky;
+      top: 1rem;
+      align-self: flex-start;
+      display: flex;
+      flex-direction: column;
+    }
+    #hand-drawer-btn {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.55rem 0.85rem;
+      color: var(--text);
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.15s;
+      width: 100%;
+    }
+    #hand-drawer-btn:hover { background: rgba(255,255,255,0.12); }
+    #hand-drawer-btn.open {
+      background: rgba(121,134,203,0.18);
+      border-color: rgba(121,134,203,0.5);
+      border-radius: 12px 12px 0 0;
+    }
+    #hand-panel {
+      display: none;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 12px 12px;
+      padding: 0.6rem;
+    }
+    #hand-panel.open { display: block; }
+    #hand-area { display: flex; flex-direction: column; gap: 0.5rem; }
+    #hand-panel .t-card { flex: none; min-width: unset; width: 100%; }
+    @media (max-width: 900px) {
+      #battle-screen { flex-direction: column; padding: 0.5rem; gap: 0.5rem; align-items: stretch; }
+      .battle-main { max-width: 100%; }
+      #battle-log { width: 100% !important; position: relative !important; top: 0 !important; max-height: 90px; order: 10; }
+      #hand-drawer { width: 100%; position: relative; top: 0; }
+      #hand-panel.open { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+      #hand-panel .t-card { flex: 1; min-width: 110px; width: auto; }
+      .field { padding: 0.65rem 0.75rem; }
+      #action-area { gap: 0.3rem; }
+      .btn-atk { padding: 0.5rem 0.6rem; }
+      .atk-name { font-size: 0.82rem; }
     }
     .type-badge { display:inline-block; padding:0.12rem 0.5rem; border-radius:999px; font-size:0.68rem; font-weight:700; margin-top:0.2rem; color:#fff; }
     .buff-tags { display:flex; gap:0.25rem; flex-wrap:wrap; justify-content:center; margin-top:0.3rem; min-height:1rem; }
@@ -125,7 +158,7 @@
     .b-bench.ko { opacity:0.28; }
     .b-bench.switchable { border-color:rgba(144,202,249,0.35); }
     .b-bench.switchable:hover { border-color:#90caf9; background:rgba(144,202,249,0.12); box-shadow:0 0 10px rgba(144,202,249,0.3); }
-    .bench-popup { position:fixed; z-index:60; background:#0f1228; border:1px solid rgba(255,255,255,0.15); border-radius:14px; padding:0.9rem; width:210px; box-shadow:0 8px 32px rgba(0,0,0,0.65); }
+    .bench-popup { position:fixed; z-index:60; background:#0f1228; border:1px solid rgba(255,255,255,0.15); border-radius:14px; padding:0.9rem; width:260px; box-shadow:0 8px 32px rgba(0,0,0,0.65); }
     .bp-header { display:flex; align-items:center; gap:0.6rem; margin-bottom:0.45rem; }
     .bp-header img { width:52px; height:52px; image-rendering:pixelated; flex-shrink:0; }
     .bp-pname { font-weight:700; font-size:0.92rem; margin-bottom:0.22rem; }
@@ -137,7 +170,22 @@
     .bp-switch-btn { width:100%; padding:0.4rem; background:linear-gradient(135deg,#f8d030,#f05030); color:#fff; border:none; border-radius:8px; font-size:0.84rem; font-weight:700; cursor:pointer; transition:opacity 0.15s; }
     .bp-switch-btn:hover { opacity:0.88; }
     .switch-hint { font-size:0.62rem; color:#90caf9; border:1px solid rgba(144,202,249,0.5); border-radius:4px; padding:0.05rem 0.3rem; margin-left:0.2rem; }
-    #battle-log { background:rgba(0,0,0,0.45); border:1px solid var(--border); border-radius:12px; padding:0.65rem 0.9rem; height:106px; overflow-y:auto; display:flex; flex-direction:column-reverse; gap:0.2rem; font-size:0.83rem; }
+    #battle-log {
+      width: 220px;
+      flex-shrink: 0;
+      position: sticky;
+      top: 1rem;
+      max-height: calc(100vh - 2rem);
+      background: rgba(0,0,0,0.45);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.65rem 0.9rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 0.2rem;
+      font-size: 0.83rem;
+    }
     .log-msg { animation:fadeUp 0.25s ease; line-height:1.45; }
     .log-msg.player  { color:#90caf9; }
     .log-msg.cpu     { color:#ef9a9a; }
@@ -150,8 +198,22 @@
     #action-area { display:grid; grid-template-columns:1fr 1fr; gap:0.4rem; margin-top:0.35rem; }
     @keyframes hitPulse { 0%{opacity:1;transform:scale(1);} 60%{opacity:0.85;transform:scale(1.15);} 100%{opacity:0;transform:scale(1.3);} }
     @keyframes stadiumPop { 0%{transform:scaleY(0);opacity:0;} 60%{transform:scaleY(1.08);} 100%{transform:scaleY(1);opacity:1;} }
-    .active-stadium-bar { display:flex; align-items:center; gap:0.6rem; background:linear-gradient(135deg,rgba(255,140,0,0.22),rgba(255,80,0,0.12)); border:2px solid rgba(255,140,0,0.6); border-radius:10px; padding:0.5rem 0.9rem; margin-bottom:0.35rem; font-size:0.8rem; box-shadow:0 0 12px rgba(255,140,0,0.25); animation:stadiumPop 0.35s ease forwards; }
-    .active-stadium-bar strong { color:#ffb347; font-size:0.88rem; }
+    #active-stadium {
+      display: none;
+      background: linear-gradient(135deg, rgba(255,140,0,0.22) 0%, rgba(255,80,0,0.12) 100%);
+      border: 2px solid rgba(255,140,0,0.6);
+      border-radius: 10px;
+      padding: 0.55rem 1rem;
+      margin: 0.35rem 0;
+      font-size: 0.8rem;
+      gap: 0.6rem;
+      align-items: center;
+      box-shadow: 0 0 12px rgba(255,140,0,0.25), inset 0 0 20px rgba(255,140,0,0.05);
+    }
+    #active-stadium.active {
+      display: flex;
+      animation: stadiumPop 0.35s ease forwards;
+    }
     .stadium-badge { background:rgba(255,140,0,0.5); border:1px solid rgba(255,140,0,0.7); border-radius:999px; padding:0.15rem 0.6rem; font-size:0.65rem; font-weight:800; color:#ffcc70; white-space:nowrap; letter-spacing:0.05em; }
     .t-card.stadium { border-color:rgba(255,140,0,0.4) !important; }
     .t-card.stadium .t-badge { background:rgba(255,140,0,0.25); color:#ffa726; }
@@ -229,10 +291,10 @@
     .coin-sub    { font-size:0.9rem; color:var(--muted); }
 
     /* ── Chat ── */
-    #chat-btn { position:fixed; bottom:1.2rem; right:1.2rem; z-index:40; width:48px; height:48px; border-radius:50%; background:linear-gradient(135deg,#6890f0,#7986cb); border:none; font-size:1.3rem; cursor:pointer; box-shadow:0 4px 16px rgba(104,144,240,0.4); transition:transform 0.18s; display:none; }
-    #chat-btn:hover { transform:scale(1.12); }
+    #chat-btn { position:fixed; top:50%; right:1.2rem; z-index:40; transform:translateY(-50%); width:48px; height:48px; border-radius:50%; background:linear-gradient(135deg,#6890f0,#7986cb); border:none; font-size:1.3rem; cursor:pointer; box-shadow:0 4px 16px rgba(104,144,240,0.4); transition:transform 0.18s; display:none; }
+    #chat-btn:hover { transform:translateY(-50%) scale(1.12); }
     #chat-btn.has-unread::after { content:''; position:absolute; top:4px; right:4px; width:10px; height:10px; border-radius:50%; background:#ef5350; border:2px solid var(--bg); }
-    #chat-panel { position:fixed; bottom:4.5rem; right:1.2rem; z-index:41; width:300px; background:#0f1228; border:1px solid var(--border); border-radius:16px; box-shadow:0 8px 32px rgba(0,0,0,0.6); display:none; flex-direction:column; overflow:hidden; }
+    #chat-panel { position:fixed; top:50%; right:4.5rem; z-index:41; transform:translateY(-50%); width:300px; max-height:80vh; background:#0f1228; border:1px solid var(--border); border-radius:16px; box-shadow:0 8px 32px rgba(0,0,0,0.6); display:none; flex-direction:column; overflow:hidden; }
     #chat-panel.open { display:flex; }
     .cp-header { padding:0.65rem 1rem; font-size:0.8rem; font-weight:700; color:var(--muted); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
     .cp-close { background:none; border:none; color:var(--muted); cursor:pointer; font-size:1rem; line-height:1; }
@@ -326,9 +388,8 @@
 
 <!-- ══ BATTLE ══ -->
 <div id="battle-screen" class="screen">
-  <div id="type-chart" class="tc-panel"></div>
+  <div id="battle-log"></div>
   <div class="battle-main">
-    <button id="tc-toggle-btn" onclick="toggleTypeChart()">⚡ 屬性表</button>
     <div id="turn-bar" class="my-turn">你的回合</div>
 
     <!-- CPU field -->
@@ -351,19 +412,18 @@
       <div class="bench-row" id="cpu-bench"></div>
     </div>
 
-    <div id="battle-log"></div>
-
     <!-- Player field -->
     <div class="field" id="player-field">
       <div class="field-label">你的寶可夢 &nbsp;<span style="font-size:0.65rem;color:#90caf9;font-weight:400;letter-spacing:0">(點備戰欄可換場)</span></div>
       <div class="active-area">
-        <div class="b-card" id="player-bcard">
+        <div class="b-card" id="player-bcard" onclick="playerCardClick(event)">
           <div class="type-strip" id="player-strip"></div>
           <img id="player-sprite" src="" alt="">
           <div class="b-name" id="player-name"></div>
           <div class="type-badge" id="player-badge"></div>
           <div id="player-status" style="display:none"></div>
           <div class="buff-tags" id="player-buff-tags"></div>
+          <div class="info-hint">ℹ</div>
         </div>
         <div class="hp-wrap">
           <div class="hp-meta"><span>HP</span><span id="player-hp-text"></span></div>
@@ -386,18 +446,23 @@
               <div class="atk-name" id="atk-name3"></div>
               <div class="atk-meta"><span class="atk-type-badge" id="atk-type3"></span><span class="atk-dmg" id="atk-dmg3"></span></div>
             </button>
+            <button class="btn-atk" id="btn-standby" onclick="playerStandby()" style="grid-column:span 2">
+              <div class="atk-name">💤 待機</div>
+              <div class="atk-meta"><span style="font-size:0.72rem;color:var(--muted)">跳過攻擊，抽 1 張支援者牌</span></div>
+            </button>
           </div>
         </div>
       </div>
       <div class="bench-row" id="player-bench"></div>
     </div>
+  </div><!-- /.battle-main -->
 
-    <!-- Hand -->
-    <div id="hand-section">
-      <div class="hand-label">手牌</div>
+  <div id="hand-drawer">
+    <button id="hand-drawer-btn" onclick="toggleHandDrawer()">🃏 <span id="hand-count-label">手牌</span></button>
+    <div id="hand-panel">
       <div id="hand-area"></div>
     </div>
-  </div><!-- /.battle-main -->
+  </div>
 </div>
 
 <!-- ══ RESULT ══ -->
@@ -418,7 +483,8 @@
       <li>建立房間後，將代碼分享給對手，對手輸入代碼加入。</li>
       <li>雙方各從隨機 6 隻寶可夢中選出 3 隻出戰（可重新生成最多 3 次）。</li>
       <li>擲硬幣決定先後攻，先擊倒對手全部 3 隻寶可夢者獲勝。</li>
-      <li>雙方輪流行動；每回合可攻擊或換場（換場消耗回合）。</li>
+      <li>雙方輪流行動；每回合可先換場（換場不消耗回合，每回合限換一次），再攻擊或待機。</li>
+      <li><b>💤 待機</b>：跳過攻擊，抽 1 張支援者牌進入手牌。</li>
       <li>每次攻擊後雙方各隨機抽 1–2 張<b>道具牌</b>，手牌上限 5 張。</li>
       <li>己方 HP 歸零後，立即選擇下一隻上場（不消耗回合）。</li>
     </ul>
@@ -449,11 +515,18 @@
         <li>交換器 — 強制換出對手備戰寶可夢 ／ 反彈鏡 — 下次對手攻擊反彈回自身</li>
         <li>屬性寶珠（火／水／電／超能／冰／龍／惡／妖精）— 本回合攻擊改為對應屬性</li>
       </ul>
-      <li><b>支援者牌</b>（藍框）僅開局手牌中出現，每回合限用 1 張，全場最多 2 張：</li>
+      <li><b>支援者牌</b>（藍框）僅開局手牌中出現，每回合限用 1 張，全場最多 2 張，也可用待機抽到：</li>
       <ul>
         <li>復活藥 — 復活備戰欄第一隻倒下的寶可夢（80 HP）</li>
-        <li>治療師 — 完全回復 HP 並解除異常狀態 ／ 換人命令 — 免費換場</li>
+        <li>治療師 — 完全回復 HP 並解除異常狀態</li>
         <li>全力出擊 — 下次攻擊傷害 ×3</li>
+      </ul>
+      <li><b>競技場牌</b>（橘框）效果持續整場，放置新競技場會取代舊的：</li>
+      <ul>
+        <li>訓練場 — 場上所有技能威力 +20（雙方）</li>
+        <li>地熱溫泉 — 每回合結束，雙方上場寶可夢各回復 15 HP</li>
+        <li>逆轉鬥技場 — HP 低於 50% 時，攻擊威力 +30</li>
+        <li>反轉世界 — 場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×2）</li>
       </ul>
     </ul>
   </div>
@@ -514,7 +587,6 @@
 
 <!-- ── Bench popup ── -->
 <div id="bench-popup" class="bench-popup" style="display:none"></div>
-<div id="tc-backdrop" onclick="closeTypeChart()"></div>
 
 <script>
 /* ─────────────────────────────────────────
@@ -762,6 +834,8 @@ function applyServerState(sG) {
   G.cpuBuff            = sG[`${op}Buff`];
   G.playerNeedsDiscard = sG[`${me}NeedsDiscard`];
   G.round              = sG.round;
+  G.switchedThisTurn   = sG[`${me}SwitchedThisTurn`] || false;
+  G.activeStadium      = sG.activeStadium || null;
   // busy if: it's not my turn OR opponent needs KO switch (awaiting their input)
   const opKO = sG.pendingKOSwitch && sG.pendingKOSwitch !== me;
   G.busy = opKO || (sG.turn !== me && sG.pendingKOSwitch !== me);
@@ -882,7 +956,6 @@ function renderBattle() {
   renderSide('cpu',    CP(), G.cpuDeck,    G.cpuIdx);
   renderActions();
   renderHand();
-  renderTypeChart();
   const tb = document.getElementById('turn-bar');
   if (G.busy) { tb.textContent='等待對手行動…'; tb.className='my-turn opp-turn'; }
   else        { tb.textContent='你的回合';       tb.className='my-turn'; }
@@ -942,7 +1015,7 @@ function renderSide(side, poke, deck, activeIdx) {
     if (i === activeIdx) return;
     const div = document.createElement('div');
     const ko  = p.cur <= 0;
-    const switchable = side === 'player' && !ko && !G.busy;
+    const switchable = side === 'player' && !ko && !G.busy && !G.switchedThisTurn;
     const freeSwitch = side === 'player' && G.playerFreeSwitch;
     div.className = `b-bench${ko ? ' ko' : ''}${switchable ? ' switchable' : ''}`;
     div.innerHTML = `<img src="${spriteUrl(p.id)}" alt="${p.name}"><span>${p.name}</span><span style="font-size:0.65rem;color:${p.cur/p.hp>0.5?'#4caf50':p.cur/p.hp>0.2?'#ff9800':'#ef5350'}">${Math.max(0,p.cur??p.hp)}</span>`;
@@ -962,7 +1035,7 @@ function renderActions() {
     const btn = document.getElementById(`btn-atk${i}`);
     if (!btn) return;
     const col = TYPE_COLOR[a.type] || '#888';
-    const mult = eff(a.type, cp?.type, cp?.type2);
+    const mult = effActive(a.type, cp?.type, cp?.type2);
     btn.disabled = G.busy;
     btn.style.borderLeftColor = col;
     document.getElementById(`atk-name${i}`).textContent = a.name;
@@ -973,21 +1046,24 @@ function renderActions() {
     const effHint = mult>=4 ? ' ×4' : mult===2 ? ' ×2' : mult===0 ? ' ✕' : mult<1 ? ' ▽' : '';
     document.getElementById(`atk-dmg${i}`).textContent = `威力 ${a.dmg}${statusHint}${stab}${effHint}`;
   });
+  const standbyBtn = document.getElementById('btn-standby');
+  if (standbyBtn) standbyBtn.disabled = G.busy;
   renderActiveStadium();
 }
 
 function renderHand() {
   const area = document.getElementById('hand-area');
   area.innerHTML = '';
+  const countLabel = document.getElementById('hand-count-label');
+  if (countLabel) countLabel.textContent = G.playerHand.length > 0 ? `手牌 (${G.playerHand.length})` : '手牌';
   if (!G.playerHand.length) {
     area.innerHTML = '<span style="font-size:0.75rem;color:var(--muted)">無手牌</span>'; return;
   }
   G.playerHand.forEach((card, i) => {
     const isSupp = card.cat === 'supporter';
-    const noSwitch = card.id === 'switch' && G.playerDeck.filter((p,j)=>j!==G.playerIdx&&p.cur>0).length===0;
     const noSwitcher = card.id === 'switcher' && G.cpuDeck.filter((p,j)=>j!==G.cpuIdx&&p.cur>0).length===0;
     const stageFull = isSupp && G.playerSuppStageUsed >= 2;
-    const disabled  = G.busy || (isSupp && G.playerSuppUsed) || noSwitch || noSwitcher;
+    const disabled  = G.busy || (isSupp && G.playerSuppUsed) || noSwitcher;
     const suppMeta  = isSupp
       ? `<div style="font-size:0.6rem;color:${stageFull?'#ef5350':'var(--muted)'};margin-top:0.1rem">本場 ${G.playerSuppStageUsed}/2 張</div>`
       : '';
@@ -1018,13 +1094,7 @@ function playerAttack(idx) {
 
 function playerSwitch(deckIdx) {
   if (G.busy) return;
-  if (G.playerFreeSwitch) {
-    send({ type: 'free_switch', deckIdx });
-  } else {
-    G.busy = true;
-    renderBattle();
-    send({ type: 'switch', deckIdx });
-  }
+  send({ type: 'switch', deckIdx });
   hideBenchPopup();
 }
 
@@ -1104,17 +1174,48 @@ function eff(atkType, defType, defType2) {
   return m1 * m2;
 }
 
+function effActive(atkType, defType, defType2) {
+  let m = eff(atkType, defType, defType2);
+  if (G.activeStadium?.id === 'stadium-invert') {
+    if (m === 0) m = 2;
+    else if (m !== 1) m = 1 / m;
+  }
+  return m;
+}
+
 function renderActiveStadium() {
   const el = document.getElementById('active-stadium');
   if (!el) return;
-  const st = G.activeStadium || G.serverState?.activeStadium;
+  const st = G.activeStadium;
   if (st) {
-    el.className = 'active-stadium-bar';
+    el.classList.add('active');
     el.innerHTML = `<span class="stadium-badge">🏟 競技場</span><strong>${st.name}</strong><span style="font-size:0.72rem;color:rgba(255,200,120,0.8)">${st.desc}</span>`;
   } else {
-    el.className = '';
+    el.classList.remove('active');
     el.innerHTML = '';
   }
+}
+
+function toggleHandDrawer() {
+  const btn   = document.getElementById('hand-drawer-btn');
+  const panel = document.getElementById('hand-panel');
+  btn.classList.toggle('open');
+  panel.classList.toggle('open');
+  const count = G.playerHand?.length || 0;
+  document.getElementById('hand-count-label').textContent = count > 0 ? `手牌 (${count})` : '手牌';
+}
+
+function playerCardClick(e) {
+  e.stopPropagation();
+  if (!G.playerDeck || !G.playerDeck.length) return;
+  showBenchPopup(e, P(), G.playerIdx, false, false);
+}
+
+function playerStandby() {
+  if (G.busy || G.playerNeedsDiscard) return;
+  G.busy = true;
+  renderBattle();
+  send({ type: 'standby' });
 }
 
 function renderTypeChart() {
