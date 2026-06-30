@@ -116,20 +116,27 @@ const TRAINERS = [
   {id:'orb-fire',   name:'火焰寶珠',   cat:'item',      desc:'本回合攻擊改為火屬性'},
   {id:'orb-water',  name:'水流寶珠',   cat:'item',      desc:'本回合攻擊改為水屬性'},
   {id:'orb-elec',   name:'電氣寶珠',   cat:'item',      desc:'本回合攻擊改為電屬性'},
-  {id:'orb-psychic',name:'超能寶珠',   cat:'item',      desc:'本回合攻擊改為超能屬性'},
   {id:'orb-ice',    name:'冰晶寶珠',   cat:'item',      desc:'本回合攻擊改為冰屬性'},
-  {id:'orb-dragon', name:'龍紋寶珠',   cat:'item',      desc:'本回合攻擊改為龍屬性'},
   {id:'orb-dark',   name:'暗影寶珠',   cat:'item',      desc:'本回合攻擊改為惡屬性'},
   {id:'orb-fairy',  name:'妖精寶珠',   cat:'item',      desc:'本回合攻擊改為妖精屬性'},
+  {id:'orb-grass',  name:'草葉寶珠',   cat:'item',      desc:'本回合攻擊改為草屬性'},
+  {id:'orb-fight',  name:'格鬥寶珠',   cat:'item',      desc:'本回合攻擊改為格鬥屬性'},
+  {id:'orb-poison', name:'毒素寶珠',   cat:'item',      desc:'本回合攻擊改為毒屬性'},
+  {id:'orb-bug',    name:'蟲鳴寶珠',   cat:'item',      desc:'本回合攻擊改為蟲屬性'},
+  {id:'orb-ghost',  name:'幽靈寶珠',   cat:'item',      desc:'本回合攻擊改為幽靈屬性'},
+  {id:'orb-steel',  name:'鋼鐵寶珠',   cat:'item',      desc:'本回合攻擊改為鋼屬性'},
+  {id:'orb-ground', name:'大地寶珠',   cat:'item',      desc:'本回合攻擊改為地面屬性'},
   // ── supporters ──
   {id:'revive',     name:'復活藥',     cat:'supporter', desc:'復活備戰欄第一隻倒下的寶可夢（回復 80 HP）'},
   {id:'nurse',      name:'治療師',     cat:'supporter', desc:'上場寶可夢完全回復 HP 並解除異常狀態'},
   {id:'all-out',    name:'全力出擊',   cat:'supporter', desc:'下次攻擊傷害 ×3'},
   // ── stadium ──
-  {id:'stadium-training', name:'訓練場',     cat:'stadium', desc:'場上所有技能威力 +20（雙方）'},
-  {id:'stadium-spring',   name:'地熱溫泉',   cat:'stadium', desc:'每回合結束，雙方上場寶可夢各回復 15 HP'},
-  {id:'stadium-reversal', name:'逆轉鬥技場', cat:'stadium', desc:'HP 低於 50% 時，攻擊威力 +30'},
-  {id:'stadium-invert',   name:'反轉世界',   cat:'stadium', desc:'場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×2）'},
+  {id:'stadium-training',      name:'訓練場',     cat:'stadium', desc:'場上所有技能威力 +20（雙方）'},
+  {id:'stadium-spring',        name:'地熱溫泉',   cat:'stadium', desc:'每回合結束，雙方上場寶可夢各回復 15 HP'},
+  {id:'stadium-reversal',      name:'逆轉鬥技場', cat:'stadium', desc:'HP 低於 50% 時，攻擊威力 +30'},
+  {id:'stadium-invert',        name:'反轉世界',   cat:'stadium', desc:'場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×2）'},
+  {id:'stadium-dragon-valley', name:'龍之谷',     cat:'stadium', desc:'龍屬性寶可夢對妖精、冰系招式不受克制（效果最多×1）'},
+  {id:'stadium-evil-forest',   name:'邪惡森林',   cat:'stadium', desc:'草系寶可夢不受屬性克制；草系招式傷害改以毒屬性計算'},
 ];
 
 const STATUS_ZH = {poison:'中毒',burn:'燒傷',paralysis:'麻痺',sleep:'睡眠',freeze:'結凍',confusion:'混亂'};
@@ -148,10 +155,18 @@ function srvEff(atkType, defType, defType2) {
 }
 
 function srvEffActive(atkType, defType, defType2, G) {
-  let m = srvEff(atkType, defType, defType2);
+  const eAtk = (G?.activeStadium?.id === 'stadium-evil-forest' && atkType === 'grass') ? 'poison' : atkType;
+  let m = srvEff(eAtk, defType, defType2);
   if (G?.activeStadium?.id === 'stadium-invert') {
     if (m === 0) m = 2;
     else if (m !== 1) m = 1 / m;
+  }
+  if (G?.activeStadium?.id === 'stadium-dragon-valley') {
+    if ((defType === 'dragon' || defType2 === 'dragon') &&
+        (eAtk === 'fairy' || eAtk === 'ice') && m > 1) m = 1;
+  }
+  if (G?.activeStadium?.id === 'stadium-evil-forest') {
+    if ((defType === 'grass' || defType2 === 'grass') && m > 1) m = 1;
   }
   return m;
 }
@@ -365,18 +380,25 @@ function applyTrainer(card, role, G, log) {
       buff.reflect = true;
       log.push({ text: `設置了反彈鏡！下次對手攻擊將反彈！`, cls: 'special' });
       break;
-    case 'orb-fire':    buff.typeOverride = 'fire';    log.push({ text: `火焰寶珠：本回合攻擊改為火屬性！`, cls: 'system' }); break;
-    case 'orb-water':   buff.typeOverride = 'water';   log.push({ text: `水流寶珠：本回合攻擊改為水屬性！`, cls: 'system' }); break;
+    case 'orb-fire':    buff.typeOverride = 'fire';     log.push({ text: `火焰寶珠：本回合攻擊改為火屬性！`, cls: 'system' }); break;
+    case 'orb-water':   buff.typeOverride = 'water';    log.push({ text: `水流寶珠：本回合攻擊改為水屬性！`, cls: 'system' }); break;
     case 'orb-elec':    buff.typeOverride = 'electric'; log.push({ text: `電氣寶珠：本回合攻擊改為電屬性！`, cls: 'system' }); break;
-    case 'orb-psychic': buff.typeOverride = 'psychic'; log.push({ text: `超能寶珠：本回合攻擊改為超能屬性！`, cls: 'system' }); break;
-    case 'orb-ice':     buff.typeOverride = 'ice';     log.push({ text: `冰晶寶珠：本回合攻擊改為冰屬性！`, cls: 'system' }); break;
-    case 'orb-dragon':  buff.typeOverride = 'dragon';  log.push({ text: `龍紋寶珠：本回合攻擊改為龍屬性！`, cls: 'system' }); break;
-    case 'orb-dark':    buff.typeOverride = 'dark';    log.push({ text: `暗影寶珠：本回合攻擊改為惡屬性！`, cls: 'system' }); break;
-    case 'orb-fairy':   buff.typeOverride = 'fairy';   log.push({ text: `妖精寶珠：本回合攻擊改為妖精屬性！`, cls: 'system' }); break;
+    case 'orb-ice':     buff.typeOverride = 'ice';      log.push({ text: `冰晶寶珠：本回合攻擊改為冰屬性！`, cls: 'system' }); break;
+    case 'orb-dark':    buff.typeOverride = 'dark';     log.push({ text: `暗影寶珠：本回合攻擊改為惡屬性！`, cls: 'system' }); break;
+    case 'orb-fairy':   buff.typeOverride = 'fairy';    log.push({ text: `妖精寶珠：本回合攻擊改為妖精屬性！`, cls: 'system' }); break;
+    case 'orb-grass':   buff.typeOverride = 'grass';    log.push({ text: `草葉寶珠：本回合攻擊改為草屬性！`, cls: 'system' }); break;
+    case 'orb-fight':   buff.typeOverride = 'fighting'; log.push({ text: `格鬥寶珠：本回合攻擊改為格鬥屬性！`, cls: 'system' }); break;
+    case 'orb-poison':  buff.typeOverride = 'poison';   log.push({ text: `毒素寶珠：本回合攻擊改為毒屬性！`, cls: 'system' }); break;
+    case 'orb-bug':     buff.typeOverride = 'bug';      log.push({ text: `蟲鳴寶珠：本回合攻擊改為蟲屬性！`, cls: 'system' }); break;
+    case 'orb-ghost':   buff.typeOverride = 'ghost';    log.push({ text: `幽靈寶珠：本回合攻擊改為幽靈屬性！`, cls: 'system' }); break;
+    case 'orb-steel':   buff.typeOverride = 'steel';    log.push({ text: `鋼鐵寶珠：本回合攻擊改為鋼屬性！`, cls: 'system' }); break;
+    case 'orb-ground':  buff.typeOverride = 'ground';   log.push({ text: `大地寶珠：本回合攻擊改為地面屬性！`, cls: 'system' }); break;
     case 'stadium-training':
     case 'stadium-spring':
     case 'stadium-reversal':
-    case 'stadium-invert': {
+    case 'stadium-invert':
+    case 'stadium-dragon-valley':
+    case 'stadium-evil-forest': {
       const old = G.activeStadium;
       G.activeStadium = card;
       if (old) log.push({ text: `新競技場【${card.name}】取代了【${old.name}】！`, cls: 'special' });
@@ -386,7 +408,26 @@ function applyTrainer(card, role, G, log) {
   }
 }
 
-// Draws 1-2 cards for each player after a turn.
+// Draws 1-2 cards for a single role at the start of their turn.
+// Also applies Hot Springs healing (once per turn, for both sides).
+function drawForRole(G, role) {
+  if (G.activeStadium?.id === 'stadium-spring') {
+    for (const r of ['p1', 'p2']) {
+      const poke = G[`${r}Deck`][G[`${r}Idx`]];
+      if (poke.cur > 0 && poke.cur < poke.hp) {
+        poke.cur = Math.min(poke.hp, poke.cur + 15);
+      }
+    }
+  }
+  const itemsOnly = TRAINERS.filter(c => c.cat !== 'supporter');
+  const n = Math.floor(Math.random() * 2) + 1;
+  for (let i = 0; i < n; i++) {
+    G[`${role}Hand`].push(itemsOnly[Math.floor(Math.random() * itemsOnly.length)]);
+  }
+  G[`${role}NeedsDiscard`] = G[`${role}Hand`].length > 5;
+}
+
+// Draws 1-2 cards for each player (kept for backward compatibility).
 function drawForBoth(G) {
   // Hot Springs: heal both active Pokémon 15 HP each turn
   if (G.activeStadium?.id === 'stadium-spring') {
@@ -601,7 +642,7 @@ function handleMessage(ws, msg) {
         G[`${role}SuppUsed`] = false;
         G[`${role}FreeSwitch`] = false;
         G[`${role}SwitchedThisTurn`] = false;
-        drawForBoth(G);
+        drawForRole(G, op);
         broadcast(room, { type: 'update', state: G, log, actor: role }); return;
       }
 
@@ -614,7 +655,6 @@ function handleMessage(ws, msg) {
         const opAlive = G[`${op}Deck`].filter(p => p.cur > 0).length;
         if (opAlive === 0) {
           G.winner = role;
-          drawForBoth(G);
           broadcast(room, { type: 'game_over', winner: role, state: G, log, atkType: atk.type });
           room.phase = 'done'; return;
         }
@@ -624,7 +664,7 @@ function handleMessage(ws, msg) {
         G.turn = op;
         G.round++;
       }
-      drawForBoth(G);
+      drawForRole(G, op);
       broadcast(room, { type: 'update', state: G, log, actor: role, atkType: atk.type }); return;
     }
 
@@ -642,7 +682,7 @@ function handleMessage(ws, msg) {
       G[`${op}Buff`].reflect = false; // reflect expires when opponent skips attack
       G.turn = op;
       G.round++;
-      drawForBoth(G);
+      drawForRole(G, op);
       const log = [{ text: `選擇待機，${role === 'p1' ? 'P1' : 'P2'} 抽到【${card.name}】！`, cls: 'system' }];
       broadcast(room, { type: 'update', state: G, log, actor: role }); return;
     }
@@ -675,6 +715,24 @@ function handleMessage(ws, msg) {
       G[`${role}Idx`] = newIdx;
       G.pendingKOSwitch = null;
       const log = [{ text: `${deck[newIdx].name} 上場！`, cls: 'system' }];
+      broadcast(room, { type: 'update', state: G, log, actor: role }); return;
+    }
+
+    if (type === 'discard_trade') {
+      if (G.turn !== role || G.pendingKOSwitch) return;
+      const hand = G[`${role}Hand`];
+      const indices = msg.indices;
+      if (!Array.isArray(indices) || indices.length !== 2) return;
+      if (indices.some(i => typeof i !== 'number' || i < 0 || i >= hand.length)) return;
+      const sorted = [...indices].sort((a,b) => b-a);
+      sorted.forEach(i => hand.splice(i, 1));
+      const cardType = msg.cardType;
+      if (cardType !== 'stadium' && cardType !== 'item') return;
+      const pool = TRAINERS.filter(c => c.cat === cardType);
+      const newCard = pool[Math.floor(Math.random() * pool.length)];
+      hand.push(newCard);
+      G[`${role}NeedsDiscard`] = hand.length > 5;
+      const log = [{ text: `棄牌換卡！【${newCard.name}】到手！`, cls: 'system' }];
       broadcast(room, { type: 'update', state: G, log, actor: role }); return;
     }
 

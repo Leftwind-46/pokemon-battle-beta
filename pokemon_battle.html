@@ -1072,6 +1072,14 @@
     .dex-move-badge { display:inline-block; font-size:0.58rem; font-weight:700; padding:0.04rem 0.3rem; border-radius:4px; color:#fff; margin-right:0.22rem; vertical-align:middle; }
     #discard-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
     #discard-modal.open { display:flex; }
+    #trade-modal, #trade-choose-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
+    #trade-modal.open, #trade-choose-modal.open { display:flex; }
+    #trade-modal .t-card { cursor:pointer; transition:box-shadow 0.15s; }
+    #trade-modal .t-card.selected { box-shadow: 0 0 0 2px #ffd740; }
+    .btn-modal-ok { background:rgba(99,102,241,0.25); border:1px solid rgba(99,102,241,0.5); color:#c5cae9; border-radius:8px; padding:0.55rem 1.2rem; cursor:pointer; font-size:0.9rem; }
+    .btn-modal-ok:hover { background:rgba(99,102,241,0.4); }
+    .btn-modal-ok:disabled { opacity:0.4; cursor:default; }
+    .btn-modal-cancel { background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15); color:#9e9e9e; border-radius:8px; padding:0.55rem 1.2rem; cursor:pointer; font-size:0.9rem; }
     .discard-inner { background:#0f1228; border:1px solid rgba(248,208,48,0.3); border-radius:20px; padding:1.5rem 1.25rem; max-width:620px; width:100%; text-align:center; max-height:85vh; overflow-y:auto; }
     .discard-title { font-size:1rem; font-weight:800; color:#f8d030; margin-bottom:0.4rem; }
     .discard-sub { font-size:0.78rem; color:var(--muted); margin-bottom:1rem; }
@@ -1180,8 +1188,9 @@
       <ul>
         <li>每回合可先換場（換場不消耗回合，每回合限換一次），再攻擊或待機。</li>
         <li><b>💤 待機</b>：跳過攻擊，抽 1 張支援者牌進入手牌。</li>
-        <li>每次攻擊結束後隨機抽 1–2 張訓練師牌，手牌上限 5 張。</li>
+        <li>每個回合開始時，抽 1–2 張道具牌，手牌上限 5 張。</li>
         <li>若抽牌後超過 5 張，可選擇丟棄一張。</li>
+        <li>可花費 2 張手牌，換取 1 張競技場或道具卡（棄2換1按鈕）。</li>
         <li>我方寶可夢 HP 歸零後，立即自由選擇下一隻上場（不消耗回合）。</li>
         <li>點擊場上或備戰欄的寶可夢可查看屬性、HP 與招式資訊。</li>
       </ul>
@@ -1207,9 +1216,9 @@
       <ul>
         <li><b>☠ 中毒</b>：每回合行動前損失 1/8 最大 HP。</li>
         <li><b>🔥 燒傷</b>：每回合損失 1/16 最大 HP，且攻擊力降低 30%。</li>
-        <li><b>⚡ 麻痺</b>：每回合 25% 機率完全無法行動。</li>
+        <li><b>⚡ 麻痺</b>：每回合 50% 機率完全無法行動。</li>
         <li><b>💤 睡眠</b>：無法行動 2–3 回合後自然醒來。</li>
-        <li><b>❄ 結凍</b>：無法行動；每回合 20% 機率自行解凍，或被火系招式命中立即解凍。</li>
+        <li><b>❄ 結凍</b>：無法行動；冰凍 2 回合後自動解凍，或被火系招式命中立即解凍。</li>
         <li><b>💫 混亂</b>：每回合 50% 機率攻擊自己（60 傷害），持續 2–4 回合；換場可解除。</li>
         <li>每隻寶可夢同一時間只能有一種異常狀態。使用<b>萬能藥</b>或<b>治療師</b>可解除。</li>
       </ul>
@@ -1227,7 +1236,7 @@
           <li>瓦斯攻擊 — 讓對手上場寶可夢陷入中毒</li>
           <li>交換器 — 強制讓對手上場寶可夢與隨機備戰寶可夢互換</li>
           <li>反彈鏡 — 下次對手攻擊傷害全數反彈回自身</li>
-          <li>屬性寶珠（火／水／電／超能／冰／龍／惡／妖精）— 本回合攻擊改為對應屬性</li>
+          <li>屬性寶珠（火／水／電／冰／惡／妖精／草／格鬥／毒／蟲／幽靈／鋼／地面）— 本回合攻擊改為對應屬性</li>
         </ul>
         <li><b>支援者牌</b>（藍框）每回合限用 1 張，<b>每關合計最多使用 2 張</b>。僅開局手牌中會出現：</li>
         <ul>
@@ -1241,6 +1250,8 @@
           <li>地熱溫泉 — 每回合結束，雙方上場寶可夢各回復 15 HP</li>
           <li>逆轉鬥技場 — HP 低於 50% 時，攻擊威力 +30</li>
           <li>反轉世界 — 場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×2）</li>
+          <li>龍之谷 — 龍屬性寶可夢對妖精、冰系招式最多×1效果</li>
+          <li>邪惡森林 — 草系寶可夢不受屬性克制；草系招式改以毒屬性計算效果</li>
         </ul>
       </ul>
 
@@ -1375,6 +1386,10 @@
           <button class="btn-atk" id="btn-standby" onclick="playerStandby()" style="grid-column:span 2">
             <div class="atk-name">💤 待機</div>
             <div class="atk-meta"><span style="font-size:0.72rem;color:var(--muted)">跳過攻擊，抽 1 張支援者牌</span></div>
+          </button>
+          <button class="btn-atk" id="btn-trade" onclick="playerDiscardTrade()" style="grid-column:span 2">
+            <div class="atk-name">🔄 棄2換1</div>
+            <div class="atk-meta"><span style="font-size:0.72rem;color:var(--muted)">棄掉 2 張手牌，換取 1 張競技場或道具卡</span></div>
           </button>
         </div>
       </div>
@@ -1809,10 +1824,21 @@ function eff(atkType, defType, defType2) {
 }
 
 function effActive(atkType, defType, defType2) {
-  let m = eff(atkType, defType, defType2);
+  // Evil Forest: grass attacks treated as poison for effectiveness
+  const eAtk = (G.activeStadium?.id === 'stadium-evil-forest' && atkType === 'grass') ? 'poison' : atkType;
+  let m = eff(eAtk, defType, defType2);
   if (G.activeStadium?.id === 'stadium-invert') {
     if (m === 0) m = 2;
     else if (m !== 1) m = 1 / m;
+  }
+  // Dragon Valley: dragon-type immune to fairy/ice super effectiveness
+  if (G.activeStadium?.id === 'stadium-dragon-valley') {
+    if ((defType === 'dragon' || defType2 === 'dragon') &&
+        (eAtk === 'fairy' || eAtk === 'ice') && m > 1) m = 1;
+  }
+  // Evil Forest: grass-type Pokémon not affected by type disadvantages
+  if (G.activeStadium?.id === 'stadium-evil-forest') {
+    if ((defType === 'grass' || defType2 === 'grass') && m > 1) m = 1;
   }
   return m;
 }
@@ -1831,20 +1857,27 @@ const TRAINERS = [
   {id:'orb-fire',   name:'火焰寶珠',   cat:'item',      desc:'本回合攻擊改為火屬性'},
   {id:'orb-water',  name:'水流寶珠',   cat:'item',      desc:'本回合攻擊改為水屬性'},
   {id:'orb-elec',   name:'電氣寶珠',   cat:'item',      desc:'本回合攻擊改為電屬性'},
-  {id:'orb-psychic',name:'超能寶珠',   cat:'item',      desc:'本回合攻擊改為超能屬性'},
   {id:'orb-ice',    name:'冰晶寶珠',   cat:'item',      desc:'本回合攻擊改為冰屬性'},
-  {id:'orb-dragon', name:'龍紋寶珠',   cat:'item',      desc:'本回合攻擊改為龍屬性'},
   {id:'orb-dark',   name:'暗影寶珠',   cat:'item',      desc:'本回合攻擊改為惡屬性'},
   {id:'orb-fairy',  name:'妖精寶珠',   cat:'item',      desc:'本回合攻擊改為妖精屬性'},
+  {id:'orb-grass',  name:'草葉寶珠',   cat:'item',      desc:'本回合攻擊改為草屬性'},
+  {id:'orb-fight',  name:'格鬥寶珠',   cat:'item',      desc:'本回合攻擊改為格鬥屬性'},
+  {id:'orb-poison', name:'毒素寶珠',   cat:'item',      desc:'本回合攻擊改為毒屬性'},
+  {id:'orb-bug',    name:'蟲鳴寶珠',   cat:'item',      desc:'本回合攻擊改為蟲屬性'},
+  {id:'orb-ghost',  name:'幽靈寶珠',   cat:'item',      desc:'本回合攻擊改為幽靈屬性'},
+  {id:'orb-steel',  name:'鋼鐵寶珠',   cat:'item',      desc:'本回合攻擊改為鋼屬性'},
+  {id:'orb-ground', name:'大地寶珠',   cat:'item',      desc:'本回合攻擊改為地面屬性'},
   // ── 支援者牌 ──
   {id:'revive',     name:'復活藥',     cat:'supporter', desc:'復活備戰欄第一隻倒下的寶可夢（回復 80 HP）'},
   {id:'nurse',      name:'治療師',     cat:'supporter', desc:'上場寶可夢完全回復 HP 並解除異常狀態'},
   {id:'all-out',    name:'全力出擊',   cat:'supporter', desc:'下次攻擊傷害 ×3'},
   // ── 競技場牌 ──
-  {id:'stadium-training', name:'訓練場',     cat:'stadium', desc:'場上所有技能威力 +20（雙方）'},
-  {id:'stadium-spring',   name:'地熱溫泉',   cat:'stadium', desc:'每回合結束，雙方上場寶可夢各回復 15 HP'},
-  {id:'stadium-reversal', name:'逆轉鬥技場', cat:'stadium', desc:'HP 低於 50% 時，攻擊威力 +30'},
-  {id:'stadium-invert',   name:'反轉世界',   cat:'stadium', desc:'場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×2）'},
+  {id:'stadium-training',      name:'訓練場',     cat:'stadium', desc:'場上所有技能威力 +20（雙方）'},
+  {id:'stadium-spring',        name:'地熱溫泉',   cat:'stadium', desc:'每回合結束，雙方上場寶可夢各回復 15 HP'},
+  {id:'stadium-reversal',      name:'逆轉鬥技場', cat:'stadium', desc:'HP 低於 50% 時，攻擊威力 +30'},
+  {id:'stadium-invert',        name:'反轉世界',   cat:'stadium', desc:'場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×2）'},
+  {id:'stadium-dragon-valley', name:'龍之谷',     cat:'stadium', desc:'龍屬性寶可夢對妖精、冰系招式不受克制（效果最多×1）'},
+  {id:'stadium-evil-forest',   name:'邪惡森林',   cat:'stadium', desc:'草系寶可夢不受屬性克制；草系招式傷害改以毒屬性計算'},
 ];
 
 function dealHand(n) {
@@ -1874,6 +1907,10 @@ function setSprite(el, id) {
 function syncSpriteAnim(side, poke) {
   const el = document.getElementById(`${side}-sprite`);
   if (!el) return;
+  if (poke.cur <= 0) {
+    el.classList.remove('sprite-idle', 'sprite-danger');
+    return;
+  }
   const busy = ['sprite-lunge-r','sprite-lunge-l','sprite-hit','sprite-enter'].some(c => el.classList.contains(c));
   if (busy) return;
   const pct = poke.cur / poke.hp * 100;
@@ -2510,6 +2547,8 @@ function renderActions() {
   });
   const standbyBtn = document.getElementById('btn-standby');
   if (standbyBtn) standbyBtn.disabled = G.busy;
+  const tradeBtn = document.getElementById('btn-trade');
+  if (tradeBtn) tradeBtn.disabled = G.busy || G.playerHand.length < 2;
 }
 
 function renderHand() {
@@ -2664,15 +2703,22 @@ function applyTrainer(card, side) {
     case 'orb-fire':    buff.typeOverride = 'fire';     log(`${pron}使用了【${card.name}】，本回合攻擊改為火屬性！`, tag); break;
     case 'orb-water':   buff.typeOverride = 'water';    log(`${pron}使用了【${card.name}】，本回合攻擊改為水屬性！`, tag); break;
     case 'orb-elec':    buff.typeOverride = 'electric'; log(`${pron}使用了【${card.name}】，本回合攻擊改為電屬性！`, tag); break;
-    case 'orb-psychic': buff.typeOverride = 'psychic';  log(`${pron}使用了【${card.name}】，本回合攻擊改為超能屬性！`, tag); break;
     case 'orb-ice':     buff.typeOverride = 'ice';      log(`${pron}使用了【${card.name}】，本回合攻擊改為冰屬性！`, tag); break;
-    case 'orb-dragon':  buff.typeOverride = 'dragon';   log(`${pron}使用了【${card.name}】，本回合攻擊改為龍屬性！`, tag); break;
     case 'orb-dark':    buff.typeOverride = 'dark';     log(`${pron}使用了【${card.name}】，本回合攻擊改為惡屬性！`, tag); break;
     case 'orb-fairy':   buff.typeOverride = 'fairy';    log(`${pron}使用了【${card.name}】，本回合攻擊改為妖精屬性！`, tag); break;
+    case 'orb-grass':   buff.typeOverride = 'grass';    log(`${pron}使用了【${card.name}】，本回合攻擊改為草屬性！`, tag); break;
+    case 'orb-fight':   buff.typeOverride = 'fighting'; log(`${pron}使用了【${card.name}】，本回合攻擊改為格鬥屬性！`, tag); break;
+    case 'orb-poison':  buff.typeOverride = 'poison';   log(`${pron}使用了【${card.name}】，本回合攻擊改為毒屬性！`, tag); break;
+    case 'orb-bug':     buff.typeOverride = 'bug';      log(`${pron}使用了【${card.name}】，本回合攻擊改為蟲屬性！`, tag); break;
+    case 'orb-ghost':   buff.typeOverride = 'ghost';    log(`${pron}使用了【${card.name}】，本回合攻擊改為幽靈屬性！`, tag); break;
+    case 'orb-steel':   buff.typeOverride = 'steel';    log(`${pron}使用了【${card.name}】，本回合攻擊改為鋼屬性！`, tag); break;
+    case 'orb-ground':  buff.typeOverride = 'ground';   log(`${pron}使用了【${card.name}】，本回合攻擊改為地面屬性！`, tag); break;
     case 'stadium-training':
     case 'stadium-spring':
     case 'stadium-reversal':
-    case 'stadium-invert': {
+    case 'stadium-invert':
+    case 'stadium-dragon-valley':
+    case 'stadium-evil-forest': {
       const oldStadium = G.activeStadium;
       G.activeStadium = card;
       if (oldStadium) log(`🏟 新競技場【${card.name}】取代了【${oldStadium.name}】！`, 'special');
@@ -2802,6 +2848,12 @@ function cpuUseTrainers() {
 }
 
 function cpuAttack() {
+  // CPU draws at start of its own turn
+  const itemsOnly = TRAINERS.filter(c => c.cat !== 'supporter');
+  const cpuN = Math.floor(Math.random() * 2) + 1;
+  for (let i = 0; i < cpuN && G.cpuHand.length < 5; i++) {
+    G.cpuHand.push(itemsOnly[Math.floor(Math.random() * itemsOnly.length)]);
+  }
   cpuUseTrainers();
   const cpu = CP();
   /* AI: prefer higher-damage attack when above half HP, else random */
@@ -3267,20 +3319,15 @@ function drawAfterTurn(onDone) {
       }
     });
   }
-  // Supporters only in starting hand; draws are always items-only
+  // Player draws at start of their own turn; items-only pool
   const itemsOnly = TRAINERS.filter(c => c.cat !== 'supporter');
-  const cpuN = Math.floor(Math.random() * 2) + 1;
-  for (let i = 0; i < cpuN && G.cpuHand.length < 5; i++) {
-    G.cpuHand.push(itemsOnly[Math.floor(Math.random() * itemsOnly.length)]);
-  }
-
   const n = Math.floor(Math.random() * 2) + 1;
   const newCards = [];
   for (let i = 0; i < n; i++) {
     newCards.push(itemsOnly[Math.floor(Math.random() * itemsOnly.length)]);
   }
   G.playerHand.push(...newCards);
-  log(`抽到了：${newCards.map(c => c.name).join('、')}`, 'system');
+  log(`你抽到了：${newCards.map(c => c.name).join('、')}`, 'system');
 
   if (G.playerHand.length <= 5) {
     onDone();
@@ -3317,6 +3364,74 @@ function discardCard(idx) {
     const cb = _discardOnDone;
     _discardOnDone = null;
     cb?.();
+  }
+}
+
+/* ─────────────────────────────────────────
+   DISCARD-TRADE MECHANIC (棄2換1)
+───────────────────────────────────────── */
+let _tradeSelected = [];
+
+function playerDiscardTrade() {
+  if (G.busy || G.playerHand.length < 2) return;
+  _tradeSelected = [];
+  renderTradeModal();
+  document.getElementById('trade-modal').classList.add('open');
+}
+
+function renderTradeModal() {
+  const row = document.getElementById('trade-select-cards');
+  row.innerHTML = '';
+  G.playerHand.forEach((card, i) => {
+    const isStadium = card.cat === 'stadium';
+    const isSupp = card.cat === 'supporter';
+    const el = document.createElement('div');
+    el.className = `t-card ${card.cat}` + (_tradeSelected.includes(i) ? ' selected' : '');
+    el.innerHTML = `<div class="t-badge">${isSupp?'支援者':isStadium?'競技場':'道具'}</div><div class="t-name">${card.name}</div><div class="t-desc">${card.desc}</div>`;
+    el.onclick = () => toggleTradeSelect(i);
+    row.appendChild(el);
+  });
+  const btn = document.getElementById('trade-confirm-btn');
+  if (btn) btn.disabled = _tradeSelected.length !== 2;
+}
+
+function toggleTradeSelect(idx) {
+  const pos = _tradeSelected.indexOf(idx);
+  if (pos !== -1) {
+    _tradeSelected.splice(pos, 1);
+  } else if (_tradeSelected.length < 2) {
+    _tradeSelected.push(idx);
+  }
+  renderTradeModal();
+}
+
+function confirmDiscardTrade() {
+  if (_tradeSelected.length !== 2) return;
+  [..._tradeSelected].sort((a,b)=>b-a).forEach(i => G.playerHand.splice(i, 1));
+  _tradeSelected = [];
+  document.getElementById('trade-modal').classList.remove('open');
+  renderHand();
+  document.getElementById('trade-choose-modal').classList.add('open');
+}
+
+function closeTradeModal() {
+  document.getElementById('trade-modal').classList.remove('open');
+  _tradeSelected = [];
+}
+
+function chooseTrade(type) {
+  document.getElementById('trade-choose-modal').classList.remove('open');
+  const pool = type === 'stadium'
+    ? TRAINERS.filter(c => c.cat === 'stadium')
+    : TRAINERS.filter(c => c.cat === 'item');
+  const card = pool[Math.floor(Math.random() * pool.length)];
+  G.playerHand.push(card);
+  log(`棄牌換卡！獲得了【${card.name}】`, 'system');
+  if (G.playerHand.length > 5) {
+    showDiscardModal(() => { renderBattle(); });
+  } else {
+    renderHand();
+    renderBattle();
   }
 }
 
@@ -3392,6 +3507,30 @@ function renderDex() {
   </div>
 </div>
 
+<!-- Trade modal (discard 2 → get 1) -->
+<div id="trade-modal">
+  <div class="discard-inner">
+    <div class="discard-title">棄牌換卡</div>
+    <div class="discard-sub">選擇 2 張手牌丟棄，換取 1 張新卡</div>
+    <div id="trade-select-cards" style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;margin:0.6rem 0"></div>
+    <div style="display:flex;gap:0.6rem;justify-content:center;margin-top:0.5rem">
+      <button id="trade-confirm-btn" class="btn-modal-ok" onclick="confirmDiscardTrade()" disabled>確認棄牌</button>
+      <button class="btn-modal-cancel" onclick="closeTradeModal()">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- Trade choose type modal -->
+<div id="trade-choose-modal">
+  <div class="discard-inner">
+    <div class="discard-title">選擇換取類型</div>
+    <div class="discard-sub">你想換取哪種卡片？</div>
+    <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.8rem">
+      <button class="btn-modal-ok" onclick="chooseTrade('stadium')">🏟 競技場</button>
+      <button class="btn-modal-ok" onclick="chooseTrade('item')">🃏 道具卡</button>
+    </div>
+  </div>
+</div>
 
 <!-- Bench info popup -->
 <div id="bench-popup" class="bench-popup" style="display:none" onclick="event.stopPropagation()">

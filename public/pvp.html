@@ -312,6 +312,14 @@
     /* ── Discard Modal ── */
     #discard-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
     #discard-modal.open { display:flex; }
+    #trade-modal, #trade-choose-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
+    #trade-modal.open, #trade-choose-modal.open { display:flex; }
+    #trade-modal .t-card { cursor:pointer; transition:box-shadow 0.15s; }
+    #trade-modal .t-card.selected { box-shadow: 0 0 0 2px #ffd740; }
+    .btn-modal-ok { background:rgba(99,102,241,0.25); border:1px solid rgba(99,102,241,0.5); color:#c5cae9; border-radius:8px; padding:0.55rem 1.2rem; cursor:pointer; font-size:0.9rem; }
+    .btn-modal-ok:hover { background:rgba(99,102,241,0.4); }
+    .btn-modal-ok:disabled { opacity:0.4; cursor:default; }
+    .btn-modal-cancel { background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15); color:#9e9e9e; border-radius:8px; padding:0.55rem 1.2rem; cursor:pointer; font-size:0.9rem; }
     .discard-inner { background:#0f1228; border:1px solid rgba(248,208,48,0.3); border-radius:20px; padding:1.5rem 1.25rem; max-width:620px; width:100%; text-align:center; max-height:85vh; overflow-y:auto; }
     .discard-title { font-size:1rem; font-weight:800; color:#f8d030; margin-bottom:0.4rem; }
     .discard-sub   { font-size:0.78rem; color:var(--muted); margin-bottom:1rem; }
@@ -491,6 +499,10 @@
               <div class="atk-name">💤 待機</div>
               <div class="atk-meta"><span style="font-size:0.72rem;color:var(--muted)">跳過攻擊，抽 1 張支援者牌</span></div>
             </button>
+            <button class="btn-atk" id="btn-trade" onclick="playerDiscardTrade()" style="grid-column:span 2">
+              <div class="atk-name">🔄 棄2換1</div>
+              <div class="atk-meta"><span style="font-size:0.72rem;color:var(--muted)">棄掉 2 張手牌，換取 1 張競技場或道具卡</span></div>
+            </button>
           </div>
         </div>
       </div>
@@ -539,23 +551,24 @@
     <ul>
       <li><b>☠ 中毒</b>：每回合行動前損失 1/8 最大 HP。</li>
       <li><b>🔥 燒傷</b>：每回合損失 1/16 HP，且攻擊力降低 30%。</li>
-      <li><b>⚡ 麻痺</b>：每回合 25% 機率完全無法行動。</li>
+      <li><b>⚡ 麻痺</b>：每回合 50% 機率完全無法行動。</li>
       <li><b>💤 睡眠</b>：無法行動 2–3 回合後自然醒來。</li>
-      <li><b>❄ 結凍</b>：無法行動；每回合 20% 自解，或被火系攻擊命中解凍。</li>
+      <li><b>❄ 結凍</b>：無法行動；冰凍 2 回合後自動解凍，或被火系攻擊命中解凍。</li>
       <li><b>💫 混亂</b>：50% 機率攻擊自己（60 傷害），持續 2–4 回合；換場可解除。</li>
       <li>同時只能有一種異常狀態，可用<b>萬能藥</b>或<b>治療師</b>解除。</li>
     </ul>
     <h3>訓練師牌</h3>
     <ul>
-      <li><b>道具牌</b>（綠框）每回合可用多張，每次攻擊後補抽：</li>
+      <li><b>道具牌</b>（綠框）每回合可用多張，每回合開始時補抽 1–2 張：</li>
       <ul>
         <li>傷藥 — 回復 80 HP ／ 攻擊強化 — 下次 +40 傷害 ／ 防禦強化 — 下次受傷 -40</li>
         <li>能量強化 — 下次攻擊 ×2，但自損 50 HP</li>
         <li>萬能藥 — 解除異常狀態</li>
         <li>火焰彈 — 讓對手燒傷 ／ 瓦斯攻擊 — 讓對手中毒</li>
         <li>交換器 — 強制換出對手備戰寶可夢 ／ 反彈鏡 — 下次對手攻擊反彈回自身</li>
-        <li>屬性寶珠（火／水／電／超能／冰／龍／惡／妖精）— 本回合攻擊改為對應屬性</li>
+        <li>屬性寶珠（火／水／電／冰／惡／妖精／草／格鬥／毒／蟲／幽靈／鋼／地面）— 本回合攻擊改為對應屬性</li>
       </ul>
+      <li>可花費 2 張手牌，換取 1 張競技場或道具卡（棄2換1按鈕）。</li>
       <li><b>支援者牌</b>（藍框）僅開局手牌中出現，每回合限用 1 張，全場最多 2 張，也可用待機抽到：</li>
       <ul>
         <li>復活藥 — 復活備戰欄第一隻倒下的寶可夢（80 HP）</li>
@@ -568,6 +581,8 @@
         <li>地熱溫泉 — 每回合結束，雙方上場寶可夢各回復 15 HP</li>
         <li>逆轉鬥技場 — HP 低於 50% 時，攻擊威力 +30</li>
         <li>反轉世界 — 場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×2）</li>
+        <li>龍之谷 — 龍屬性寶可夢對妖精、冰系招式最多×1效果</li>
+        <li>邪惡森林 — 草系寶可夢不受屬性克制；草系招式改以毒屬性計算效果</li>
       </ul>
     </ul>
   </div>
@@ -587,6 +602,31 @@
     <div class="discard-title">手牌已達上限！</div>
     <div class="discard-sub">請選擇一張丟棄</div>
     <div id="discard-cards"></div>
+  </div>
+</div>
+
+<!-- Trade modal (discard 2 → get 1) -->
+<div id="trade-modal">
+  <div class="discard-inner">
+    <div class="discard-title">棄牌換卡</div>
+    <div class="discard-sub">選擇 2 張手牌丟棄，換取 1 張新卡</div>
+    <div id="trade-select-cards" style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;margin:0.6rem 0"></div>
+    <div style="display:flex;gap:0.6rem;justify-content:center;margin-top:0.5rem">
+      <button id="trade-confirm-btn" class="btn-modal-ok" onclick="pvpConfirmDiscardTrade()" disabled>確認棄牌</button>
+      <button class="btn-modal-cancel" onclick="closeTradeModal()">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- Trade choose type modal -->
+<div id="trade-choose-modal">
+  <div class="discard-inner">
+    <div class="discard-title">選擇換取類型</div>
+    <div class="discard-sub">你想換取哪種卡片？</div>
+    <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.8rem">
+      <button class="btn-modal-ok" onclick="pvpChooseTrade('stadium')">🏟 競技場</button>
+      <button class="btn-modal-ok" onclick="pvpChooseTrade('item')">🃏 道具卡</button>
+    </div>
   </div>
 </div>
 
@@ -710,6 +750,10 @@ function setSprite(el, id) {
 function syncSpriteAnim(side, poke) {
   const el = document.getElementById(`${side}-sprite`);
   if (!el || !poke) return;
+  if (poke.cur <= 0) {
+    el.classList.remove('sprite-idle', 'sprite-danger');
+    return;
+  }
   const busy = ['sprite-lunge-r','sprite-lunge-l','sprite-hit','sprite-enter'].some(c => el.classList.contains(c));
   if (busy) return;
   const pct = poke.cur / poke.hp * 100;
@@ -1132,6 +1176,8 @@ function renderActions() {
   });
   const standbyBtn = document.getElementById('btn-standby');
   if (standbyBtn) standbyBtn.disabled = G.busy;
+  const tradeBtn = document.getElementById('btn-trade');
+  if (tradeBtn) tradeBtn.disabled = G.busy || G.playerHand.length < 2;
   renderActiveStadium();
 }
 
@@ -1261,10 +1307,21 @@ function eff(atkType, defType, defType2) {
 }
 
 function effActive(atkType, defType, defType2) {
-  let m = eff(atkType, defType, defType2);
+  // Evil Forest: grass attacks treated as poison for effectiveness
+  const eAtk = (G.activeStadium?.id === 'stadium-evil-forest' && atkType === 'grass') ? 'poison' : atkType;
+  let m = eff(eAtk, defType, defType2);
   if (G.activeStadium?.id === 'stadium-invert') {
     if (m === 0) m = 2;
     else if (m !== 1) m = 1 / m;
+  }
+  // Dragon Valley: dragon-type immune to fairy/ice super effectiveness
+  if (G.activeStadium?.id === 'stadium-dragon-valley') {
+    if ((defType === 'dragon' || defType2 === 'dragon') &&
+        (eAtk === 'fairy' || eAtk === 'ice') && m > 1) m = 1;
+  }
+  // Evil Forest: grass-type Pokémon not affected by type disadvantages
+  if (G.activeStadium?.id === 'stadium-evil-forest') {
+    if ((defType === 'grass' || defType2 === 'grass') && m > 1) m = 1;
   }
   return m;
 }
@@ -1302,6 +1359,62 @@ function playerStandby() {
   G.busy = true;
   renderBattle();
   send({ type: 'standby' });
+}
+
+/* ─────────────────────────────────────────
+   DISCARD-TRADE MECHANIC (棄2換1)
+───────────────────────────────────────── */
+let _tradeSelected = [];
+
+function playerDiscardTrade() {
+  if (G.busy || G.playerNeedsDiscard || G.playerHand.length < 2) return;
+  _tradeSelected = [];
+  renderTradeModal();
+  document.getElementById('trade-modal').classList.add('open');
+}
+
+function renderTradeModal() {
+  const row = document.getElementById('trade-select-cards');
+  row.innerHTML = '';
+  G.playerHand.forEach((card, i) => {
+    const isStadium = card.cat === 'stadium';
+    const isSupp = card.cat === 'supporter';
+    const el = document.createElement('div');
+    el.className = `t-card ${card.cat}` + (_tradeSelected.includes(i) ? ' selected' : '');
+    el.innerHTML = `<div class="t-badge">${isSupp?'支援者':isStadium?'競技場':'道具'}</div><div class="t-name">${card.name}</div><div class="t-desc">${card.desc}</div>`;
+    el.onclick = () => toggleTradeSelect(i);
+    row.appendChild(el);
+  });
+  const btn = document.getElementById('trade-confirm-btn');
+  if (btn) btn.disabled = _tradeSelected.length !== 2;
+}
+
+function toggleTradeSelect(idx) {
+  const pos = _tradeSelected.indexOf(idx);
+  if (pos !== -1) {
+    _tradeSelected.splice(pos, 1);
+  } else if (_tradeSelected.length < 2) {
+    _tradeSelected.push(idx);
+  }
+  renderTradeModal();
+}
+
+function pvpConfirmDiscardTrade() {
+  if (_tradeSelected.length !== 2) return;
+  document.getElementById('trade-modal').classList.remove('open');
+  document.getElementById('trade-choose-modal').classList.add('open');
+}
+
+function closeTradeModal() {
+  document.getElementById('trade-modal').classList.remove('open');
+  _tradeSelected = [];
+}
+
+function pvpChooseTrade(type) {
+  document.getElementById('trade-choose-modal').classList.remove('open');
+  const indices = [..._tradeSelected].sort((a,b)=>b-a);
+  send({ type: 'discard_trade', indices, cardType: type });
+  _tradeSelected = [];
 }
 
 function renderTypeChart() {
