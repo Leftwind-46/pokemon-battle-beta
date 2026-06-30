@@ -660,11 +660,12 @@ function handleMessage(ws, msg) {
         }
         G.pendingKOSwitch = op;
         G.turn = op;
+        // Don't draw for op yet — draw after they ko_switch (start of their turn)
       } else {
         G.turn = op;
         G.round++;
+        drawForRole(G, op);
       }
-      drawForRole(G, op);
       broadcast(room, { type: 'update', state: G, log, actor: role, atkType: atk.type }); return;
     }
 
@@ -714,6 +715,7 @@ function handleMessage(ws, msg) {
 
       G[`${role}Idx`] = newIdx;
       G.pendingKOSwitch = null;
+      drawForRole(G, role); // Draw at start of turn after KO switch
       const log = [{ text: `${deck[newIdx].name} 上場！`, cls: 'system' }];
       broadcast(room, { type: 'update', state: G, log, actor: role }); return;
     }
