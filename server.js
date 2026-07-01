@@ -29,21 +29,21 @@ app.use(express.json());
 const POKEMON = [
   // Tier 1
   { id:3,   name:'妙蛙花',     type:'grass',    type2:'poison',  hp:250, tier:1, attacks:[{name:'太陽射線',dmg:40,type:'grass',   status:{effect:'sleep',    chance:0.20}},{name:'大地之力',dmg:55,type:'ground',  status:{effect:'poison',   chance:0.30}},{name:'毒粉刺',  dmg:42,type:'poison',  status:{effect:'poison',   chance:0.35}},{name:'葉刃',    dmg:52,type:'grass'}]},
-  { id:94,  name:'耿鬼',       type:'ghost',    type2:'poison',  hp:220, tier:1, attacks:[{name:'幽靈之爪',dmg:40,type:'ghost',   status:{effect:'poison',   chance:0.20}},{name:'咬碎',    dmg:52,type:'dark'},                                                {name:'暗影球',  dmg:50,type:'ghost'},                                                {name:'催眠術',  dmg:28,type:'psychic', status:{effect:'sleep',    chance:0.50}}]},
+  { id:94,  name:'耿鬼',       type:'ghost',    type2:'poison',  hp:220, tier:1, ability:{id:'poison-heal', name:'毒療', trigger:'onStatus', desc:'中毒時每回合回復 1/8 最大HP，而非扣血'}, attacks:[{name:'幽靈之爪',dmg:40,type:'ghost',   status:{effect:'poison',   chance:0.20}},{name:'咬碎',    dmg:52,type:'dark'},                                                {name:'暗影球',  dmg:50,type:'ghost'},                                                {name:'催眠術',  dmg:28,type:'psychic', status:{effect:'sleep',    chance:0.50}}]},
   { id:68,  name:'怪力',       type:'fighting', hp:260, tier:1, attacks:[{name:'動感拳',  dmg:42,type:'fighting'},{name:'地震',    dmg:58,type:'ground'},{name:'岩石滑落',dmg:48,type:'rock',    status:{effect:'paralysis',chance:0.15}},{name:'超強衝擊',dmg:60,type:'fighting'}]},
   { id:65,  name:'胡地',       type:'psychic',  hp:200, tier:1, attacks:[{name:'超能力',  dmg:40,type:'psychic', status:{effect:'confusion',chance:0.30}},{name:'閃電拳',dmg:52,type:'electric',status:{effect:'paralysis',chance:0.20}},{name:'念力',    dmg:45,type:'psychic', status:{effect:'confusion',chance:0.25}},{name:'暗影球',  dmg:48,type:'ghost'}]},
-  { id:26,  name:'雷丘',       type:'electric', hp:200, tier:1, attacks:[{name:'十萬伏特',dmg:40,type:'electric',status:{effect:'paralysis',chance:0.30}},{name:'鐵尾',   dmg:52,type:'steel'},{name:'電磁衝浪',dmg:50,type:'electric',status:{effect:'paralysis',chance:0.20}},{name:'衝撞',    dmg:38,type:'normal'}]},
+  { id:26,  name:'雷丘',       type:'electric', hp:200, tier:1, ability:{id:'static', name:'靜電', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者陷入麻痺'}, attacks:[{name:'十萬伏特',dmg:40,type:'electric',status:{effect:'paralysis',chance:0.30}},{name:'鐵尾',   dmg:52,type:'steel'},{name:'電磁衝浪',dmg:50,type:'electric',status:{effect:'paralysis',chance:0.20}},{name:'衝撞',    dmg:38,type:'normal'}]},
   { id:376, name:'巨金怪',     type:'steel',    type2:'psychic', hp:260, tier:1, attacks:[{name:'子彈拳',  dmg:42,type:'steel'},{name:'隕石衝擊',dmg:58,type:'rock'},{name:'精神強擊',dmg:50,type:'psychic', status:{effect:'confusion',chance:0.20}},{name:'閃光炮',  dmg:52,type:'steel'}]},
-  { id:448, name:'路卡利歐',   type:'fighting', type2:'steel',   hp:220, tier:1, attacks:[{name:'波導彈',  dmg:40,type:'fighting'},{name:'金屬爪',  dmg:48,type:'steel'},{name:'暗影球',  dmg:52,type:'ghost'},{name:'龍之脈動',dmg:50,type:'dragon'}]},
+  { id:448, name:'路卡利歐',   type:'fighting', type2:'steel',   hp:220, tier:1, ability:{id:'guts', name:'堅韌', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}, attacks:[{name:'波導彈',  dmg:40,type:'fighting'},{name:'金屬爪',  dmg:48,type:'steel'},{name:'暗影球',  dmg:52,type:'ghost'},{name:'龍之脈動',dmg:50,type:'dragon'}]},
   { id:130, name:'暴鯉龍',     type:'water',    type2:'flying',  hp:260, tier:1, attacks:[{name:'大浪',    dmg:42,type:'water'},{name:'咬碎',    dmg:58,type:'dark'},{name:'龍息',    dmg:45,type:'dragon'},{name:'怒風',    dmg:52,type:'flying'}]},
   { id:35,  name:'皮皮',       type:'fairy',    hp:220, tier:1, attacks:[{name:'月亮力量',dmg:40,type:'fairy',   status:{effect:'confusion',chance:0.25}},{name:'元氣拳',  dmg:52,type:'normal'},{name:'火焰拳',  dmg:42,type:'fire'},{name:'冰凍拳',  dmg:42,type:'ice'}]},
   { id:87,  name:'白海獅',     type:'water',    type2:'ice',     hp:240, tier:1, attacks:[{name:'冷凍光線',dmg:40,type:'ice',     status:{effect:'freeze',   chance:0.15}},{name:'衝浪',    dmg:52,type:'water'},{name:'閃電拳',  dmg:42,type:'electric',status:{effect:'paralysis',chance:0.15}},{name:'大浪',    dmg:48,type:'water'}]},
-  { id:82,  name:'三合磁怪',   type:'electric', type2:'steel',   hp:210, tier:1, attacks:[{name:'電磁炮',  dmg:40,type:'electric',status:{effect:'paralysis',chance:0.30}},{name:'閃光炮',  dmg:52,type:'steel'},{name:'電磁衝浪',dmg:48,type:'electric',status:{effect:'paralysis',chance:0.20}},{name:'鋼鐵身壓',dmg:45,type:'steel'}]},
-  { id:28,  name:'沙包蛇',     type:'ground',   hp:240, tier:1, attacks:[{name:'地震',    dmg:40,type:'ground'},{name:'岩石滑落',dmg:52,type:'rock'},{name:'岩石碎裂',dmg:48,type:'rock'},{name:'十字切',  dmg:38,type:'normal'}]},
+  { id:82,  name:'三合磁怪',   type:'electric', type2:'steel',   hp:210, tier:1, ability:{id:'static-trail', name:'電擊尾隨', trigger:'onAttack', desc:'攻擊命中時額外 15% 機率讓目標陷入麻痺'}, attacks:[{name:'電磁炮',  dmg:40,type:'electric',status:{effect:'paralysis',chance:0.30}},{name:'閃光炮',  dmg:52,type:'steel'},{name:'電磁衝浪',dmg:48,type:'electric',status:{effect:'paralysis',chance:0.20}},{name:'鋼鐵身壓',dmg:45,type:'steel'}]},
+  { id:28,  name:'沙包蛇',     type:'ground',   hp:240, tier:1, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊威力 -15'}, attacks:[{name:'地震',    dmg:40,type:'ground'},{name:'岩石滑落',dmg:52,type:'rock'},{name:'岩石碎裂',dmg:48,type:'rock'},{name:'十字切',  dmg:38,type:'normal'}]},
   { id:80,  name:'呆殼獸',     type:'water',    type2:'psychic', hp:260, tier:1, attacks:[{name:'衝浪',    dmg:40,type:'water'},{name:'念力',    dmg:52,type:'psychic', status:{effect:'confusion',chance:0.20}},{name:'大浪',    dmg:50,type:'water'},{name:'精神強擊',dmg:48,type:'psychic', status:{effect:'confusion',chance:0.20}}]},
   { id:823, name:'鋼鍇鴉',     type:'steel',    type2:'flying',  hp:250, tier:1, attacks:[{name:'鐵翼',    dmg:42,type:'steel'},{name:'颶風飛翔',dmg:52,type:'flying'},{name:'鋼鐵身壓',dmg:45,type:'steel'},{name:'夜斬',    dmg:48,type:'dark'}]},
   { id:160, name:'大力鱷',     type:'water',    hp:260, tier:1, attacks:[{name:'咬碎',    dmg:42,type:'dark'},{name:'衝浪',    dmg:52,type:'water'},{name:'冰凍拳',  dmg:48,type:'ice',     status:{effect:'freeze',   chance:0.10}},{name:'水砲',    dmg:58,type:'water'}]},
-  { id:658, name:'忍蛙',       type:'water',    type2:'dark',    hp:220, tier:1, attacks:[{name:'水手裏劍',dmg:38,type:'water'},{name:'夜斬',    dmg:40,type:'dark'},{name:'暗影球',  dmg:50,type:'ghost'},{name:'大浪',    dmg:52,type:'water'}]},
+  { id:658, name:'忍蛙',       type:'water',    type2:'dark',    hp:220, tier:1, ability:{id:'rough-skin', name:'粗糙皮膚', trigger:'onDefend', desc:'受到攻擊傷害時，反彈攻擊者 1/8 最大HP 傷害'}, attacks:[{name:'水手裏劍',dmg:38,type:'water'},{name:'夜斬',    dmg:40,type:'dark'},{name:'暗影球',  dmg:50,type:'ghost'},{name:'大浪',    dmg:52,type:'water'}]},
   // Tier 2
   { id:6,   name:'噴火龍',     type:'fire',     type2:'flying',  hp:290, tier:2, attacks:[{name:'火焰噴射',dmg:45,type:'fire',    status:{effect:'burn',     chance:0.25}},{name:'破空飛翔',dmg:70,type:'flying'},{name:'龍息',    dmg:50,type:'dragon'},{name:'火焰衝擊',dmg:60,type:'fire',    status:{effect:'burn',     chance:0.20}}]},
   { id:9,   name:'水箭龜',     type:'water',    hp:280, tier:2, attacks:[{name:'水砲',    dmg:45,type:'water'},{name:'冰凍光束',dmg:65,type:'ice',     status:{effect:'freeze',   chance:0.15}},{name:'閃光炮',  dmg:52,type:'steel'},{name:'衝浪',    dmg:55,type:'water'}]},
@@ -146,10 +146,15 @@ const TRAINERS = [
   {id:'orb-ghost',  name:'幽靈寶珠',   cat:'item',      desc:'本回合攻擊改為幽靈屬性'},
   {id:'orb-steel',  name:'鋼鐵寶珠',   cat:'item',      desc:'本回合攻擊改為鋼屬性'},
   {id:'orb-ground', name:'大地寶珠',   cat:'item',      desc:'本回合攻擊改為地面屬性'},
+  {id:'retreat-vest', name:'撤退背心', cat:'item',      desc:'下次換場不會結束回合'},
+  {id:'confuse-potion', name:'混亂藥', cat:'item',      desc:'讓對手上場寶可夢陷入混亂'},
+  {id:'absolute-zero', name:'絕對零度', cat:'item',     desc:'讓對手上場寶可夢陷入結凍'},
   // ── supporters ──
   {id:'revive',     name:'復活藥',     cat:'supporter', desc:'復活備戰欄第一隻倒下的寶可夢（回復 80 HP）'},
   {id:'nurse',      name:'治療師',     cat:'supporter', desc:'上場寶可夢完全回復 HP 並解除異常狀態'},
   {id:'all-out',    name:'全力出擊',   cat:'supporter', desc:'下次攻擊傷害 ×3'},
+  {id:'sacrifice',      name:'搏命',       cat:'supporter', desc:'我方與對方上場寶可夢同歸於盡'},
+  {id:'mad-scientist',  name:'瘋狂博士',   cat:'supporter', desc:'選我方一隻寶可夢，變身成對方一隻陣亡的寶可夢'},
   // ── stadium ──
   {id:'stadium-training',      name:'訓練場',     cat:'stadium', desc:'場上所有技能威力 +20（雙方）'},
   {id:'stadium-spring',        name:'地熱溫泉',   cat:'stadium', desc:'每回合結束，雙方上場寶可夢各回復 15 HP'},
@@ -249,6 +254,12 @@ function handleStatus(poke, log) {
   }
 
   if (st.type === 'poison') {
+    if (poke.ability?.id === 'poison-heal') {
+      const heal = Math.max(1, Math.floor(poke.hp / 8));
+      poke.cur = Math.min(poke.hp, poke.cur + heal);
+      log.push({ text: `${poke.name} 的毒療發動，中毒回復了 ${heal} HP！`, cls: 'special' });
+      return { skipped: false, died: false };
+    }
     const dmg = Math.max(1, Math.floor(poke.hp / 8));
     poke.cur = Math.max(0, poke.cur - dmg);
     log.push({ text: `${poke.name} 因中毒損失了 ${dmg} HP！`, cls: 'special' });
@@ -287,15 +298,17 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
   const stabMult = (atkType === attacker.type || (attacker.type2 && atkType === attacker.type2)) ? 1.5 : 1;
   const stadiumBonus = G?.activeStadium?.id === 'stadium-training' ? 20 : 0;
   const reversalBonus = G?.activeStadium?.id === 'stadium-reversal' && attacker.cur <= attacker.hp * 0.5 ? 30 : 0;
+  const abilityDmgMult = (attacker.ability?.id === 'guts' && attacker.status) ? 1.3 : 1;
   let damage;
   if (mult === 0) {
     damage = 0;
     log.push({ text: `${atk.name} 對 ${defender.name} 完全無效！`, cls: 'resist' });
   } else {
-    damage = Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumBonus + reversalBonus) * aBuff.atkMult * burnMult * mult * stabMult * switchGuardMult) - dBuff.shield);
+    damage = Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumBonus + reversalBonus) * aBuff.atkMult * burnMult * mult * stabMult * switchGuardMult * abilityDmgMult) - dBuff.shield);
     defender.cur = Math.max(0, defender.cur - damage);
 
     if (stabMult > 1)     log.push({ text: `屬性加成！×1.5`, cls: 'super' });
+    if (abilityDmgMult > 1) log.push({ text: `${attacker.name} 的堅韌發動，攻擊威力提升！`, cls: 'super' });
     if (mult >= 4)        log.push({ text: `超超級有效！(×4)`, cls: 'super' });
     else if (mult >= 2)   log.push({ text: `超級有效！`, cls: 'super' });
     else if (mult <= 0.5) log.push({ text: `效果不佳…`, cls: 'resist' });
@@ -316,11 +329,43 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
       defender.status = { type: effect, turnsLeft };
       log.push({ text: `${defender.name} 陷入了${STATUS_ZH[effect]}！`, cls: 'special' });
     }
+    if (damage > 0) triggerAttackerAbilitySrv(attacker, defender, log);
+    if (damage > 0) triggerDefenderAbilitySrv(defender, attacker, log);
   }
 
   // Consume buffs
   aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; dBuff.shield = 0;
   return { damage, mult };
+}
+
+// Ability hooks — no-op for Pokémon without `ability` (see project memory for full list)
+function triggerOnEnterSrv(poke, role, G, log) {
+  if (!poke?.ability) return;
+  if (poke.ability.id === 'intimidate') {
+    const op = role === 'p1' ? 'p2' : 'p1';
+    G[`${op}Buff`].atkBonus -= 15;
+    log.push({ text: `${poke.name} 的威嚇讓對方下次攻擊威力 -15！`, cls: 'special' });
+  }
+}
+
+function triggerAttackerAbilitySrv(attacker, defender, log) {
+  if (!attacker.ability) return;
+  if (attacker.ability.id === 'static-trail' && defender.cur > 0 && !defender.status && Math.random() < 0.15) {
+    defender.status = { type: 'paralysis', turnsLeft: 999 };
+    log.push({ text: `${attacker.name} 的電擊尾隨讓 ${defender.name} 陷入了麻痺！`, cls: 'special' });
+  }
+}
+
+function triggerDefenderAbilitySrv(defender, attacker, log) {
+  if (!defender.ability) return;
+  if (defender.ability.id === 'static' && !attacker.status && Math.random() < 0.20) {
+    attacker.status = { type: 'paralysis', turnsLeft: 999 };
+    log.push({ text: `${defender.name} 的靜電讓 ${attacker.name} 陷入了麻痺！`, cls: 'special' });
+  } else if (defender.ability.id === 'rough-skin') {
+    const recoil = Math.max(1, Math.floor(attacker.hp / 8));
+    attacker.cur = Math.max(0, attacker.cur - recoil);
+    log.push({ text: `${defender.name} 的粗糙皮膚反彈了 ${recoil} 點傷害給 ${attacker.name}！`, cls: 'special' });
+  }
 }
 
 // Applies a trainer card effect to the given role's side.
@@ -382,6 +427,22 @@ function applyTrainer(card, role, G, log) {
       else log.push({ text: `${opActive.name} 已有異常狀態，瓦斯攻擊無效！`, cls: 'system' });
       break;
     }
+    case 'confuse-potion': {
+      const opDeck = G[`${op}Deck`]; const opActive = opDeck[G[`${op}Idx`]];
+      if (!opActive.status) { opActive.status = { type: 'confusion', turnsLeft: Math.floor(Math.random()*3)+2 }; log.push({ text: `混亂藥讓 ${opActive.name} 陷入混亂！`, cls: 'special' }); }
+      else log.push({ text: `${opActive.name} 已有異常狀態，混亂藥無效！`, cls: 'system' });
+      break;
+    }
+    case 'absolute-zero': {
+      const opDeck = G[`${op}Deck`]; const opActive = opDeck[G[`${op}Idx`]];
+      if (!opActive.status) { opActive.status = { type: 'freeze', turnsLeft: 2 }; log.push({ text: `絕對零度讓 ${opActive.name} 陷入結凍！`, cls: 'special' }); }
+      else log.push({ text: `${opActive.name} 已有異常狀態，絕對零度無效！`, cls: 'system' });
+      break;
+    }
+    case 'retreat-vest':
+      G[`${role}FreeSwitch`] = true;
+      log.push({ text: `使用了撤退背心，下次換場不會結束回合！`, cls: 'system' });
+      break;
     case 'switcher': {
       const opRole    = op;
       const opDeck    = G[`${opRole}Deck`];
@@ -480,10 +541,10 @@ function genCode() {
 
 function freshBuff() { return { atkBonus:0, atkMult:1, shield:0, typeOverride:null, reflect:false }; }
 
-function buildG(room) {
+function buildG(room, startLog) {
   const firstTurn = Math.random() < 0.5 ? 'p1' : 'p2';
   room.coinFlip   = firstTurn;
-  return {
+  const G = {
     p1Deck: room.p1Team.map(clonePoke),
     p2Deck: room.p2Team.map(clonePoke),
     p1Idx: 0, p2Idx: 0,
@@ -501,6 +562,9 @@ function buildG(room) {
     activeStadium: null,
     winner: null,
   };
+  triggerOnEnterSrv(G.p1Deck[0], 'p1', G, startLog);
+  triggerOnEnterSrv(G.p2Deck[0], 'p2', G, startLog);
+  return G;
 }
 
 function send(ws, msg) {
@@ -578,9 +642,10 @@ function handleMessage(ws, msg) {
       const op = role === 'p1' ? 'p2' : 'p1';
       send(room[op], { type: 'opponent_ready' });
       if (room.p1Ready && room.p2Ready) {
-        room.G     = buildG(room);
+        const startLog = [];
+        room.G     = buildG(room, startLog);
         room.phase = 'battle';
-        broadcast(room, { type: 'battle_start', state: room.G, coinFlip: room.coinFlip });
+        broadcast(room, { type: 'battle_start', state: room.G, coinFlip: room.coinFlip, log: startLog });
       }
       return;
     }
@@ -613,8 +678,62 @@ function handleMessage(ws, msg) {
       if (card.cat === 'supporter' && G[`${role}SuppStageUsed`] >= 2) {
         send(ws, { type: 'error', message: '本關支援者牌已達上限（2張）' }); return;
       }
+
+      // 瘋狂博士：需要額外的目標索引；先驗證目標合法才消耗手牌
+      if (card.id === 'mad-scientist') {
+        const mine   = G[`${role}Deck`][msg.targetOwnIdx];
+        const target = G[`${op}Deck`][msg.targetEnemyIdx];
+        if (!mine || mine.cur <= 0 || !target || target.cur > 0) {
+          send(ws, { type: 'error', message: '瘋狂博士目標無效！' }); return;
+        }
+        hand.splice(msg.handIdx, 1);
+        G[`${role}SuppUsed`] = true; G[`${role}SuppStageUsed`]++;
+        const oldName = mine.name;
+        const pct = mine.hp > 0 ? mine.cur / mine.hp : 1;
+        Object.assign(mine, {
+          id: target.id, name: target.name, type: target.type, type2: target.type2 ?? null,
+          attacks: target.attacks.map(a => ({...a})), hp: target.hp, ability: target.ability ?? null,
+        });
+        mine.cur = Math.max(1, Math.round(target.hp * pct));
+        mine.status = null;
+        const log = [{ text: `使用了瘋狂博士，${oldName} 變身成了 ${mine.name}！`, cls: 'special' }];
+        triggerOnEnterSrv(mine, role, G, log);
+        broadcast(room, { type: 'update', state: G, log, actor: role });
+        return;
+      }
+
       hand.splice(msg.handIdx, 1);
       if (card.cat === 'supporter') { G[`${role}SuppUsed`] = true; G[`${role}SuppStageUsed`]++; }
+
+      // 搏命：雙方場上寶可夢同歸於盡
+      if (card.id === 'sacrifice') {
+        const active   = G[`${role}Deck`][G[`${role}Idx`]];
+        const opActive = G[`${op}Deck`][G[`${op}Idx`]];
+        active.cur = 0; opActive.cur = 0;
+        const log = [{ text: `使用了搏命！雙方場上的寶可夢同歸於盡了！`, cls: 'special' }];
+        const roleAlive = G[`${role}Deck`].filter(p => p.cur > 0).length;
+        const opAlive   = G[`${op}Deck`].filter(p => p.cur > 0).length;
+        if (roleAlive === 0 && opAlive === 0) {
+          G.winner = 'draw';
+          broadcast(room, { type: 'game_over', winner: 'draw', state: G, log });
+          room.phase = 'done'; return;
+        }
+        if (roleAlive === 0) {
+          G.winner = op;
+          broadcast(room, { type: 'game_over', winner: op, state: G, log });
+          room.phase = 'done'; return;
+        }
+        if (opAlive === 0) {
+          G.winner = role;
+          broadcast(room, { type: 'game_over', winner: role, state: G, log });
+          room.phase = 'done'; return;
+        }
+        G.pendingKOSwitch = role;
+        G.pendingKOSwitchQueue = [op];
+        broadcast(room, { type: 'update', state: G, log, actor: role });
+        return;
+      }
+
       const log = [];
       applyTrainer(card, role, G, log);
       broadcast(room, { type: 'update', state: G, log, actor: role });
@@ -725,26 +844,36 @@ function handleMessage(ws, msg) {
       broadcast(room, { type: 'update', state: G, log, actor: role }); return;
     }
 
-    // Switch (ends the turn; switched-in Pokémon takes ×0.8 damage this turn)
+    // Switch (ends the turn, unless 撤退背心 granted a free switch); switched-in Pokémon takes ×0.8 damage this turn
     if (type === 'switch') {
       if (G.turn !== role || G.pendingKOSwitch) return;
       if (G[`${role}NeedsDiscard`]) return;
+      if (G[`${role}SwitchedThisTurn`]) return; // only one switch per turn, free or not
       const deck   = G[`${role}Deck`];
       const curIdx = G[`${role}Idx`];
       const newIdx = msg.deckIdx;
       if (newIdx === curIdx || !deck[newIdx] || deck[newIdx].cur <= 0) return;
 
+      const usedFreeSwitch = G[`${role}FreeSwitch`];
       if (deck[curIdx].status?.type === 'confusion') deck[curIdx].status = null;
       G[`${role}Idx`] = newIdx;
       G[`${role}Buff`].typeOverride = null; // orb effect expires — turn ends without attacking
       G[`${role}SwitchGuard`] = true; // this turn's incoming damage ×0.8
-      G[`${role}SuppUsed`] = false;
       G[`${role}FreeSwitch`] = false;
-      G[`${role}SwitchedThisTurn`] = false;
+      G[`${role}SwitchedThisTurn`] = true;
+
+      if (usedFreeSwitch) {
+        const log = [{ text: `換上了 ${deck[newIdx].name}！（撤退背心：不消耗回合）本回合傷害減免中…`, cls: 'player' }];
+        triggerOnEnterSrv(deck[newIdx], role, G, log);
+        broadcast(room, { type: 'update', state: G, log, actor: role }); return;
+      }
+
+      G[`${role}SuppUsed`] = false;
       G.turn = op;
       G.round++;
       drawForRole(G, op);
       const log = [{ text: `換上了 ${deck[newIdx].name}！本回合傷害減免中…`, cls: 'player' }];
+      triggerOnEnterSrv(deck[newIdx], role, G, log);
       broadcast(room, { type: 'update', state: G, log, actor: role }); return;
     }
 
@@ -757,8 +886,17 @@ function handleMessage(ws, msg) {
 
       G[`${role}Idx`] = newIdx;
       G.pendingKOSwitch = null;
-      drawForRole(G, role); // Draw at start of turn after KO switch
       const log = [{ text: `${deck[newIdx].name} 上場！`, cls: 'system' }];
+      triggerOnEnterSrv(deck[newIdx], role, G, log);
+
+      if (G.pendingKOSwitchQueue?.length) {
+        G.pendingKOSwitch = G.pendingKOSwitchQueue.shift();
+        if (!G.pendingKOSwitchQueue.length) delete G.pendingKOSwitchQueue;
+        broadcast(room, { type: 'update', state: G, log, actor: role }); return;
+      }
+
+      // Only draw if this switch actually starts role's turn (not a same-turn 搏命 replacement)
+      if (G.turn === role) drawForRole(G, role);
       broadcast(room, { type: 'update', state: G, log, actor: role }); return;
     }
 

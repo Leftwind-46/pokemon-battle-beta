@@ -1073,8 +1073,8 @@
     .dex-move-badge { display:inline-block; font-size:0.58rem; font-weight:700; padding:0.04rem 0.3rem; border-radius:4px; color:#fff; margin-right:0.22rem; vertical-align:middle; }
     #discard-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
     #discard-modal.open { display:flex; }
-    #trade-modal, #trade-choose-modal, #switch-confirm-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
-    #trade-modal.open, #trade-choose-modal.open, #switch-confirm-modal.open { display:flex; }
+    #trade-modal, #trade-choose-modal, #switch-confirm-modal, #mad-scientist-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
+    #trade-modal.open, #trade-choose-modal.open, #switch-confirm-modal.open, #mad-scientist-modal.open { display:flex; }
     #trade-modal .t-card { cursor:pointer; transition:box-shadow 0.15s; }
     #trade-modal .t-card.selected { box-shadow: 0 0 0 2px #ffd740; }
     .btn-modal-ok { background:rgba(99,102,241,0.25); border:1px solid rgba(99,102,241,0.5); color:#c5cae9; border-radius:8px; padding:0.55rem 1.2rem; cursor:pointer; font-size:0.9rem; }
@@ -1187,7 +1187,7 @@
 
       <h3>對戰規則</h3>
       <ul>
-        <li>每回合限換場一次；換場會直接結束本回合，新上場的寶可夢該回合受到的傷害減少 20%。</li>
+        <li>每回合限換場一次；換場會直接結束本回合，新上場的寶可夢該回合受到的傷害減少 20%（使用撤退背心後的換場不會結束回合）。</li>
         <li><b>💤 待機</b>：跳過攻擊，抽 1 張支援者牌進入手牌。</li>
         <li>每個回合開始時，抽 1–2 張道具牌，手牌上限 5 張。</li>
         <li>若抽牌後超過 5 張，可選擇丟棄一張。</li>
@@ -1238,12 +1238,17 @@
           <li>交換器 — 強制讓對手上場寶可夢與隨機備戰寶可夢互換</li>
           <li>反彈鏡 — 下次對手攻擊傷害全數反彈回自身</li>
           <li>屬性寶珠（火／水／電／冰／惡／妖精／草／格鬥／毒／蟲／幽靈／鋼／地面）— 本回合攻擊改為對應屬性</li>
+          <li>撤退背心 — 下次換場不會結束回合</li>
+          <li>混亂藥 — 讓對手上場寶可夢陷入混亂</li>
+          <li>絕對零度 — 讓對手上場寶可夢陷入結凍</li>
         </ul>
         <li><b>支援者牌</b>（藍框）每回合限用 1 張，<b>每關合計最多使用 2 張</b>。僅開局手牌中會出現：</li>
         <ul>
           <li>復活藥 — 復活備戰欄第一隻倒下的寶可夢（回復 80 HP）</li>
           <li>治療師 — 上場寶可夢完全回復 HP 並解除異常狀態</li>
           <li>全力出擊 — 下次攻擊傷害 ×3</li>
+          <li>搏命 — 我方與對方上場寶可夢同歸於盡，雙方各自選下一隻上場</li>
+          <li>瘋狂博士 — 選我方一隻寶可夢，變身成對方一隻陣亡的寶可夢（依血量百分比換算HP）</li>
         </ul>
         <li><b>競技場牌</b>（橘框）效果持續整場，放置新競技場會取代舊的：</li>
         <ul>
@@ -1256,8 +1261,19 @@
         </ul>
       </ul>
 
+      <h3>特性</h3>
+      <p style="font-size:0.82rem;color:var(--muted);margin-bottom:0.5rem">部分血量較低的寶可夢擁有特性，會在特定時機自動發動：</p>
+      <ul>
+        <li>靜電（雷丘）— 受到攻擊後 20% 機率讓攻擊者陷入麻痺</li>
+        <li>威嚇（沙包蛇）— 上場時讓對方下一次攻擊威力 −15</li>
+        <li>毒療（耿鬼）— 中毒時每回合改為回復 1/8 最大HP，而非扣血</li>
+        <li>堅韌（路卡利歐）— 自身帶有異常狀態時，攻擊傷害 ×1.3</li>
+        <li>粗糙皮膚（忍蛙）— 受到攻擊傷害時，反彈攻擊者 1/8 最大HP 傷害</li>
+        <li>電擊尾隨（三合磁怪）— 攻擊命中時額外 15% 機率讓目標陷入麻痺</li>
+      </ul>
+
       <h3>電腦 AI</h3>
-      <p>HP 低於 40% 時優先補血；有異常狀態時嘗試解除；發現可讓對手陷入狀態時使用火焰彈或瓦斯攻擊；每回合攻擊前使用增幅牌。</p>
+      <p>HP 低於 40% 時優先補血；有異常狀態時嘗試解除；發現可讓對手陷入狀態時使用火焰彈、瓦斯攻擊、混亂藥或絕對零度；每回合攻擊前使用增幅牌。</p>
     </div>
 
     <div id="guide-tab-dex" style="display:none"></div>
@@ -1468,7 +1484,7 @@ const POKEMON = [
     {name:'毒粉刺',   dmg:42, type:'poison',   status:{effect:'poison',   chance:0.35}},
     {name:'葉刃',     dmg:52, type:'grass'},
   ]},
-  { id:94,  name:'耿鬼',       type:'ghost',    type2:'poison',  hp:220, tier:1, attacks:[
+  { id:94,  name:'耿鬼',       type:'ghost',    type2:'poison',  hp:220, tier:1, ability:{id:'poison-heal', name:'毒療', trigger:'onStatus', desc:'中毒時每回合回復 1/8 最大HP，而非扣血'}, attacks:[
     {name:'幽靈之爪', dmg:40, type:'ghost',    status:{effect:'poison',   chance:0.20}},
     {name:'咬碎',     dmg:52, type:'dark'},
     {name:'暗影球',   dmg:50, type:'ghost'},
@@ -1486,7 +1502,7 @@ const POKEMON = [
     {name:'念力',     dmg:45, type:'psychic',  status:{effect:'confusion',chance:0.25}},
     {name:'暗影球',   dmg:48, type:'ghost'},
   ]},
-  { id:26,  name:'雷丘',       type:'electric', hp:200, tier:1, attacks:[
+  { id:26,  name:'雷丘',       type:'electric', hp:200, tier:1, ability:{id:'static', name:'靜電', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者陷入麻痺'}, attacks:[
     {name:'十萬伏特', dmg:40, type:'electric', status:{effect:'paralysis',chance:0.30}},
     {name:'鐵尾',     dmg:52, type:'steel'},
     {name:'電磁衝浪', dmg:50, type:'electric', status:{effect:'paralysis',chance:0.20}},
@@ -1498,7 +1514,7 @@ const POKEMON = [
     {name:'精神強擊', dmg:50, type:'psychic',  status:{effect:'confusion',chance:0.20}},
     {name:'閃光炮',   dmg:52, type:'steel'},
   ]},
-  { id:448, name:'路卡利歐',   type:'fighting', type2:'steel',   hp:220, tier:1, attacks:[
+  { id:448, name:'路卡利歐',   type:'fighting', type2:'steel',   hp:220, tier:1, ability:{id:'guts', name:'堅韌', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}, attacks:[
     {name:'波導彈',   dmg:40, type:'fighting'},
     {name:'金屬爪',   dmg:48, type:'steel'},
     {name:'暗影球',   dmg:52, type:'ghost'},
@@ -1522,13 +1538,13 @@ const POKEMON = [
     {name:'閃電拳',   dmg:42, type:'electric', status:{effect:'paralysis',chance:0.15}},
     {name:'大浪',     dmg:48, type:'water'},
   ]},
-  { id:82,  name:'三合磁怪',   type:'electric', type2:'steel',   hp:210, tier:1, attacks:[
+  { id:82,  name:'三合磁怪',   type:'electric', type2:'steel',   hp:210, tier:1, ability:{id:'static-trail', name:'電擊尾隨', trigger:'onAttack', desc:'攻擊命中時額外 15% 機率讓目標陷入麻痺'}, attacks:[
     {name:'電磁炮',   dmg:40, type:'electric', status:{effect:'paralysis',chance:0.30}},
     {name:'閃光炮',   dmg:52, type:'steel'},
     {name:'電磁衝浪', dmg:48, type:'electric', status:{effect:'paralysis',chance:0.20}},
     {name:'鋼鐵身壓', dmg:45, type:'steel'},
   ]},
-  { id:28,  name:'沙包蛇',     type:'ground',   hp:240, tier:1, attacks:[
+  { id:28,  name:'沙包蛇',     type:'ground',   hp:240, tier:1, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊威力 -15'}, attacks:[
     {name:'地震',     dmg:40, type:'ground'},
     {name:'岩石滑落', dmg:52, type:'rock'},
     {name:'岩石碎裂', dmg:48, type:'rock'},
@@ -1554,7 +1570,7 @@ const POKEMON = [
     {name:'冰凍拳',   dmg:48, type:'ice',      status:{effect:'freeze',   chance:0.10}},
     {name:'水砲',     dmg:58, type:'water'},
   ]},
-  { id:658, name:'忍蛙',       type:'water',    type2:'dark',    hp:220, tier:1, attacks:[
+  { id:658, name:'忍蛙',       type:'water',    type2:'dark',    hp:220, tier:1, ability:{id:'rough-skin', name:'粗糙皮膚', trigger:'onDefend', desc:'受到攻擊傷害時，反彈攻擊者 1/8 最大HP 傷害'}, attacks:[
     {name:'水手裏劍', dmg:38, type:'water'},
     {name:'夜斬',     dmg:40, type:'dark'},
     {name:'暗影球',   dmg:50, type:'ghost'},
@@ -1992,10 +2008,15 @@ const TRAINERS = [
   {id:'orb-ghost',  name:'幽靈寶珠',   cat:'item',      desc:'本回合攻擊改為幽靈屬性'},
   {id:'orb-steel',  name:'鋼鐵寶珠',   cat:'item',      desc:'本回合攻擊改為鋼屬性'},
   {id:'orb-ground', name:'大地寶珠',   cat:'item',      desc:'本回合攻擊改為地面屬性'},
+  {id:'retreat-vest', name:'撤退背心', cat:'item',      desc:'下次換場不會結束回合'},
+  {id:'confuse-potion', name:'混亂藥', cat:'item',      desc:'讓對手上場寶可夢陷入混亂'},
+  {id:'absolute-zero', name:'絕對零度', cat:'item',     desc:'讓對手上場寶可夢陷入結凍'},
   // ── 支援者牌 ──
   {id:'revive',     name:'復活藥',     cat:'supporter', desc:'復活備戰欄第一隻倒下的寶可夢（回復 80 HP）'},
   {id:'nurse',      name:'治療師',     cat:'supporter', desc:'上場寶可夢完全回復 HP 並解除異常狀態'},
   {id:'all-out',    name:'全力出擊',   cat:'supporter', desc:'下次攻擊傷害 ×3'},
+  {id:'sacrifice',      name:'搏命',       cat:'supporter', desc:'我方與對方上場寶可夢同歸於盡'},
+  {id:'mad-scientist',  name:'瘋狂博士',   cat:'supporter', desc:'選我方一隻寶可夢，變身成對方一隻陣亡的寶可夢'},
   // ── 競技場牌 ──
   {id:'stadium-training',      name:'訓練場',     cat:'stadium', desc:'場上所有技能威力 +20（雙方）'},
   {id:'stadium-spring',        name:'地熱溫泉',   cat:'stadium', desc:'每回合結束，雙方上場寶可夢各回復 15 HP'},
@@ -2497,6 +2518,8 @@ function startBattle() {
   renderBattle();
   log('⚔️  對戰開始！', 'system');
   log(`對手派出了 ${CP().name}！`, 'system');
+  triggerOnEnter(P(), 'player');
+  triggerOnEnter(CP(), 'cpu');
 }
 
 /* ─────────────────────────────────────────
@@ -2721,12 +2744,32 @@ function useTrainer(idx) {
     showWarn('本關支援者牌已使用 2 張！\n每關最多使用 2 張支援者牌。');
     return;
   }
+
+  /* 瘋狂博士：需要二段選擇，確認前不消耗手牌 */
+  if (card.id === 'mad-scientist') {
+    if (!G.cpuDeck.some(p => p.cur <= 0)) {
+      showWarn('對手目前沒有陣亡的寶可夢可以複製！');
+      return;
+    }
+    openMadScientistModal(idx);
+    return;
+  }
+
   if (card.cat === 'supporter') {
     G.playerSuppUsed = true;
     G.playerSuppStageUsed++;
   }
   G.playerHand.splice(idx, 1);
   G.playerCardsUsed++;
+
+  /* 搏命：雙方同歸於盡，需走 KO 換人流程而非單純重繪 */
+  if (card.id === 'sacrifice') {
+    log(`你使用了【${card.name}】！`, 'player');
+    renderBattle();
+    resolveMutualKO();
+    return;
+  }
+
   applyTrainer(card, 'player');
   renderBattle();
 }
@@ -2813,6 +2856,28 @@ function applyTrainer(card, side) {
         log(`${opActive.name} 已有異常狀態，瓦斯攻擊無效。`, 'system');
       }
       break;
+    case 'confuse-potion':
+      if (!opActive.status) {
+        opActive.status = { type: 'confusion', turnsLeft: Math.floor(Math.random() * 3) + 2 };
+        log(`${pron}使用了【${card.name}】，${opActive.name} 陷入了混亂！`, tag);
+        renderBattle();
+      } else {
+        log(`${opActive.name} 已有異常狀態，混亂藥無效。`, 'system');
+      }
+      break;
+    case 'absolute-zero':
+      if (!opActive.status) {
+        opActive.status = { type: 'freeze', turnsLeft: 2 };
+        log(`${pron}使用了【${card.name}】，${opActive.name} 陷入了結凍！`, tag);
+        renderBattle();
+      } else {
+        log(`${opActive.name} 已有異常狀態，絕對零度無效。`, 'system');
+      }
+      break;
+    case 'retreat-vest':
+      G.freeSwitch = true;
+      log(`${pron}使用了【${card.name}】，下次換場不會結束回合！`, tag);
+      break;
     case 'switcher': {
       const alive = opDeck.map((p, i) => i).filter(i => i !== opIdx && opDeck[i].cur > 0);
       if (alive.length) {
@@ -2860,6 +2925,76 @@ function applyTrainer(card, side) {
 }
 
 /* ─────────────────────────────────────────
+   MAD SCIENTIST (瘋狂博士) — 2-step transform flow
+───────────────────────────────────────── */
+let _msHandIdx = null;
+let _msOwnIdx  = null;
+
+function openMadScientistModal(handIdx) {
+  _msHandIdx = handIdx;
+  _msOwnIdx  = null;
+  renderMadScientistStep1();
+  document.getElementById('mad-scientist-modal').classList.add('open');
+}
+
+function closeMadScientistModal() {
+  _msHandIdx = null;
+  _msOwnIdx  = null;
+  document.getElementById('mad-scientist-modal').classList.remove('open');
+}
+
+function renderMadScientistStep1() {
+  document.getElementById('ms-title').textContent = '選擇要變身的寶可夢';
+  document.getElementById('ms-sub').textContent = '選擇我方一隻存活的寶可夢進行變身';
+  const row = document.getElementById('ms-cards-row');
+  row.innerHTML = '';
+  G.playerDeck.forEach((p, i) => {
+    if (p.cur <= 0) return; // 只能選存活的
+    row.appendChild(renderSelCard(p, false, () => { _msOwnIdx = i; renderMadScientistStep2(); }));
+  });
+}
+
+function renderMadScientistStep2() {
+  document.getElementById('ms-title').textContent = '選擇要模仿的陣亡寶可夢';
+  document.getElementById('ms-sub').textContent = `${G.playerDeck[_msOwnIdx].name} 將變身成你選擇的對象`;
+  const row = document.getElementById('ms-cards-row');
+  row.innerHTML = '';
+  G.cpuDeck.forEach((p, i) => {
+    if (p.cur > 0) return; // 只能選陣亡的
+    row.appendChild(renderSelCard(p, false, () => confirmMadScientist(i)));
+  });
+}
+
+function transformPokemon(mine, target) {
+  const pct = mine.hp > 0 ? mine.cur / mine.hp : 1;
+  Object.assign(mine, {
+    id: target.id, name: target.name, type: target.type, type2: target.type2 ?? null,
+    attacks: target.attacks.map(a => ({...a})), hp: target.hp, ability: target.ability ?? null,
+  });
+  mine.cur = Math.max(1, Math.round(target.hp * pct));
+  mine.status = null;
+}
+
+function confirmMadScientist(enemyIdx) {
+  const handIdx = _msHandIdx;
+  const card    = G.playerHand[handIdx];
+  const mine    = G.playerDeck[_msOwnIdx];
+  const target  = G.cpuDeck[enemyIdx];
+  closeMadScientistModal();
+  if (!card || card.id !== 'mad-scientist' || !mine || !target) return;
+
+  if (card.cat === 'supporter') { G.playerSuppUsed = true; G.playerSuppStageUsed++; }
+  G.playerHand.splice(handIdx, 1);
+  G.playerCardsUsed++;
+
+  const oldName = mine.name;
+  transformPokemon(mine, target);
+  log(`你使用了【${card.name}】，${oldName} 變身成了 ${mine.name}！`, 'player');
+  triggerOnEnter(mine, 'player');
+  renderBattle();
+}
+
+/* ─────────────────────────────────────────
    BATTLE LOG
 ───────────────────────────────────────── */
 function log(msg, cls = 'system') {
@@ -2901,6 +3036,7 @@ let _pendingSwitchDeckIdx = null;
 function playerSwitch(deckIdx) {
   if (G.busy) return;
   if (G.switchedThisTurn) return; // already switched once this turn
+  if (G.freeSwitch) { executeSwitch(deckIdx); return; } // 撤退背心：免確認，直接換場
   _pendingSwitchDeckIdx = deckIdx;
   document.getElementById('switch-confirm-modal').classList.add('open');
 }
@@ -2915,12 +3051,15 @@ function confirmPlayerSwitch() {
   document.getElementById('switch-confirm-modal').classList.remove('open');
   if (deckIdx === null || G.busy || G.switchedThisTurn) return;
   _pendingSwitchDeckIdx = null;
+  executeSwitch(deckIdx);
+}
 
+function executeSwitch(deckIdx) {
+  const usedFreeSwitch = G.freeSwitch;
   G.freeSwitch = false;
   G.switchedThisTurn = true;
   G.playerBuff.typeOverride = null; // orb effect expires — turn ends without attacking
-  G.busy = true;
-  G.round++;
+  G.playerSwitchGuard = true; // this turn's incoming damage ×0.8
 
   const outPoke = P();
   if (outPoke.status?.type === 'confusion') {
@@ -2929,7 +3068,20 @@ function confirmPlayerSwitch() {
   }
   const outName = outPoke.name;
   G.playerIdx = deckIdx;
-  G.playerSwitchGuard = true; // this turn's incoming damage ×0.8
+  triggerOnEnter(P(), 'player');
+
+  if (usedFreeSwitch) {
+    log(`你將 ${outName} 換回，派出了 ${P().name}！（撤退背心：不消耗回合）本回合傷害減免中…`, 'player');
+    renderBattle();
+    hideBenchPopup();
+    const nc = document.getElementById('player-bcard');
+    nc.classList.add('anim-slidein');
+    nc.addEventListener('animationend', () => nc.classList.remove('anim-slidein'), {once:true});
+    return; // no turn end — player can still act
+  }
+
+  G.busy = true;
+  G.round++;
   log(`你將 ${outName} 換回，派出了 ${P().name}！本回合傷害減免中…`, 'player');
 
   renderBattle();
@@ -2989,7 +3141,7 @@ function cpuUseTrainers() {
   if (G.cpuDeck.some(p => p.cur <= 0)) useCard('revive');
   /* Inflict status on player if they have none */
   if (!P().status) {
-    useCard('fire-bomb') || useCard('gas-attack');
+    useCard('fire-bomb') || useCard('gas-attack') || useCard('confuse-potion') || useCard('absolute-zero');
   }
   /* Reflect if player's attack is dangerous */
   if (P().attacks.some(a => a.dmg >= 70) && !G.cpuBuff.reflect) useCard('reflect');
@@ -3114,6 +3266,14 @@ function handleAttackerStatus(poke, side, onProceed, onSkip, onKO) {
   }
 
   if (st.type === 'poison') {
+    if (poke.ability?.id === 'poison-heal') {
+      const heal = Math.max(1, Math.floor(poke.hp / 8));
+      poke.cur = Math.min(poke.hp, poke.cur + heal);
+      log(`${label}${poke.name} 的毒療發動，中毒回復了 ${heal} 點HP！`, 'special');
+      updateHp(side, poke);
+      onProceed();
+      return;
+    }
     const poisonDmg = Math.max(1, Math.floor(poke.hp / 8));
     poke.cur = Math.max(0, poke.cur - poisonDmg);
     log(`${label}${poke.name} 因中毒受到了 ${poisonDmg} 點傷害！`, 'special');
@@ -3196,13 +3356,15 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   const stabMult = (atkType === attacker.type || (attacker.type2 && atkType === attacker.type2)) ? 1.5 : 1;
   const stadiumBonus = G.activeStadium?.id === 'stadium-training' ? 20 : 0;
   const reversalBonus = G.activeStadium?.id === 'stadium-reversal' && attacker.cur <= attacker.hp * 0.5 ? 30 : 0;
+  const abilityDmgMult = (attacker.ability?.id === 'guts' && attacker.status) ? 1.3 : 1;
   let dmg = mult === 0 ? 0
-    : Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumBonus + reversalBonus) * aBuff.atkMult * burnMult * mult * stabMult * switchGuardMult) - dBuff.shield);
+    : Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumBonus + reversalBonus) * aBuff.atkMult * burnMult * mult * stabMult * switchGuardMult * abilityDmgMult) - dBuff.shield);
   aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; dBuff.shield = 0;
 
   const defTypeStr = defender.type2 ? `${TYPE_ZH[defender.type]||defender.type}／${TYPE_ZH[defender.type2]||defender.type2}` : (TYPE_ZH[defender.type]||defender.type);
   log(`${aLabel}${attacker.name} 使用了【${atk.name}】！`, aSide);
   if (stabMult > 1)   log(`屬性加成！ ×1.5（${atkTypeName} = 自身屬性）`, 'special');
+  if (abilityDmgMult > 1) log(`${aLabel}${attacker.name} 的堅韌發動，攻擊威力提升！`, 'special');
   if (mult >= 4)      log(`超超級有效！(×4 — ${atkTypeName} ▶ ${defTypeStr})`, 'special');
   else if (mult >= 2) log(`超級有效！(×2 — ${atkTypeName} ▶ ${defTypeStr})`, 'special');
   else if (mult <= 0) log(`完全無效！(×0 — ${atkTypeName} ▶ ${defTypeStr})`, 'system');
@@ -3245,9 +3407,55 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
       renderBattle();
     }
     if (dmg > 0) tryInflictStatus(atk, defender, dSide);
+    if (dmg > 0) triggerAttackerAbility(attacker, aSide, defender, dSide);
+    if (dmg > 0) triggerDefenderAbility(defender, dSide, attacker, aSide);
 
-    setTimeout(onDone, 600);
+    if (attacker.cur <= 0) {
+      setTimeout(() => handleKO(aSide, onDone), 400);
+    } else {
+      setTimeout(onDone, 600);
+    }
   }, 380);
+}
+
+/* ─────────────────────────────────────────
+   ABILITIES (特性) — small numeric hooks, no-op for Pokémon without `ability`
+───────────────────────────────────────── */
+function triggerOnEnter(poke, side) {
+  if (!poke?.ability) return;
+  if (poke.ability.id === 'intimidate') {
+    const opBuff  = side === 'player' ? G.cpuBuff : G.playerBuff;
+    const opLabel = side === 'player' ? '對手' : '你的';
+    opBuff.atkBonus -= 15;
+    log(`${poke.name} 的威嚇讓${opLabel}下次攻擊威力 -15！`, 'special');
+  }
+}
+
+function triggerAttackerAbility(attacker, aSide, defender, dSide) {
+  if (!attacker.ability) return;
+  const aLabel = aSide === 'player' ? '你的' : '對手的';
+  const dLabel = dSide === 'player' ? '你的' : '對手的';
+  if (attacker.ability.id === 'static-trail' && defender.cur > 0 && !defender.status && Math.random() < 0.15) {
+    defender.status = { type: 'paralysis', turnsLeft: 999 };
+    log(`${aLabel}${attacker.name} 的電擊尾隨讓${dLabel}${defender.name} 陷入了麻痺！`, 'special');
+    renderBattle();
+  }
+}
+
+function triggerDefenderAbility(defender, dSide, attacker, aSide) {
+  if (!defender.ability) return;
+  const aLabel = aSide === 'player' ? '你的' : '對手的';
+  const dLabel = dSide === 'player' ? '你的' : '對手的';
+  if (defender.ability.id === 'static' && !attacker.status && Math.random() < 0.20) {
+    attacker.status = { type: 'paralysis', turnsLeft: 999 };
+    log(`${dLabel}${defender.name} 的靜電讓${aLabel}${attacker.name} 陷入了麻痺！`, 'special');
+    renderBattle();
+  } else if (defender.ability.id === 'rough-skin') {
+    const recoil = Math.max(1, Math.floor(attacker.hp / 8));
+    attacker.cur = Math.max(0, attacker.cur - recoil);
+    log(`${dLabel}${defender.name} 的粗糙皮膚反彈了 ${recoil} 點傷害給${aLabel}${attacker.name}！`, 'special');
+    updateHp(aSide, attacker);
+  }
 }
 
 function updateHp(side, poke) {
@@ -3309,6 +3517,7 @@ function showKOSwitchModal(deck, idxKey, onNext) {
     const {p, i} = options[0];
     G[idxKey] = i;
     log(`你派出了 ${p.name}！`, 'system');
+    triggerOnEnter(p, 'player');
     renderBattle();
     const nc = document.getElementById('player-bcard');
     nc.classList.add('anim-slidein');
@@ -3330,6 +3539,7 @@ function selectKOSwitch(i, deck, idxKey) {
   document.getElementById('ko-switch-modal').classList.remove('open');
   G[idxKey] = i;
   log(`你派出了 ${deck[i].name}！`, 'system');
+  triggerOnEnter(deck[i], 'player');
   renderBattle();
   const nc = document.getElementById('player-bcard');
   nc.classList.add('anim-slidein');
@@ -3370,6 +3580,7 @@ function handleKO(side, onNext) {
       const nextIdx = deck.findIndex(p => p.cur > 0);
       G[idxKey] = nextIdx;
       log(`對手派出了 ${deck[nextIdx].name}！`, 'system');
+      triggerOnEnter(deck[nextIdx], 'cpu');
       renderBattle();
       const nc = document.getElementById('cpu-bcard');
       nc.classList.add('anim-slidein');
@@ -3377,6 +3588,24 @@ function handleKO(side, onNext) {
       setTimeout(onNext, 300);
     }
   }, 1000);
+}
+
+function resolveMutualKO() {
+  G.busy = true;
+  P().cur = 0;
+  CP().cur = 0;
+  log(`雙方場上的寶可夢同歸於盡了！`, 'special');
+  renderBattle();
+
+  // 若我方也全滅，直接視為落敗（避免 handleKO 連鎖時漏判對手是否也全滅）
+  if (!G.playerDeck.some(p => p.cur > 0)) {
+    setTimeout(() => showResult('cpu'), 1000);
+    return;
+  }
+  handleKO('player', () => handleKO('cpu', () => {
+    G.busy = false;
+    renderBattle();
+  }));
 }
 
 /* ─────────────────────────────────────────
@@ -3701,6 +3930,18 @@ function renderDex() {
     <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.8rem">
       <button class="btn-modal-ok" onclick="confirmPlayerSwitch()">確定換人</button>
       <button class="btn-modal-cancel" onclick="closeSwitchConfirm()">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- Mad Scientist (瘋狂博士) modal -->
+<div id="mad-scientist-modal">
+  <div class="discard-inner">
+    <div class="discard-title" id="ms-title">選擇要變身的寶可夢</div>
+    <div class="discard-sub" id="ms-sub">選擇我方一隻寶可夢進行變身</div>
+    <div class="sel-cards-row" id="ms-cards-row"></div>
+    <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.8rem">
+      <button class="btn-modal-cancel" onclick="closeMadScientistModal()">取消</button>
     </div>
   </div>
 </div>

@@ -301,8 +301,17 @@
     #result-title { font-size:clamp(3rem,10vw,5rem); font-weight:900; }
     #result-title.win  { background:linear-gradient(135deg,#f8d030,#4caf50); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
     #result-title.lose { background:linear-gradient(135deg,#ef5350,#7986cb); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    #result-title.draw { background:linear-gradient(135deg,#90a4ae,#cfd8dc); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
     #result-sub { color:var(--muted); font-size:1.05rem; }
     #result-stats { font-size:0.9rem; color:var(--muted); line-height:2; }
+    .result-champion-wrap { position:relative; width:200px; height:200px; display:flex; align-items:center; justify-content:center; }
+    .result-champion-wrap.hidden { display:none; }
+    .result-champion-glow { position:absolute; inset:-16px; border-radius:50%; background:radial-gradient(circle, rgba(248,208,48,0.45) 0%, transparent 70%); animation: championPulse 1.8s ease-in-out infinite; }
+    .result-champion-sprite { width:180px; height:180px; image-rendering:pixelated; position:relative; z-index:1; filter:drop-shadow(0 0 18px rgba(248,208,48,0.9)) drop-shadow(0 4px 10px rgba(0,0,0,0.5)); animation: championEnter 0.7s cubic-bezier(.34,1.56,.64,1); }
+    .result-champion-crown { position:absolute; top:-4px; right:10px; font-size:2rem; z-index:2; animation: championCrown 0.5s ease 0.5s backwards; }
+    @keyframes championEnter { from{transform:scale(0.3) rotate(-8deg); opacity:0;} to{transform:scale(1) rotate(0); opacity:1;} }
+    @keyframes championPulse { 0%,100%{opacity:0.6; transform:scale(1);} 50%{opacity:1; transform:scale(1.08);} }
+    @keyframes championCrown { from{transform:scale(0) rotate(-30deg); opacity:0;} to{transform:scale(1) rotate(0); opacity:1;} }
 
     /* ── KO Switch Modal ── */
     #ko-switch-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:80; display:none; align-items:center; justify-content:center; padding:1rem; }
@@ -313,8 +322,8 @@
     /* ── Discard Modal ── */
     #discard-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
     #discard-modal.open { display:flex; }
-    #trade-modal, #trade-choose-modal, #switch-confirm-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
-    #trade-modal.open, #trade-choose-modal.open, #switch-confirm-modal.open { display:flex; }
+    #trade-modal, #trade-choose-modal, #switch-confirm-modal, #mad-scientist-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
+    #trade-modal.open, #trade-choose-modal.open, #switch-confirm-modal.open, #mad-scientist-modal.open { display:flex; }
     #trade-modal .t-card { cursor:pointer; transition:box-shadow 0.15s; }
     #trade-modal .t-card.selected { box-shadow: 0 0 0 2px #ffd740; }
     .btn-modal-ok { background:rgba(99,102,241,0.25); border:1px solid rgba(99,102,241,0.5); color:#c5cae9; border-radius:8px; padding:0.55rem 1.2rem; cursor:pointer; font-size:0.9rem; }
@@ -522,6 +531,11 @@
 
 <!-- ══ RESULT ══ -->
 <div id="result-screen" class="screen">
+  <div class="result-champion-wrap" id="result-champion-wrap">
+    <div class="result-champion-glow"></div>
+    <img id="result-champion-sprite" class="result-champion-sprite" alt="">
+    <div class="result-champion-crown">👑</div>
+  </div>
   <div id="result-title"></div>
   <div id="result-sub"></div>
   <div id="result-stats"></div>
@@ -538,7 +552,7 @@
       <li>建立房間後，將代碼分享給對手，對手輸入代碼加入。</li>
       <li>雙方各從隨機 6 隻寶可夢中選出 3 隻出戰（可重新生成最多 3 次）。</li>
       <li>擲硬幣決定先後攻，先擊倒對手全部 3 隻寶可夢者獲勝。</li>
-      <li>雙方輪流行動；每回合限換場一次，換場會直接結束本回合，新上場的寶可夢該回合受到的傷害減少 20%。</li>
+      <li>雙方輪流行動；每回合限換場一次，換場會直接結束本回合，新上場的寶可夢該回合受到的傷害減少 20%（使用撤退背心後的換場不會結束回合）。</li>
       <li><b>💤 待機</b>：跳過攻擊，抽 1 張支援者牌進入手牌。</li>
       <li>每次攻擊後雙方各隨機抽 1–2 張<b>道具牌</b>，手牌上限 5 張。</li>
       <li>己方 HP 歸零後，立即選擇下一隻上場（不消耗回合）。</li>
@@ -569,6 +583,7 @@
         <li>火焰彈 — 讓對手燒傷 ／ 瓦斯攻擊 — 讓對手中毒</li>
         <li>交換器 — 強制換出對手備戰寶可夢 ／ 反彈鏡 — 下次對手攻擊反彈回自身</li>
         <li>屬性寶珠（火／水／電／冰／惡／妖精／草／格鬥／毒／蟲／幽靈／鋼／地面）— 本回合攻擊改為對應屬性</li>
+        <li>撤退背心 — 下次換場不會結束回合 ／ 混亂藥 — 讓對手混亂 ／ 絕對零度 — 讓對手結凍</li>
       </ul>
       <li>可花費 2 張手牌，換取 1 張競技場或道具卡（棄2換1按鈕）。</li>
       <li><b>支援者牌</b>（藍框）僅開局手牌中出現，每回合限用 1 張，全場最多 2 張，也可用待機抽到：</li>
@@ -576,6 +591,8 @@
         <li>復活藥 — 復活備戰欄第一隻倒下的寶可夢（80 HP）</li>
         <li>治療師 — 完全回復 HP 並解除異常狀態</li>
         <li>全力出擊 — 下次攻擊傷害 ×3</li>
+        <li>搏命 — 我方與對方上場寶可夢同歸於盡，雙方各自選下一隻上場</li>
+        <li>瘋狂博士 — 選我方一隻寶可夢，變身成對方一隻陣亡的寶可夢（依血量百分比換算HP）</li>
       </ul>
       <li><b>競技場牌</b>（橘框）效果持續整場，放置新競技場會取代舊的：</li>
       <ul>
@@ -586,6 +603,15 @@
         <li>龍之谷 — 龍屬性寶可夢對妖精、冰系招式最多×1效果</li>
         <li>邪惡森林 — 草系寶可夢不受屬性克制；草系招式改以毒屬性計算效果</li>
       </ul>
+    </ul>
+    <h3>特性</h3>
+    <ul>
+      <li>靜電（雷丘）— 受到攻擊後 20% 機率讓攻擊者陷入麻痺</li>
+      <li>威嚇（沙包蛇）— 上場時讓對方下一次攻擊威力 −15</li>
+      <li>毒療（耿鬼）— 中毒時每回合改為回復 1/8 最大HP，而非扣血</li>
+      <li>堅韌（路卡利歐）— 自身帶有異常狀態時，攻擊傷害 ×1.3</li>
+      <li>粗糙皮膚（忍蛙）— 受到攻擊傷害時，反彈攻擊者 1/8 最大HP 傷害</li>
+      <li>電擊尾隨（三合磁怪）— 攻擊命中時額外 15% 機率讓目標陷入麻痺</li>
     </ul>
   </div>
 </div>
@@ -640,6 +666,18 @@
     <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.8rem">
       <button class="btn-modal-ok" onclick="confirmPlayerSwitch()">確定換人</button>
       <button class="btn-modal-cancel" onclick="closeSwitchConfirm()">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- Mad Scientist (瘋狂博士) modal -->
+<div id="mad-scientist-modal">
+  <div class="discard-inner">
+    <div class="discard-title" id="ms-title">選擇要變身的寶可夢</div>
+    <div class="discard-sub" id="ms-sub">選擇我方一隻寶可夢進行變身</div>
+    <div class="sel-cards-row" id="ms-cards-row"></div>
+    <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.8rem">
+      <button class="btn-modal-cancel" onclick="closeMadScientistModal()">取消</button>
     </div>
   </div>
 </div>
@@ -896,6 +934,7 @@ function handleMsg(msg) {
       showScreen('battle-screen');
       document.getElementById('battle-log').innerHTML = '';
       document.getElementById('chat-log').innerHTML = '';
+      for (const entry of (msg.log || [])) log(entry.text, entry.cls);
       showChatBtn();
       showCoinFlip(msg.coinFlip);
       break;
@@ -956,11 +995,14 @@ function handleMsg(msg) {
       break;
     }
 
-    case 'game_over':
+    case 'game_over': {
       for (const entry of (msg.log || [])) log(entry.text, entry.cls);
       applyServerState(msg.state);
-      setTimeout(() => showResult(msg.winner === myRole), 800);
+      const isDraw = msg.winner === 'draw';
+      const winnerDeck = isDraw ? null : msg.state[`${msg.winner}Deck`];
+      setTimeout(() => showResult(msg.winner === myRole, isDraw, winnerDeck), 800);
       break;
+    }
 
     case 'error':
       if (currentScreen() === 'team-select-screen') {
@@ -1275,6 +1317,11 @@ let _pendingSwitchDeckIdx = null;
 
 function playerSwitch(deckIdx) {
   if (G.busy || G.playerNeedsDiscard) return;
+  if (G.playerFreeSwitch) { // 撤退背心：免確認，不鎖定回合
+    hideBenchPopup();
+    send({ type: 'switch', deckIdx });
+    return;
+  }
   _pendingSwitchDeckIdx = deckIdx;
   hideBenchPopup();
   document.getElementById('switch-confirm-modal').classList.add('open');
@@ -1304,7 +1351,78 @@ function useTrainer(handIdx) {
   if (card.cat === 'supporter' && G.playerSuppStageUsed >= 2) {
     showWarn('本場支援者牌已使用 2 張！\n每場最多使用 2 張支援者牌。'); return;
   }
+  if (card.id === 'mad-scientist') {
+    if (!G.cpuDeck.some(p => p.cur <= 0)) {
+      showWarn('對手目前沒有陣亡的寶可夢可以複製！'); return;
+    }
+    openMadScientistModal(handIdx);
+    return;
+  }
   send({ type: 'use_trainer', handIdx });
+}
+
+/* ─────────────────────────────────────────
+   MAD SCIENTIST (瘋狂博士) — 2-step transform flow
+───────────────────────────────────────── */
+let _msHandIdx = null;
+let _msOwnIdx  = null;
+
+function renderMsCard(p, onClick) {
+  const col = TYPE_COLOR[p.type] || '#888';
+  const el  = document.createElement('div');
+  el.className = 'sel-card';
+  el.innerHTML = `
+    <div class="sel-strip" style="background:${col}"></div>
+    <img src="${spriteUrl(p.id)}" alt="${p.name}">
+    <div class="sel-name">${p.name}</div>
+    <div class="sel-hp">HP ${p.hp}</div>
+    <div class="sel-moves">${p.attacks.map(a=>`<div class="sel-move"><span class="sel-move-badge" style="background:${TYPE_COLOR[a.type]||'#888'}">${TYPE_ZH[a.type]||a.type}</span><span>${a.name} ${a.dmg}</span></div>`).join('')}</div>
+  `;
+  el.onclick = onClick;
+  return el;
+}
+
+function openMadScientistModal(handIdx) {
+  _msHandIdx = handIdx;
+  _msOwnIdx  = null;
+  renderMadScientistStep1();
+  document.getElementById('mad-scientist-modal').classList.add('open');
+}
+
+function closeMadScientistModal() {
+  _msHandIdx = null;
+  _msOwnIdx  = null;
+  document.getElementById('mad-scientist-modal').classList.remove('open');
+}
+
+function renderMadScientistStep1() {
+  document.getElementById('ms-title').textContent = '選擇要變身的寶可夢';
+  document.getElementById('ms-sub').textContent = '選擇我方一隻存活的寶可夢進行變身';
+  const row = document.getElementById('ms-cards-row');
+  row.innerHTML = '';
+  G.playerDeck.forEach((p, i) => {
+    if (p.cur <= 0) return;
+    row.appendChild(renderMsCard(p, () => { _msOwnIdx = i; renderMadScientistStep2(); }));
+  });
+}
+
+function renderMadScientistStep2() {
+  document.getElementById('ms-title').textContent = '選擇要模仿的陣亡寶可夢';
+  document.getElementById('ms-sub').textContent = `${G.playerDeck[_msOwnIdx].name} 將變身成你選擇的對象`;
+  const row = document.getElementById('ms-cards-row');
+  row.innerHTML = '';
+  G.cpuDeck.forEach((p, i) => {
+    if (p.cur > 0) return;
+    row.appendChild(renderMsCard(p, () => confirmMadScientist(i)));
+  });
+}
+
+function confirmMadScientist(enemyIdx) {
+  const handIdx = _msHandIdx;
+  const ownIdx  = _msOwnIdx;
+  closeMadScientistModal();
+  if (handIdx === null || ownIdx === null) return;
+  send({ type: 'use_trainer', handIdx, targetOwnIdx: ownIdx, targetEnemyIdx: enemyIdx });
 }
 
 /* ─────────────────────────────────────────
@@ -1355,12 +1473,28 @@ function discardCard(idx) {
 /* ─────────────────────────────────────────
    RESULT
 ───────────────────────────────────────── */
-function showResult(iWon) {
+function showResult(iWon, isDraw, winnerDeck) {
   showScreen('result-screen');
   const title = document.getElementById('result-title');
-  title.textContent = iWon ? '勝利！' : '敗北';
-  title.className   = iWon ? 'win'    : 'lose';
-  document.getElementById('result-sub').textContent   = iWon ? '你擊敗了對手！' : '再接再厲！';
+  const champWrap = document.getElementById('result-champion-wrap');
+  if (isDraw) {
+    title.textContent = '平手';
+    title.className   = 'draw';
+    document.getElementById('result-sub').textContent = '雙方同歸於盡！';
+    champWrap.classList.add('hidden');
+  } else {
+    title.textContent = iWon ? '勝利！' : '敗北';
+    title.className   = iWon ? 'win'    : 'lose';
+    document.getElementById('result-sub').textContent = iWon ? '你擊敗了對手！' : '再接再厲！';
+    champWrap.classList.remove('hidden');
+    const alivePool = winnerDeck.filter(p => p.cur > 0);
+    const pool = alivePool.length ? alivePool : winnerDeck;
+    const champion = pool[Math.floor(Math.random() * pool.length)];
+    const img = document.getElementById('result-champion-sprite');
+    img.onerror = () => { img.onerror = null; img.src = spriteUrl(champion.id); };
+    img.src = animatedSpriteUrl(champion.id);
+    img.alt = champion.name;
+  }
   document.getElementById('result-stats').textContent = `共 ${G.round} 回合`;
 }
 
@@ -1571,7 +1705,7 @@ function showBenchPopup(e, poke, deckIdx, canSwitch, freeSwitch) {
   if (imm.length)    tcHtml += `<div><span style="color:#888;font-weight:700;font-size:0.65rem">無效　</span>${imm.map(b).join('')}</div>`;
 
   const switchBtn = canSwitch
-    ? `<button class="bp-switch-btn" onclick="playerSwitch(${deckIdx})">換上場</button>`
+    ? `<button class="bp-switch-btn" onclick="playerSwitch(${deckIdx})">換上場${freeSwitch ? '（不佔用回合）' : ''}</button>`
     : (poke.cur<=0 ? '<div style="font-size:0.78rem;color:#ef5350;text-align:center">已倒下</div>' : '');
   popup.innerHTML = `
     <div class="bp-header">
