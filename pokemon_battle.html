@@ -143,6 +143,7 @@
     .status-tag.confusion { background:#880e4f; }
     .status-tag.burn      { background:#bf360c; }
     .status-tag.freeze    { background:#006064; }
+    .ability-badge { display:inline-block; font-size:0.62rem; font-weight:700; padding:0.1rem 0.48rem; border-radius:999px; margin-top:0.22rem; letter-spacing:0.02em; background:rgba(186,104,200,0.22); color:#ce93d8; border:1px solid rgba(186,104,200,0.55); }
 
     /* ══════════════════════════════
        BATTLE SCREEN
@@ -1332,6 +1333,7 @@
         <img id="cpu-sprite" src="" alt="">
         <div class="b-name" id="cpu-name"></div>
         <div class="type-badge" id="cpu-badge"></div>
+        <div class="ability-badge" id="cpu-ability" style="display:none"></div>
         <div id="cpu-status" style="display:none"></div>
         <div class="info-hint">ℹ</div>
       </div>
@@ -1359,6 +1361,7 @@
         <img id="player-sprite" src="" alt="">
         <div class="b-name" id="player-name"></div>
         <div class="type-badge" id="player-badge"></div>
+        <div class="ability-badge" id="player-ability" style="display:none"></div>
         <div id="player-status" style="display:none"></div>
         <div class="buff-tags" id="player-buff-tags"></div>
         <div class="info-hint">ℹ</div>
@@ -2220,6 +2223,14 @@ function showBenchPopup(poke, canSwitch, switchIdx, anchorEl) {
     badge2.style.display = '';
   } else { badge2.style.display = 'none'; }
 
+  const abilityEl = document.getElementById('bp-ability');
+  if (poke.ability) {
+    abilityEl.textContent = `✨ ${poke.ability.name} — ${poke.ability.desc}`;
+    abilityEl.style.display = '';
+  } else {
+    abilityEl.style.display = 'none';
+  }
+
   const hpPct = poke.cur <= 0 ? 0 : Math.round(poke.cur / poke.hp * 100);
   const hpC   = hpPct > 50 ? '#4caf50' : hpPct > 20 ? '#ffc107' : '#ef5350';
   document.getElementById('bp-hp').innerHTML = poke.cur <= 0
@@ -2337,11 +2348,13 @@ function renderSelCard(p, isSelected, onClick) {
       <span style="color:var(--muted);font-size:0.62rem">${a.dmg}</span>
     </div>`;
   }).join('');
+  const abilityHtml = p.ability ? `<div class="ability-badge" title="${p.ability.desc}">✨ ${p.ability.name}</div>` : '';
   el.innerHTML = `
     <div class="sel-strip" style="background:${col}"></div>
     <img src="${spriteUrl(p.id)}" alt="${p.name}">
     <div class="sel-name">${p.name}</div>
     <div><span class="type-badge" style="background:${col};margin-top:0.2rem">${TYPE_ZH[p.type]||p.type}</span></div>
+    ${abilityHtml}
     <div class="sel-hp">HP ${p.hp}</div>
     <div class="sel-moves">${movesHtml}</div>
   `;
@@ -2627,6 +2640,19 @@ function renderSide(side, poke, deck, activeIdx) {
   fill.classList.remove('animated'); // full re-render (switch/KO/init) — snap instantly, don't tween
   fill.style.width      = pct + '%';
   fill.style.background = hpC;
+
+  // Ability badge
+  const abilityEl = document.getElementById(`${side}-ability`);
+  if (abilityEl) {
+    if (poke.ability) {
+      abilityEl.textContent  = `✨ ${poke.ability.name}`;
+      abilityEl.title        = poke.ability.desc || '';
+      abilityEl.style.display = '';
+    } else {
+      abilityEl.style.display = 'none';
+      abilityEl.textContent   = '';
+    }
+  }
 
   // Status badge
   const statusEl = document.getElementById(`${side}-status`);
@@ -3956,6 +3982,7 @@ function renderDex() {
         <span id="bp-type-badge" class="type-badge" style="font-size:0.65rem;padding:0.1rem 0.45rem"></span>
         <span id="bp-type-badge2" class="type-badge" style="font-size:0.65rem;padding:0.1rem 0.45rem;display:none"></span>
       </div>
+      <div id="bp-ability" class="ability-badge" style="display:none;margin-top:0.3rem"></div>
     </div>
   </div>
   <div class="bp-hp" id="bp-hp"></div>

@@ -140,6 +140,7 @@
     .status-tag.confusion { background:#880e4f; }
     .status-tag.burn      { background:#bf360c; }
     .status-tag.freeze    { background:#006064; }
+    .ability-badge { display:inline-block; font-size:0.62rem; font-weight:700; padding:0.1rem 0.48rem; border-radius:999px; margin-top:0.22rem; letter-spacing:0.02em; background:rgba(186,104,200,0.22); color:#ce93d8; border:1px solid rgba(186,104,200,0.55); }
     .field { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:1rem; }
     .field-label { font-size:0.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:0.6rem; }
     .active-area { display:flex; align-items:flex-start; gap:1rem; }
@@ -461,6 +462,7 @@
           <img id="cpu-sprite" src="" alt="">
           <div class="b-name" id="cpu-name"></div>
           <div class="type-badge" id="cpu-badge"></div>
+          <div class="ability-badge" id="cpu-ability" style="display:none"></div>
           <div id="cpu-status" style="display:none"></div>
           <div class="info-hint">ℹ</div>
         </div>
@@ -481,6 +483,7 @@
           <img id="player-sprite" src="" alt="">
           <div class="b-name" id="player-name"></div>
           <div class="type-badge" id="player-badge"></div>
+          <div class="ability-badge" id="player-ability" style="display:none"></div>
           <div id="player-status" style="display:none"></div>
           <div class="buff-tags" id="player-buff-tags"></div>
           <div class="info-hint">ℹ</div>
@@ -1107,6 +1110,7 @@ function renderTeamSelect() {
       <div class="sel-strip" style="background:${col}"></div>
       <img src="${spriteUrl(p.id)}" alt="${p.name}">
       <div class="sel-name">${p.name}</div>
+      ${p.ability ? `<div class="ability-badge" title="${p.ability.desc}">✨ ${p.ability.name}</div>` : ''}
       <div class="sel-hp">HP ${p.hp}</div>
       <div class="sel-moves">${p.attacks.map(a=>`<div class="sel-move"><span class="sel-move-badge" style="background:${TYPE_COLOR[a.type]||'#888'}">${TYPE_ZH[a.type]||a.type}</span><span>${a.name} ${a.dmg}</span></div>`).join('')}</div>
     `;
@@ -1199,6 +1203,17 @@ function renderSide(side, poke, deck, activeIdx) {
   } else {
     badge.textContent      = TYPE_ZH[poke.type] || poke.type;
     badge.style.background = col;
+  }
+  const abilityEl = document.getElementById(`${side}-ability`);
+  if (abilityEl) {
+    if (poke.ability) {
+      abilityEl.textContent  = `✨ ${poke.ability.name}`;
+      abilityEl.title        = poke.ability.desc || '';
+      abilityEl.style.display = '';
+    } else {
+      abilityEl.style.display = 'none';
+      abilityEl.textContent   = '';
+    }
   }
   const cur = Math.max(0, poke.cur ?? poke.hp);
   const pct = Math.round((cur / poke.hp) * 100);
@@ -1375,6 +1390,7 @@ function renderMsCard(p, onClick) {
     <div class="sel-strip" style="background:${col}"></div>
     <img src="${spriteUrl(p.id)}" alt="${p.name}">
     <div class="sel-name">${p.name}</div>
+    ${p.ability ? `<div class="ability-badge" title="${p.ability.desc}">✨ ${p.ability.name}</div>` : ''}
     <div class="sel-hp">HP ${p.hp}</div>
     <div class="sel-moves">${p.attacks.map(a=>`<div class="sel-move"><span class="sel-move-badge" style="background:${TYPE_COLOR[a.type]||'#888'}">${TYPE_ZH[a.type]||a.type}</span><span>${a.name} ${a.dmg}</span></div>`).join('')}</div>
   `;
@@ -1707,12 +1723,14 @@ function showBenchPopup(e, poke, deckIdx, canSwitch, freeSwitch) {
   const switchBtn = canSwitch
     ? `<button class="bp-switch-btn" onclick="playerSwitch(${deckIdx})">換上場${freeSwitch ? '（不佔用回合）' : ''}</button>`
     : (poke.cur<=0 ? '<div style="font-size:0.78rem;color:#ef5350;text-align:center">已倒下</div>' : '');
+  const abilityHtml = poke.ability ? `<div class="ability-badge" title="${poke.ability.desc}" style="margin-top:0.3rem">✨ ${poke.ability.name}</div>` : '';
   popup.innerHTML = `
     <div class="bp-header">
       <img src="${spriteUrl(poke.id)}" alt="${poke.name}">
       <div>
         <div class="bp-pname">${poke.name}</div>
         <div style="display:flex;gap:0.28rem;flex-wrap:wrap;margin-top:0.18rem">${typeBadges}</div>
+        ${abilityHtml}
         <div class="bp-hp" style="margin-top:0.2rem">HP <span style="color:${hpCol}">${cur}</span> / ${poke.hp}</div>
       </div>
     </div>
