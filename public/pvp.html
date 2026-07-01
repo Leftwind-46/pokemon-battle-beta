@@ -150,7 +150,8 @@
     .hp-wrap { flex:1; }
     .hp-meta { display:flex; justify-content:space-between; font-size:0.75rem; color:var(--muted); margin-bottom:0.3rem; }
     .hp-track { background:rgba(255,255,255,0.1); border-radius:999px; height:10px; overflow:hidden; }
-    .hp-fill  { height:100%; border-radius:999px; transition:width 0.5s ease, background-color 0.4s ease; }
+    .hp-fill  { height:100%; border-radius:999px; }
+    .hp-fill.animated { transition:width 0.5s ease, background-color 0.4s ease; }
     .bench-row { display:flex; flex-wrap:wrap; gap:0.45rem; margin-top:0.7rem; }
     .b-bench { background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:8px; padding:0.3rem 0.55rem; display:flex; align-items:center; gap:0.35rem; font-size:0.73rem; cursor:pointer; transition:all 0.15s; }
     .b-bench:hover { background:rgba(255,255,255,0.09); transform:translateY(-1px); }
@@ -312,8 +313,8 @@
     /* ── Discard Modal ── */
     #discard-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
     #discard-modal.open { display:flex; }
-    #trade-modal, #trade-choose-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
-    #trade-modal.open, #trade-choose-modal.open { display:flex; }
+    #trade-modal, #trade-choose-modal, #switch-confirm-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
+    #trade-modal.open, #trade-choose-modal.open, #switch-confirm-modal.open { display:flex; }
     #trade-modal .t-card { cursor:pointer; transition:box-shadow 0.15s; }
     #trade-modal .t-card.selected { box-shadow: 0 0 0 2px #ffd740; }
     .btn-modal-ok { background:rgba(99,102,241,0.25); border:1px solid rgba(99,102,241,0.5); color:#c5cae9; border-radius:8px; padding:0.55rem 1.2rem; cursor:pointer; font-size:0.9rem; }
@@ -429,6 +430,7 @@
   <div class="ts-subtitle">從你的 6 隻寶可夢中選出 3 隻（<span id="ts-count">0</span>/3）</div>
   <div class="sel-cards-row" id="ts-cards-row"></div>
   <div id="ts-opponent-status" class="ts-waiting" style="display:none">對手正在選隊伍…</div>
+  <div id="ts-err" style="color:#ef5350;font-size:0.88rem;min-height:1.2em"></div>
   <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;justify-content:center">
     <button class="btn btn-secondary" id="ts-reroll-btn" onclick="rerollRoster()" style="font-size:0.88rem;padding:0.55rem 1.4rem">重新生成（剩 <span id="ts-rerolls">3</span> 次）</button>
     <button class="btn btn-primary" id="ts-confirm-btn" disabled onclick="confirmTeam()">確認出戰</button>
@@ -536,7 +538,7 @@
       <li>建立房間後，將代碼分享給對手，對手輸入代碼加入。</li>
       <li>雙方各從隨機 6 隻寶可夢中選出 3 隻出戰（可重新生成最多 3 次）。</li>
       <li>擲硬幣決定先後攻，先擊倒對手全部 3 隻寶可夢者獲勝。</li>
-      <li>雙方輪流行動；每回合可先換場（換場不消耗回合，每回合限換一次），再攻擊或待機。</li>
+      <li>雙方輪流行動；每回合限換場一次，換場會直接結束本回合，新上場的寶可夢該回合受到的傷害減少 20%。</li>
       <li><b>💤 待機</b>：跳過攻擊，抽 1 張支援者牌進入手牌。</li>
       <li>每次攻擊後雙方各隨機抽 1–2 張<b>道具牌</b>，手牌上限 5 張。</li>
       <li>己方 HP 歸零後，立即選擇下一隻上場（不消耗回合）。</li>
@@ -626,6 +628,18 @@
     <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.8rem">
       <button class="btn-modal-ok" onclick="pvpChooseTrade('stadium')">🏟 競技場</button>
       <button class="btn-modal-ok" onclick="pvpChooseTrade('item')">🃏 道具卡</button>
+    </div>
+  </div>
+</div>
+
+<!-- Switch confirm modal -->
+<div id="switch-confirm-modal">
+  <div class="discard-inner">
+    <div class="discard-title">確定要換人嗎？</div>
+    <div class="discard-sub">換人將直接結束本回合，新上場的寶可夢這回合受到的傷害會減少 20%</div>
+    <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.8rem">
+      <button class="btn-modal-ok" onclick="confirmPlayerSwitch()">確定換人</button>
+      <button class="btn-modal-cancel" onclick="closeSwitchConfirm()">取消</button>
     </div>
   </div>
 </div>
@@ -734,13 +748,15 @@ const EFF = {
 
 function spriteUrl(id){ return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`; }
 function animatedSpriteUrl(id){ return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${id}.gif`; }
-function setSprite(el, id) {
-  if (el.dataset.pokeId === String(id)) return;
+function setSprite(el, id, poke) {
+  if (el._pokeRef === poke) return; // same battle instance still active — don't restart its GIF
+  el._pokeRef = poke;
   el.dataset.pokeId = String(id);
   el.onerror = null; el.onload = null;
   el.classList.remove('sprite-idle','sprite-danger','sprite-enter','sprite-hit','sprite-lunge-r','sprite-lunge-l');
   el.onload = () => {
     el.onload = null;
+    el.classList.remove('sprite-idle','sprite-danger'); // don't let idle/danger animation clash with entrance pop-in
     el.classList.add('sprite-enter');
     el.addEventListener('animationend', () => el.classList.remove('sprite-enter'), { once: true });
   };
@@ -868,8 +884,10 @@ function handleMsg(msg) {
     case 'roster_update':
       myRoster  = msg.roster;
       tsSelected = [];
+      rerollBusy = false;
+      document.getElementById('ts-err').textContent = '';
       document.getElementById('ts-rerolls').textContent = msg.rerollsLeft;
-      if (msg.rerollsLeft === 0) document.getElementById('ts-reroll-btn').disabled = true;
+      document.getElementById('ts-reroll-btn').disabled = msg.rerollsLeft === 0;
       renderTeamSelect();
       break;
 
@@ -884,9 +902,28 @@ function handleMsg(msg) {
 
     case 'update': {
       const wasMyTurn = !G.busy;
+      // Only tween the HP bar when the *same* active Pokémon lost/gained HP — switches/KO-switches snap instantly
+      const prevPlayerIdx = G.playerIdx, prevPlayerCur = G.playerDeck?.[prevPlayerIdx]?.cur;
+      const prevCpuIdx    = G.cpuIdx,    prevCpuCur    = G.cpuDeck?.[prevCpuIdx]?.cur;
       for (const entry of (msg.log || [])) log(entry.text, entry.cls);
       applyServerState(msg.state);
+      const playerAnimate = G.playerIdx === prevPlayerIdx && G.playerDeck[G.playerIdx]?.cur !== prevPlayerCur;
+      const cpuAnimate    = G.cpuIdx === prevCpuIdx && G.cpuDeck[G.cpuIdx]?.cur !== prevCpuCur;
+      document.getElementById('player-hp-fill').classList.toggle('animated', playerAnimate);
+      document.getElementById('cpu-hp-fill').classList.toggle('animated', cpuAnimate);
+      const playerSwitched = prevPlayerIdx !== undefined && G.playerIdx !== prevPlayerIdx;
+      const cpuSwitched    = prevCpuIdx !== undefined && G.cpuIdx !== prevCpuIdx;
       renderBattle();
+      if (playerSwitched) {
+        const pc = document.getElementById('player-bcard');
+        pc.classList.add('anim-slidein');
+        pc.addEventListener('animationend', () => pc.classList.remove('anim-slidein'), { once: true });
+      }
+      if (cpuSwitched) {
+        const cc = document.getElementById('cpu-bcard');
+        cc.classList.add('anim-slidein');
+        cc.addEventListener('animationend', () => cc.classList.remove('anim-slidein'), { once: true });
+      }
       // Sprite lunge on attacker + hit flash on defender
       const actorDeck = msg.actor === myRole ? 'player' : 'cpu';
       const defDeck   = msg.actor === myRole ? 'cpu' : 'player';
@@ -926,7 +963,13 @@ function handleMsg(msg) {
       break;
 
     case 'error':
-      document.getElementById('lobby-err').textContent = msg.message;
+      if (currentScreen() === 'team-select-screen') {
+        document.getElementById('ts-err').textContent = msg.message;
+        rerollBusy = false;
+        document.getElementById('ts-reroll-btn').disabled = tsConfirmed;
+      } else {
+        document.getElementById('lobby-err').textContent = msg.message;
+      }
       break;
 
     case 'opponent_disconnected':
@@ -1002,10 +1045,12 @@ function backToLobby() {
    TEAM SELECT
 ───────────────────────────────────────── */
 function showTeamSelect() {
-  tsSelected = []; tsConfirmed = false;
+  tsSelected = []; tsConfirmed = false; rerollBusy = false;
   showScreen('team-select-screen');
   renderTeamSelect();
   document.getElementById('ts-opponent-status').style.display = 'none';
+  document.getElementById('ts-err').textContent = '';
+  document.getElementById('ts-reroll-btn').disabled = false;
 }
 
 function renderTeamSelect() {
@@ -1040,8 +1085,12 @@ function toggleTSCard(i) {
   renderTeamSelect();
 }
 
+let rerollBusy = false;
 function rerollRoster() {
-  if (tsConfirmed) return;
+  if (tsConfirmed || rerollBusy) return;
+  rerollBusy = true;
+  document.getElementById('ts-reroll-btn').disabled = true;
+  document.getElementById('ts-err').textContent = '';
   send({ type: 'reroll' });
 }
 
@@ -1097,7 +1146,7 @@ function renderSide(side, poke, deck, activeIdx) {
     : col;
   const sprEl = document.getElementById(`${side}-sprite`);
   sprEl.alt = poke.name;
-  setSprite(sprEl, poke.id);
+  setSprite(sprEl, poke.id, poke);
   syncSpriteAnim(side, poke);
   document.getElementById(`${side}-name`).textContent        = poke.name;
   const badge = document.getElementById(`${side}-badge`);
@@ -1222,9 +1271,27 @@ function playerAttack(idx) {
   send({ type: 'attack', idx });
 }
 
+let _pendingSwitchDeckIdx = null;
+
 function playerSwitch(deckIdx) {
   if (G.busy || G.playerNeedsDiscard) return;
-  G.busy = true; // briefly lock until server confirms (turn stays mine, applyServerState will unlock)
+  _pendingSwitchDeckIdx = deckIdx;
+  hideBenchPopup();
+  document.getElementById('switch-confirm-modal').classList.add('open');
+}
+
+function closeSwitchConfirm() {
+  _pendingSwitchDeckIdx = null;
+  document.getElementById('switch-confirm-modal').classList.remove('open');
+}
+
+function confirmPlayerSwitch() {
+  const deckIdx = _pendingSwitchDeckIdx;
+  document.getElementById('switch-confirm-modal').classList.remove('open');
+  if (deckIdx === null || G.busy || G.playerNeedsDiscard) return;
+  _pendingSwitchDeckIdx = null;
+
+  G.busy = true; // switching ends the turn — locked until opponent acts
   renderBattle();
   send({ type: 'switch', deckIdx });
   hideBenchPopup();

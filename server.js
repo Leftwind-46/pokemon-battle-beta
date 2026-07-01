@@ -268,7 +268,7 @@ function handleStatus(poke, log) {
 }
 
 // Executes attack and mutates defender/buffs. Returns { damage, mult }.
-function doAttack(attacker, defender, atk, aBuff, dBuff, log, G) {
+function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult = 1) {
   const atkType   = aBuff.typeOverride || atk.type;
   const burnMult  = attacker.status?.type === 'burn' ? 0.7 : 1;
 
@@ -292,7 +292,7 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G) {
     damage = 0;
     log.push({ text: `${atk.name} 對 ${defender.name} 完全無效！`, cls: 'resist' });
   } else {
-    damage = Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumBonus + reversalBonus) * aBuff.atkMult * burnMult * mult * stabMult) - dBuff.shield);
+    damage = Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumBonus + reversalBonus) * aBuff.atkMult * burnMult * mult * stabMult * switchGuardMult) - dBuff.shield);
     defender.cur = Math.max(0, defender.cur - damage);
 
     if (stabMult > 1)     log.push({ text: `屬性加成！×1.5`, cls: 'super' });
@@ -495,6 +495,7 @@ function buildG(room) {
     p2SuppUsed: false, p2SuppStageUsed: 0,
     p1FreeSwitch: false, p2FreeSwitch: false,
     p1SwitchedThisTurn: false, p2SwitchedThisTurn: false,
+    p1SwitchGuard: false, p2SwitchGuard: false,
     p1Buff: freshBuff(), p2Buff: freshBuff(),
     p1NeedsDiscard: false, p2NeedsDiscard: false,
     activeStadium: null,
@@ -564,7 +565,7 @@ function handleMessage(ws, msg) {
     }
 
     const room = rooms.get(ws.roomCode);
-    if (!room) return;
+    if (!room) { send(ws, { type: 'error', message: '房間已不存在，請重新建立房間' }); return; }
     const role = ws.role;
 
     /* ── Team select ── */
@@ -585,7 +586,7 @@ function handleMessage(ws, msg) {
     }
 
     if (type === 'reroll') {
-      if (room.phase !== 'selecting' && room.phase !== 'waiting') return;
+      if (room.phase !== 'selecting' && room.phase !== 'waiting') { send(ws, { type: 'error', message: '目前階段無法重新生成' }); return; }
       const key = `${role}Rerolls`;
       if (room[key] >= 3) { send(ws, { type: 'error', message: '重新生成次數已用完！' }); return; }
       room[key]++;
@@ -662,14 +663,29 @@ function handleMessage(ws, msg) {
         G[`${role}SuppUsed`] = false;
         G[`${role}FreeSwitch`] = false;
         G[`${role}SwitchedThisTurn`] = false;
+        G[`${op}SwitchGuard`] = false; // guard only lasts one enemy turn, even if that turn was skipped
         drawForRole(G, op);
         broadcast(room, { type: 'update', state: G, log, actor: role }); return;
       }
 
-      doAttack(attacker, defender, atk, aBuff, dBuff, log, G);
+      const switchGuardMult = G[`${op}SwitchGuard`] ? 0.8 : 1;
+      G[`${op}SwitchGuard`] = false; // consumed by this incoming attack
+      doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult);
       G[`${role}SuppUsed`]  = false;
       G[`${role}FreeSwitch`] = false;
       G[`${role}SwitchedThisTurn`] = false;
+
+      if (attacker.cur <= 0) {
+        // Reflected damage killed the attacker's own Pokémon
+        const alive = G[`${role}Deck`].filter(p => p.cur > 0).length;
+        if (alive === 0) {
+          G.winner = op;
+          broadcast(room, { type: 'game_over', winner: op, state: G, log });
+          room.phase = 'done'; return;
+        }
+        G.pendingKOSwitch = role;
+        broadcast(room, { type: 'update', state: G, log, actor: role }); return;
+      }
 
       if (defender.cur <= 0) {
         const opAlive = G[`${op}Deck`].filter(p => p.cur > 0).length;
@@ -701,6 +717,7 @@ function handleMessage(ws, msg) {
       G[`${role}FreeSwitch`] = false;
       G[`${role}SwitchedThisTurn`] = false;
       G[`${op}Buff`].reflect = false; // reflect expires when opponent skips attack
+      G[`${role}Buff`].typeOverride = null; // orb effect expires — turn ends without attacking
       G.turn = op;
       G.round++;
       drawForRole(G, op);
@@ -708,11 +725,10 @@ function handleMessage(ws, msg) {
       broadcast(room, { type: 'update', state: G, log, actor: role }); return;
     }
 
-    // Switch (free — doesn't end turn, limit once per turn)
+    // Switch (ends the turn; switched-in Pokémon takes ×0.8 damage this turn)
     if (type === 'switch') {
       if (G.turn !== role || G.pendingKOSwitch) return;
       if (G[`${role}NeedsDiscard`]) return;
-      if (G[`${role}SwitchedThisTurn`]) return; // already switched this turn
       const deck   = G[`${role}Deck`];
       const curIdx = G[`${role}Idx`];
       const newIdx = msg.deckIdx;
@@ -720,9 +736,15 @@ function handleMessage(ws, msg) {
 
       if (deck[curIdx].status?.type === 'confusion') deck[curIdx].status = null;
       G[`${role}Idx`] = newIdx;
-      G[`${role}SwitchedThisTurn`] = true;
-      // DON'T change G.turn — player can still attack this turn
-      const log = [{ text: `換上了 ${deck[newIdx].name}！`, cls: 'player' }];
+      G[`${role}Buff`].typeOverride = null; // orb effect expires — turn ends without attacking
+      G[`${role}SwitchGuard`] = true; // this turn's incoming damage ×0.8
+      G[`${role}SuppUsed`] = false;
+      G[`${role}FreeSwitch`] = false;
+      G[`${role}SwitchedThisTurn`] = false;
+      G.turn = op;
+      G.round++;
+      drawForRole(G, op);
+      const log = [{ text: `換上了 ${deck[newIdx].name}！本回合傷害減免中…`, cls: 'player' }];
       broadcast(room, { type: 'update', state: G, log, actor: role }); return;
     }
 

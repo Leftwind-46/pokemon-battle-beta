@@ -285,7 +285,8 @@
     .hp-wrap { flex: 1; }
     .hp-meta { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--muted); margin-bottom: 0.3rem; }
     .hp-track { background: rgba(255,255,255,0.1); border-radius: 999px; height: 10px; overflow: hidden; }
-    .hp-fill   { height: 100%; border-radius: 999px; transition: width 0.5s ease, background-color 0.4s ease; }
+    .hp-fill   { height: 100%; border-radius: 999px; }
+    .hp-fill.animated { transition: width 0.5s ease, background-color 0.4s ease; }
 
     /* Bench row */
     .bench-row { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.7rem; }
@@ -1072,8 +1073,8 @@
     .dex-move-badge { display:inline-block; font-size:0.58rem; font-weight:700; padding:0.04rem 0.3rem; border-radius:4px; color:#fff; margin-right:0.22rem; vertical-align:middle; }
     #discard-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
     #discard-modal.open { display:flex; }
-    #trade-modal, #trade-choose-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
-    #trade-modal.open, #trade-choose-modal.open { display:flex; }
+    #trade-modal, #trade-choose-modal, #switch-confirm-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
+    #trade-modal.open, #trade-choose-modal.open, #switch-confirm-modal.open { display:flex; }
     #trade-modal .t-card { cursor:pointer; transition:box-shadow 0.15s; }
     #trade-modal .t-card.selected { box-shadow: 0 0 0 2px #ffd740; }
     .btn-modal-ok { background:rgba(99,102,241,0.25); border:1px solid rgba(99,102,241,0.5); color:#c5cae9; border-radius:8px; padding:0.55rem 1.2rem; cursor:pointer; font-size:0.9rem; }
@@ -1186,7 +1187,7 @@
 
       <h3>對戰規則</h3>
       <ul>
-        <li>每回合可先換場（換場不消耗回合，每回合限換一次），再攻擊或待機。</li>
+        <li>每回合限換場一次；換場會直接結束本回合，新上場的寶可夢該回合受到的傷害減少 20%。</li>
         <li><b>💤 待機</b>：跳過攻擊，抽 1 張支援者牌進入手牌。</li>
         <li>每個回合開始時，抽 1–2 張道具牌，手牌上限 5 張。</li>
         <li>若抽牌後超過 5 張，可選擇丟棄一張。</li>
@@ -2014,14 +2015,16 @@ function spriteUrl(id) {
 function animatedSpriteUrl(id) {
   return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${id}.gif`;
 }
-function setSprite(el, id) {
-  if (el.dataset.pokeId === String(id)) return; // already loaded, don't restart GIF
+function setSprite(el, id, poke) {
+  if (el._pokeRef === poke) return; // same battle instance still active — don't restart its GIF
+  el._pokeRef = poke;
   el.dataset.pokeId = String(id);
   el.onerror = null;
   el.onload = null;
   el.classList.remove('sprite-idle','sprite-danger','sprite-enter','sprite-hit','sprite-lunge-r','sprite-lunge-l');
   el.onload = () => {
     el.onload = null;
+    el.classList.remove('sprite-idle','sprite-danger'); // don't let idle/danger animation clash with entrance pop-in
     el.classList.add('sprite-enter');
     el.addEventListener('animationend', () => el.classList.remove('sprite-enter'), { once: true });
   };
@@ -2060,6 +2063,7 @@ let G = {
   cpuSuppStageUsed:     0,
   freeSwitch:      false,
   switchedThisTurn: false,
+  playerSwitchGuard: false,
   playerBuff: { atkBonus:0, atkMult:1, shield:0, typeOverride:null, reflect:false },
   cpuBuff:    { atkBonus:0, atkMult:1, shield:0, typeOverride:null, reflect:false },
   playerDmgDealt:  0,
@@ -2474,6 +2478,7 @@ function startBattle() {
   G.cpuSuppStageUsed    = 0;
   G.freeSwitch          = false;
   G.switchedThisTurn    = false;
+  G.playerSwitchGuard   = false;
   G.playerBuff     = { atkBonus:0, atkMult:1, shield:0 };
   G.cpuBuff        = { atkBonus:0, atkMult:1, shield:0 };
   G.activeStadium  = null;
@@ -2581,7 +2586,7 @@ function renderSide(side, poke, deck, activeIdx) {
     : col;
   const sprEl = document.getElementById(`${side}-sprite`);
   sprEl.alt = poke.name;
-  setSprite(sprEl, poke.id);
+  setSprite(sprEl, poke.id, poke);
   syncSpriteAnim(side, poke);
   document.getElementById(`${side}-name`).textContent        = poke.name;
 
@@ -2596,6 +2601,7 @@ function renderSide(side, poke, deck, activeIdx) {
 
   document.getElementById(`${side}-hp-text`).textContent = `${poke.cur} / ${poke.hp}`;
   const fill = document.getElementById(`${side}-hp-fill`);
+  fill.classList.remove('animated'); // full re-render (switch/KO/init) — snap instantly, don't tween
   fill.style.width      = pct + '%';
   fill.style.background = hpC;
 
@@ -2890,11 +2896,31 @@ function playerAttack(atkIdx) {
   );
 }
 
+let _pendingSwitchDeckIdx = null;
+
 function playerSwitch(deckIdx) {
   if (G.busy) return;
   if (G.switchedThisTurn) return; // already switched once this turn
+  _pendingSwitchDeckIdx = deckIdx;
+  document.getElementById('switch-confirm-modal').classList.add('open');
+}
+
+function closeSwitchConfirm() {
+  _pendingSwitchDeckIdx = null;
+  document.getElementById('switch-confirm-modal').classList.remove('open');
+}
+
+function confirmPlayerSwitch() {
+  const deckIdx = _pendingSwitchDeckIdx;
+  document.getElementById('switch-confirm-modal').classList.remove('open');
+  if (deckIdx === null || G.busy || G.switchedThisTurn) return;
+  _pendingSwitchDeckIdx = null;
+
   G.freeSwitch = false;
   G.switchedThisTurn = true;
+  G.playerBuff.typeOverride = null; // orb effect expires — turn ends without attacking
+  G.busy = true;
+  G.round++;
 
   const outPoke = P();
   if (outPoke.status?.type === 'confusion') {
@@ -2903,14 +2929,15 @@ function playerSwitch(deckIdx) {
   }
   const outName = outPoke.name;
   G.playerIdx = deckIdx;
-  log(`你將 ${outName} 換回，派出了 ${P().name}！`, 'player');
+  G.playerSwitchGuard = true; // this turn's incoming damage ×0.8
+  log(`你將 ${outName} 換回，派出了 ${P().name}！本回合傷害減免中…`, 'player');
 
   renderBattle();
   hideBenchPopup();
   const nc = document.getElementById('player-bcard');
   nc.classList.add('anim-slidein');
   nc.addEventListener('animationend', () => nc.classList.remove('anim-slidein'), {once:true});
-  // No turn end — player can still attack
+  setTimeout(cpuAttack, 700); // switching ends the turn
 }
 
 function playerStandby() {
@@ -2919,6 +2946,7 @@ function playerStandby() {
   G.round++;
   G.switchedThisTurn = false;
   G.cpuBuff.reflect = false; // reflect expires if opponent never attacked
+  G.playerBuff.typeOverride = null; // orb effect expires at turn end if unused
   const supporters = TRAINERS.filter(c => c.cat === 'supporter');
   const card = supporters[Math.floor(Math.random() * supporters.length)];
   G.playerHand.push(card);
@@ -2987,9 +3015,10 @@ function cpuAttack() {
 
   const endTurn = () => {
     G.playerSuppUsed  = false;
-    G.cpuSuppUsed     = false; // reset per-turn, not just once per stage
+    G.cpuSuppUsed     = false;
     G.freeSwitch      = false;
     G.switchedThisTurn = false;
+    G.playerSwitchGuard = false;
     drawAfterTurn(() => {
       G.busy = false;
       renderBattle();
@@ -3138,6 +3167,8 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   const aLabel   = aSide === 'player' ? '你的' : '對手的';
   const dLabel   = dSide === 'player' ? '你的' : '對手的';
   const atkTypeName = TYPE_ZH[atkType] || atkType;
+  const switchGuardMult = (dSide === 'player' && G.playerSwitchGuard) ? 0.8 : 1;
+  if (dSide === 'player') G.playerSwitchGuard = false; // consumed by this incoming attack
 
   /* Reflect mirror: bounce attack back */
   if (dBuff.reflect) {
@@ -3152,7 +3183,11 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
       attacker.cur = Math.max(0, attacker.cur - dmg);
       log(`${aLabel}${attacker.name} 承受了反彈的 ${dmg} 點傷害！`, 'special');
       updateHp(aSide, attacker);
-      setTimeout(onDone, 600);
+      if (attacker.cur <= 0) {
+        setTimeout(() => handleKO(aSide, onDone), 400);
+      } else {
+        setTimeout(onDone, 600);
+      }
     }, 380);
     return;
   }
@@ -3162,7 +3197,7 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   const stadiumBonus = G.activeStadium?.id === 'stadium-training' ? 20 : 0;
   const reversalBonus = G.activeStadium?.id === 'stadium-reversal' && attacker.cur <= attacker.hp * 0.5 ? 30 : 0;
   let dmg = mult === 0 ? 0
-    : Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumBonus + reversalBonus) * aBuff.atkMult * burnMult * mult * stabMult) - dBuff.shield);
+    : Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumBonus + reversalBonus) * aBuff.atkMult * burnMult * mult * stabMult * switchGuardMult) - dBuff.shield);
   aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; dBuff.shield = 0;
 
   const defTypeStr = defender.type2 ? `${TYPE_ZH[defender.type]||defender.type}／${TYPE_ZH[defender.type2]||defender.type2}` : (TYPE_ZH[defender.type]||defender.type);
@@ -3220,6 +3255,7 @@ function updateHp(side, poke) {
   const hpC = pct > 50 ? '#4caf50' : pct > 20 ? '#ffc107' : '#ef5350';
   document.getElementById(`${side}-hp-text`).textContent = `${poke.cur} / ${poke.hp}`;
   const fill = document.getElementById(`${side}-hp-fill`);
+  fill.classList.add('animated'); // mid-battle damage — tween the drain
   fill.style.width      = pct + '%';
   fill.style.background = hpC;
   syncSpriteAnim(side, poke);
@@ -3404,6 +3440,7 @@ function resetGame() {
   G = {
     playerDeck:[], cpuDeck:[], playerIdx:0, cpuIdx:0, round:0, busy:false,
     playerHand:[], cpuHand:[], playerSuppUsed:false, playerSuppStageUsed:0, cpuSuppUsed:false, cpuSuppStageUsed:0, freeSwitch:false,
+    switchedThisTurn:false, playerSwitchGuard:false,
     playerBuff:{atkBonus:0,atkMult:1,shield:0,typeOverride:null,reflect:false}, cpuBuff:{atkBonus:0,atkMult:1,shield:0,typeOverride:null,reflect:false},
     playerDmgDealt:0, cpuDmgDealt:0, playerCardsUsed:0,
     swapCandidates:[], swapDone:false,
@@ -3652,6 +3689,18 @@ function renderDex() {
     <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.8rem">
       <button class="btn-modal-ok" onclick="chooseTrade('stadium')">🏟 競技場</button>
       <button class="btn-modal-ok" onclick="chooseTrade('item')">🃏 道具卡</button>
+    </div>
+  </div>
+</div>
+
+<!-- Switch confirm modal -->
+<div id="switch-confirm-modal">
+  <div class="discard-inner">
+    <div class="discard-title">確定要換人嗎？</div>
+    <div class="discard-sub">換人將直接結束本回合，新上場的寶可夢這回合受到的傷害會減少 20%</div>
+    <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.8rem">
+      <button class="btn-modal-ok" onclick="confirmPlayerSwitch()">確定換人</button>
+      <button class="btn-modal-cancel" onclick="closeSwitchConfirm()">取消</button>
     </div>
   </div>
 </div>
