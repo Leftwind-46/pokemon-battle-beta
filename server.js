@@ -795,7 +795,40 @@ function handleMessage(ws, msg) {
       G[`${role}FreeSwitch`] = false;
       G[`${role}SwitchedThisTurn`] = false;
 
-      if (attacker.cur <= 0) {
+      const attackerDied = attacker.cur <= 0; // e.g. reflect bounce, or defender-ability recoil (粗糙皮膚)
+      const defenderDied = defender.cur <= 0;
+
+      if (attackerDied && defenderDied) {
+        // Simultaneous KO — defender-ability recoil can kill the attacker in the same hit that kills
+        // the defender. Must check both teams' alive counts together; checking attacker alone (and
+        // returning) would silently drop a defender death that happened in the same exchange.
+        const roleAlive = G[`${role}Deck`].filter(p => p.cur > 0).length;
+        const opAlive    = G[`${op}Deck`].filter(p => p.cur > 0).length;
+        if (roleAlive === 0 && opAlive === 0) {
+          G.winner = 'draw';
+          broadcast(room, { type: 'game_over', winner: 'draw', state: G, log });
+          room.phase = 'done'; return;
+        }
+        if (roleAlive === 0) {
+          G.winner = op;
+          broadcast(room, { type: 'game_over', winner: op, state: G, log });
+          room.phase = 'done'; return;
+        }
+        if (opAlive === 0) {
+          G.winner = role;
+          broadcast(room, { type: 'game_over', winner: role, state: G, log, atkType: atk.type });
+          room.phase = 'done'; return;
+        }
+        // Both sides have reserves — both must pick a replacement, attacker's side first.
+        // Attacker's turn concludes (their attack landed successfully) — turn passes to op,
+        // matching the ordinary single-KO case below, so op gets their draw once both are resolved.
+        G.pendingKOSwitch = role;
+        G.pendingKOSwitchQueue = [op];
+        G.turn = op;
+        broadcast(room, { type: 'update', state: G, log, actor: role, atkType: atk.type }); return;
+      }
+
+      if (attackerDied) {
         // Reflected damage killed the attacker's own Pokémon
         const alive = G[`${role}Deck`].filter(p => p.cur > 0).length;
         if (alive === 0) {
@@ -807,7 +840,7 @@ function handleMessage(ws, msg) {
         broadcast(room, { type: 'update', state: G, log, actor: role }); return;
       }
 
-      if (defender.cur <= 0) {
+      if (defenderDied) {
         const opAlive = G[`${op}Deck`].filter(p => p.cur > 0).length;
         if (opAlive === 0) {
           G.winner = role;

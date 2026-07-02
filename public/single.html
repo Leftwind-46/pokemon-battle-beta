@@ -3376,7 +3376,11 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
       log(`${aLabel}${attacker.name} 承受了反彈的 ${dmg} 點傷害！`, 'special');
       updateHp(aSide, attacker);
       if (attacker.cur <= 0) {
-        setTimeout(() => handleKO(aSide, onDone), 400);
+        if (bothTeamsWiped()) {
+          setTimeout(() => showResult('cpu'), 400);
+        } else {
+          setTimeout(() => handleKO(aSide, onDone), 400);
+        }
       } else {
         setTimeout(onDone, 600);
       }
@@ -3443,7 +3447,14 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
     if (dmg > 0) triggerDefenderAbility(defender, dSide, attacker, aSide);
 
     if (attacker.cur <= 0) {
-      setTimeout(() => handleKO(aSide, onDone), 400);
+      // Defender-ability recoil (e.g. 粗糙皮膚) can kill the attacker in the same exchange
+      // the direct hit kills the defender — check for a true double-KO before deferring to handleKO,
+      // whose own team-wipe check only looks at one side and would misattribute the win.
+      if (bothTeamsWiped()) {
+        setTimeout(() => showResult('cpu'), 400);
+      } else {
+        setTimeout(() => handleKO(aSide, onDone), 400);
+      }
     } else {
       setTimeout(onDone, 600);
     }
@@ -3579,6 +3590,10 @@ function selectKOSwitch(i, deck, idxKey) {
   setTimeout(() => { _koOnNext?.(); _koOnNext = null; }, 300);
 }
 
+function bothTeamsWiped() {
+  return !G.playerDeck.some(p => p.cur > 0) && !G.cpuDeck.some(p => p.cur > 0);
+}
+
 function handleKO(side, onNext) {
   const deck     = side === 'cpu' ? G.cpuDeck    : G.playerDeck;
   const idxKey   = side === 'cpu' ? 'cpuIdx'     : 'playerIdx';
@@ -3629,8 +3644,8 @@ function resolveMutualKO() {
   log(`雙方場上的寶可夢同歸於盡了！`, 'special');
   renderBattle();
 
-  // 若我方也全滅，直接視為落敗（避免 handleKO 連鎖時漏判對手是否也全滅）
-  if (!G.playerDeck.some(p => p.cur > 0)) {
+  // 若雙方同時全滅，直接視為落敗（避免 handleKO 連鎖時漏判對手是否也全滅）
+  if (bothTeamsWiped()) {
     setTimeout(() => showResult('cpu'), 1000);
     return;
   }
