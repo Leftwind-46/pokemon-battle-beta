@@ -1281,14 +1281,24 @@
       </ul>
 
       <h3>特性</h3>
-      <p style="font-size:0.82rem;color:var(--muted);margin-bottom:0.5rem">部分血量較低的寶可夢擁有特性，會在特定時機自動發動：</p>
+      <p style="font-size:0.82rem;color:var(--muted);margin-bottom:0.5rem">部分寶可夢擁有特性，會在特定時機自動發動：</p>
       <ul>
-        <li>靜電（雷丘）— 受到攻擊後 20% 機率讓攻擊者陷入麻痺</li>
+        <li>靜電（雷丘、電龍）— 受到攻擊後 20% 機率讓攻擊者陷入麻痺</li>
         <li>威嚇（沙包蛇）— 上場時讓對方下一次攻擊威力 −15</li>
         <li>毒療（耿鬼）— 中毒時每回合改為回復 1/8 最大HP，而非扣血</li>
-        <li>堅韌（路卡利歐）— 自身帶有異常狀態時，攻擊傷害 ×1.3</li>
+        <li>堅韌（路卡利歐、骨骼獸、尖牙笑鼬、波士可多拉）— 自身帶有異常狀態時，攻擊傷害 ×1.3</li>
         <li>粗糙皮膚（忍蛙）— 受到攻擊傷害時，反彈攻擊者 1/8 最大HP 傷害</li>
         <li>電擊尾隨（三合磁怪）— 攻擊命中時額外 15% 機率讓目標陷入麻痺</li>
+        <li>毒刺（羅絲雷朵、天蠍王、大針蜂）— 受到攻擊後 20% 機率讓攻擊者中毒</li>
+        <li>厚脂肪（河馬拳、象牙豬）— 受到火／冰屬性攻擊傷害 ×0.6</li>
+        <li>頑強（護城蟹、化石盔、冰岩巨獸）— HP 全滿時，受到會直接擊倒的攻擊會保留 1 HP</li>
+        <li>硬岩（太陽岩石、泥偶巨人、鑽角犀獸）— 受到剋制（×2以上）的攻擊傷害再減少 25%</li>
+        <li>激流／摘取／突襲／猛火（巨沼怪、狙射樹梟、鐵臂膀、黑魯加）— HP 低於 1/3 時，本系招式傷害 ×1.5</li>
+        <li>大力士（掘掘兔、銅鏡怪）— 攻擊傷害固定 ×1.25</li>
+        <li>適應力（老翁蝦、大葉草）— 屬性加成（STAB）提升為 ×2（原本 ×1.5）</li>
+        <li>儲水（水伊布）— 受到水屬性攻擊時完全免疫，並回復最大HP的1/4</li>
+        <li>神秘之守（寶石海星、通靈鬼）— 25% 機率將受到的傷害減半</li>
+        <li>背水之刃（蔥遊兵、諾克拓斯、諾克巨犬、鐵蟬）— HP 低於 50% 時，攻擊傷害 ×1.3</li>
       </ul>
 
       <h3>電腦 AI</h3>
@@ -1948,6 +1958,187 @@ const POKEMON = [
     {name:'追影斬', dmg:38, cost:1, type:'dark'},
     {name:'精神力', dmg:73, cost:12, type:'psychic', status:{effect:'confusion', chance:0.2}},
     {name:'暗黑脈衝', dmg:80, cost:14, type:'dark'},
+  ]},
+  // ── +30 新增（最終進化型，非幻獸/神獸，無龍/妖精屬性）──
+  { id:865, name:'蔥遊兵', type:'fighting', hp:220, tier:1, ability:{id:'desperate-blade', name:'背水之刃', trigger:'onAttack', desc:'HP 低於 50% 時，攻擊傷害 ×1.3'}, attacks:[
+    {name:'連續攻擊', dmg:32, cost:0, type:'normal'},
+    {name:'劍術', dmg:36, cost:1, type:'fighting'},
+    {name:'居合斬', dmg:72, cost:12, type:'fighting', status:{effect:'paralysis', chance:0.15}},
+    {name:'近身戰', dmg:80, cost:14, type:'fighting'},
+  ]},
+  { id:297, name:'河馬拳', type:'fighting', hp:250, tier:1, ability:{id:'thick-fat', name:'厚脂肪', trigger:'onDefend', desc:'受到火／冰屬性攻擊傷害 ×0.6'}, attacks:[
+    {name:'壓制', dmg:30, cost:0, type:'normal'},
+    {name:'近身戰', dmg:38, cost:1, type:'fighting'},
+    {name:'豪腕', dmg:78, cost:13, type:'fighting'},
+    {name:'地震', dmg:72, cost:12, type:'ground'},
+  ]},
+  { id:342, name:'老翁蝦', type:'water', type2:'dark', hp:210, tier:1, ability:{id:'adaptability', name:'適應力', trigger:'onAttack', desc:'本系加成（STAB）提升為 ×2（原本 ×1.5）'}, attacks:[
+    {name:'水槍', dmg:30, cost:0, type:'water'},
+    {name:'夜斬', dmg:34, cost:1, type:'dark'},
+    {name:'亂爪', dmg:68, cost:11, type:'dark'},
+    {name:'泥巴射擊', dmg:75, cost:13, type:'ground'},
+  ]},
+  { id:660, name:'掘掘兔', type:'normal', type2:'ground', hp:230, tier:1, ability:{id:'huge-power', name:'大力士', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}, attacks:[
+    {name:'砂子攻擊', dmg:30, cost:0, type:'ground'},
+    {name:'連續拍打', dmg:34, cost:1, type:'normal'},
+    {name:'地震', dmg:70, cost:11, type:'ground'},
+    {name:'岩崩', dmg:76, cost:13, type:'rock'},
+  ]},
+  { id:632, name:'銅鏡怪', type:'steel', type2:'bug', hp:200, tier:1, ability:{id:'huge-power', name:'大力士', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}, attacks:[
+    {name:'蟲咬', dmg:30, cost:0, type:'bug'},
+    {name:'金屬爪', dmg:34, cost:1, type:'steel'},
+    {name:'鋼鐵頭', dmg:68, cost:11, type:'steel'},
+    {name:'蟲之抵抗', dmg:72, cost:12, type:'bug'},
+  ]},
+  { id:558, name:'護城蟹', type:'bug', type2:'rock', hp:240, tier:1, ability:{id:'sturdy', name:'頑強', trigger:'onDefend', desc:'HP 全滿時，受到會直接擊倒的攻擊會保留 1 HP'}, attacks:[
+    {name:'蟲咬', dmg:30, cost:0, type:'bug'},
+    {name:'岩石丟擲', dmg:35, cost:1, type:'rock'},
+    {name:'岩石封鎖', dmg:70, cost:11, type:'rock'},
+    {name:'X 剪刀', dmg:76, cost:13, type:'bug'},
+  ]},
+  { id:105, name:'骨骼獸', type:'ground', hp:220, tier:1, ability:{id:'guts', name:'堅韌', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}, attacks:[
+    {name:'骨頭丟擲', dmg:32, cost:0, type:'ground'},
+    {name:'喊叫', dmg:30, cost:0, type:'normal'},
+    {name:'地震', dmg:74, cost:12, type:'ground'},
+    {name:'骨棒', dmg:80, cost:14, type:'ground'},
+  ]},
+  { id:338, name:'太陽岩石', type:'rock', type2:'psychic', hp:230, tier:1, ability:{id:'solid-rock', name:'硬岩', trigger:'onDefend', desc:'受到剋制（×2以上）的攻擊傷害再減少 25%'}, attacks:[
+    {name:'夜襲', dmg:30, cost:0, type:'dark'},
+    {name:'念力', dmg:34, cost:1, type:'psychic'},
+    {name:'岩石炮', dmg:70, cost:11, type:'rock'},
+    {name:'精神強擊', dmg:76, cost:13, type:'psychic', status:{effect:'confusion', chance:0.2}},
+  ]},
+  { id:53, name:'諾克拓斯', type:'normal', hp:210, tier:1, ability:{id:'desperate-blade', name:'背水之刃', trigger:'onAttack', desc:'HP 低於 50% 時，攻擊傷害 ×1.3'}, attacks:[
+    {name:'抓', dmg:30, cost:0, type:'normal'},
+    {name:'音爆拳', dmg:34, cost:1, type:'fighting'},
+    {name:'惡意突刺', dmg:68, cost:11, type:'dark'},
+    {name:'連續切', dmg:74, cost:12, type:'normal'},
+  ]},
+  { id:508, name:'諾克巨犬', type:'normal', hp:240, tier:1, ability:{id:'desperate-blade', name:'背水之刃', trigger:'onAttack', desc:'HP 低於 50% 時，攻擊傷害 ×1.3'}, attacks:[
+    {name:'咬住', dmg:32, cost:0, type:'normal'},
+    {name:'吼叫', dmg:30, cost:0, type:'normal'},
+    {name:'蠻力', dmg:76, cost:13, type:'normal'},
+    {name:'火焰牙', dmg:72, cost:12, type:'fire', status:{effect:'burn', chance:0.15}},
+  ]},
+  { id:134, name:'水伊布', type:'water', hp:260, tier:1, ability:{id:'water-absorb', name:'儲水', trigger:'onDefend', desc:'受到水屬性攻擊時完全免疫，並回復最大HP的1/4'}, attacks:[
+    {name:'水槍', dmg:32, cost:0, type:'water'},
+    {name:'迴旋踢', dmg:30, cost:0, type:'fighting'},
+    {name:'水炮', dmg:78, cost:13, type:'water'},
+    {name:'冰凍光束', dmg:74, cost:12, type:'ice', status:{effect:'freeze', chance:0.15}},
+  ]},
+  { id:15, name:'大針蜂', type:'bug', type2:'poison', hp:200, tier:1, ability:{id:'poison-point', name:'毒刺', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者中毒'}, attacks:[
+    {name:'針刺', dmg:30, cost:0, type:'bug'},
+    {name:'毒針', dmg:34, cost:1, type:'poison'},
+    {name:'十字剪', dmg:70, cost:11, type:'bug'},
+    {name:'音波剪刀', dmg:76, cost:13, type:'bug', status:{effect:'poison', chance:0.25}},
+  ]},
+  { id:411, name:'化石盔', type:'rock', type2:'steel', hp:220, tier:1, ability:{id:'sturdy', name:'頑強', trigger:'onDefend', desc:'HP 全滿時，受到會直接擊倒的攻擊會保留 1 HP'}, attacks:[
+    {name:'金屬音', dmg:30, cost:0, type:'steel'},
+    {name:'頭槌', dmg:34, cost:1, type:'normal'},
+    {name:'岩崩', dmg:72, cost:12, type:'rock'},
+    {name:'重擊', dmg:78, cost:13, type:'steel'},
+  ]},
+  { id:260, name:'巨沼怪', type:'water', type2:'ground', hp:300, tier:2, ability:{id:'blaze-boost', name:'激流', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[
+    {name:'水槍', dmg:36, cost:1, type:'water'},
+    {name:'泥巴射擊', dmg:38, cost:1, type:'ground'},
+    {name:'地震', dmg:86, cost:15, type:'ground'},
+    {name:'冰凍拳', dmg:80, cost:14, type:'ice', status:{effect:'freeze', chance:0.15}},
+  ]},
+  { id:407, name:'羅絲雷朵', type:'grass', type2:'poison', hp:270, tier:2, ability:{id:'poison-point', name:'毒刺', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者中毒'}, attacks:[
+    {name:'毒粉', dmg:36, cost:1, type:'poison', status:{effect:'poison', chance:0.3}},
+    {name:'魔法葉', dmg:38, cost:1, type:'grass'},
+    {name:'花瓣舞', dmg:82, cost:14, type:'grass'},
+    {name:'污泥炸彈', dmg:88, cost:16, type:'poison', status:{effect:'poison', chance:0.25}},
+  ]},
+  { id:724, name:'狙射樹梟', type:'grass', type2:'ghost', hp:290, tier:2, ability:{id:'blaze-boost', name:'摘取', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[
+    {name:'飛葉快刀', dmg:38, cost:1, type:'grass'},
+    {name:'影子偷襲', dmg:36, cost:1, type:'ghost'},
+    {name:'幽靈箭', dmg:85, cost:15, type:'ghost'},
+    {name:'光合作用強擊', dmg:80, cost:14, type:'grass'},
+  ]},
+  { id:452, name:'天蠍王', type:'poison', type2:'dark', hp:280, tier:2, ability:{id:'poison-point', name:'毒刺', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者中毒'}, attacks:[
+    {name:'毒針', dmg:36, cost:1, type:'poison', status:{effect:'poison', chance:0.3}},
+    {name:'夜斬', dmg:38, cost:1, type:'dark'},
+    {name:'十字毒刃', dmg:84, cost:15, type:'poison', status:{effect:'poison', chance:0.2}},
+    {name:'惡意突刺', dmg:90, cost:16, type:'dark'},
+  ]},
+  { id:862, name:'尖牙笑鼬', type:'dark', type2:'normal', hp:300, tier:2, ability:{id:'guts', name:'堅韌', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}, attacks:[
+    {name:'夜斬', dmg:36, cost:1, type:'dark'},
+    {name:'連續切', dmg:38, cost:1, type:'normal'},
+    {name:'惡意突刺', dmg:82, cost:14, type:'dark'},
+    {name:'蠻力', dmg:88, cost:16, type:'normal'},
+  ]},
+  { id:738, name:'鐵蟬', type:'bug', type2:'electric', hp:270, tier:2, ability:{id:'desperate-blade', name:'背水之刃', trigger:'onAttack', desc:'HP 低於 50% 時，攻擊傷害 ×1.3'}, attacks:[
+    {name:'蟲咬', dmg:35, cost:1, type:'bug'},
+    {name:'電擊', dmg:38, cost:1, type:'electric'},
+    {name:'蟲鳴', dmg:80, cost:14, type:'bug'},
+    {name:'十萬伏特', dmg:86, cost:15, type:'electric', status:{effect:'paralysis', chance:0.25}},
+  ]},
+  { id:623, name:'泥偶巨人', type:'ground', type2:'ghost', hp:310, tier:2, ability:{id:'solid-rock', name:'硬岩', trigger:'onDefend', desc:'受到剋制（×2以上）的攻擊傷害再減少 25%'}, attacks:[
+    {name:'泥巴射擊', dmg:36, cost:1, type:'ground'},
+    {name:'影子偷襲', dmg:38, cost:1, type:'ghost'},
+    {name:'地震', dmg:88, cost:16, type:'ground'},
+    {name:'惡靈波動', dmg:82, cost:14, type:'ghost'},
+  ]},
+  { id:121, name:'寶石海星', type:'water', type2:'psychic', hp:270, tier:2, ability:{id:'frisk-ward', name:'神秘之守', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}, attacks:[
+    {name:'水槍', dmg:35, cost:1, type:'water'},
+    {name:'念力', dmg:38, cost:1, type:'psychic'},
+    {name:'水炮', dmg:80, cost:14, type:'water'},
+    {name:'精神強擊', dmg:85, cost:15, type:'psychic', status:{effect:'confusion', chance:0.2}},
+  ]},
+  { id:181, name:'電龍', type:'electric', hp:300, tier:2, ability:{id:'static', name:'靜電', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者陷入麻痺'}, attacks:[
+    {name:'電擊', dmg:36, cost:1, type:'electric'},
+    {name:'電光一閃', dmg:38, cost:1, type:'normal'},
+    {name:'十萬伏特', dmg:84, cost:15, type:'electric', status:{effect:'paralysis', chance:0.3}},
+    {name:'雷電', dmg:90, cost:16, type:'electric', status:{effect:'paralysis', chance:0.2}},
+  ]},
+  { id:979, name:'鐵臂膀', type:'bug', type2:'water', hp:290, tier:2, ability:{id:'blaze-boost', name:'突襲', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[
+    {name:'水流手裏劍', dmg:38, cost:1, type:'water'},
+    {name:'蟲咬', dmg:36, cost:1, type:'bug'},
+    {name:'X 剪刀', dmg:82, cost:14, type:'bug'},
+    {name:'水炮', dmg:86, cost:15, type:'water'},
+  ]},
+  { id:465, name:'大葉草', type:'grass', hp:310, tier:2, ability:{id:'adaptability', name:'適應力', trigger:'onAttack', desc:'本系加成（STAB）提升為 ×2（原本 ×1.5）'}, attacks:[
+    {name:'魔法葉', dmg:36, cost:1, type:'grass'},
+    {name:'藤鞭', dmg:38, cost:1, type:'grass'},
+    {name:'實力全開', dmg:84, cost:15, type:'normal'},
+    {name:'能量球', dmg:80, cost:14, type:'grass', status:{effect:'confusion', chance:0.15}},
+  ]},
+  { id:713, name:'冰岩巨獸', type:'ice', hp:320, tier:2, ability:{id:'sturdy', name:'頑強', trigger:'onDefend', desc:'HP 全滿時，受到會直接擊倒的攻擊會保留 1 HP'}, attacks:[
+    {name:'冰凍拳', dmg:36, cost:1, type:'ice', status:{effect:'freeze', chance:0.15}},
+    {name:'碎岩', dmg:38, cost:1, type:'rock'},
+    {name:'暴風雪', dmg:88, cost:16, type:'ice', status:{effect:'freeze', chance:0.2}},
+    {name:'雪崩', dmg:82, cost:14, type:'ice'},
+  ]},
+  { id:576, name:'通靈鬼', type:'psychic', hp:280, tier:2, ability:{id:'frisk-ward', name:'神秘之守', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}, attacks:[
+    {name:'念力', dmg:36, cost:1, type:'psychic'},
+    {name:'音波', dmg:38, cost:1, type:'normal'},
+    {name:'精神強擊', dmg:85, cost:15, type:'psychic', status:{effect:'confusion', chance:0.25}},
+    {name:'未來預知', dmg:90, cost:16, type:'psychic'},
+  ]},
+  { id:229, name:'黑魯加', type:'fire', type2:'dark', hp:280, tier:2, ability:{id:'blaze-boost', name:'猛火', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[
+    {name:'夜斬', dmg:36, cost:1, type:'dark'},
+    {name:'火焰牙', dmg:38, cost:1, type:'fire', status:{effect:'burn', chance:0.2}},
+    {name:'惡意突刺', dmg:84, cost:15, type:'dark'},
+    {name:'火焰噴射', dmg:90, cost:16, type:'fire', status:{effect:'burn', chance:0.25}},
+  ]},
+  { id:464, name:'鑽角犀獸', type:'ground', type2:'rock', hp:360, tier:3, ability:{id:'solid-rock', name:'硬岩', trigger:'onDefend', desc:'受到剋制（×2以上）的攻擊傷害再減少 25%'}, attacks:[
+    {name:'角撞', dmg:42, cost:2, type:'normal'},
+    {name:'泥巴射擊', dmg:46, cost:3, type:'ground'},
+    {name:'岩崩', dmg:92, cost:17, type:'rock'},
+    {name:'地震', dmg:105, cost:19, type:'ground'},
+  ]},
+  { id:473, name:'象牙豬', type:'ice', type2:'ground', hp:350, tier:3, ability:{id:'thick-fat', name:'厚脂肪', trigger:'onDefend', desc:'受到火／冰屬性攻擊傷害 ×0.6'}, attacks:[
+    {name:'冰凍拳', dmg:44, cost:3, type:'ice', status:{effect:'freeze', chance:0.15}},
+    {name:'地震', dmg:46, cost:3, type:'ground'},
+    {name:'雪崩', dmg:95, cost:18, type:'ice', status:{effect:'freeze', chance:0.2}},
+    {name:'冰牙', dmg:100, cost:18, type:'ice', status:{effect:'freeze', chance:0.15}},
+  ]},
+  { id:625, name:'波士可多拉', type:'dark', type2:'steel', hp:330, tier:3, ability:{id:'guts', name:'堅韌', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}, attacks:[
+    {name:'金屬爪', dmg:42, cost:2, type:'steel'},
+    {name:'夜斬', dmg:44, cost:3, type:'dark'},
+    {name:'惡意突刺', dmg:95, cost:18, type:'dark'},
+    {name:'鐵頭功', dmg:100, cost:18, type:'steel'},
   ]},
 ];
 const TYPE_COLOR = {
@@ -3475,19 +3666,48 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
     return;
   }
 
+  /* Water Absorb: full immunity to water-type moves, heals instead */
+  if (defender.ability?.id === 'water-absorb' && atkType === 'water') {
+    const heal = Math.floor(defender.hp / 4);
+    const actualHeal = Math.min(heal, defender.hp - defender.cur);
+    defender.cur = Math.min(defender.hp, defender.cur + heal);
+    log(`${aLabel}${attacker.name} 使用了【${atk.name}】！`, aSide);
+    log(`${dLabel}${defender.name} 的儲水吸收了攻擊，回復了 ${actualHeal} HP！`, 'special');
+    updateHp(dSide, defender);
+    setTimeout(onDone, 600);
+    return;
+  }
+
   const mult = effActive(atkType, defender.type, defender.type2);
-  const stabMult = (atkType === attacker.type || (attacker.type2 && atkType === attacker.type2)) ? 1.5 : 1;
+  const isOwnType = (atkType === attacker.type || (attacker.type2 && atkType === attacker.type2));
+  const stabMult = isOwnType ? (attacker.ability?.id === 'adaptability' ? 2 : 1.5) : 1;
   const stadiumBonus = G.activeStadium?.id === 'stadium-training' ? 20 : 0;
   const reversalBonus = G.activeStadium?.id === 'stadium-reversal' && attacker.cur <= attacker.hp * 0.5 ? 30 : 0;
-  const abilityDmgMult = (attacker.ability?.id === 'guts' && attacker.status) ? 1.3 : 1;
+  const lowHpSelf = attacker.cur <= attacker.hp / 3;
+  const abilityDmgMult = (attacker.ability?.id === 'guts' && attacker.status) ? 1.3
+    : (attacker.ability?.id === 'huge-power') ? 1.25
+    : (attacker.ability?.id === 'blaze-boost' && lowHpSelf && isOwnType) ? 1.5
+    : 1;
+  const thickFatMult  = (defender.ability?.id === 'thick-fat' && (atkType === 'fire' || atkType === 'ice')) ? 0.6 : 1;
+  const solidRockMult = (defender.ability?.id === 'solid-rock' && mult >= 2) ? 0.75 : 1;
+  const friskWardProc = defender.ability?.id === 'frisk-ward' && Math.random() < 0.25;
+  const friskWardMult = friskWardProc ? 0.5 : 1;
+  const defAbilityMult = thickFatMult * solidRockMult * friskWardMult;
+  const wasFullHp = defender.cur === defender.hp;
   let dmg = mult === 0 ? 0
-    : Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumBonus + reversalBonus) * aBuff.atkMult * burnMult * mult * stabMult * switchGuardMult * abilityDmgMult) - dBuff.shield);
+    : Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumBonus + reversalBonus) * aBuff.atkMult * burnMult * mult * stabMult * switchGuardMult * abilityDmgMult * defAbilityMult) - dBuff.shield);
   aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; dBuff.shield = 0;
 
   const defTypeStr = defender.type2 ? `${TYPE_ZH[defender.type]||defender.type}／${TYPE_ZH[defender.type2]||defender.type2}` : (TYPE_ZH[defender.type]||defender.type);
   log(`${aLabel}${attacker.name} 使用了【${atk.name}】！`, aSide);
-  if (stabMult > 1)   log(`屬性加成！ ×1.5（${atkTypeName} = 自身屬性）`, 'special');
-  if (abilityDmgMult > 1) log(`${aLabel}${attacker.name} 的堅韌發動，攻擊威力提升！`, 'special');
+  if (stabMult > 1.5) log(`${aLabel}${attacker.name} 的適應力發動！屬性加成提升為 ×2！`, 'special');
+  else if (stabMult > 1) log(`屬性加成！ ×1.5（${atkTypeName} = 自身屬性）`, 'special');
+  if (attacker.ability?.id === 'guts' && attacker.status) log(`${aLabel}${attacker.name} 的堅韌發動，攻擊威力提升！`, 'special');
+  if (attacker.ability?.id === 'huge-power') log(`${aLabel}${attacker.name} 的大力士發動，攻擊威力提升！`, 'special');
+  if (attacker.ability?.id === 'blaze-boost' && lowHpSelf && isOwnType) log(`${aLabel}${attacker.name} 瀕危爆發，本系招式威力大幅提升！`, 'special');
+  if (thickFatMult < 1) log(`${dLabel}${defender.name} 的厚脂肪減輕了傷害！`, 'special');
+  if (solidRockMult < 1) log(`${dLabel}${defender.name} 的硬岩減輕了剋制傷害！`, 'special');
+  if (friskWardProc) log(`${dLabel}${defender.name} 的神秘之守發動，傷害減半！`, 'special');
   if (mult >= 4)      log(`超超級有效！(×4 — ${atkTypeName} ▶ ${defTypeStr})`, 'special');
   else if (mult >= 2) log(`超級有效！(×2 — ${atkTypeName} ▶ ${defTypeStr})`, 'special');
   else if (mult <= 0) log(`完全無效！(×0 — ${atkTypeName} ▶ ${defTypeStr})`, 'system');
@@ -3519,6 +3739,10 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
     }, { once: true });
 
     defender.cur = Math.max(0, defender.cur - dmg);
+    if (defender.ability?.id === 'sturdy' && wasFullHp && defender.cur <= 0) {
+      defender.cur = 1;
+      log(`${dLabel}${defender.name} 靠著頑強保住了 1 HP！`, 'special');
+    }
     if (aSide === 'player') G.playerDmgDealt += dmg;
     else G.cpuDmgDealt += dmg;
     log(`造成了 ${dmg} 點傷害！${dLabel}${defender.name} 剩餘 HP：${Math.max(0,defender.cur)} / ${defender.hp}`, 'system');
@@ -3585,6 +3809,10 @@ function triggerDefenderAbility(defender, dSide, attacker, aSide) {
     attacker.cur = Math.max(0, attacker.cur - recoil);
     log(`${dLabel}${defender.name} 的粗糙皮膚反彈了 ${recoil} 點傷害給${aLabel}${attacker.name}！`, 'special');
     updateHp(aSide, attacker);
+  } else if (defender.ability.id === 'poison-point' && !attacker.status && Math.random() < 0.20) {
+    attacker.status = { type: 'poison', turnsLeft: 999 };
+    log(`${dLabel}${defender.name} 的毒刺讓${aLabel}${attacker.name} 陷入了中毒！`, 'special');
+    renderBattle();
   }
 }
 
