@@ -160,7 +160,7 @@
     .b-bench.ko { opacity:0.28; }
     .b-bench.switchable { border-color:rgba(144,202,249,0.35); }
     .b-bench.switchable:hover { border-color:#90caf9; background:rgba(144,202,249,0.12); box-shadow:0 0 10px rgba(144,202,249,0.3); }
-    .bench-popup { position:fixed; z-index:60; background:#0f1228; border:1px solid rgba(255,255,255,0.15); border-radius:14px; padding:0.9rem; width:260px; box-shadow:0 8px 32px rgba(0,0,0,0.65); }
+    .bench-popup { position:fixed; z-index:60; background:#0f1228; border:1px solid rgba(255,255,255,0.15); border-radius:14px; padding:0.9rem; width:260px; max-height:calc(100vh - 16px); overflow-y:auto; box-shadow:0 8px 32px rgba(0,0,0,0.65); }
     .bp-header { display:flex; align-items:center; gap:0.6rem; margin-bottom:0.45rem; }
     .bp-header img { width:52px; height:52px; image-rendering:pixelated; flex-shrink:0; }
     .bp-pname { font-weight:700; font-size:0.92rem; margin-bottom:0.22rem; }
@@ -790,7 +790,9 @@ const EFF = {
 function spriteUrl(id){ return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`; }
 function animatedSpriteUrl(id){ return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${id}.gif`; }
 function setSprite(el, id, poke) {
-  if (el._pokeRef === poke) return; // same battle instance still active — don't restart its GIF
+  // PvP state arrives freshly deserialized every update, so object identity is never stable here —
+  // species id is the only reliable "did this actually change" signal (rosters can't contain duplicate species).
+  if (el.dataset.pokeId === String(id)) return;
   el._pokeRef = poke;
   el.dataset.pokeId = String(id);
   el.onerror = null; el.onload = null;
@@ -1740,12 +1742,15 @@ function showBenchPopup(e, poke, deckIdx, canSwitch, freeSwitch) {
   `;
   popup.style.display = 'block';
   const rect = e.currentTarget?.getBoundingClientRect?.() || { left:100, bottom:200, width:120 };
+  // .bench-popup is position:fixed (viewport-relative), so no scrollY offset here — getBoundingClientRect()
+  // is already viewport-relative too. Adding scrollY here double-counts scroll and mispositions on scrolled pages.
   const pw = 260, ph = popup.offsetHeight || 380;
   let left = rect.left + rect.width / 2 - pw / 2;
-  let top  = rect.top - ph - 10 + scrollY;
-  if (top < 8) top = rect.bottom + 10 + scrollY;
+  let top  = rect.top - ph - 10;
+  if (top < 8) top = rect.bottom + 10;
   if (left < 8) left = 8;
   if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+  if (top + ph > window.innerHeight - 8) top = Math.max(8, window.innerHeight - ph - 8);
   popup.style.left = left + 'px';
   popup.style.top  = top  + 'px';
 }

@@ -324,6 +324,8 @@
       border-radius: 14px;
       padding: 0.9rem;
       width: 260px;
+      max-height: calc(100vh - 16px);
+      overflow-y: auto;
       box-shadow: 0 8px 32px rgba(0,0,0,0.65);
     }
     .bp-header { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.45rem; }
@@ -2040,7 +2042,8 @@ function animatedSpriteUrl(id) {
   return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${id}.gif`;
 }
 function setSprite(el, id, poke) {
-  if (el._pokeRef === poke) return; // same battle instance still active — don't restart its GIF
+  // Skip reload only if it's truly the same, unchanged instance (id may change in place via 瘋狂博士 transform)
+  if (el._pokeRef === poke && el.dataset.pokeId === String(id)) return;
   el._pokeRef = poke;
   el.dataset.pokeId = String(id);
   el.onerror = null;
@@ -2280,6 +2283,7 @@ function showBenchPopup(poke, canSwitch, switchIdx, anchorEl) {
   if (top < 8) top = rect.bottom + 10;
   if (left < 8) left = 8;
   if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+  if (top + ph > window.innerHeight - 8) top = Math.max(8, window.innerHeight - ph - 8);
   popup.style.left = left + 'px';
   popup.style.top  = top  + 'px';
 }
