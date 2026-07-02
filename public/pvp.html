@@ -153,6 +153,9 @@
     .hp-track { background:rgba(255,255,255,0.1); border-radius:999px; height:10px; overflow:hidden; }
     .hp-fill  { height:100%; border-radius:999px; }
     .hp-fill.animated { transition:width 0.5s ease, background-color 0.4s ease; }
+    .energy-meta { display:flex; justify-content:space-between; font-size:0.72rem; color:#4fc3f7; margin-top:0.35rem; margin-bottom:0.22rem; }
+    .energy-track { background:rgba(255,255,255,0.1); border-radius:999px; height:8px; overflow:hidden; }
+    .energy-fill { height:100%; border-radius:999px; background:linear-gradient(90deg, #0288d1, #4fc3f7); transition:width 0.4s ease; }
     .bench-row { display:flex; flex-wrap:wrap; gap:0.45rem; margin-top:0.7rem; }
     .b-bench { background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:8px; padding:0.3rem 0.55rem; display:flex; align-items:center; gap:0.35rem; font-size:0.73rem; cursor:pointer; transition:all 0.15s; }
     .b-bench:hover { background:rgba(255,255,255,0.09); transform:translateY(-1px); }
@@ -225,6 +228,7 @@
     .btn-atk { flex:1; padding:0.7rem 0.9rem; border:2px solid var(--border); border-left:4px solid transparent; border-radius:10px; background:rgba(255,255,255,0.05); color:var(--text); cursor:pointer; transition:all 0.18s; text-align:left; }
     .btn-atk:hover:not(:disabled) { border-color:rgba(255,255,255,0.3); background:rgba(255,255,255,0.1); transform:translateY(-1px); }
     .btn-atk:disabled { opacity:0.45; cursor:not-allowed; }
+    .btn-atk.unaffordable:disabled { border-left-color:#455a64 !important; }
     .atk-name { font-weight:700; font-size:0.9rem; }
     .atk-meta { display:flex; align-items:center; gap:0.45rem; margin-top:0.25rem; }
     .atk-type-badge { display:inline-block; padding:0.05rem 0.42rem; border-radius:999px; font-size:0.62rem; font-weight:700; color:#fff; }
@@ -469,6 +473,8 @@
         <div class="hp-wrap">
           <div class="hp-meta"><span>HP</span><span id="cpu-hp-text"></span></div>
           <div class="hp-track"><div class="hp-fill" id="cpu-hp-fill"></div></div>
+          <div class="energy-meta"><span>⚡能量</span><span id="cpu-energy-text"></span></div>
+          <div class="energy-track"><div class="energy-fill" id="cpu-energy-fill"></div></div>
         </div>
       </div>
       <div class="bench-row" id="cpu-bench"></div>
@@ -491,6 +497,8 @@
         <div class="hp-wrap">
           <div class="hp-meta"><span>HP</span><span id="player-hp-text"></span></div>
           <div class="hp-track"><div class="hp-fill" id="player-hp-fill"></div></div>
+          <div class="energy-meta"><span>⚡能量</span><span id="player-energy-text"></span></div>
+          <div class="energy-track"><div class="energy-fill" id="player-energy-fill"></div></div>
           <div id="active-stadium"></div>
           <div id="action-area">
             <button class="btn-atk" id="btn-atk0" onclick="playerAttack(0)">
@@ -560,6 +568,14 @@
       <li>每次攻擊後雙方各隨機抽 1–2 張<b>道具牌</b>，手牌上限 5 張。</li>
       <li>己方 HP 歸零後，立即選擇下一隻上場（不消耗回合）。</li>
     </ul>
+    <h3>⚡ 能量系統</h3>
+    <ul>
+      <li>每隻上場的寶可夢都有獨立的能量條（0–20），初始值 5，<b>每回合自動 +3</b>（上限 20）。</li>
+      <li>每個招式都需要消耗能量才能使用；能量不足時該招式按鈕會反灰無法點選。</li>
+      <li>弱招消耗低（甚至 0），可以幾乎每回合使用；強招消耗高，需要先囤積幾回合能量才打得出來。</li>
+      <li>若能量不足以使用任何招式，該回合只能待機、換人或使用道具卡，無法攻擊。</li>
+      <li>可透過棄2換能量（+5）、能量補丁道具卡、或啦啦隊支援者卡（直接補滿到 20）額外獲取能量。</li>
+    </ul>
     <h3>屬性相剋</h3>
     <ul>
       <li>傷害以<b>招式屬性</b>對上對方<b>寶可夢屬性</b>計算，與己方屬性無關。</li>
@@ -587,15 +603,17 @@
         <li>交換器 — 強制換出對手備戰寶可夢 ／ 反彈鏡 — 下次對手攻擊反彈回自身</li>
         <li>屬性寶珠（火／水／電／冰／惡／妖精／草／格鬥／毒／蟲／幽靈／鋼／地面）— 本回合攻擊改為對應屬性</li>
         <li>撤退背心 — 下次換場不會結束回合 ／ 混亂藥 — 讓對手混亂 ／ 絕對零度 — 讓對手結凍</li>
+        <li>能量補丁（小／中／大） — 回復 2／3／4 點能量</li>
       </ul>
-      <li>可花費 2 張手牌，換取 1 張競技場或道具卡（棄2換1按鈕）。</li>
-      <li><b>支援者牌</b>（藍框）僅開局手牌中出現，每回合限用 1 張，全場最多 2 張，也可用待機抽到：</li>
+      <li>可花費 2 張手牌，換取 1 張競技場卡、1 張道具卡、或 +5 能量（棄2換1按鈕）。</li>
+      <li><b>支援者牌</b>（藍框）僅開局手牌中出現，每回合限用 1 張，沒有場次上限，也可用待機抽到：</li>
       <ul>
         <li>復活藥 — 復活備戰欄第一隻倒下的寶可夢（80 HP）</li>
         <li>治療師 — 完全回復 HP 並解除異常狀態</li>
         <li>全力出擊 — 下次攻擊傷害 ×3</li>
         <li>搏命 — 我方與對方上場寶可夢同歸於盡，雙方各自選下一隻上場</li>
         <li>瘋狂博士 — 選我方一隻寶可夢，變身成對方一隻陣亡的寶可夢（依血量百分比換算HP）</li>
+        <li>啦啦隊 — 將能量補滿到 20</li>
       </ul>
       <li><b>競技場牌</b>（橘框）效果持續整場，放置新競技場會取代舊的：</li>
       <ul>
@@ -657,6 +675,7 @@
     <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.8rem">
       <button class="btn-modal-ok" onclick="pvpChooseTrade('stadium')">🏟 競技場</button>
       <button class="btn-modal-ok" onclick="pvpChooseTrade('item')">🃏 道具卡</button>
+      <button class="btn-modal-ok" onclick="pvpChooseTrade('energy')">⚡ +5 能量</button>
     </div>
   </div>
 </div>
@@ -1043,6 +1062,8 @@ function applyServerState(sG) {
   G.cpuIdx             = sG[`${op}Idx`];
   G.playerHand         = sG[`${me}Hand`];
   G.cpuHand            = sG[`${op}Hand`];
+  G.playerEnergy       = sG[`${me}Energy`];
+  G.cpuEnergy          = sG[`${op}Energy`];
   G.playerSuppUsed     = sG[`${me}SuppUsed`];
   G.playerSuppStageUsed= sG[`${me}SuppStageUsed`];
   G.cpuSuppUsed        = sG[`${op}SuppUsed`];
@@ -1117,7 +1138,7 @@ function renderTeamSelect() {
       <div class="sel-name">${p.name}</div>
       ${p.ability ? `<div class="ability-badge" title="${p.ability.desc}">✨ ${p.ability.name}</div>` : ''}
       <div class="sel-hp">HP ${p.hp}</div>
-      <div class="sel-moves">${p.attacks.map(a=>`<div class="sel-move"><span class="sel-move-badge" style="background:${TYPE_COLOR[a.type]||'#888'}">${TYPE_ZH[a.type]||a.type}</span><span>${a.name} ${a.dmg}</span></div>`).join('')}</div>
+      <div class="sel-moves">${p.attacks.map(a=>`<div class="sel-move"><span class="sel-move-badge" style="background:${TYPE_COLOR[a.type]||'#888'}">${TYPE_ZH[a.type]||a.type}</span><span>${a.name} ${a.dmg} · ⚡${a.cost}</span></div>`).join('')}</div>
     `;
     el.onclick = () => toggleTSCard(i);
     row.appendChild(el);
@@ -1226,6 +1247,11 @@ function renderSide(side, poke, deck, activeIdx) {
   const fill = document.getElementById(`${side}-hp-fill`);
   fill.style.width = pct + '%';
   fill.style.background = pct > 50 ? '#4caf50' : pct > 20 ? '#ff9800' : '#ef5350';
+  const energy = side === 'player' ? G.playerEnergy : G.cpuEnergy;
+  const energyText = document.getElementById(`${side}-energy-text`);
+  if (energyText) energyText.textContent = `${energy ?? 0} / 20`;
+  const energyFill = document.getElementById(`${side}-energy-fill`);
+  if (energyFill) energyFill.style.width = ((energy ?? 0) / 20 * 100) + '%';
   const statusEl = document.getElementById(`${side}-status`);
   if (statusEl) {
     if (poke.status) {
@@ -1275,7 +1301,9 @@ function renderActions() {
     if (!btn) return;
     const col = TYPE_COLOR[a.type] || '#888';
     const mult = effActive(a.type, cp?.type, cp?.type2);
-    btn.disabled = G.busy;
+    const affordable = (G.playerEnergy ?? 0) >= a.cost;
+    btn.disabled = G.busy || !affordable;
+    btn.classList.toggle('unaffordable', !affordable);
     btn.style.borderLeftColor = col;
     document.getElementById(`atk-name${i}`).textContent = a.name;
     document.getElementById(`atk-type${i}`).textContent = TYPE_ZH[a.type] || a.type;
@@ -1283,7 +1311,7 @@ function renderActions() {
     const stab = (a.type === p.type || (p.type2 && a.type === p.type2)) ? ' ★' : '';
     const statusHint = a.status ? ` · ${STATUS_EFFECT_ZH[a.status.effect]}${Math.round(a.status.chance*100)}%` : '';
     const effHint = mult>=4 ? ' ×4' : mult===2 ? ' ×2' : mult===0 ? ' ✕' : mult<1 ? ' ▽' : '';
-    document.getElementById(`atk-dmg${i}`).textContent = `威力 ${a.dmg}${statusHint}${stab}${effHint}`;
+    document.getElementById(`atk-dmg${i}`).textContent = `威力 ${a.dmg} · ⚡${a.cost}${statusHint}${stab}${effHint}`;
   });
   const standbyBtn = document.getElementById('btn-standby');
   if (standbyBtn) standbyBtn.disabled = G.busy;
@@ -1303,11 +1331,7 @@ function renderHand() {
   G.playerHand.forEach((card, i) => {
     const isSupp = card.cat === 'supporter';
     const noSwitcher = card.id === 'switcher' && G.cpuDeck.filter((p,j)=>j!==G.cpuIdx&&p.cur>0).length===0;
-    const stageFull = isSupp && G.playerSuppStageUsed >= 2;
     const disabled  = G.busy || (isSupp && G.playerSuppUsed) || noSwitcher;
-    const suppMeta  = isSupp
-      ? `<div style="font-size:0.6rem;color:${stageFull?'#ef5350':'var(--muted)'};margin-top:0.1rem">本場 ${G.playerSuppStageUsed}/2 張</div>`
-      : '';
     const isStadium = card.cat === 'stadium';
     const badgeLabel = isSupp ? '支援者' : isStadium ? '競技場' : '道具';
     const el = document.createElement('div');
@@ -1316,7 +1340,6 @@ function renderHand() {
       <div class="t-badge">${badgeLabel}</div>
       <div class="t-name">${card.name}</div>
       <div class="t-desc">${card.desc}</div>
-      ${suppMeta}
       <button class="t-use-btn" ${disabled?'disabled':''} onclick="useTrainer(${i})">使用</button>
     `;
     area.appendChild(el);
@@ -1328,6 +1351,8 @@ function renderHand() {
 ───────────────────────────────────────── */
 function playerAttack(idx) {
   if (G.busy || G.playerNeedsDiscard) return;
+  const atk = P()?.attacks[idx];
+  if (atk && (G.playerEnergy ?? 0) < atk.cost) return; // not enough energy
   G.busy = true;
   renderBattle();
   send({ type: 'attack', idx });
@@ -1368,9 +1393,6 @@ function useTrainer(handIdx) {
   if (G.busy) return;
   const card = G.playerHand[handIdx];
   if (!card) return;
-  if (card.cat === 'supporter' && G.playerSuppStageUsed >= 2) {
-    showWarn('本場支援者牌已使用 2 張！\n每場最多使用 2 張支援者牌。'); return;
-  }
   if (card.id === 'mad-scientist') {
     if (!G.cpuDeck.some(p => p.cur <= 0)) {
       showWarn('對手目前沒有陣亡的寶可夢可以複製！'); return;
@@ -1703,7 +1725,7 @@ function showBenchPopup(e, poke, deckIdx, canSwitch, freeSwitch) {
     return `<div class="bp-move">
       <span class="type-badge" style="background:${TYPE_COLOR[a.type]||'#888'};font-size:0.6rem">${TYPE_ZH[a.type]||a.type}</span>
       <span class="bp-move-name">${a.name}${stab}</span>
-      <span class="bp-move-dmg">威力${a.dmg}</span>
+      <span class="bp-move-dmg">威力${a.dmg} · ⚡${a.cost}</span>
     </div>`;
   }).join('');
 

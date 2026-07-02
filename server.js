@@ -28,79 +28,79 @@ app.use(express.json());
 ═══════════════════════════════════════════ */
 const POKEMON = [
   // Tier 1
-  { id:3,   name:'妙蛙花',     type:'grass',    type2:'poison',  hp:250, tier:1, attacks:[{name:'太陽射線',dmg:40,type:'grass',   status:{effect:'sleep',    chance:0.20}},{name:'大地之力',dmg:55,type:'ground',  status:{effect:'poison',   chance:0.30}},{name:'毒粉刺',  dmg:42,type:'poison',  status:{effect:'poison',   chance:0.35}},{name:'葉刃',    dmg:52,type:'grass'}]},
-  { id:94,  name:'耿鬼',       type:'ghost',    type2:'poison',  hp:220, tier:1, ability:{id:'poison-heal', name:'毒療', trigger:'onStatus', desc:'中毒時每回合回復 1/8 最大HP，而非扣血'}, attacks:[{name:'幽靈之爪',dmg:40,type:'ghost',   status:{effect:'poison',   chance:0.20}},{name:'咬碎',    dmg:52,type:'dark'},                                                {name:'暗影球',  dmg:50,type:'ghost'},                                                {name:'催眠術',  dmg:28,type:'psychic', status:{effect:'sleep',    chance:0.50}}]},
-  { id:68,  name:'怪力',       type:'fighting', hp:260, tier:1, attacks:[{name:'動感拳',  dmg:42,type:'fighting'},{name:'地震',    dmg:58,type:'ground'},{name:'岩石滑落',dmg:48,type:'rock',    status:{effect:'paralysis',chance:0.15}},{name:'超強衝擊',dmg:60,type:'fighting'}]},
-  { id:65,  name:'胡地',       type:'psychic',  hp:200, tier:1, attacks:[{name:'超能力',  dmg:40,type:'psychic', status:{effect:'confusion',chance:0.30}},{name:'閃電拳',dmg:52,type:'electric',status:{effect:'paralysis',chance:0.20}},{name:'念力',    dmg:45,type:'psychic', status:{effect:'confusion',chance:0.25}},{name:'暗影球',  dmg:48,type:'ghost'}]},
-  { id:26,  name:'雷丘',       type:'electric', hp:200, tier:1, ability:{id:'static', name:'靜電', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者陷入麻痺'}, attacks:[{name:'十萬伏特',dmg:40,type:'electric',status:{effect:'paralysis',chance:0.30}},{name:'鐵尾',   dmg:52,type:'steel'},{name:'電磁衝浪',dmg:50,type:'electric',status:{effect:'paralysis',chance:0.20}},{name:'衝撞',    dmg:38,type:'normal'}]},
-  { id:376, name:'巨金怪',     type:'steel',    type2:'psychic', hp:260, tier:1, attacks:[{name:'子彈拳',  dmg:42,type:'steel'},{name:'隕石衝擊',dmg:58,type:'rock'},{name:'精神強擊',dmg:50,type:'psychic', status:{effect:'confusion',chance:0.20}},{name:'閃光炮',  dmg:52,type:'steel'}]},
-  { id:448, name:'路卡利歐',   type:'fighting', type2:'steel',   hp:220, tier:1, ability:{id:'guts', name:'堅韌', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}, attacks:[{name:'波導彈',  dmg:40,type:'fighting'},{name:'金屬爪',  dmg:48,type:'steel'},{name:'暗影球',  dmg:52,type:'ghost'},{name:'龍之脈動',dmg:50,type:'dragon'}]},
-  { id:130, name:'暴鯉龍',     type:'water',    type2:'flying',  hp:260, tier:1, attacks:[{name:'大浪',    dmg:42,type:'water'},{name:'咬碎',    dmg:58,type:'dark'},{name:'龍息',    dmg:45,type:'dragon'},{name:'怒風',    dmg:52,type:'flying'}]},
-  { id:35,  name:'皮皮',       type:'fairy',    hp:220, tier:1, attacks:[{name:'月亮力量',dmg:40,type:'fairy',   status:{effect:'confusion',chance:0.25}},{name:'元氣拳',  dmg:52,type:'normal'},{name:'火焰拳',  dmg:42,type:'fire'},{name:'冰凍拳',  dmg:42,type:'ice'}]},
-  { id:87,  name:'白海獅',     type:'water',    type2:'ice',     hp:240, tier:1, attacks:[{name:'冷凍光線',dmg:40,type:'ice',     status:{effect:'freeze',   chance:0.15}},{name:'衝浪',    dmg:52,type:'water'},{name:'閃電拳',  dmg:42,type:'electric',status:{effect:'paralysis',chance:0.15}},{name:'大浪',    dmg:48,type:'water'}]},
-  { id:82,  name:'三合磁怪',   type:'electric', type2:'steel',   hp:210, tier:1, ability:{id:'static-trail', name:'電擊尾隨', trigger:'onAttack', desc:'攻擊命中時額外 15% 機率讓目標陷入麻痺'}, attacks:[{name:'電磁炮',  dmg:40,type:'electric',status:{effect:'paralysis',chance:0.30}},{name:'閃光炮',  dmg:52,type:'steel'},{name:'電磁衝浪',dmg:48,type:'electric',status:{effect:'paralysis',chance:0.20}},{name:'鋼鐵身壓',dmg:45,type:'steel'}]},
-  { id:28,  name:'沙包蛇',     type:'ground',   hp:240, tier:1, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊威力 -15'}, attacks:[{name:'地震',    dmg:40,type:'ground'},{name:'岩石滑落',dmg:52,type:'rock'},{name:'岩石碎裂',dmg:48,type:'rock'},{name:'十字切',  dmg:38,type:'normal'}]},
-  { id:80,  name:'呆殼獸',     type:'water',    type2:'psychic', hp:260, tier:1, attacks:[{name:'衝浪',    dmg:40,type:'water'},{name:'念力',    dmg:52,type:'psychic', status:{effect:'confusion',chance:0.20}},{name:'大浪',    dmg:50,type:'water'},{name:'精神強擊',dmg:48,type:'psychic', status:{effect:'confusion',chance:0.20}}]},
-  { id:823, name:'鋼鍇鴉',     type:'steel',    type2:'flying',  hp:250, tier:1, attacks:[{name:'鐵翼',    dmg:42,type:'steel'},{name:'颶風飛翔',dmg:52,type:'flying'},{name:'鋼鐵身壓',dmg:45,type:'steel'},{name:'夜斬',    dmg:48,type:'dark'}]},
-  { id:160, name:'大力鱷',     type:'water',    hp:260, tier:1, attacks:[{name:'咬碎',    dmg:42,type:'dark'},{name:'衝浪',    dmg:52,type:'water'},{name:'冰凍拳',  dmg:48,type:'ice',     status:{effect:'freeze',   chance:0.10}},{name:'水砲',    dmg:58,type:'water'}]},
-  { id:658, name:'忍蛙',       type:'water',    type2:'dark',    hp:220, tier:1, ability:{id:'rough-skin', name:'粗糙皮膚', trigger:'onDefend', desc:'受到攻擊傷害時，反彈攻擊者 1/8 最大HP 傷害'}, attacks:[{name:'水手裏劍',dmg:38,type:'water'},{name:'夜斬',    dmg:40,type:'dark'},{name:'暗影球',  dmg:50,type:'ghost'},{name:'大浪',    dmg:52,type:'water'}]},
+  { id:3,   name:'妙蛙花',     type:'grass',    type2:'poison',  hp:250, tier:1, attacks:[{name:'太陽射線',dmg:32,cost:0,type:'grass',status:{effect:'sleep', chance:0.2}},{name:'毒粉刺',dmg:36,cost:1,type:'poison',status:{effect:'poison', chance:0.35}},{name:'葉刃',dmg:69,cost:11,type:'grass'},{name:'大地之力',dmg:77,cost:13,type:'ground',status:{effect:'poison', chance:0.3}}]},
+  { id:94,  name:'耿鬼',       type:'ghost',    type2:'poison',  hp:220, tier:1, ability:{id:'poison-heal', name:'毒療', trigger:'onStatus', desc:'中毒時每回合回復 1/8 最大HP，而非扣血'}, attacks:[{name:'催眠術',dmg:30,cost:0,type:'psychic',status:{effect:'sleep', chance:0.5}},{name:'幽靈之爪',dmg:32,cost:0,type:'ghost',status:{effect:'poison', chance:0.2}},{name:'暗影球',dmg:65,cost:10,type:'ghost'},{name:'咬碎',dmg:70,cost:11,type:'dark'}]},
+  { id:68,  name:'怪力',       type:'fighting', hp:260, tier:1, attacks:[{name:'動感拳',dmg:36,cost:1,type:'fighting'},{name:'岩石滑落',dmg:38,cost:1,type:'rock',status:{effect:'paralysis', chance:0.15}},{name:'地震',dmg:76,cost:13,type:'ground'},{name:'超強衝擊',dmg:80,cost:14,type:'fighting'}]},
+  { id:65,  name:'胡地',       type:'psychic',  hp:200, tier:1, attacks:[{name:'超能力',dmg:31,cost:0,type:'psychic',status:{effect:'confusion', chance:0.3}},{name:'念力',dmg:35,cost:1,type:'psychic',status:{effect:'confusion', chance:0.25}},{name:'暗影球',dmg:68,cost:11,type:'ghost'},{name:'閃電拳',dmg:75,cost:13,type:'electric',status:{effect:'paralysis', chance:0.2}}]},
+  { id:26,  name:'雷丘',       type:'electric', hp:200, tier:1, ability:{id:'static', name:'靜電', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者陷入麻痺'}, attacks:[{name:'衝撞',dmg:30,cost:0,type:'normal'},{name:'十萬伏特',dmg:34,cost:1,type:'electric',status:{effect:'paralysis', chance:0.3}},{name:'電磁衝浪',dmg:66,cost:10,type:'electric',status:{effect:'paralysis', chance:0.2}},{name:'鐵尾',dmg:73,cost:12,type:'steel'}]},
+  { id:376, name:'巨金怪',     type:'steel',    type2:'psychic', hp:260, tier:1, attacks:[{name:'子彈拳',dmg:35,cost:1,type:'steel'},{name:'精神強擊',dmg:38,cost:1,type:'psychic',status:{effect:'confusion', chance:0.2}},{name:'閃光炮',dmg:74,cost:12,type:'steel'},{name:'隕石衝擊',dmg:80,cost:14,type:'rock'}]},
+  { id:448, name:'路卡利歐',   type:'fighting', type2:'steel',   hp:220, tier:1, ability:{id:'guts', name:'堅韌', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}, attacks:[{name:'波導彈',dmg:32,cost:0,type:'fighting'},{name:'金屬爪',dmg:36,cost:1,type:'steel'},{name:'龍之脈動',dmg:70,cost:11,type:'dragon'},{name:'暗影球',dmg:77,cost:13,type:'ghost'}]},
+  { id:130, name:'暴鯉龍',     type:'water',    type2:'flying',  hp:260, tier:1, attacks:[{name:'大浪',dmg:34,cost:1,type:'water'},{name:'龍息',dmg:38,cost:1,type:'dragon'},{name:'怒風',dmg:72,cost:12,type:'flying'},{name:'咬碎',dmg:80,cost:14,type:'dark'}]},
+  { id:35,  name:'皮皮',       type:'fairy',    hp:220, tier:1, attacks:[{name:'月亮力量',dmg:30,cost:0,type:'fairy',status:{effect:'confusion', chance:0.25}},{name:'火焰拳',dmg:34,cost:1,type:'fire'},{name:'冰凍拳',dmg:65,cost:10,type:'ice'},{name:'元氣拳',dmg:72,cost:12,type:'normal'}]},
+  { id:87,  name:'白海獅',     type:'water',    type2:'ice',     hp:240, tier:1, attacks:[{name:'冷凍光線',dmg:31,cost:0,type:'ice',status:{effect:'freeze', chance:0.15}},{name:'閃電拳',dmg:35,cost:1,type:'electric',status:{effect:'paralysis', chance:0.15}},{name:'大浪',dmg:67,cost:11,type:'water'},{name:'衝浪',dmg:74,cost:12,type:'water'}]},
+  { id:82,  name:'三合磁怪',   type:'electric', type2:'steel',   hp:210, tier:1, ability:{id:'static-trail', name:'電擊尾隨', trigger:'onAttack', desc:'攻擊命中時額外 15% 機率讓目標陷入麻痺'}, attacks:[{name:'電磁炮',dmg:31,cost:0,type:'electric',status:{effect:'paralysis', chance:0.3}},{name:'鋼鐵身壓',dmg:35,cost:1,type:'steel'},{name:'電磁衝浪',dmg:68,cost:11,type:'electric',status:{effect:'paralysis', chance:0.2}},{name:'閃光炮',dmg:75,cost:13,type:'steel'}]},
+  { id:28,  name:'沙包蛇',     type:'ground',   hp:240, tier:1, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊威力 -15'}, attacks:[{name:'十字切',dmg:30,cost:0,type:'normal'},{name:'地震',dmg:34,cost:1,type:'ground'},{name:'岩石碎裂',dmg:65,cost:10,type:'rock'},{name:'岩石滑落',dmg:73,cost:12,type:'rock'}]},
+  { id:80,  name:'呆殼獸',     type:'water',    type2:'psychic', hp:260, tier:1, attacks:[{name:'衝浪',dmg:32,cost:0,type:'water'},{name:'精神強擊',dmg:36,cost:1,type:'psychic',status:{effect:'confusion', chance:0.2}},{name:'大浪',dmg:70,cost:11,type:'water'},{name:'念力',dmg:77,cost:13,type:'psychic',status:{effect:'confusion', chance:0.2}}]},
+  { id:823, name:'鋼鍇鴉',     type:'steel',    type2:'flying',  hp:250, tier:1, attacks:[{name:'鐵翼',dmg:32,cost:0,type:'steel'},{name:'鋼鐵身壓',dmg:36,cost:1,type:'steel'},{name:'夜斬',dmg:68,cost:11,type:'dark'},{name:'颶風飛翔',dmg:76,cost:13,type:'flying'}]},
+  { id:160, name:'大力鱷',     type:'water',    hp:260, tier:1, attacks:[{name:'咬碎',dmg:34,cost:1,type:'dark'},{name:'冰凍拳',dmg:38,cost:1,type:'ice',status:{effect:'freeze', chance:0.1}},{name:'衝浪',dmg:73,cost:12,type:'water'},{name:'水砲',dmg:80,cost:14,type:'water'}]},
+  { id:658, name:'忍蛙',       type:'water',    type2:'dark',    hp:220, tier:1, ability:{id:'rough-skin', name:'粗糙皮膚', trigger:'onDefend', desc:'受到攻擊傷害時，反彈攻擊者 1/8 最大HP 傷害'}, attacks:[{name:'水手裏劍',dmg:30,cost:0,type:'water'},{name:'夜斬',dmg:34,cost:1,type:'dark'},{name:'暗影球',dmg:66,cost:10,type:'ghost'},{name:'大浪',dmg:73,cost:12,type:'water'}]},
   // Tier 2
-  { id:6,   name:'噴火龍',     type:'fire',     type2:'flying',  hp:290, tier:2, attacks:[{name:'火焰噴射',dmg:45,type:'fire',    status:{effect:'burn',     chance:0.25}},{name:'破空飛翔',dmg:70,type:'flying'},{name:'龍息',    dmg:50,type:'dragon'},{name:'火焰衝擊',dmg:60,type:'fire',    status:{effect:'burn',     chance:0.20}}]},
-  { id:9,   name:'水箭龜',     type:'water',    hp:280, tier:2, attacks:[{name:'水砲',    dmg:45,type:'water'},{name:'冰凍光束',dmg:65,type:'ice',     status:{effect:'freeze',   chance:0.15}},{name:'閃光炮',  dmg:52,type:'steel'},{name:'衝浪',    dmg:55,type:'water'}]},
-  { id:150, name:'超夢',       type:'psychic',  hp:320, tier:2, attacks:[{name:'念力衝擊',dmg:45,type:'psychic', status:{effect:'confusion',chance:0.30}},{name:'暗影球',  dmg:75,type:'ghost'},{name:'閃電拳',  dmg:55,type:'electric',status:{effect:'paralysis',chance:0.20}},{name:'氣功拳',  dmg:50,type:'fighting'}]},
-  { id:149, name:'快龍',       type:'dragon',   type2:'flying',  hp:320, tier:2, attacks:[{name:'龍息',    dmg:45,type:'dragon'},{name:'破壞光線',dmg:75,type:'normal'},{name:'雷電',    dmg:60,type:'electric',status:{effect:'paralysis',chance:0.25}},{name:'怒風',    dmg:60,type:'flying'}]},
-  { id:143, name:'卡比獸',     type:'normal',   hp:380, tier:2, attacks:[{name:'磚塊',    dmg:45,type:'rock'},{name:'破壞光線',dmg:68,type:'normal'},{name:'地震',    dmg:60,type:'ground'},{name:'連踢',    dmg:50,type:'normal'}]},
-  { id:59,  name:'風速狗',     type:'fire',     hp:260, tier:2, attacks:[{name:'夜斬',    dmg:45,type:'dark'},{name:'噴射火焰',dmg:65,type:'fire',    status:{effect:'burn',     chance:0.25}},{name:'閃電犬牙',dmg:50,type:'electric',status:{effect:'paralysis',chance:0.15}},{name:'衝撞',    dmg:52,type:'normal'}]},
-  { id:131, name:'拉普拉斯',   type:'water',    type2:'ice',     hp:290, tier:2, attacks:[{name:'衝浪',    dmg:45,type:'water'},{name:'暴風雪',  dmg:65,type:'ice',     status:{effect:'freeze',   chance:0.20}},{name:'雷電',    dmg:55,type:'electric',status:{effect:'paralysis',chance:0.20}},{name:'冷凍光線',dmg:50,type:'ice',     status:{effect:'freeze',   chance:0.15}}]},
-  { id:445, name:'烈咬陸鯊',   type:'dragon',   type2:'ground',  hp:280, tier:2, attacks:[{name:'龍爪',    dmg:45,type:'dragon'},{name:'地震',    dmg:68,type:'ground'},{name:'龍之隕星',dmg:70,type:'dragon'},{name:'岩石滑落',dmg:52,type:'rock'}]},
-  { id:210, name:'布比獸',     type:'fairy',    hp:300, tier:2, attacks:[{name:'仙女之力',dmg:45,type:'fairy'},{name:'地震',    dmg:68,type:'ground'},{name:'咬碎',    dmg:55,type:'dark'},{name:'雷電',    dmg:50,type:'electric',status:{effect:'paralysis',chance:0.15}}]},
-  { id:700, name:'仙子伊布',   type:'fairy',    hp:300, tier:2, attacks:[{name:'妖精風',  dmg:45,type:'fairy'},{name:'暗影球',  dmg:68,type:'ghost'},{name:'冰凍光束',dmg:55,type:'ice',     status:{effect:'freeze',   chance:0.15}},{name:'月亮力量',dmg:60,type:'fairy'}]},
-  { id:478, name:'雪妖女',     type:'ice',      type2:'ghost',   hp:280, tier:2, attacks:[{name:'冰凍光束',dmg:45,type:'ice',     status:{effect:'freeze',   chance:0.15}},{name:'暗影球',  dmg:68,type:'ghost'},{name:'怒風',    dmg:55,type:'flying'},{name:'冰耳光',  dmg:60,type:'ice',     status:{effect:'freeze',   chance:0.15}}]},
-  { id:614, name:'冰熊王',     type:'ice',      hp:320, tier:2, attacks:[{name:'冰耳光',  dmg:45,type:'ice',     status:{effect:'freeze',   chance:0.15}},{name:'地震',    dmg:68,type:'ground'},{name:'大浪',    dmg:55,type:'water'},{name:'暴風雪',  dmg:65,type:'ice',     status:{effect:'freeze',   chance:0.15}}]},
-  { id:430, name:'夜巡使',     type:'dark',     type2:'flying',  hp:300, tier:2, attacks:[{name:'夜斬',    dmg:45,type:'dark'},{name:'怒風',    dmg:68,type:'flying'},{name:'夜騷動',  dmg:55,type:'dark'},{name:'空氣斬',  dmg:60,type:'flying'}]},
-  { id:466, name:'電擊魔獸',   type:'electric', hp:300, tier:2, attacks:[{name:'電磁衝浪',dmg:45,type:'electric',status:{effect:'paralysis',chance:0.25}},{name:'冰凍拳',  dmg:68,type:'ice',     status:{effect:'freeze',   chance:0.15}},{name:'動感拳',  dmg:55,type:'fighting'},{name:'十萬伏特',dmg:60,type:'electric',status:{effect:'paralysis',chance:0.20}}]},
-  { id:467, name:'鴨嘴火獸',   type:'fire',     hp:300, tier:2, attacks:[{name:'火焰衝擊',dmg:45,type:'fire',    status:{effect:'burn',     chance:0.25}},{name:'雷電',    dmg:68,type:'electric',status:{effect:'paralysis',chance:0.20}},{name:'噴射火焰',dmg:60,type:'fire',    status:{effect:'burn',     chance:0.20}},{name:'地震',    dmg:55,type:'ground'}]},
-  { id:157, name:'火爆獸',     type:'fire',                      hp:260, tier:2, attacks:[{name:'爆炸火焰',dmg:68,type:'fire'},{name:'噴火',    dmg:55,type:'fire',    status:{effect:'burn',     chance:0.25}},{name:'烈火強衝',dmg:72,type:'fire'},{name:'地震',    dmg:58,type:'ground'}]},
-  { id:154, name:'大竹葵',     type:'grass',                     hp:270, tier:2, attacks:[{name:'花瓣風暴',dmg:62,type:'grass'},{name:'能量球',  dmg:58,type:'grass'},{name:'葉刃',    dmg:65,type:'grass'},{name:'大地之力',dmg:60,type:'ground'}]},
+  { id:6,   name:'噴火龍',     type:'fire',     type2:'flying',  hp:290, tier:2, attacks:[{name:'火焰噴射',dmg:35,cost:1,type:'fire',status:{effect:'burn', chance:0.25}},{name:'龍息',dmg:38,cost:1,type:'dragon'},{name:'火焰衝擊',dmg:75,cost:13,type:'fire',status:{effect:'burn', chance:0.2}},{name:'破空飛翔',dmg:85,cost:15,type:'flying'}]},
+  { id:9,   name:'水箭龜',     type:'water',    hp:280, tier:2, attacks:[{name:'水砲',dmg:35,cost:1,type:'water'},{name:'閃光炮',dmg:37,cost:1,type:'steel'},{name:'衝浪',dmg:75,cost:13,type:'water'},{name:'冰凍光束',dmg:82,cost:14,type:'ice',status:{effect:'freeze', chance:0.15}}]},
+  { id:150, name:'超夢',       type:'psychic',  hp:320, tier:2, attacks:[{name:'念力衝擊',dmg:35,cost:1,type:'psychic',status:{effect:'confusion', chance:0.3}},{name:'氣功拳',dmg:38,cost:1,type:'fighting'},{name:'閃電拳',dmg:75,cost:13,type:'electric',status:{effect:'paralysis', chance:0.2}},{name:'暗影球',dmg:85,cost:15,type:'ghost'}]},
+  { id:149, name:'快龍',       type:'dragon',   type2:'flying',  hp:320, tier:2, attacks:[{name:'龍息',dmg:37,cost:1,type:'dragon'},{name:'雷電',dmg:40,cost:2,type:'electric',status:{effect:'paralysis', chance:0.25}},{name:'怒風',dmg:81,cost:14,type:'flying'},{name:'破壞光線',dmg:91,cost:16,type:'normal'}]},
+  { id:143, name:'卡比獸',     type:'normal',   hp:380, tier:2, attacks:[{name:'磚塊',dmg:35,cost:1,type:'rock'},{name:'連踢',dmg:38,cost:1,type:'normal'},{name:'地震',dmg:75,cost:13,type:'ground'},{name:'破壞光線',dmg:84,cost:15,type:'normal'}]},
+  { id:59,  name:'風速狗',     type:'fire',     hp:260, tier:2, attacks:[{name:'夜斬',dmg:35,cost:1,type:'dark'},{name:'閃電犬牙',dmg:37,cost:1,type:'electric',status:{effect:'paralysis', chance:0.15}},{name:'衝撞',dmg:75,cost:13,type:'normal'},{name:'噴射火焰',dmg:80,cost:14,type:'fire',status:{effect:'burn', chance:0.25}}]},
+  { id:131, name:'拉普拉斯',   type:'water',    type2:'ice',     hp:290, tier:2, attacks:[{name:'衝浪',dmg:35,cost:1,type:'water'},{name:'冷凍光線',dmg:37,cost:1,type:'ice',status:{effect:'freeze', chance:0.15}},{name:'雷電',dmg:75,cost:13,type:'electric',status:{effect:'paralysis', chance:0.2}},{name:'暴風雪',dmg:81,cost:14,type:'ice',status:{effect:'freeze', chance:0.2}}]},
+  { id:445, name:'烈咬陸鯊',   type:'dragon',   type2:'ground',  hp:280, tier:2, attacks:[{name:'龍爪',dmg:36,cost:1,type:'dragon'},{name:'岩石滑落',dmg:40,cost:2,type:'rock'},{name:'地震',dmg:79,cost:14,type:'ground'},{name:'龍之隕星',dmg:89,cost:16,type:'dragon'}]},
+  { id:210, name:'布比獸',     type:'fairy',    hp:300, tier:2, attacks:[{name:'仙女之力',dmg:35,cost:1,type:'fairy'},{name:'雷電',dmg:38,cost:1,type:'electric',status:{effect:'paralysis', chance:0.15}},{name:'咬碎',dmg:75,cost:13,type:'dark'},{name:'地震',dmg:82,cost:14,type:'ground'}]},
+  { id:700, name:'仙子伊布',   type:'fairy',    hp:300, tier:2, attacks:[{name:'妖精風',dmg:35,cost:1,type:'fairy'},{name:'冰凍光束',dmg:39,cost:2,type:'ice',status:{effect:'freeze', chance:0.15}},{name:'月亮力量',dmg:76,cost:13,type:'fairy'},{name:'暗影球',dmg:86,cost:15,type:'ghost'}]},
+  { id:478, name:'雪妖女',     type:'ice',      type2:'ghost',   hp:280, tier:2, attacks:[{name:'冰凍光束',dmg:35,cost:1,type:'ice',status:{effect:'freeze', chance:0.15}},{name:'怒風',dmg:39,cost:2,type:'flying'},{name:'冰耳光',dmg:76,cost:13,type:'ice',status:{effect:'freeze', chance:0.15}},{name:'暗影球',dmg:86,cost:15,type:'ghost'}]},
+  { id:614, name:'冰熊王',     type:'ice',      hp:320, tier:2, attacks:[{name:'冰耳光',dmg:36,cost:1,type:'ice',status:{effect:'freeze', chance:0.15}},{name:'大浪',dmg:40,cost:2,type:'water'},{name:'暴風雪',dmg:78,cost:14,type:'ice',status:{effect:'freeze', chance:0.15}},{name:'地震',dmg:88,cost:16,type:'ground'}]},
+  { id:430, name:'夜巡使',     type:'dark',     type2:'flying',  hp:300, tier:2, attacks:[{name:'夜斬',dmg:35,cost:1,type:'dark'},{name:'夜騷動',dmg:39,cost:2,type:'dark'},{name:'空氣斬',dmg:76,cost:13,type:'flying'},{name:'怒風',dmg:86,cost:15,type:'flying'}]},
+  { id:466, name:'電擊魔獸',   type:'electric', hp:300, tier:2, attacks:[{name:'電磁衝浪',dmg:35,cost:1,type:'electric',status:{effect:'paralysis', chance:0.25}},{name:'動感拳',dmg:39,cost:2,type:'fighting'},{name:'十萬伏特',dmg:76,cost:13,type:'electric',status:{effect:'paralysis', chance:0.2}},{name:'冰凍拳',dmg:86,cost:15,type:'ice',status:{effect:'freeze', chance:0.15}}]},
+  { id:467, name:'鴨嘴火獸',   type:'fire',     hp:300, tier:2, attacks:[{name:'火焰衝擊',dmg:35,cost:1,type:'fire',status:{effect:'burn', chance:0.25}},{name:'地震',dmg:39,cost:2,type:'ground'},{name:'噴射火焰',dmg:76,cost:13,type:'fire',status:{effect:'burn', chance:0.2}},{name:'雷電',dmg:86,cost:15,type:'electric',status:{effect:'paralysis', chance:0.2}}]},
+  { id:157, name:'火爆獸',     type:'fire',                      hp:260, tier:2, attacks:[{name:'噴火',dmg:39,cost:2,type:'fire',status:{effect:'burn', chance:0.25}},{name:'地震',dmg:42,cost:2,type:'ground'},{name:'爆炸火焰',dmg:85,cost:15,type:'fire'},{name:'烈火強衝',dmg:95,cost:17,type:'fire'}]},
+  { id:154, name:'大竹葵',     type:'grass',                     hp:270, tier:2, attacks:[{name:'能量球',dmg:38,cost:1,type:'grass'},{name:'大地之力',dmg:41,cost:2,type:'ground'},{name:'花瓣風暴',dmg:82,cost:14,type:'grass'},{name:'葉刃',dmg:92,cost:16,type:'grass'}]},
   // Tier 3
-  { id:383, name:'固拉多',     type:'ground',   hp:340, tier:3, attacks:[{name:'地震',    dmg:50,type:'ground'},{name:'原始大地',dmg:90,type:'fire',    status:{effect:'burn',     chance:0.30}},{name:'岩石碎裂',dmg:60,type:'rock'},{name:'火焰噴射',dmg:70,type:'fire',    status:{effect:'burn',     chance:0.25}}]},
-  { id:382, name:'蓋歐卡',     type:'water',    hp:340, tier:3, attacks:[{name:'源起之波',dmg:50,type:'water'},{name:'原始海洋',dmg:90,type:'ice',     status:{effect:'freeze',   chance:0.20}},{name:'雷電',    dmg:70,type:'electric',status:{effect:'paralysis',chance:0.25}},{name:'大浪',    dmg:72,type:'water'}]},
-  { id:384, name:'列空座',     type:'dragon',   type2:'flying',  hp:360, tier:3, attacks:[{name:'神速',    dmg:48,type:'normal'},{name:'龍之隕星',dmg:95,type:'dragon'},{name:'怒風',    dmg:80,type:'flying'},{name:'火焰噴射',dmg:70,type:'fire',    status:{effect:'burn',     chance:0.25}}]},
-  { id:1008,name:'密勒頓',     type:'electric', type2:'dragon',  hp:360, tier:3, attacks:[{name:'電磁衝浪',dmg:52,type:'electric',status:{effect:'paralysis',chance:0.25}},{name:'未來雷霆',dmg:92,type:'psychic', status:{effect:'confusion',chance:0.25}},{name:'龍息',    dmg:70,type:'dragon'},{name:'電磁炮',  dmg:80,type:'electric',status:{effect:'paralysis',chance:0.20}}]},
-  { id:250, name:'鳳王',       type:'fire',     type2:'flying',  hp:340, tier:3, attacks:[{name:'聖焰',    dmg:52,type:'fire',    status:{effect:'burn',     chance:0.30}},{name:'神聖之焰',dmg:92,type:'flying'},{name:'怒風',    dmg:70,type:'flying'},{name:'超能力',  dmg:72,type:'psychic', status:{effect:'confusion',chance:0.20}}]},
-  { id:249, name:'路奇亞',     type:'psychic',  type2:'flying',  hp:340, tier:3, attacks:[{name:'怒風',    dmg:50,type:'flying'},{name:'心靈衝擊',dmg:90,type:'psychic', status:{effect:'confusion',chance:0.30}},{name:'暴風',    dmg:80,type:'flying'},{name:'冰凍光束',dmg:72,type:'ice',     status:{effect:'freeze',   chance:0.20}}]},
-  { id:1007,name:'故勒頓',     type:'fighting', type2:'dragon',  hp:360, tier:3, attacks:[{name:'決勝衝擊',dmg:52,type:'fighting'},{name:'遠古之力',dmg:85,type:'rock'},{name:'火焰噴射',dmg:72,type:'fire',    status:{effect:'burn',     chance:0.25}},{name:'地震',    dmg:75,type:'ground'}]},
-  { id:282, name:'沙奈朵',     type:'psychic',  type2:'fairy',   hp:320, tier:3, attacks:[{name:'妖精之力',dmg:50,type:'fairy'},{name:'精神強擊',dmg:90,type:'psychic', status:{effect:'confusion',chance:0.30}},{name:'月亮力量',dmg:75,type:'fairy'},{name:'暗影球',  dmg:72,type:'ghost'}]},
-  { id:144, name:'急凍鳥',     type:'ice',      type2:'flying',  hp:340, tier:3, attacks:[{name:'暴風雪',  dmg:50,type:'ice',     status:{effect:'freeze',   chance:0.25}},{name:'怒風',    dmg:88,type:'flying'},{name:'冷凍光線',dmg:72,type:'ice',     status:{effect:'freeze',   chance:0.20}},{name:'暴風',    dmg:80,type:'flying'}]},
-  { id:145, name:'閃電鳥',     type:'electric', type2:'flying',  hp:340, tier:3, attacks:[{name:'雷霆',    dmg:50,type:'electric',status:{effect:'paralysis',chance:0.30}},{name:'怒風',    dmg:88,type:'flying'},{name:'電磁衝浪',dmg:72,type:'electric',status:{effect:'paralysis',chance:0.25}},{name:'雷電',    dmg:80,type:'electric',status:{effect:'paralysis',chance:0.20}}]},
-  { id:146, name:'火焰鳥',     type:'fire',     type2:'flying',  hp:340, tier:3, attacks:[{name:'火焰衝擊',dmg:50,type:'fire',    status:{effect:'burn',     chance:0.30}},{name:'怒風',    dmg:88,type:'flying'},{name:'噴射火焰',dmg:72,type:'fire',    status:{effect:'burn',     chance:0.25}},{name:'超能力',  dmg:70,type:'psychic', status:{effect:'confusion',chance:0.20}}]},
-  { id:10188,name:'蒼響',      type:'fairy',    type2:'steel',   hp:370, tier:3, attacks:[{name:'剛劍',    dmg:85,type:'steel'},{name:'神秘劍',dmg:95,type:'fairy'},{name:'鐵頭功',dmg:75,type:'steel'},{name:'接近戰',dmg:90,type:'fighting'}]},
-  { id:716, name:'哲爾尼亞斯', type:'fairy',    hp:370, tier:3, attacks:[{name:'月亮力量',dmg:52,type:'fairy'},{name:'精神強擊',dmg:92,type:'psychic', status:{effect:'confusion',chance:0.25}},{name:'光之波動',dmg:80,type:'fairy'},{name:'仙子之息',dmg:75,type:'fairy'}]},
-  { id:378, name:'雷吉艾斯',   type:'ice',      hp:370, tier:3, attacks:[{name:'暴風雪',  dmg:50,type:'ice',     status:{effect:'freeze',   chance:0.20}},{name:'電磁砲',  dmg:88,type:'electric',status:{effect:'paralysis',chance:0.30}},{name:'閃光炮',  dmg:72,type:'steel'},{name:'冰耳光',  dmg:75,type:'ice',     status:{effect:'freeze',   chance:0.15}}]},
-  { id:717, name:'伊菲爾塔爾', type:'dark',     type2:'flying',  hp:350, tier:3, attacks:[{name:'朽滅之歌',dmg:80,type:'flying'},{name:'惡之波動',dmg:50,type:'dark',   status:{effect:'confusion',chance:0.20}},{name:'空氣斬',  dmg:85,type:'flying'},{name:'夜騷動',  dmg:90,type:'dark'}]},
-  { id:483, name:'帝牙盧卡',   type:'steel',    type2:'dragon',  hp:360, tier:3, attacks:[{name:'時間咆哮',dmg:95,type:'dragon'},{name:'閃光炮',  dmg:52,type:'steel'},{name:'龍爪',    dmg:82,type:'dragon'},{name:'鋼鐵翼',  dmg:75,type:'steel'}]},
-  { id:484, name:'帕路奇亞',   type:'water',    type2:'dragon',  hp:360, tier:3, attacks:[{name:'空間扭曲',dmg:95,type:'dragon'},{name:'衝浪',    dmg:52,type:'water'},{name:'龍之脈動',dmg:82,type:'dragon'},{name:'水之脈動',dmg:85,type:'water',    status:{effect:'freeze',   chance:0.10}}]},
-  { id:727, name:'赤焰咆哮虎', type:'fire',     type2:'dark',    hp:300, tier:2, attacks:[{name:'暗黑強打',dmg:62,type:'dark'},{name:'火焰噴射',dmg:55,type:'fire',    status:{effect:'burn',     chance:0.25}},{name:'超強衝擊',dmg:65,type:'fighting'},{name:'赤焰衝擊',dmg:70,type:'fire',    status:{effect:'burn',     chance:0.20}}]},
+  { id:383, name:'固拉多',     type:'ground',   hp:340, tier:3, attacks:[{name:'地震',dmg:40,cost:2,type:'ground'},{name:'岩石碎裂',dmg:42,cost:2,type:'rock'},{name:'火焰噴射',dmg:85,cost:16,type:'fire',status:{effect:'burn', chance:0.25}},{name:'原始大地',dmg:91,cost:17,type:'fire',status:{effect:'burn', chance:0.3}}]},
+  { id:382, name:'蓋歐卡',     type:'water',    hp:340, tier:3, attacks:[{name:'源起之波',dmg:40,cost:2,type:'water'},{name:'雷電',dmg:43,cost:2,type:'electric',status:{effect:'paralysis', chance:0.25}},{name:'大浪',dmg:85,cost:16,type:'water'},{name:'原始海洋',dmg:95,cost:18,type:'ice',status:{effect:'freeze', chance:0.2}}]},
+  { id:384, name:'列空座',     type:'dragon',   type2:'flying',  hp:360, tier:3, attacks:[{name:'神速',dmg:40,cost:2,type:'normal'},{name:'火焰噴射',dmg:44,cost:3,type:'fire',status:{effect:'burn', chance:0.25}},{name:'怒風',dmg:86,cost:16,type:'flying'},{name:'龍之隕星',dmg:99,cost:18,type:'dragon'}]},
+  { id:1008,name:'密勒頓',     type:'electric', type2:'dragon',  hp:360, tier:3, attacks:[{name:'電磁衝浪',dmg:41,cost:2,type:'electric',status:{effect:'paralysis', chance:0.25}},{name:'龍息',dmg:45,cost:3,type:'dragon'},{name:'電磁炮',dmg:87,cost:16,type:'electric',status:{effect:'paralysis', chance:0.2}},{name:'未來雷霆',dmg:99,cost:18,type:'psychic',status:{effect:'confusion', chance:0.25}}]},
+  { id:250, name:'鳳王',       type:'fire',     type2:'flying',  hp:340, tier:3, attacks:[{name:'聖焰',dmg:40,cost:2,type:'fire',status:{effect:'burn', chance:0.3}},{name:'怒風',dmg:44,cost:3,type:'flying'},{name:'超能力',dmg:85,cost:16,type:'psychic',status:{effect:'confusion', chance:0.2}},{name:'神聖之焰',dmg:97,cost:18,type:'flying'}]},
+  { id:249, name:'路奇亞',     type:'psychic',  type2:'flying',  hp:340, tier:3, attacks:[{name:'怒風',dmg:40,cost:2,type:'flying'},{name:'冰凍光束',dmg:44,cost:3,type:'ice',status:{effect:'freeze', chance:0.2}},{name:'暴風',dmg:86,cost:16,type:'flying'},{name:'心靈衝擊',dmg:99,cost:18,type:'psychic',status:{effect:'confusion', chance:0.3}}]},
+  { id:1007,name:'故勒頓',     type:'fighting', type2:'dragon',  hp:360, tier:3, attacks:[{name:'決勝衝擊',dmg:40,cost:2,type:'fighting'},{name:'火焰噴射',dmg:43,cost:2,type:'fire',status:{effect:'burn', chance:0.25}},{name:'地震',dmg:85,cost:16,type:'ground'},{name:'遠古之力',dmg:96,cost:18,type:'rock'}]},
+  { id:282, name:'沙奈朵',     type:'psychic',  type2:'fairy',   hp:320, tier:3, attacks:[{name:'妖精之力',dmg:40,cost:2,type:'fairy'},{name:'暗影球',dmg:44,cost:3,type:'ghost'},{name:'月亮力量',dmg:85,cost:16,type:'fairy'},{name:'精神強擊',dmg:97,cost:18,type:'psychic',status:{effect:'confusion', chance:0.3}}]},
+  { id:144, name:'急凍鳥',     type:'ice',      type2:'flying',  hp:340, tier:3, attacks:[{name:'暴風雪',dmg:40,cost:2,type:'ice',status:{effect:'freeze', chance:0.25}},{name:'冷凍光線',dmg:44,cost:3,type:'ice',status:{effect:'freeze', chance:0.2}},{name:'暴風',dmg:85,cost:16,type:'flying'},{name:'怒風',dmg:98,cost:18,type:'flying'}]},
+  { id:145, name:'閃電鳥',     type:'electric', type2:'flying',  hp:340, tier:3, attacks:[{name:'雷霆',dmg:40,cost:2,type:'electric',status:{effect:'paralysis', chance:0.3}},{name:'電磁衝浪',dmg:44,cost:3,type:'electric',status:{effect:'paralysis', chance:0.25}},{name:'雷電',dmg:85,cost:16,type:'electric',status:{effect:'paralysis', chance:0.2}},{name:'怒風',dmg:98,cost:18,type:'flying'}]},
+  { id:146, name:'火焰鳥',     type:'fire',     type2:'flying',  hp:340, tier:3, attacks:[{name:'火焰衝擊',dmg:40,cost:2,type:'fire',status:{effect:'burn', chance:0.3}},{name:'超能力',dmg:43,cost:2,type:'psychic',status:{effect:'confusion', chance:0.2}},{name:'噴射火焰',dmg:85,cost:16,type:'fire',status:{effect:'burn', chance:0.25}},{name:'怒風',dmg:95,cost:18,type:'flying'}]},
+  { id:10188,name:'蒼響',      type:'fairy',    type2:'steel',   hp:370, tier:3, attacks:[{name:'鐵頭功',dmg:46,cost:3,type:'steel'},{name:'剛劍',dmg:48,cost:3,type:'steel'},{name:'接近戰',dmg:104,cost:19,type:'fighting'},{name:'神秘劍',dmg:110,cost:20,type:'fairy'}]},
+  { id:716, name:'哲爾尼亞斯', type:'fairy',    hp:370, tier:3, attacks:[{name:'月亮力量',dmg:41,cost:2,type:'fairy'},{name:'仙子之息',dmg:45,cost:3,type:'fairy'},{name:'光之波動',dmg:88,cost:16,type:'fairy'},{name:'精神強擊',dmg:101,cost:19,type:'psychic',status:{effect:'confusion', chance:0.25}}]},
+  { id:378, name:'雷吉艾斯',   type:'ice',      hp:370, tier:3, attacks:[{name:'暴風雪',dmg:40,cost:2,type:'ice',status:{effect:'freeze', chance:0.2}},{name:'閃光炮',dmg:44,cost:3,type:'steel'},{name:'冰耳光',dmg:85,cost:16,type:'ice',status:{effect:'freeze', chance:0.15}},{name:'電磁砲',dmg:96,cost:18,type:'electric',status:{effect:'paralysis', chance:0.3}}]},
+  { id:717, name:'伊菲爾塔爾', type:'dark',     type2:'flying',  hp:350, tier:3, attacks:[{name:'惡之波動',dmg:42,cost:2,type:'dark',status:{effect:'confusion', chance:0.2}},{name:'朽滅之歌',dmg:46,cost:3,type:'flying'},{name:'空氣斬',dmg:90,cost:17,type:'flying'},{name:'夜騷動',dmg:103,cost:19,type:'dark'}]},
+  { id:483, name:'帝牙盧卡',   type:'steel',    type2:'dragon',  hp:360, tier:3, attacks:[{name:'閃光炮',dmg:42,cost:2,type:'steel'},{name:'鋼鐵翼',dmg:46,cost:3,type:'steel'},{name:'龍爪',dmg:90,cost:17,type:'dragon'},{name:'時間咆哮',dmg:103,cost:19,type:'dragon'}]},
+  { id:484, name:'帕路奇亞',   type:'water',    type2:'dragon',  hp:360, tier:3, attacks:[{name:'衝浪',dmg:43,cost:2,type:'water'},{name:'龍之脈動',dmg:47,cost:3,type:'dragon'},{name:'水之脈動',dmg:93,cost:17,type:'water',status:{effect:'freeze', chance:0.1}},{name:'空間扭曲',dmg:106,cost:19,type:'dragon'}]},
+  { id:727, name:'赤焰咆哮虎', type:'fire',     type2:'dark',    hp:300, tier:2, attacks:[{name:'火焰噴射',dmg:39,cost:2,type:'fire',status:{effect:'burn', chance:0.25}},{name:'暗黑強打',dmg:42,cost:2,type:'dark'},{name:'超強衝擊',dmg:85,cost:15,type:'fighting'},{name:'赤焰衝擊',dmg:95,cost:17,type:'fire',status:{effect:'burn', chance:0.2}}]},
   // 新增：補足各屬性
-  { id:128, name:'肯泰羅',     type:'normal',                    hp:240, tier:1, attacks:[{name:'橫衝直撞',dmg:42,type:'normal',  status:{effect:'confusion',chance:0.20}},{name:'地震',    dmg:55,type:'ground'},{name:'岩石滑落',dmg:48,type:'rock',    status:{effect:'paralysis',chance:0.15}},{name:'強力碰撞',dmg:58,type:'normal'}]},
-  { id:295, name:'爆音怪',     type:'normal',                    hp:240, tier:1, attacks:[{name:'超音炸裂',dmg:42,type:'normal',  status:{effect:'confusion',chance:0.25}},{name:'破壞光線',dmg:60,type:'normal'},{name:'噴火',    dmg:45,type:'fire',    status:{effect:'burn',     chance:0.20}},{name:'衝浪',    dmg:48,type:'water'}]},
-  { id:254, name:'蜥蜴王',     type:'grass',                     hp:260, tier:2, attacks:[{name:'葉刃',    dmg:62,type:'grass'},{name:'能量球',  dmg:55,type:'grass',   status:{effect:'confusion',chance:0.15}},{name:'大地之力',dmg:60,type:'ground'},{name:'電球',    dmg:50,type:'electric',status:{effect:'paralysis',chance:0.15}}]},
-  { id:24,  name:'阿柏怪',     type:'poison',                    hp:200, tier:1, attacks:[{name:'毒牙',    dmg:40,type:'poison',  status:{effect:'poison',   chance:0.35}},{name:'強酸',    dmg:48,type:'poison',  status:{effect:'poison',   chance:0.25}},{name:'纏繞',    dmg:35,type:'normal',  status:{effect:'sleep',    chance:0.25}},{name:'甩尾',    dmg:45,type:'normal'}]},
-  { id:73,  name:'毒刺水母',   type:'water',    type2:'poison',  hp:220, tier:1, attacks:[{name:'毒刺',    dmg:40,type:'poison',  status:{effect:'poison',   chance:0.35}},{name:'水砲',    dmg:52,type:'water'},{name:'衝浪',    dmg:48,type:'water'},{name:'毒液',    dmg:42,type:'poison',  status:{effect:'poison',   chance:0.30}}]},
-  { id:454, name:'毒骷蛙',     type:'fighting', type2:'poison',  hp:230, tier:1, attacks:[{name:'毒衝拳',  dmg:42,type:'poison',  status:{effect:'poison',   chance:0.30}},{name:'十字劈',  dmg:55,type:'fighting'},{name:'突擊',    dmg:45,type:'dark'},{name:'近身戰',  dmg:58,type:'fighting'}]},
-  { id:553, name:'流氓鱷',     type:'ground',   type2:'dark',    hp:270, tier:2, attacks:[{name:'地震',    dmg:62,type:'ground'},{name:'咬碎',    dmg:55,type:'dark',    status:{effect:'confusion',chance:0.20}},{name:'岩石滑落',dmg:52,type:'rock',    status:{effect:'paralysis',chance:0.15}},{name:'夜斬',    dmg:65,type:'dark'}]},
-  { id:641, name:'龍捲雲',     type:'flying',                    hp:290, tier:2, attacks:[{name:'颶風',    dmg:62,type:'flying',  status:{effect:'confusion',chance:0.25}},{name:'暴風',    dmg:68,type:'flying'},{name:'空氣斬',  dmg:55,type:'flying',  status:{effect:'confusion',chance:0.20}},{name:'雷電',    dmg:58,type:'electric',status:{effect:'paralysis',chance:0.20}}]},
-  { id:398, name:'姆克鷹',     type:'normal',   type2:'flying',  hp:240, tier:1, attacks:[{name:'燕返',    dmg:40,type:'normal'},{name:'勇鳥猛衝',dmg:58,type:'flying'},{name:'衝撞',    dmg:45,type:'normal'},{name:'空氣斬',  dmg:50,type:'flying',  status:{effect:'confusion',chance:0.20}}]},
-  { id:663, name:'烈箭鷹',     type:'fire',     type2:'flying',  hp:260, tier:2, attacks:[{name:'炎翼衝刺',dmg:42,type:'fire',    status:{effect:'burn',     chance:0.20}},{name:'勇鳥猛衝',dmg:65,type:'flying'},{name:'火焰衝擊',dmg:62,type:'fire',    status:{effect:'burn',     chance:0.25}},{name:'空氣斬',  dmg:55,type:'flying',  status:{effect:'confusion',chance:0.20}}]},
-  { id:214, name:'赫拉克羅斯', type:'bug',      type2:'fighting',hp:270, tier:2, attacks:[{name:'聖甲蟲衝擊',dmg:62,type:'bug'},{name:'近身戰',  dmg:72,type:'fighting'},{name:'地震',    dmg:60,type:'ground'},{name:'岩石滑落',dmg:55,type:'rock',    status:{effect:'paralysis',chance:0.15}}]},
-  { id:212, name:'巨鉗螳螂',   type:'bug',      type2:'steel',   hp:260, tier:2, attacks:[{name:'子彈拳',  dmg:55,type:'steel'},{name:'蟲刃剪',  dmg:60,type:'bug'},{name:'鐵頭功',  dmg:65,type:'steel'},{name:'空氣斬',  dmg:50,type:'flying',  status:{effect:'confusion',chance:0.20}}]},
-  { id:469, name:'遠古巨蜓',   type:'bug',      type2:'flying',  hp:230, tier:1, attacks:[{name:'空氣斬',  dmg:40,type:'flying',  status:{effect:'confusion',chance:0.20}},{name:'蟲鳴',    dmg:52,type:'bug'},{name:'暗影球',  dmg:45,type:'ghost'},{name:'颶風',    dmg:55,type:'flying'}]},
-  { id:248, name:'班基拉斯',   type:'rock',     type2:'dark',    hp:300, tier:2, attacks:[{name:'碎岩',    dmg:60,type:'rock',    status:{effect:'paralysis',chance:0.15}},{name:'咬碎',    dmg:65,type:'dark',    status:{effect:'confusion',chance:0.20}},{name:'地震',    dmg:68,type:'ground'},{name:'岩石炮',  dmg:72,type:'rock'}]},
-  { id:142, name:'化石翼龍',   type:'rock',     type2:'flying',  hp:260, tier:2, attacks:[{name:'翼擊',    dmg:55,type:'flying'},{name:'岩石炮',  dmg:65,type:'rock'},{name:'咬碎',    dmg:52,type:'dark',    status:{effect:'confusion',chance:0.15}},{name:'空氣斬',  dmg:60,type:'flying',  status:{effect:'confusion',chance:0.20}}]},
-  { id:526, name:'龐岩怪',     type:'rock',                      hp:280, tier:2, attacks:[{name:'碎岩',    dmg:62,type:'rock'},{name:'地震',    dmg:65,type:'ground'},{name:'岩石炮',  dmg:72,type:'rock'},{name:'閃光炮',  dmg:55,type:'steel'}]},
-  { id:477, name:'黑夜魔靈',   type:'ghost',                     hp:220, tier:1, attacks:[{name:'暗影爪',  dmg:40,type:'ghost',   status:{effect:'paralysis',chance:0.20}},{name:'地震',    dmg:55,type:'ground'},{name:'幽靈球',  dmg:50,type:'ghost'},{name:'冰凍拳',  dmg:45,type:'ice',     status:{effect:'freeze',   chance:0.10}}]},
-  { id:609, name:'水晶燈火靈', type:'ghost',    type2:'fire',    hp:260, tier:2, attacks:[{name:'幽靈火焰',dmg:55,type:'ghost',   status:{effect:'burn',     chance:0.25}},{name:'火焰漩渦',dmg:62,type:'fire',    status:{effect:'burn',     chance:0.20}},{name:'噴火',    dmg:58,type:'fire',    status:{effect:'burn',     chance:0.25}},{name:'暗影球',  dmg:65,type:'ghost'}]},
-  { id:359, name:'阿勃梭魯',   type:'dark',                      hp:220, tier:1, attacks:[{name:'夜斬',    dmg:42,type:'dark'},{name:'精神力',  dmg:50,type:'psychic', status:{effect:'confusion',chance:0.20}},{name:'追影斬',  dmg:48,type:'dark'},{name:'暗黑脈衝',dmg:58,type:'dark'}]},
+  { id:128, name:'肯泰羅',     type:'normal',                    hp:240, tier:1, attacks:[{name:'橫衝直撞',dmg:35,cost:1,type:'normal',status:{effect:'confusion', chance:0.2}},{name:'岩石滑落',dmg:38,cost:1,type:'rock',status:{effect:'paralysis', chance:0.15}},{name:'地震',dmg:74,cost:12,type:'ground'},{name:'強力碰撞',dmg:80,cost:14,type:'normal'}]},
+  { id:295, name:'爆音怪',     type:'normal',                    hp:240, tier:1, attacks:[{name:'超音炸裂',dmg:33,cost:0,type:'normal',status:{effect:'confusion', chance:0.25}},{name:'噴火',dmg:37,cost:1,type:'fire',status:{effect:'burn', chance:0.2}},{name:'衝浪',dmg:71,cost:12,type:'water'},{name:'破壞光線',dmg:79,cost:14,type:'normal'}]},
+  { id:254, name:'蜥蜴王',     type:'grass',                     hp:260, tier:2, attacks:[{name:'電球',dmg:35,cost:1,type:'electric',status:{effect:'paralysis', chance:0.15}},{name:'能量球',dmg:39,cost:2,type:'grass',status:{effect:'confusion', chance:0.15}},{name:'大地之力',dmg:76,cost:13,type:'ground'},{name:'葉刃',dmg:86,cost:15,type:'grass'}]},
+  { id:24,  name:'阿柏怪',     type:'poison',                    hp:200, tier:1, attacks:[{name:'纏繞',dmg:30,cost:0,type:'normal',status:{effect:'sleep', chance:0.25}},{name:'毒牙',dmg:32,cost:0,type:'poison',status:{effect:'poison', chance:0.35}},{name:'甩尾',dmg:65,cost:10,type:'normal'},{name:'強酸',dmg:69,cost:11,type:'poison',status:{effect:'poison', chance:0.25}}]},
+  { id:73,  name:'毒刺水母',   type:'water',    type2:'poison',  hp:220, tier:1, attacks:[{name:'毒刺',dmg:31,cost:0,type:'poison',status:{effect:'poison', chance:0.35}},{name:'毒液',dmg:35,cost:1,type:'poison',status:{effect:'poison', chance:0.3}},{name:'衝浪',dmg:67,cost:11,type:'water'},{name:'水砲',dmg:74,cost:12,type:'water'}]},
+  { id:454, name:'毒骷蛙',     type:'fighting', type2:'poison',  hp:230, tier:1, attacks:[{name:'毒衝拳',dmg:34,cost:1,type:'poison',status:{effect:'poison', chance:0.3}},{name:'突擊',dmg:38,cost:1,type:'dark'},{name:'十字劈',dmg:73,cost:12,type:'fighting'},{name:'近身戰',dmg:80,cost:14,type:'fighting'}]},
+  { id:553, name:'流氓鱷',     type:'ground',   type2:'dark',    hp:270, tier:2, attacks:[{name:'岩石滑落',dmg:36,cost:1,type:'rock',status:{effect:'paralysis', chance:0.15}},{name:'咬碎',dmg:40,cost:2,type:'dark',status:{effect:'confusion', chance:0.2}},{name:'地震',dmg:78,cost:14,type:'ground'},{name:'夜斬',dmg:88,cost:16,type:'dark'}]},
+  { id:641, name:'龍捲雲',     type:'flying',                    hp:290, tier:2, attacks:[{name:'空氣斬',dmg:37,cost:1,type:'flying',status:{effect:'confusion', chance:0.2}},{name:'雷電',dmg:41,cost:2,type:'electric',status:{effect:'paralysis', chance:0.2}},{name:'颶風',dmg:82,cost:14,type:'flying',status:{effect:'confusion', chance:0.25}},{name:'暴風',dmg:92,cost:16,type:'flying'}]},
+  { id:398, name:'姆克鷹',     type:'normal',   type2:'flying',  hp:240, tier:1, attacks:[{name:'燕返',dmg:33,cost:0,type:'normal'},{name:'衝撞',dmg:37,cost:1,type:'normal'},{name:'空氣斬',dmg:71,cost:12,type:'flying',status:{effect:'confusion', chance:0.2}},{name:'勇鳥猛衝',dmg:78,cost:13,type:'flying'}]},
+  { id:663, name:'烈箭鷹',     type:'fire',     type2:'flying',  hp:260, tier:2, attacks:[{name:'炎翼衝刺',dmg:35,cost:1,type:'fire',status:{effect:'burn', chance:0.2}},{name:'空氣斬',dmg:38,cost:1,type:'flying',status:{effect:'confusion', chance:0.2}},{name:'火焰衝擊',dmg:75,cost:13,type:'fire',status:{effect:'burn', chance:0.25}},{name:'勇鳥猛衝',dmg:85,cost:15,type:'flying'}]},
+  { id:214, name:'赫拉克羅斯', type:'bug',      type2:'fighting',hp:270, tier:2, attacks:[{name:'岩石滑落',dmg:38,cost:1,type:'rock',status:{effect:'paralysis', chance:0.15}},{name:'地震',dmg:42,cost:2,type:'ground'},{name:'聖甲蟲衝擊',dmg:84,cost:15,type:'bug'},{name:'近身戰',dmg:94,cost:17,type:'fighting'}]},
+  { id:212, name:'巨鉗螳螂',   type:'bug',      type2:'steel',   hp:260, tier:2, attacks:[{name:'空氣斬',dmg:36,cost:1,type:'flying',status:{effect:'confusion', chance:0.2}},{name:'子彈拳',dmg:39,cost:2,type:'steel'},{name:'蟲刃剪',dmg:77,cost:13,type:'bug'},{name:'鐵頭功',dmg:87,cost:15,type:'steel'}]},
+  { id:469, name:'遠古巨蜓',   type:'bug',      type2:'flying',  hp:230, tier:1, attacks:[{name:'空氣斬',dmg:33,cost:0,type:'flying',status:{effect:'confusion', chance:0.2}},{name:'暗影球',dmg:37,cost:1,type:'ghost'},{name:'蟲鳴',dmg:70,cost:11,type:'bug'},{name:'颶風',dmg:78,cost:13,type:'flying'}]},
+  { id:248, name:'班基拉斯',   type:'rock',     type2:'dark',    hp:300, tier:2, attacks:[{name:'碎岩',dmg:40,cost:2,type:'rock',status:{effect:'paralysis', chance:0.15}},{name:'咬碎',dmg:42,cost:2,type:'dark',status:{effect:'confusion', chance:0.2}},{name:'地震',dmg:90,cost:16,type:'ground'},{name:'岩石炮',dmg:95,cost:17,type:'rock'}]},
+  { id:142, name:'化石翼龍',   type:'rock',     type2:'flying',  hp:260, tier:2, attacks:[{name:'咬碎',dmg:36,cost:1,type:'dark',status:{effect:'confusion', chance:0.15}},{name:'翼擊',dmg:39,cost:2,type:'flying'},{name:'空氣斬',dmg:78,cost:14,type:'flying',status:{effect:'confusion', chance:0.2}},{name:'岩石炮',dmg:88,cost:16,type:'rock'}]},
+  { id:526, name:'龐岩怪',     type:'rock',                      hp:280, tier:2, attacks:[{name:'閃光炮',dmg:39,cost:2,type:'steel'},{name:'碎岩',dmg:42,cost:2,type:'rock'},{name:'地震',dmg:86,cost:15,type:'ground'},{name:'岩石炮',dmg:95,cost:17,type:'rock'}]},
+  { id:477, name:'黑夜魔靈',   type:'ghost',                     hp:220, tier:1, attacks:[{name:'暗影爪',dmg:32,cost:0,type:'ghost',status:{effect:'paralysis', chance:0.2}},{name:'冰凍拳',dmg:36,cost:1,type:'ice',status:{effect:'freeze', chance:0.1}},{name:'幽靈球',dmg:70,cost:11,type:'ghost'},{name:'地震',dmg:77,cost:13,type:'ground'}]},
+  { id:609, name:'水晶燈火靈', type:'ghost',    type2:'fire',    hp:260, tier:2, attacks:[{name:'幽靈火焰',dmg:37,cost:1,type:'ghost',status:{effect:'burn', chance:0.25}},{name:'噴火',dmg:40,cost:2,type:'fire',status:{effect:'burn', chance:0.25}},{name:'火焰漩渦',dmg:81,cost:14,type:'fire',status:{effect:'burn', chance:0.2}},{name:'暗影球',dmg:91,cost:16,type:'ghost'}]},
+  { id:359, name:'阿勃梭魯',   type:'dark',                      hp:220, tier:1, attacks:[{name:'夜斬',dmg:34,cost:1,type:'dark'},{name:'追影斬',dmg:38,cost:1,type:'dark'},{name:'精神力',dmg:73,cost:12,type:'psychic',status:{effect:'confusion', chance:0.2}},{name:'暗黑脈衝',dmg:80,cost:14,type:'dark'}]},
 ];
 const EFF = {
   fire:     {grass:2, ice:2, steel:2, bug:2, water:0.5, fire:0.5, rock:0.5, dragon:0.5},
@@ -150,12 +150,16 @@ const TRAINERS = [
   {id:'retreat-vest', name:'撤退背心', cat:'item',      desc:'下次換場不會結束回合'},
   {id:'confuse-potion', name:'混亂藥', cat:'item',      desc:'讓對手上場寶可夢陷入混亂'},
   {id:'absolute-zero', name:'絕對零度', cat:'item',     desc:'讓對手上場寶可夢陷入結凍'},
+  {id:'energy-patch-s', name:'能量補丁（小）', cat:'item', desc:'回復 2 點能量'},
+  {id:'energy-patch-m', name:'能量補丁（中）', cat:'item', desc:'回復 3 點能量'},
+  {id:'energy-patch-l', name:'能量補丁（大）', cat:'item', desc:'回復 4 點能量'},
   // ── supporters ──
   {id:'revive',     name:'復活藥',     cat:'supporter', desc:'復活備戰欄第一隻倒下的寶可夢（回復 80 HP）'},
   {id:'nurse',      name:'治療師',     cat:'supporter', desc:'上場寶可夢完全回復 HP 並解除異常狀態'},
   {id:'all-out',    name:'全力出擊',   cat:'supporter', desc:'下次攻擊傷害 ×3'},
   {id:'sacrifice',      name:'搏命',       cat:'supporter', desc:'我方與對方上場寶可夢同歸於盡'},
   {id:'mad-scientist',  name:'瘋狂博士',   cat:'supporter', desc:'選我方一隻寶可夢，變身成對方一隻陣亡的寶可夢'},
+  {id:'cheerleader',    name:'啦啦隊',     cat:'supporter', desc:'將能量補滿到 20'},
   // ── stadium ──
   {id:'stadium-training',      name:'訓練場',     cat:'stadium', desc:'場上所有技能威力 +20（雙方）'},
   {id:'stadium-spring',        name:'地熱溫泉',   cat:'stadium', desc:'每回合結束，雙方上場寶可夢各回復 15 HP'},
@@ -475,6 +479,19 @@ function applyTrainer(card, role, G, log) {
     case 'orb-ghost':   buff.typeOverride = 'ghost';    log.push({ text: `幽靈寶珠：本回合攻擊改為幽靈屬性！`, cls: 'system' }); break;
     case 'orb-steel':   buff.typeOverride = 'steel';    log.push({ text: `鋼鐵寶珠：本回合攻擊改為鋼屬性！`, cls: 'system' }); break;
     case 'orb-ground':  buff.typeOverride = 'ground';   log.push({ text: `大地寶珠：本回合攻擊改為地面屬性！`, cls: 'system' }); break;
+    case 'energy-patch-s':
+    case 'energy-patch-m':
+    case 'energy-patch-l': {
+      const gain = { 'energy-patch-s':2, 'energy-patch-m':3, 'energy-patch-l':4 }[card.id];
+      const actualGain = Math.min(20 - G[`${role}Energy`], gain);
+      G[`${role}Energy`] = Math.min(20, G[`${role}Energy`] + gain);
+      log.push({ text: `${card.name}回復了 ${actualGain} 點能量！（現在 ${G[`${role}Energy`]}/20）`, cls: 'system' });
+      break;
+    }
+    case 'cheerleader':
+      G[`${role}Energy`] = 20;
+      log.push({ text: `啦啦隊將能量補滿到 20！`, cls: 'special' });
+      break;
     case 'stadium-training':
     case 'stadium-spring':
     case 'stadium-reversal':
@@ -501,6 +518,7 @@ function drawForRole(G, role) {
       }
     }
   }
+  G[`${role}Energy`] = Math.min(20, (G[`${role}Energy`] || 0) + 3);
   const itemsOnly = TRAINERS.filter(c => c.cat !== 'supporter');
   const n = Math.floor(Math.random() * 2) + 1;
   for (let i = 0; i < n; i++) {
@@ -553,6 +571,7 @@ function buildG(room, startLog) {
     turn:   firstTurn,
     pendingKOSwitch: null,
     p1Hand: dealHand(3), p2Hand: dealHand(3),
+    p1Energy: 5, p2Energy: 5,
     p1SuppUsed: false, p1SuppStageUsed: 0,
     p2SuppUsed: false, p2SuppStageUsed: 0,
     p1FreeSwitch: false, p2FreeSwitch: false,
@@ -676,9 +695,6 @@ function handleMessage(ws, msg) {
       const card = hand[msg.handIdx];
       if (!card) return;
       if (card.cat === 'supporter' && G[`${role}SuppUsed`]) return;
-      if (card.cat === 'supporter' && G[`${role}SuppStageUsed`] >= 2) {
-        send(ws, { type: 'error', message: '本關支援者牌已達上限（2張）' }); return;
-      }
 
       // 瘋狂博士：需要額外的目標索引；先驗證目標合法才消耗手牌
       if (card.id === 'mad-scientist') {
@@ -762,6 +778,7 @@ function handleMessage(ws, msg) {
       const dBuff    = G[`${op}Buff`];
       const atk      = attacker.attacks[msg.idx];
       if (!atk) return;
+      if ((G[`${role}Energy`] || 0) < atk.cost) { send(ws, { type:'error', message:'能量不足，無法使用這個招式' }); return; }
 
       const log = [];
       const sResult = handleStatus(attacker, log);
@@ -791,6 +808,7 @@ function handleMessage(ws, msg) {
 
       const switchGuardMult = G[`${op}SwitchGuard`] ? 0.8 : 1;
       G[`${op}SwitchGuard`] = false; // consumed by this incoming attack
+      G[`${role}Energy`] -= atk.cost;
       doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult);
       G[`${role}SuppUsed`]  = false;
       G[`${role}FreeSwitch`] = false;
@@ -945,6 +963,13 @@ function handleMessage(ws, msg) {
       const sorted = [...indices].sort((a,b) => b-a);
       sorted.forEach(i => hand.splice(i, 1));
       const cardType = msg.cardType;
+      if (cardType === 'energy') {
+        const gain = Math.min(20 - G[`${role}Energy`], 5);
+        G[`${role}Energy`] = Math.min(20, G[`${role}Energy`] + 5);
+        G[`${role}NeedsDiscard`] = hand.length > 5;
+        const log = [{ text: `棄牌換能量！回復了 ${gain} 點能量！（現在 ${G[`${role}Energy`]}/20）`, cls: 'system' }];
+        broadcast(room, { type: 'update', state: G, log, actor: role }); return;
+      }
       if (cardType !== 'stadium' && cardType !== 'item') return;
       const pool = TRAINERS.filter(c => c.cat === cardType);
       const newCard = pool[Math.floor(Math.random() * pool.length)];
