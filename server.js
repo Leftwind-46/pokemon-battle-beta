@@ -783,6 +783,7 @@ function handleMessage(ws, msg) {
         G[`${role}FreeSwitch`] = false;
         G[`${role}SwitchedThisTurn`] = false;
         G[`${op}SwitchGuard`] = false; // guard only lasts one enemy turn, even if that turn was skipped
+        G[`${op}Buff`].reflect = false; // reflect expires if opponent never attacked (status skip)
         drawForRole(G, op);
         broadcast(room, { type: 'update', state: G, log, actor: role }); return;
       }
@@ -871,6 +872,7 @@ function handleMessage(ws, msg) {
       G[`${role}SuppUsed`] = false;
       G.turn = op;
       G.round++;
+      G[`${op}Buff`].reflect = false; // reflect expires if opponent never attacked (switched instead)
       drawForRole(G, op);
       const log = [{ text: `換上了 ${deck[newIdx].name}！本回合傷害減免中…`, cls: 'player' }];
       triggerOnEnterSrv(deck[newIdx], role, G, log);

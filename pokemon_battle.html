@@ -3056,8 +3056,8 @@ function playerAttack(atkIdx) {
 
   handleAttackerStatus(P(), 'player',
     () => doAttack(P(), CP(), P().attacks[atkIdx], 'player', 'cpu', afterPlayerTurn),
-    () => setTimeout(cpuAttack, 700),
-    () => handleKO('player', () => setTimeout(cpuAttack, 700))
+    () => { G.cpuBuff.reflect = false; setTimeout(cpuAttack, 700); }, // reflect expires — player never attacked (status skip)
+    () => handleKO('player', () => { G.cpuBuff.reflect = false; setTimeout(cpuAttack, 700); }) // same — died before attacking
   );
 }
 
@@ -3112,6 +3112,7 @@ function executeSwitch(deckIdx) {
 
   G.busy = true;
   G.round++;
+  G.cpuBuff.reflect = false; // reflect expires if opponent never attacked (switched instead)
   log(`你將 ${outName} 換回，派出了 ${P().name}！本回合傷害減免中…`, 'player');
 
   renderBattle();
@@ -3201,6 +3202,7 @@ function cpuAttack() {
     G.freeSwitch      = false;
     G.switchedThisTurn = false;
     G.playerSwitchGuard = false;
+    G.playerBuff.reflect = false; // reflect expires if CPU's turn ends without attacking (status skip)
     drawAfterTurn(() => {
       G.busy = false;
       renderBattle();
