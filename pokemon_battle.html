@@ -1187,9 +1187,9 @@
 
       <h3>開局流程</h3>
       <ul>
-        <li>開始時隨機從牌庫獲得 5 隻寶可夢。</li>
+        <li>開始時隨機從牌庫獲得 5 隻寶可夢（HP 300 以上的高血量寶可夢最多只會出現 1 隻）。</li>
         <li>每關出戰前從手上的寶可夢中選出 3 隻參戰。</li>
-        <li>每關之間可用一次機會替換隊伍中一隻寶可夢。</li>
+        <li>每關之間可用一次機會替換隊伍中一隻寶可夢（候補名單同樣套用 HP 300 上限規則）。</li>
       </ul>
 
       <h3>對戰規則</h3>
@@ -1441,7 +1441,7 @@
           </button>
           <button class="btn-atk" id="btn-trade" onclick="playerDiscardTrade()" style="grid-column:span 2">
             <div class="atk-name">🔄 棄2換1</div>
-            <div class="atk-meta"><span style="font-size:0.72rem;color:var(--muted)">棄掉 2 張手牌，換取 1 張競技場或道具卡</span></div>
+            <div class="atk-meta"><span style="font-size:0.72rem;color:var(--muted)">棄掉 2 張手牌，換取 1 張競技場卡、道具卡、或 ⚡+5 能量</span></div>
           </button>
         </div>
       </div>
@@ -2197,8 +2197,8 @@ function renderSwapTeam(selectable) {
 function showSwapCandidates() {
   if (G.swapDone) return;
   const usedIds = new Set([...G.playerDeck, ...G.cpuDeck].map(p => p.id));
-  const pool    = POKEMON.filter(p => !usedIds.has(p.id)).sort(() => Math.random() - 0.5);
-  G.swapCandidates = pool.slice(0, 3).map(p => clone(p));
+  const pool    = POKEMON.filter(p => !usedIds.has(p.id));
+  G.swapCandidates = pickRandomRoster(3, pool).map(p => clone(p));
   _swapPickedIdx   = null;
 
   document.getElementById('swap-cand-section').style.display = '';
@@ -2404,9 +2404,24 @@ function renderSelCard(p, isSelected, onClick) {
   return el;
 }
 
+/* 隨機抽取寶可夢陣容，HP >= 300 的高血量寶可夢最多只能出現 1 隻 */
+function pickRandomRoster(n, pool = POKEMON, hpCap = 300, maxAtCap = 1) {
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  const result = [];
+  let capCount = 0;
+  for (const p of shuffled) {
+    if (result.length >= n) break;
+    if (p.hp >= hpCap) {
+      if (capCount >= maxAtCap) continue;
+      capCount++;
+    }
+    result.push(p);
+  }
+  return result;
+}
+
 function startGame() {
-  const shuffled = [...POKEMON].sort(() => Math.random() - 0.5);
-  G.playerRoster = shuffled.slice(0, 5).map(p => clone(p));
+  G.playerRoster = pickRandomRoster(5).map(p => clone(p));
   G.stage = 1;
   launchStage();
 }
@@ -3985,7 +4000,7 @@ function renderDex() {
           ? ` <span style="color:#f8d030;font-size:0.62rem">${STATUS_EFFECT_ZH[a.status.effect]} ${Math.round(a.status.chance*100)}%</span>`
           : '';
         return `<div class="dex-move">
-          <span class="dex-move-badge" style="background:${mc}">${TYPE_ZH[a.type]||a.type}</span>${a.name} <span style="color:var(--muted)">${a.dmg}</span>${statusHint}
+          <span class="dex-move-badge" style="background:${mc}">${TYPE_ZH[a.type]||a.type}</span>${a.name} <span style="color:var(--muted)">${a.dmg} · ⚡${a.cost}</span>${statusHint}
         </div>`;
       }).join('');
       html += `<div class="dex-card">
@@ -4030,7 +4045,7 @@ function renderDex() {
 <div id="trade-modal">
   <div class="discard-inner">
     <div class="discard-title">棄牌換卡</div>
-    <div class="discard-sub">選擇 2 張手牌丟棄，換取 1 張新卡</div>
+    <div class="discard-sub">選擇 2 張手牌丟棄，換取 1 張新卡或 ⚡能量</div>
     <div id="trade-select-cards" style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;margin:0.6rem 0"></div>
     <div style="display:flex;gap:0.6rem;justify-content:center;margin-top:0.5rem">
       <button id="trade-confirm-btn" class="btn-modal-ok" onclick="confirmDiscardTrade()" disabled>確認棄牌</button>
@@ -4043,7 +4058,7 @@ function renderDex() {
 <div id="trade-choose-modal">
   <div class="discard-inner">
     <div class="discard-title">選擇換取類型</div>
-    <div class="discard-sub">你想換取哪種卡片？</div>
+    <div class="discard-sub">你想換取哪種卡片，還是要能量？</div>
     <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.8rem">
       <button class="btn-modal-ok" onclick="chooseTrade('stadium')">🏟 競技場</button>
       <button class="btn-modal-ok" onclick="chooseTrade('item')">🃏 道具卡</button>

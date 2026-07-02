@@ -594,8 +594,20 @@ function broadcast(room, msg) {
   send(room.p1, msg); send(room.p2, msg);
 }
 
-function randomRoster() {
-  return [...POKEMON].sort(() => Math.random() - 0.5).slice(0, 6);
+/* 隨機抽取寶可夢陣容，HP >= 300 的高血量寶可夢最多只能出現 1 隻 */
+function randomRoster(n = 6, hpCap = 300, maxAtCap = 1) {
+  const shuffled = [...POKEMON].sort(() => Math.random() - 0.5);
+  const result = [];
+  let capCount = 0;
+  for (const p of shuffled) {
+    if (result.length >= n) break;
+    if (p.hp >= hpCap) {
+      if (capCount >= maxAtCap) continue;
+      capCount++;
+    }
+    result.push(p);
+  }
+  return result;
 }
 
 /* ═══════════════════════════════════════════

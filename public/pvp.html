@@ -126,6 +126,14 @@
       #action-area { gap: 0.3rem; }
       .btn-atk { padding: 0.5rem 0.6rem; }
       .atk-name { font-size: 0.82rem; }
+      /* chat FAB is vertically-centered on the right edge on desktop, where there's empty
+         space beside the battle card — on mobile the layout stacks to full width, so that
+         same position lands on top of the attack buttons instead. Pin it to the corner.
+         !important needed: this media query block appears earlier in the file than the
+         base #chat-btn/#chat-panel rules, so with equal specificity the base rule (later
+         in source order) would otherwise win regardless of viewport width. */
+      #chat-btn { top: auto !important; bottom: 1rem !important; right: 1rem !important; transform: none !important; }
+      #chat-panel { top: auto !important; bottom: 4.5rem !important; right: 0.5rem !important; left: 0.5rem !important; width: auto !important; transform: none !important; }
     }
     .type-badge { display:inline-block; padding:0.12rem 0.5rem; border-radius:999px; font-size:0.68rem; font-weight:700; margin-top:0.2rem; color:#fff; }
     .buff-tags { display:flex; gap:0.25rem; flex-wrap:wrap; justify-content:center; margin-top:0.3rem; min-height:1rem; }
@@ -523,7 +531,7 @@
             </button>
             <button class="btn-atk" id="btn-trade" onclick="playerDiscardTrade()" style="grid-column:span 2">
               <div class="atk-name">🔄 棄2換1</div>
-              <div class="atk-meta"><span style="font-size:0.72rem;color:var(--muted)">棄掉 2 張手牌，換取 1 張競技場或道具卡</span></div>
+              <div class="atk-meta"><span style="font-size:0.72rem;color:var(--muted)">棄掉 2 張手牌，換取 1 張競技場卡、道具卡、或 ⚡+5 能量</span></div>
             </button>
           </div>
         </div>
@@ -561,7 +569,7 @@
     <h3>對戰規則</h3>
     <ul>
       <li>建立房間後，將代碼分享給對手，對手輸入代碼加入。</li>
-      <li>雙方各從隨機 6 隻寶可夢中選出 3 隻出戰（可重新生成最多 3 次）。</li>
+      <li>雙方各從隨機 6 隻寶可夢中選出 3 隻出戰（可重新生成最多 3 次；HP 300 以上的高血量寶可夢每次最多只會出現 1 隻）。</li>
       <li>擲硬幣決定先後攻，先擊倒對手全部 3 隻寶可夢者獲勝。</li>
       <li>雙方輪流行動；每回合限換場一次，換場會直接結束本回合，新上場的寶可夢該回合受到的傷害減少 20%（使用撤退背心後的換場不會結束回合）。</li>
       <li><b>💤 待機</b>：跳過攻擊，抽 1 張支援者牌進入手牌。</li>
@@ -658,7 +666,7 @@
 <div id="trade-modal">
   <div class="discard-inner">
     <div class="discard-title">棄牌換卡</div>
-    <div class="discard-sub">選擇 2 張手牌丟棄，換取 1 張新卡</div>
+    <div class="discard-sub">選擇 2 張手牌丟棄，換取 1 張新卡或 ⚡能量</div>
     <div id="trade-select-cards" style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;margin:0.6rem 0"></div>
     <div style="display:flex;gap:0.6rem;justify-content:center;margin-top:0.5rem">
       <button id="trade-confirm-btn" class="btn-modal-ok" onclick="pvpConfirmDiscardTrade()" disabled>確認棄牌</button>
@@ -671,7 +679,7 @@
 <div id="trade-choose-modal">
   <div class="discard-inner">
     <div class="discard-title">選擇換取類型</div>
-    <div class="discard-sub">你想換取哪種卡片？</div>
+    <div class="discard-sub">你想換取哪種卡片，還是要能量？</div>
     <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.8rem">
       <button class="btn-modal-ok" onclick="pvpChooseTrade('stadium')">🏟 競技場</button>
       <button class="btn-modal-ok" onclick="pvpChooseTrade('item')">🃏 道具卡</button>
