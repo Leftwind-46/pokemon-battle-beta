@@ -141,6 +141,7 @@
     .buff-tag.atk  { background:rgba(248,208,48,0.25); color:#f8d030; border:1px solid rgba(248,208,48,0.55); }
     .buff-tag.def  { background:rgba(144,202,249,0.2); color:#90caf9; border:1px solid rgba(144,202,249,0.45); }
     .buff-tag.mult { background:rgba(255,128,64,0.25); color:#ff8042; border:1px solid rgba(255,128,64,0.55); }
+    .buff-tag.debuff { background:rgba(239,83,80,0.22); color:#ef5350; border:1px solid rgba(239,83,80,0.5); }
     .status-tag { display:inline-block; font-size:0.65rem; font-weight:700; padding:0.12rem 0.5rem; border-radius:999px; margin-top:0.22rem; letter-spacing:0.02em; color:#fff; }
     .status-tag.poison    { background:#7b1fa2; }
     .status-tag.paralysis { background:#f57f17; color:#111; }
@@ -636,15 +637,16 @@
     <h3>特性</h3>
     <ul>
       <li>靜電（雷丘、電龍）— 受到攻擊後 20% 機率讓攻擊者陷入麻痺</li>
-      <li>威嚇（穿山王、暴鯉龍、肯泰羅、阿柏怪、姆克鷹、風速狗、布魯皇、流氓鱷）— 上場時讓對方下一次攻擊威力 −15</li>
+      <li>威嚇（穿山王、暴鯉龍、肯泰羅、阿柏怪、姆克鷹、風速狗、布魯皇、流氓鱷）— 上場時讓對方下一次攻擊傷害 ×0.5</li>
       <li>毒療（耿鬼）— 中毒時每回合改為回復 1/8 最大HP，而非扣血</li>
       <li>堅韌／毅力（路卡利歐、嘎啦嘎啦、堵攔熊、劈斬司令、怪力、赫拉克羅斯）— 自身帶有異常狀態時，攻擊傷害 ×1.3</li>
       <li>粗糙皮膚（甲賀忍蛙）— 受到攻擊傷害時，反彈攻擊者 1/8 最大HP 傷害</li>
       <li>電擊尾隨（三合一磁怪）— 攻擊命中時額外 15% 機率讓目標陷入麻痺</li>
-      <li>毒刺（羅絲雷朵、龍王蠍、大針蜂）— 受到攻擊後 20% 機率讓攻擊者中毒</li>
-      <li>厚脂肪（鐵掌力士、象牙豬、白海獅、卡比獸）— 受到火／冰屬性攻擊傷害 ×0.6</li>
+      <li>毒刺（羅絲雷朵、龍王蠍、大針蜂、毒刺水母）— 受到攻擊後 20% 機率讓攻擊者中毒</li>
+      <li>厚脂肪（鐵掌力士、象牙豬、白海獅、卡比獸、雷吉艾斯）— 受到火／冰屬性攻擊傷害 ×0.6</li>
       <li>頑強（岩殿居蟹、護城龍、冰岩怪、龐岩怪）— HP 全滿時，受到會直接擊倒的攻擊會保留 1 HP</li>
-      <li>硬岩／揚沙（太陽岩、泥偶巨人、超甲狂犀、班基拉斯）— 受到剋制（×2以上）的攻擊傷害再減少 25%</li>
+      <li>硬岩／揚沙（太陽岩、泥偶巨人、超甲狂犀、班基拉斯、巨金怪）— 受到剋制（×2以上）的攻擊傷害再減少 25%</li>
+      <li>多重鱗片（快龍）— HP 全滿時，受到的攻擊傷害減半</li>
       <li>激流／摘取／突襲／猛火／茂盛／強子引擎／緋紅脈動／蟲之預感（巨沼怪、狙射樹梟、具甲武者、黑魯加、妙蛙花、大力鱷、噴火龍、水箭龜、火爆獸、大竺葵、密勒頓、故勒頓、熾焰咆哮虎、蜥蜴王、巨鉗螳螂）— HP 低於 1/3 時，本系招式傷害 ×1.5</li>
       <li>大力士／超幸運／日照／氣閘／不撓之劍／惡作劇之心（掘地兔、鐵蟻、阿勃梭魯、固拉多、烈空坐、蒼響、龍捲雲）— 攻擊傷害固定 ×1.25</li>
       <li>適應力／降雨／妖精氣場／暗黑氣場（鐵螯龍蝦、巨蔓藤、蓋歐卡、哲爾尼亞斯、伊裴爾塔爾）— 屬性加成（STAB）提升為 ×2（原本 ×1.5）</li>
@@ -652,10 +654,9 @@
       <li>神秘之守／隔音／沙隱／迷人之軀／雪隱（寶石海星、哥德小姐、爆音怪、烈咬陸鯊、仙子伊布、雪妖女、凍原熊）— 25% 機率將受到的傷害減半</li>
       <li>背水之刃（蔥遊兵、貓老大、長毛狗、鍬農炮蟲）— HP 低於 50% 時，攻擊傷害 ×1.3</li>
       <li>同步（胡地、沙奈朵）— 陷入中毒／麻痺／燒傷時，會將該狀態傳染給攻擊者</li>
-      <li>恆淨之軀／精神力（巨金怪、毒刺水母、雷吉艾斯、快龍）— 不會被對手的威嚇降低攻擊力</li>
       <li>魔法防守（皮皮）— 不會受到中毒／燒傷的傷害</li>
       <li>我行我素（呆殼獸）— 不會陷入混亂狀態</li>
-      <li>壓迫感（鋼鎧鴉、黑夜魔靈、超夢、鳳王、洛奇亞、急凍鳥、閃電鳥、火焰鳥、帝牙盧卡、帕路奇亞、化石翼龍）— 上場時讓對方損失 3 點能量</li>
+      <li>壓迫感（鋼鎧鴉、黑夜魔靈、超夢、鳳王、洛奇亞、急凍鳥、閃電鳥、火焰鳥、帝牙盧卡、帕路奇亞、化石翼龍）— 上場時讓對方損失 3 點能量；且本寶可夢在場時，對方使用招式額外多消耗 2 點能量（上限仍是 20）</li>
       <li>有色眼鏡（遠古巨蜓）— 效果不佳的攻擊，威力恢復正常</li>
       <li>不眠（烏鴉頭頭）— 不會陷入睡眠狀態</li>
       <li>電氣引擎（電擊魔獸）— 受到電屬性攻擊時完全免疫，並回復 3 點能量</li>
@@ -1299,6 +1300,7 @@ function renderSide(side, poke, deck, activeIdx) {
     const parts = [];
     if (b.atkBonus > 0) parts.push(`<span class="buff-tag atk">ATK+${b.atkBonus}</span>`);
     if (b.atkMult  > 1) parts.push(`<span class="buff-tag mult">×${b.atkMult}</span>`);
+    if (b.atkMult  < 1) parts.push(`<span class="buff-tag debuff">×${b.atkMult}</span>`);
     if (b.shield   > 0) parts.push(`<span class="buff-tag def">DEF+${b.shield}</span>`);
     tags.innerHTML = parts.join('');
   }
@@ -1329,7 +1331,8 @@ function renderActions() {
     if (!btn) return;
     const col = TYPE_COLOR[a.type] || '#888';
     const mult = effActive(a.type, cp?.type, cp?.type2);
-    const affordable = (G.playerEnergy ?? 0) >= a.cost;
+    const cost = effectiveCost(a, cp);
+    const affordable = (G.playerEnergy ?? 0) >= cost;
     btn.disabled = G.busy || !affordable;
     btn.classList.toggle('unaffordable', !affordable);
     btn.style.borderLeftColor = col;
@@ -1339,7 +1342,7 @@ function renderActions() {
     const stab = (a.type === p.type || (p.type2 && a.type === p.type2)) ? ' ★' : '';
     const statusHint = a.status ? ` · ${STATUS_EFFECT_ZH[a.status.effect]}${Math.round(a.status.chance*100)}%` : '';
     const effHint = mult>=4 ? ' ×4' : mult===2 ? ' ×2' : mult===0 ? ' ✕' : mult<1 ? ' ▽' : '';
-    document.getElementById(`atk-dmg${i}`).textContent = `威力 ${a.dmg} · ⚡${a.cost}${statusHint}${stab}${effHint}`;
+    document.getElementById(`atk-dmg${i}`).textContent = `威力 ${a.dmg} · ⚡${cost}${statusHint}${stab}${effHint}`;
   });
   const standbyBtn = document.getElementById('btn-standby');
   if (standbyBtn) standbyBtn.disabled = G.busy;
@@ -1380,7 +1383,7 @@ function renderHand() {
 function playerAttack(idx) {
   if (G.busy || G.playerNeedsDiscard) return;
   const atk = P()?.attacks[idx];
-  if (atk && (G.playerEnergy ?? 0) < atk.cost) return; // not enough energy
+  if (atk && (G.playerEnergy ?? 0) < effectiveCost(atk, CP())) return; // not enough energy
   G.busy = true;
   renderBattle();
   send({ type: 'attack', idx });
@@ -1572,6 +1575,11 @@ function showResult(iWon, isDraw, winnerDeck) {
 /* ─────────────────────────────────────────
    TYPE CHART
 ───────────────────────────────────────── */
+// 壓迫感：對手在場時，己方招式消耗能量 +2（上限仍是 20，不會超過能量欄本身的上限）
+function effectiveCost(atk, opponentPoke) {
+  return opponentPoke?.ability?.id === 'pressure' ? Math.min(20, atk.cost + 2) : atk.cost;
+}
+
 function eff(atkType, defType, defType2) {
   const m1 = (EFF[atkType] || {})[defType] ?? 1;
   const m2 = defType2 ? ((EFF[atkType] || {})[defType2] ?? 1) : 1;
