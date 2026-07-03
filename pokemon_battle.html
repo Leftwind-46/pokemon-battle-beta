@@ -4076,8 +4076,8 @@ function resolveMutualKO() {
     return;
   }
   handleKO('player', () => handleKO('cpu', () => {
-    G.busy = false;
     renderBattle();
+    setTimeout(cpuAttack, 700); // 搏命 consumes the turn — hand off to CPU instead of returning control
   }));
 }
 

@@ -889,6 +889,7 @@ function handleMessage(ws, msg) {
         }
         G.pendingKOSwitch = role;
         G.pendingKOSwitchQueue = [op];
+        G.turn = op; // 搏命 consumes the turn — without this, ko_switch's "did the turn actually end" check never passes and role can act again immediately
         broadcast(room, { type: 'update', state: G, log, actor: role });
         return;
       }
