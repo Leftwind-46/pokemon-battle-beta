@@ -42,44 +42,49 @@ There is no shared data module — this is 4 static HTML/JS files, no build step
 
 ## Abilities (特性)
 
-First batch of 6 shipped 2026-07-02 (HP<250 only, a one-off scoping for that batch, not a standing rule). A batch of 9 shipped 2026-07-03 alongside the +30 Pokémon addition, invented/loosely-matched to real abilities. A third batch of 6 shipped 2026-07-04 for 19 of the *original* 70 — this batch's abilities were individually verified against each Pokémon's real in-game ability via the official Taiwan site before being coded (see the name-accuracy note above — same lesson applied to abilities). 55/100 Pokémon have an ability as of 2026-07-04; 45 of the original 70 still don't (batching continues in further sessions — check `MEMORY.md`/project memory for which batch is next).
+**All 100/100 Pokémon have an ability as of 2026-07-04.** History: first batch of 6 shipped 2026-07-02 (HP<250 only, a one-off scoping, not a standing rule). A batch of 9 shipped 2026-07-03 alongside the +30 Pokémon addition, invented/loosely-matched to real abilities. Two further batches (19, then the remaining 45) shipped 2026-07-04 for the *original* 70 — every one of these individually verified against the Pokémon's real in-game ability via the official Taiwan site before being coded (see the name-accuracy note above — same lesson applied to abilities; many legendaries' real abilities are weather/terrain/PP-based mechanics this game has no system for, so those were deliberately reused against the closest existing effect with the real ability name kept for display — see the "no clean mechanical fit" rows below).
 
 Post-hit abilities (simple, self-contained in `triggerAttackerAbility`/`triggerDefenderAbility`, don't touch the damage formula):
 
 | Pokémon | ability.id | trigger | Effect |
 |---|---|---|---|
 | 雷丘、電龍 | `static` | onDefend | 20% paralyze attacker on being hit |
-| 穿山王、暴鯉龍、肯泰羅、阿柏怪、姆克鷹 | `intimidate` | onEnter | −15 to opponent's next attack; no-ops if the opponent's *current active* has `clear-body` (checked at the point `intimidate` fires, not a passive block) |
+| 穿山王、暴鯉龍、肯泰羅、阿柏怪、姆克鷹、風速狗、布魯皇、流氓鱷 | `intimidate` | onEnter | −15 to opponent's next attack; no-ops if the opponent's *current active* has `clear-body` (checked at the point `intimidate` fires, not a passive block) |
 | 耿鬼 | `poison-heal` | onStatus | poison heals 1/8 max HP instead of damaging |
 | 甲賀忍蛙 | `rough-skin` | onDefend | reflects 1/8 attacker's max HP as recoil |
 | 三合一磁怪 | `static-trail` | onAttack | 15% extra paralyze on hit (custom, not a real Pokémon ability) |
 | 羅絲雷朵、龍王蠍、大針蜂 | `poison-point` | onDefend | 20% poison attacker on being hit |
-| 鋼鎧鴉、黑夜魔靈 | `pressure` | onEnter | opponent loses 3 energy (real Pressure drains PP; this game has no PP, so it's reinterpreted against the closest analogous resource) |
-| 巨金怪、毒刺水母 | `clear-body` | (checked by `intimidate`'s own trigger, see above) | blocks incoming intimidate-style atk debuffs |
+| 鋼鎧鴉、黑夜魔靈、超夢、鳳王、洛奇亞、急凍鳥、閃電鳥、火焰鳥、帝牙盧卡、帕路奇亞、化石翼龍 | `pressure` | onEnter | opponent loses 3 energy (real Pressure drains PP; no PP system here, so it's reinterpreted against the closest analogous resource — this is why so many legendaries share this id, Pressure is extremely common among them) |
+| 巨金怪、毒刺水母、雷吉艾斯、快龍 | `clear-body` | (checked by `intimidate`'s own trigger, see above) | blocks incoming intimidate-style atk debuffs (also covers 快龍's real ability 精神力/Inner Focus, whose actual text explicitly says "unfazed by intimidation") |
 | 皮皮 | `magic-guard` | onStatus (checked in `applyEndOfTurnStatus`) | skips poison/burn end-of-turn damage entirely |
 | 呆殼獸 | `own-tempo` | onDefend (checked in `tryInflictStatus` + the 混亂藥/confuse-potion card case) | blocks confusion specifically; other statuses unaffected |
-| 胡地 | `sync-status` | onDefend (checked in `tryInflictStatus`, after a poison/paralysis/burn infliction succeeds) | copies the same status onto the attacker, if the attacker has none |
+| 胡地、沙奈朵 | `sync-status` | onDefend (checked in `tryInflictStatus`, after a poison/paralysis/burn infliction succeeds) | copies the same status onto the attacker, if the attacker has none (real Synchronize) |
+| 烏鴉頭頭 | `insomnia` | onDefend (checked in `tryInflictStatus`, mirrors `own-tempo`'s pattern) | blocks sleep specifically |
+| 鴨嘴炎獸、烈箭鷹 | `flame-body` | onDefend (mirrors `poison-point`'s pattern) | 20% burn attacker on being hit |
 
 Damage-formula abilities (need hooks inside `doAttack` itself, not just the post-hit trigger functions, since they modify the multiplier, intercept the hit, or need pre-hit state — see battle-logic skill's Abilities section for exactly where each pattern goes):
 
 | Pokémon | ability.id | Effect |
 |---|---|---|
-| 路卡利歐、嘎啦嘎啦、堵攔熊、劈斬司令、怪力 | `guts` | own status present → ×1.3 damage |
+| 路卡利歐、嘎啦嘎啦、堵攔熊、劈斬司令、怪力、赫拉克羅斯 | `guts` | own status present → ×1.3 damage |
 | 掘地兔、鐵蟻 | `huge-power` | flat ×1.25 damage, always |
-| 阿勃梭魯 | `huge-power` | reused id, displayed as "超幸運" (real Super Luck raises crit rate — no crit system here, so it's reused as the closest "hits harder" analog rather than left unimplemented) |
-| 巨沼怪、狙射樹梟、具甲武者、黑魯加、妙蛙花、大力鱷 | `blaze-boost` | own HP ≤ 1/3 AND move matches own type → ×1.5 (covers Torrent/Overgrow/Blaze/Emergency-Exit-flavored abilities — all mechanically identical in-game) |
+| 阿勃梭魯、固拉多、烈空坐、蒼響、龍捲雲 | `huge-power` | reused id — real abilities are 超幸運/Super Luck (crit rate), 日照/Drought, 氣閘/Air Lock, 不撓之劍/Intrepid Sword, 惡作劇之心/Prankster respectively; none have a mechanical fit here (no crit/weather/terrain/priority systems), all reused as the generic "hits harder" fallback with the real name kept for display |
+| 巨沼怪、狙射樹梟、具甲武者、黑魯加、妙蛙花、大力鱷、噴火龍、水箭龜、火爆獸、大竺葵、密勒頓、故勒頓、熾焰咆哮虎、蜥蜴王、巨鉗螳螂 | `blaze-boost` | own HP ≤ 1/3 AND move matches own type → ×1.5 (covers every real Overgrow/Torrent/Blaze/Swarm-family ability — all mechanically identical in-game — plus 密勒頓/強子引擎 and 故勒頓/緋紅脈動, whose real terrain/weather effects have no system here so they're reused the same way) |
 | 鐵螯龍蝦、巨蔓藤 | `adaptability` | STAB becomes ×2 instead of ×1.5 |
-| 鐵掌力士、象牙豬、白海獅 | `thick-fat` | incoming fire/ice damage ×0.6 |
-| 太陽岩、泥偶巨人、超甲狂犀 | `solid-rock` | incoming ×2+ effectiveness damage ×0.75 |
-| 岩殿居蟹、護城龍、冰岩怪 | `sturdy` | survives at 1 HP once, only from full HP |
+| 蓋歐卡、哲爾尼亞斯、伊裴爾塔爾 | `adaptability` | reused id — real abilities are 降雨/Drizzle, 妖精氣場/Fairy Aura, 暗黑氣場/Dark Aura (all boost-your-own-or-allies'-matching-type-moves in some form), no weather/aura system here so reused as "boosts own STAB" |
+| 鐵掌力士、象牙豬、白海獅、卡比獸 | `thick-fat` | incoming fire/ice damage ×0.6 |
+| 太陽岩、泥偶巨人、超甲狂犀、班基拉斯 | `solid-rock` | incoming ×2+ effectiveness damage ×0.75 (班基拉斯's real ability 揚沙/Sand Stream has no weather system, reused for its tanky-rock-type theme) |
+| 岩殿居蟹、護城龍、冰岩怪、龐岩怪 | `sturdy` | survives at 1 HP once, only from full HP |
 | 水伊布 | `water-absorb` | immune to water moves, heals 1/4 max HP instead (early-return branch, mirrors the existing `reflect` pattern) |
-| 毒骷蛙 | `water-absorb` | reused id, displayed as "乾燥皮膚"/Dry Skin — real Dry Skin also *hurts* from fire, which isn't modeled; only the water-heals half is captured |
+| 毒骷蛙、拉普拉斯 | `water-absorb` | reused id, displayed as "乾燥皮膚"/Dry Skin and "儲水"/Water Absorb (the latter is an exact real match) — Dry Skin's real fire-vulnerability half isn't modeled, only the water-heals half |
 | 寶石海星、哥德小姐 | `frisk-ward` | 25% chance incoming damage ×0.5 |
-| 爆音怪 | `frisk-ward` | reused id, displayed as "隔音"/Soundproof — real Soundproof blocks sound-tagged moves specifically, but moves aren't tagged that way in this data model, so it's reused as a generic damage-reduction chance instead |
+| 爆音怪、烈咬陸鯊、仙子伊布、雪妖女、凍原熊 | `frisk-ward` | reused id — real abilities are 隔音/Soundproof, 沙隱/Sand Veil, 迷人之軀/Cute Charm, 雪隱/Snow Cloak ×2 (evasion/contact/sound-immunity effects with no system here), all reused as generic damage-reduction chance |
 | 蔥遊兵、貓老大、長毛狗、鍬農炮蟲 | `desperate-blade` | own HP ≤ 50% → ×1.3 damage |
 | 遠古巨蜓 | `tinted-lens` | if this Pokémon's move is resisted (0 < mult < 1, not full immunity), cancel the resistance back to ×1 by multiplying by `1/mult` |
+| 電擊魔獸 | `motor-drive` | immune to electric-type moves, gains 3 energy instead (early-return branch, mirrors `water-absorb`'s pattern but energy instead of HP — real Motor Drive boosts Speed, no speed stat here) |
+| 水晶燈火靈 | `flash-fire` | immune to fire-type moves, `dBuff.atkBonus += 20` for its next attack instead (early-return branch, mirrors `water-absorb`'s pattern but a one-time atk buff instead of a heal) |
 
-**Adding a new ability**: add the `ability:{id,name,trigger,desc}` field to the POKEMON entry (both files), then wire the actual effect — either into `triggerAttackerAbility`/`triggerDefenderAbility` (post-hit, simple), directly into `doAttack`'s multiplier chain (damage-number changes, hit interception, pre-hit-state checks), or into `tryInflictStatus`/`triggerOnEnter` (status-infliction-time or enter-time interactions like `own-tempo`/`sync-status`/`clear-body`/`pressure`) — the data alone does nothing. **Don't forget the UI won't show it either** unless the Pokémon actually reaches a render path that reads `poke.ability` (already wired for all standard card/popup renders as of 2026-07-02 — see ui-rendering skill's ability-badge section — but double check if you add a new selection screen). Multiple Pokémon can freely share the same `ability.id` even with **different `name`/`desc` text** per entry (e.g. `blaze-boost` displays as "茂盛"/"激流"/"猛火"/etc depending on species, `huge-power` displays as "大力士" for some and "超幸運" for 阿勃梭魯) — the dispatch is purely by `id`, so reuse-with-relabeling is the norm whenever a real ability doesn't cleanly map to a new mechanic; only invent a new `id` when no existing effect fits even loosely.
+**Adding a new ability**: add the `ability:{id,name,trigger,desc}` field to the POKEMON entry (both files), then wire the actual effect — either into `triggerAttackerAbility`/`triggerDefenderAbility` (post-hit, simple), directly into `doAttack`'s multiplier chain (damage-number changes, hit interception, pre-hit-state checks), or into `tryInflictStatus`/`triggerOnEnter` (status-infliction-time or enter-time interactions like `own-tempo`/`insomnia`/`sync-status`/`clear-body`/`pressure`) — the data alone does nothing. **Don't forget the UI won't show it either** unless the Pokémon actually reaches a render path that reads `poke.ability` (wired for all standard card/popup renders plus the single-player Pokédex tab as of 2026-07-04 — see ui-rendering skill's ability-badge section — but double check if you add a new selection screen; PvP has no Pokédex tab). Multiple Pokémon can freely share the same `ability.id` even with **different `name`/`desc` text** per entry (e.g. `blaze-boost` displays as "茂盛"/"激流"/"猛火"/"強子引擎"/etc depending on species) — the dispatch is purely by `id`, so reuse-with-relabeling is the norm whenever a real ability doesn't cleanly map to a new mechanic (very common for legendaries whose signature abilities are weather/terrain/crit/PP-based — this game has none of those systems); only invent a new `id` when no existing effect fits even loosely. 25 unique `ability.id` values exist as of 2026-07-04 (15 from the first two batches + 6 from the 07-04 batch of 19 + 4 more from the 07-04 batch of 45: `insomnia`, `motor-drive`, `flame-body`, `flash-fire`).
 
 ## Move power/cost tiers (2026-07-02 rebalance)
 
