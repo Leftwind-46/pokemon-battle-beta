@@ -4308,11 +4308,13 @@ function renderDex() {
           <span class="dex-move-badge" style="background:${mc}">${TYPE_ZH[a.type]||a.type}</span>${a.name} <span style="color:var(--muted)">${a.dmg} · ⚡${a.cost}</span>${statusHint}
         </div>`;
       }).join('');
+      const abilityHtml = p.ability ? `<div class="ability-badge" title="${p.ability.desc}">✨ ${p.ability.name}</div>` : '';
       html += `<div class="dex-card">
         <img class="dex-sprite" src="${spriteUrl(p.id)}" alt="${p.name}">
         <div class="dex-info">
           <div class="dex-name">${p.name}&nbsp;<span class="type-badge" style="background:${col};font-size:0.58rem;padding:0.04rem 0.28rem;vertical-align:middle">${TYPE_ZH[p.type]||p.type}</span></div>
           <div class="dex-hp">HP ${p.hp}</div>
+          ${abilityHtml}
           <div class="dex-moves">${movesHtml}</div>
         </div>
       </div>`;
