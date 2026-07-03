@@ -31,6 +31,7 @@ There is no shared data module — this is 4 static HTML/JS files, no build step
 - Roster generation (single-player `pickRandomRoster()`, PvP `randomRoster()` in server.js) — both cap Pokémon with **HP ≥ 300 to at most 1 per generated roster** (added 2026-07-03, shared logic in both engines: shuffle, then skip any HP≥300 candidate once the cap is already filled). Applies to single-player's initial 5-roster draw, its swap-candidate draws, and PvP's initial 6-roster + reroll.
 - Battle-instance cloning: single-player `clone()`, PvP `clonePoke()` — both do a shallow `{...p}` plus deep-copy `attacks` and add `cur` (current HP) / `status`. A shallow spread means `ability` carries over automatically — don't need to special-case it when cloning.
 - **100 Pokémon total** as of 2026-07-03 (70 original + 30 added that batch). The +30 batch was scoped by explicit user constraint: final-evolution only, no mythical/legendary, no dragon or fairy typing — if asked to add more, ask whether the same constraints still apply rather than assuming.
+- **Chinese name accuracy — verify, don't recall from memory.** The +30 batch (2026-07-03) shipped with ~19/30 Traditional Chinese names wrong (invented/misremembered rather than the real Taiwan localization), plus one dex-id error (assigned Golisopod id 979, which is actually some Gen-9 Pokémon — its real id is 768) and a pre-existing error in the original 70 (穿山王/Sandslash had been mislabeled 沙包蛇). All were caught by the user visually comparing sprite to name and fixed the same day by checking every entry against `https://tw.portal-pokemon.com/play/pokedex/{4-digit-id}_0` (use `_1` if `_0` 404s — some Pokémon, like Mega/Crowned forms, only exist under `_1`; also watch for internal PokeAPI form-variant ids like `10188` that aren't real dex numbers at all — cross-check with a plain web search for "{species} 全國圖鑑編號" if a fetch looks suspicious). **Before typing a Chinese Pokémon name from memory, verify it this way first** — recall accuracy for anything beyond famous Gen 1/2 species has proven unreliable.
 
 ## Type system
 
@@ -41,35 +42,44 @@ There is no shared data module — this is 4 static HTML/JS files, no build step
 
 ## Abilities (特性)
 
-First batch of 6 shipped 2026-07-02, scoped at the time to Pokémon with HP < 250. A second batch of 9 shipped 2026-07-03 alongside the +30 Pokémon addition, with **no HP restriction** (the original HP<250 scoping was a one-off constraint for that first batch, not a standing rule — always confirm with the user before assuming either way).
+First batch of 6 shipped 2026-07-02 (HP<250 only, a one-off scoping for that batch, not a standing rule). A batch of 9 shipped 2026-07-03 alongside the +30 Pokémon addition, invented/loosely-matched to real abilities. A third batch of 6 shipped 2026-07-04 for 19 of the *original* 70 — this batch's abilities were individually verified against each Pokémon's real in-game ability via the official Taiwan site before being coded (see the name-accuracy note above — same lesson applied to abilities). 55/100 Pokémon have an ability as of 2026-07-04; 45 of the original 70 still don't (batching continues in further sessions — check `MEMORY.md`/project memory for which batch is next).
 
 Post-hit abilities (simple, self-contained in `triggerAttackerAbility`/`triggerDefenderAbility`, don't touch the damage formula):
 
 | Pokémon | ability.id | trigger | Effect |
 |---|---|---|---|
 | 雷丘、電龍 | `static` | onDefend | 20% paralyze attacker on being hit |
-| 沙包蛇 | `intimidate` | onEnter | −15 to opponent's next attack (`buff.atkBonus`) |
+| 穿山王、暴鯉龍、肯泰羅、阿柏怪、姆克鷹 | `intimidate` | onEnter | −15 to opponent's next attack; no-ops if the opponent's *current active* has `clear-body` (checked at the point `intimidate` fires, not a passive block) |
 | 耿鬼 | `poison-heal` | onStatus | poison heals 1/8 max HP instead of damaging |
-| 忍蛙 | `rough-skin` | onDefend | reflects 1/8 attacker's max HP as recoil |
-| 三合磁怪 | `static-trail` | onAttack | 15% extra paralyze on hit (custom, not a real Pokémon ability) |
-| 羅絲雷朵、天蠍王、大針蜂 | `poison-point` | onDefend | 20% poison attacker on being hit |
+| 甲賀忍蛙 | `rough-skin` | onDefend | reflects 1/8 attacker's max HP as recoil |
+| 三合一磁怪 | `static-trail` | onAttack | 15% extra paralyze on hit (custom, not a real Pokémon ability) |
+| 羅絲雷朵、龍王蠍、大針蜂 | `poison-point` | onDefend | 20% poison attacker on being hit |
+| 鋼鎧鴉、黑夜魔靈 | `pressure` | onEnter | opponent loses 3 energy (real Pressure drains PP; this game has no PP, so it's reinterpreted against the closest analogous resource) |
+| 巨金怪、毒刺水母 | `clear-body` | (checked by `intimidate`'s own trigger, see above) | blocks incoming intimidate-style atk debuffs |
+| 皮皮 | `magic-guard` | onStatus (checked in `applyEndOfTurnStatus`) | skips poison/burn end-of-turn damage entirely |
+| 呆殼獸 | `own-tempo` | onDefend (checked in `tryInflictStatus` + the 混亂藥/confuse-potion card case) | blocks confusion specifically; other statuses unaffected |
+| 胡地 | `sync-status` | onDefend (checked in `tryInflictStatus`, after a poison/paralysis/burn infliction succeeds) | copies the same status onto the attacker, if the attacker has none |
 
-Damage-formula abilities (2026-07-03 batch — these needed hooks inside `doAttack` itself, not just the post-hit trigger functions, since they modify the multiplier or intercept the hit entirely; see battle-logic skill's Abilities section for exactly where):
+Damage-formula abilities (need hooks inside `doAttack` itself, not just the post-hit trigger functions, since they modify the multiplier, intercept the hit, or need pre-hit state — see battle-logic skill's Abilities section for exactly where each pattern goes):
 
 | Pokémon | ability.id | Effect |
 |---|---|---|
-| 路卡利歐、骨骼獸、尖牙笑鼬、波士可多拉 | `guts` | own status present → ×1.3 damage |
-| 掘掘兔、銅鏡怪 | `huge-power` | flat ×1.25 damage, always |
-| 巨沼怪、狙射樹梟、鐵臂膀、黑魯加 | `blaze-boost` | own HP ≤ 1/3 AND move matches own type → ×1.5 |
-| 老翁蝦、大葉草 | `adaptability` | STAB becomes ×2 instead of ×1.5 |
-| 河馬拳、象牙豬 | `thick-fat` | incoming fire/ice damage ×0.6 |
-| 太陽岩石、泥偶巨人、鑽角犀獸 | `solid-rock` | incoming ×2+ effectiveness damage ×0.75 |
-| 護城蟹、化石盔、冰岩巨獸 | `sturdy` | survives at 1 HP once, only from full HP |
+| 路卡利歐、嘎啦嘎啦、堵攔熊、劈斬司令、怪力 | `guts` | own status present → ×1.3 damage |
+| 掘地兔、鐵蟻 | `huge-power` | flat ×1.25 damage, always |
+| 阿勃梭魯 | `huge-power` | reused id, displayed as "超幸運" (real Super Luck raises crit rate — no crit system here, so it's reused as the closest "hits harder" analog rather than left unimplemented) |
+| 巨沼怪、狙射樹梟、具甲武者、黑魯加、妙蛙花、大力鱷 | `blaze-boost` | own HP ≤ 1/3 AND move matches own type → ×1.5 (covers Torrent/Overgrow/Blaze/Emergency-Exit-flavored abilities — all mechanically identical in-game) |
+| 鐵螯龍蝦、巨蔓藤 | `adaptability` | STAB becomes ×2 instead of ×1.5 |
+| 鐵掌力士、象牙豬、白海獅 | `thick-fat` | incoming fire/ice damage ×0.6 |
+| 太陽岩、泥偶巨人、超甲狂犀 | `solid-rock` | incoming ×2+ effectiveness damage ×0.75 |
+| 岩殿居蟹、護城龍、冰岩怪 | `sturdy` | survives at 1 HP once, only from full HP |
 | 水伊布 | `water-absorb` | immune to water moves, heals 1/4 max HP instead (early-return branch, mirrors the existing `reflect` pattern) |
-| 寶石海星、通靈鬼 | `frisk-ward` | 25% chance incoming damage ×0.5 |
-| 蔥遊兵、諾克拓斯、諾克巨犬、鐵蟬 | `desperate-blade` | own HP ≤ 50% → ×1.3 damage |
+| 毒骷蛙 | `water-absorb` | reused id, displayed as "乾燥皮膚"/Dry Skin — real Dry Skin also *hurts* from fire, which isn't modeled; only the water-heals half is captured |
+| 寶石海星、哥德小姐 | `frisk-ward` | 25% chance incoming damage ×0.5 |
+| 爆音怪 | `frisk-ward` | reused id, displayed as "隔音"/Soundproof — real Soundproof blocks sound-tagged moves specifically, but moves aren't tagged that way in this data model, so it's reused as a generic damage-reduction chance instead |
+| 蔥遊兵、貓老大、長毛狗、鍬農炮蟲 | `desperate-blade` | own HP ≤ 50% → ×1.3 damage |
+| 遠古巨蜓 | `tinted-lens` | if this Pokémon's move is resisted (0 < mult < 1, not full immunity), cancel the resistance back to ×1 by multiplying by `1/mult` |
 
-**Adding a new ability**: add the `ability:{id,name,trigger,desc}` field to the POKEMON entry (both files), then wire the actual effect — either into `triggerAttackerAbility`/`triggerDefenderAbility` (post-hit, simple) or directly into `doAttack`'s multiplier chain (if it needs to change the damage number itself, intercept the hit, or check pre-hit state like "was at full HP") — the data alone does nothing. **Don't forget the UI won't show it either** unless the Pokémon actually reaches a render path that reads `poke.ability` (already wired for all standard card/popup renders as of 2026-07-02 — see ui-rendering skill's ability-badge section — but double check if you add a new selection screen). Multiple Pokémon can freely share the same `ability.id` — the trigger logic dispatches by id, not by species, so reuse is the norm, not the exception.
+**Adding a new ability**: add the `ability:{id,name,trigger,desc}` field to the POKEMON entry (both files), then wire the actual effect — either into `triggerAttackerAbility`/`triggerDefenderAbility` (post-hit, simple), directly into `doAttack`'s multiplier chain (damage-number changes, hit interception, pre-hit-state checks), or into `tryInflictStatus`/`triggerOnEnter` (status-infliction-time or enter-time interactions like `own-tempo`/`sync-status`/`clear-body`/`pressure`) — the data alone does nothing. **Don't forget the UI won't show it either** unless the Pokémon actually reaches a render path that reads `poke.ability` (already wired for all standard card/popup renders as of 2026-07-02 — see ui-rendering skill's ability-badge section — but double check if you add a new selection screen). Multiple Pokémon can freely share the same `ability.id` even with **different `name`/`desc` text** per entry (e.g. `blaze-boost` displays as "茂盛"/"激流"/"猛火"/etc depending on species, `huge-power` displays as "大力士" for some and "超幸運" for 阿勃梭魯) — the dispatch is purely by `id`, so reuse-with-relabeling is the norm whenever a real ability doesn't cleanly map to a new mechanic; only invent a new `id` when no existing effect fits even loosely.
 
 ## Move power/cost tiers (2026-07-02 rebalance)
 
