@@ -1232,12 +1232,12 @@
 
       <h3>異常狀態</h3>
       <ul>
-        <li><b>☠ 中毒</b>：每回合行動前損失 1/8 最大 HP。</li>
-        <li><b>🔥 燒傷</b>：每回合損失 1/16 最大 HP，且攻擊力降低 30%。</li>
+        <li><b>☠ 中毒</b>：損失 1/8 最大 HP，在該回合的行動（攻擊或待機）結束後才扣血，不會搶在攻擊之前把你打倒。</li>
+        <li><b>🔥 燒傷</b>：損失 1/16 最大 HP（同樣是行動後才扣），且攻擊力降低 30%。</li>
         <li><b>⚡ 麻痺</b>：每回合 50% 機率完全無法行動。</li>
-        <li><b>💤 睡眠</b>：無法行動 2–3 回合後自然醒來。</li>
-        <li><b>❄ 結凍</b>：無法行動；冰凍 2 回合後自動解凍，或被火系招式命中立即解凍。</li>
-        <li><b>💫 混亂</b>：每回合 50% 機率攻擊自己（60 傷害），持續 2–4 回合；換場可解除。</li>
+        <li><b>💤 睡眠</b>：無法行動 2–3 回合後自然醒來；回合數每回合都會減少，待機也算一回合。</li>
+        <li><b>❄ 結凍</b>：無法行動；冰凍 2 回合後自動解凍，或被火系招式命中立即解凍；回合數每回合都會減少，待機也算一回合。</li>
+        <li><b>💫 混亂</b>：嘗試攻擊時 50% 機率攻擊自己（60 傷害），持續 2–4 回合；換場可解除；回合數每回合都會減少，待機也算一回合（但待機不會觸發混亂自傷）。</li>
         <li>每隻寶可夢同一時間只能有一種異常狀態。使用<b>萬能藥</b>或<b>治療師</b>可解除。</li>
       </ul>
 
@@ -3310,11 +3310,20 @@ function playerAttack(atkIdx) {
   renderBattle();
   G.round++;
 
+  // Player's own end-of-turn poison/burn tick, applied once the turn's action (attack landing
+  // or being blocked) is fully resolved, right before handing control to the CPU.
+  const tickAndHandoff = () => {
+    applyEndOfTurnStatus(P(), 'player',
+      () => setTimeout(cpuAttack, 700),
+      () => handleKO('player', () => setTimeout(cpuAttack, 700))
+    );
+  };
+
   const afterPlayerTurn = () => {
     if (CP().cur <= 0) {
-      handleKO('cpu', () => setTimeout(cpuAttack, 700));
+      handleKO('cpu', tickAndHandoff);
     } else {
-      setTimeout(cpuAttack, 700);
+      tickAndHandoff();
     }
   };
 
@@ -3323,8 +3332,8 @@ function playerAttack(atkIdx) {
       G.playerEnergy -= P().attacks[atkIdx].cost;
       doAttack(P(), CP(), P().attacks[atkIdx], 'player', 'cpu', afterPlayerTurn);
     },
-    () => { G.cpuBuff.reflect = false; setTimeout(cpuAttack, 700); }, // reflect expires — player never attacked (status skip)
-    () => handleKO('player', () => { G.cpuBuff.reflect = false; setTimeout(cpuAttack, 700); }) // same — died before attacking
+    () => { G.cpuBuff.reflect = false; tickAndHandoff(); }, // reflect expires — player never attacked (status skip); still ticks poison/burn before handoff
+    () => handleKO('player', () => { G.cpuBuff.reflect = false; setTimeout(cpuAttack, 700); }) // confusion self-hit already killed it this turn — no separate poison/burn tick needed
   );
 }
 
@@ -3397,17 +3406,22 @@ function playerStandby() {
   G.switchedThisTurn = false;
   G.cpuBuff.reflect = false; // reflect expires if opponent never attacked
   G.playerBuff.typeOverride = null; // orb effect expires at turn end if unused
+  tickNonAttackStatus(P(), 'player'); // sleep/freeze/confusion still count down even when standing by
   const supporters = TRAINERS.filter(c => c.cat === 'supporter');
   const card = supporters[Math.floor(Math.random() * supporters.length)];
   G.playerHand.push(card);
   log(`你選擇待機，抽到了【${card.name}】！`, 'player');
-  if (G.playerHand.length > 5) {
-    renderBattle();
-    showDiscardModal(() => setTimeout(cpuAttack, 500));
-  } else {
-    renderBattle();
-    setTimeout(cpuAttack, 700);
-  }
+
+  const proceedToCpu = () => {
+    if (G.playerHand.length > 5) {
+      renderBattle();
+      showDiscardModal(() => setTimeout(cpuAttack, 500));
+    } else {
+      renderBattle();
+      setTimeout(cpuAttack, 700);
+    }
+  };
+  applyEndOfTurnStatus(P(), 'player', proceedToCpu, () => handleKO('player', proceedToCpu));
 }
 
 function cpuUseTrainers() {
@@ -3472,12 +3486,18 @@ function cpuAttack() {
     });
   };
 
+  // CPU's own end-of-turn poison/burn tick, applied once its turn's action (attack landing or
+  // being blocked) is fully resolved, right before actually ending the turn.
+  const tickAndEndTurn = () => {
+    applyEndOfTurnStatus(CP(), 'cpu', endTurn, () => handleKO('cpu', endTurn));
+  };
+
   /* AI: prefer higher-damage attack when above half HP, else random — only among affordable moves */
   const affordable = cpu.attacks.map((a, i) => i).filter(i => G.cpuEnergy >= cpu.attacks[i].cost);
   if (affordable.length === 0) {
     log('對手能量不足，無法出招！', 'system');
-    renderBattle();
-    setTimeout(endTurn, 500);
+    tickNonAttackStatus(CP(), 'cpu'); // sleep/freeze/confusion still count down even when it can't act
+    setTimeout(tickAndEndTurn, 500);
     return;
   }
   const atkIdx = (cpu.cur > cpu.hp * 0.5)
@@ -3489,14 +3509,14 @@ function cpuAttack() {
       G.cpuEnergy -= CP().attacks[atkIdx].cost;
       doAttack(CP(), P(), CP().attacks[atkIdx], 'cpu', 'player', () => {
         if (P().cur <= 0) {
-          handleKO('player', endTurn);
+          handleKO('player', tickAndEndTurn);
         } else {
-          endTurn();
+          tickAndEndTurn();
         }
       });
     },
-    endTurn,
-    () => handleKO('cpu', endTurn)
+    tickAndEndTurn, // skip (sleep/paralysis/freeze) — still ticks poison/burn before ending the turn
+    () => handleKO('cpu', endTurn) // confusion self-hit already killed it this turn — no separate poison/burn tick needed
   );
 }
 
@@ -3575,41 +3595,58 @@ function handleAttackerStatus(poke, side, onProceed, onSkip, onKO) {
     return;
   }
 
-  if (st.type === 'poison') {
-    if (poke.ability?.id === 'poison-heal') {
-      const heal = Math.max(1, Math.floor(poke.hp / 8));
-      poke.cur = Math.min(poke.hp, poke.cur + heal);
-      log(`${label}${poke.name} 的毒療發動，中毒回復了 ${heal} 點HP！`, 'special');
-      updateHp(side, poke);
-      onProceed();
-      return;
-    }
-    const poisonDmg = Math.max(1, Math.floor(poke.hp / 8));
-    poke.cur = Math.max(0, poke.cur - poisonDmg);
-    log(`${label}${poke.name} 因中毒受到了 ${poisonDmg} 點傷害！`, 'special');
-    updateHp(side, poke);
-    if (poke.cur <= 0) {
-      setTimeout(onKO, 200);
-      return;
-    }
-    onProceed();
-    return;
-  }
-
-  if (st.type === 'burn') {
-    const burnDmg = Math.max(1, Math.floor(poke.hp / 16));
-    poke.cur = Math.max(0, poke.cur - burnDmg);
-    log(`${label}${poke.name} 因燒傷受到了 ${burnDmg} 點傷害！`, 'special');
-    updateHp(side, poke);
-    if (poke.cur <= 0) {
-      setTimeout(onKO, 200);
-      return;
-    }
-    onProceed(); // can still attack, but at 70% power (handled in doAttack)
-    return;
-  }
-
+  /* Poison/burn no longer resolve here — they never blocked the attempt to begin with, and
+     their damage is applied once at the very end of the turn (see applyEndOfTurnStatus below),
+     after whichever action (attack or standby) actually happened, matching mainline Pokémon
+     timing instead of killing a Pokémon before it gets to act. */
   onProceed();
+}
+
+/* Applies poison/burn damage at the END of a turn — called after the turn's action (attack
+   landing, being blocked by sleep/paralysis/freeze, or standby) has already resolved, for
+   BOTH sides, from every turn-ending call site (see playerAttack/cpuAttack/playerStandby).
+   Never blocks or delays the attack itself; only decides whether the Pokémon faints from the
+   status tick afterward. */
+function applyEndOfTurnStatus(poke, side, onSurvive, onKO) {
+  const st = poke.status;
+  if (!st || (st.type !== 'poison' && st.type !== 'burn')) { onSurvive(); return; }
+  const label = side === 'player' ? '你的' : '對手的';
+
+  if (st.type === 'poison' && poke.ability?.id === 'poison-heal') {
+    const heal = Math.max(1, Math.floor(poke.hp / 8));
+    poke.cur = Math.min(poke.hp, poke.cur + heal);
+    log(`${label}${poke.name} 的毒療發動，中毒回復了 ${heal} 點HP！`, 'special');
+    updateHp(side, poke);
+    onSurvive();
+    return;
+  }
+
+  const dmg = st.type === 'poison' ? Math.max(1, Math.floor(poke.hp / 8)) : Math.max(1, Math.floor(poke.hp / 16));
+  const label2 = st.type === 'poison' ? '中毒' : '燒傷';
+  poke.cur = Math.max(0, poke.cur - dmg);
+  log(`${label}${poke.name} 因${label2}受到了 ${dmg} 點傷害！`, 'special');
+  updateHp(side, poke);
+  if (poke.cur <= 0) {
+    setTimeout(onKO, 200);
+  } else {
+    onSurvive();
+  }
+}
+
+/* Decrements sleep/freeze/confusion duration on a turn where the Pokémon didn't attempt to
+   attack (standby, or no affordable move) — no attack-blocking or confusion self-hit here,
+   those mechanics only apply when actually trying to attack (see handleAttackerStatus). */
+function tickNonAttackStatus(poke, side) {
+  const st = poke.status;
+  if (!st || (st.type !== 'sleep' && st.type !== 'freeze' && st.type !== 'confusion')) return;
+  const label = side === 'player' ? '你的' : '對手的';
+  st.turnsLeft--;
+  if (st.turnsLeft <= 0) {
+    poke.status = null;
+    const msg = st.type === 'sleep' ? '從睡眠中醒來了！' : st.type === 'freeze' ? '解凍了，恢復行動！' : '從混亂中清醒了！';
+    log(`${label}${poke.name} ${msg}`, 'special');
+  }
+  renderBattle();
 }
 
 function tryInflictStatus(atk, target, targetSide) {

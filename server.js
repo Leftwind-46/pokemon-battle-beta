@@ -289,29 +289,43 @@ function handleStatus(poke, log) {
     return { skipped: false, died: false };
   }
 
-  if (st.type === 'poison') {
-    if (poke.ability?.id === 'poison-heal') {
-      const heal = Math.max(1, Math.floor(poke.hp / 8));
-      poke.cur = Math.min(poke.hp, poke.cur + heal);
-      log.push({ text: `${poke.name} 的毒療發動，中毒回復了 ${heal} HP！`, cls: 'special' });
-      return { skipped: false, died: false };
-    }
-    const dmg = Math.max(1, Math.floor(poke.hp / 8));
-    poke.cur = Math.max(0, poke.cur - dmg);
-    log.push({ text: `${poke.name} 因中毒損失了 ${dmg} HP！`, cls: 'special' });
-    if (poke.cur <= 0) return { skipped: true, died: true };
-    return { skipped: false, died: false };
-  }
-
-  if (st.type === 'burn') {
-    const dmg = Math.max(1, Math.floor(poke.hp / 16));
-    poke.cur = Math.max(0, poke.cur - dmg);
-    log.push({ text: `${poke.name} 因燒傷損失了 ${dmg} HP！`, cls: 'special' });
-    if (poke.cur <= 0) return { skipped: true, died: true };
-    return { skipped: false, died: false };
-  }
-
+  /* Poison/burn no longer resolve here — they never blocked the attempt to begin with, and their
+     damage is applied once at the very end of the turn (see applyEndOfTurnStatusSrv below), after
+     whichever action (attack or standby) actually happened, matching mainline Pokémon timing
+     instead of killing a Pokémon before it gets to act. */
   return { skipped: false, died: false };
+}
+
+// Applies poison/burn damage at the END of a turn — called after the turn's action (attack
+// landing, being blocked by sleep/paralysis/freeze, or standby) has already resolved. Mutates
+// poke.cur directly; caller is responsible for checking poke.cur <= 0 afterward.
+function applyEndOfTurnStatusSrv(poke, log) {
+  const st = poke.status;
+  if (!st || (st.type !== 'poison' && st.type !== 'burn')) return;
+  if (st.type === 'poison' && poke.ability?.id === 'poison-heal') {
+    const heal = Math.max(1, Math.floor(poke.hp / 8));
+    poke.cur = Math.min(poke.hp, poke.cur + heal);
+    log.push({ text: `${poke.name} 的毒療發動，中毒回復了 ${heal} HP！`, cls: 'special' });
+    return;
+  }
+  const dmg = st.type === 'poison' ? Math.max(1, Math.floor(poke.hp / 8)) : Math.max(1, Math.floor(poke.hp / 16));
+  const label = st.type === 'poison' ? '中毒' : '燒傷';
+  poke.cur = Math.max(0, poke.cur - dmg);
+  log.push({ text: `${poke.name} 因${label}損失了 ${dmg} HP！`, cls: 'special' });
+}
+
+// Decrements sleep/freeze/confusion duration on a turn where the Pokémon didn't attempt to
+// attack (standby) — no attack-blocking or confusion self-hit here, those only apply when
+// actually trying to attack (see handleStatus).
+function tickNonAttackStatusSrv(poke, log) {
+  const st = poke.status;
+  if (!st || (st.type !== 'sleep' && st.type !== 'freeze' && st.type !== 'confusion')) return;
+  st.turnsLeft--;
+  if (st.turnsLeft <= 0) {
+    poke.status = null;
+    const msg = st.type === 'sleep' ? '從睡眠中醒來了！' : st.type === 'freeze' ? '解凍了，恢復行動！' : '從混亂中恢復了！';
+    log.push({ text: `${poke.name} ${msg}`, cls: 'special' });
+  }
 }
 
 // Executes attack and mutates defender/buffs. Returns { damage, mult }.
@@ -862,7 +876,7 @@ function handleMessage(ws, msg) {
       const sResult = handleStatus(attacker, log);
 
       if (sResult.died) {
-        // Attacker KO'd by own status
+        // Attacker KO'd by own status (confusion self-hit — poison/burn no longer resolve here)
         const alive = G[`${role}Deck`].filter(p => p.cur > 0).length;
         if (alive === 0) {
           G.winner = op;
@@ -874,6 +888,19 @@ function handleMessage(ws, msg) {
       }
 
       if (sResult.skipped) {
+        // Attack was blocked (sleep/paralysis/freeze) — still apply the attacker's own
+        // end-of-turn poison/burn tick before handing the turn to the opponent.
+        applyEndOfTurnStatusSrv(attacker, log);
+        if (attacker.cur <= 0) {
+          const alive = G[`${role}Deck`].filter(p => p.cur > 0).length;
+          if (alive === 0) {
+            G.winner = op;
+            broadcast(room, { type: 'game_over', winner: op, state: G, log });
+            room.phase = 'done'; return;
+          }
+          G.pendingKOSwitch = role;
+          broadcast(room, { type: 'update', state: G, log, actor: role }); return;
+        }
         G.turn = op;
         G[`${role}SuppUsed`] = false;
         G[`${role}FreeSwitch`] = false;
@@ -892,7 +919,14 @@ function handleMessage(ws, msg) {
       G[`${role}FreeSwitch`] = false;
       G[`${role}SwitchedThisTurn`] = false;
 
-      const attackerDied = attacker.cur <= 0; // e.g. reflect bounce, or defender-ability recoil (粗糙皮膚)
+      // Attacker's own end-of-turn poison/burn tick, applied now that its attack has resolved —
+      // but only if the attack exchange itself didn't already kill it (nothing to tick on a
+      // fainted Pokémon). Applying it before computing attackerDied means the existing
+      // both-died/attacker-only/defender-only/neither branching below automatically handles a
+      // "survived the hit but then died to poison" case the same way it already handles recoil.
+      if (attacker.cur > 0) applyEndOfTurnStatusSrv(attacker, log);
+
+      const attackerDied = attacker.cur <= 0; // reflect bounce, defender-ability recoil (粗糙皮膚), or the poison/burn tick just above
       const defenderDied = defender.cur <= 0;
 
       if (attackerDied && defenderDied) {
@@ -959,10 +993,27 @@ function handleMessage(ws, msg) {
     if (type === 'standby') {
       if (G.turn !== role || G.pendingKOSwitch) return;
       if (G[`${role}NeedsDiscard`]) return;
+      const active = G[`${role}Deck`][G[`${role}Idx`]];
+      const log = [];
+      tickNonAttackStatusSrv(active, log); // sleep/freeze/confusion still count down even when standing by
+      applyEndOfTurnStatusSrv(active, log); // poison/burn still ticks even when standing by
       const supporters = TRAINERS.filter(c => c.cat === 'supporter');
       const card = supporters[Math.floor(Math.random() * supporters.length)];
       G[`${role}Hand`].push(card);
       G[`${role}NeedsDiscard`] = G[`${role}Hand`].length > 5;
+      log.push({ text: `選擇待機，${role === 'p1' ? 'P1' : 'P2'} 抽到【${card.name}】！`, cls: 'system' });
+
+      if (active.cur <= 0) {
+        const alive = G[`${role}Deck`].filter(p => p.cur > 0).length;
+        if (alive === 0) {
+          G.winner = op;
+          broadcast(room, { type: 'game_over', winner: op, state: G, log });
+          room.phase = 'done'; return;
+        }
+        G.pendingKOSwitch = role;
+        broadcast(room, { type: 'update', state: G, log, actor: role }); return;
+      }
+
       G[`${role}SuppUsed`] = false;
       G[`${role}FreeSwitch`] = false;
       G[`${role}SwitchedThisTurn`] = false;
@@ -971,7 +1022,6 @@ function handleMessage(ws, msg) {
       G.turn = op;
       G.round++;
       drawForRole(G, op);
-      const log = [{ text: `選擇待機，${role === 'p1' ? 'P1' : 'P2'} 抽到【${card.name}】！`, cls: 'system' }];
       broadcast(room, { type: 'update', state: G, log, actor: role }); return;
     }
 
