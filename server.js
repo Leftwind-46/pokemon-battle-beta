@@ -425,9 +425,7 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     if (damage > 0) {
       const megaGain = Math.max(1, Math.round(damage / 25));
       const aRole = aBuff === G.p1Buff ? 'p1' : 'p2';
-      const dRole = dBuff === G.p1Buff ? 'p1' : 'p2';
       if (!G[`${aRole}MegaUsed`]) G[`${aRole}MegaEnergy`] = Math.min(20, G[`${aRole}MegaEnergy`] + megaGain);
-      if (!G[`${dRole}MegaUsed`]) G[`${dRole}MegaEnergy`] = Math.min(20, G[`${dRole}MegaEnergy`] + megaGain);
     }
 
     if (stabMult > 1.5)  log.push({ text: `${attacker.name} 的適應力發動！屬性加成提升為 ×2！`, cls: 'super' });

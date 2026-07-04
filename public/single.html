@@ -511,6 +511,8 @@
       background: #f3e5f5; border-radius: 2px; z-index: 29; pointer-events: none;
       animation: megaParticleFly 0.6s ease-out forwards;
     }
+    .b-card img.sprite-mega-glow   { animation: megaGemPulse 0.62s ease 1; }
+    .b-card img.sprite-mega-reveal { animation: megaSpriteReveal 0.5s ease 1; }
 
     /* === Pokémon sprite life animations === */
     @keyframes sprite-float {
@@ -1264,7 +1266,7 @@
       <h3>💎 Mega 進化</h3>
       <ul>
         <li>Mega 能量條跟招式能量一樣是<b>雙方各自共用一條</b>（0–20，初始值 0），不是每隻寶可夢各自獨立——只要隊上有寶可夢擁有 Mega 形態，就會顯示這條槽。</li>
-        <li>Mega 能量依戰鬥表現累積：每次交換造成／承受傷害，攻守雙方都會依傷害量獲得 Mega 能量。</li>
+        <li>Mega 能量依戰鬥表現累積：每次攻擊命中，只有攻擊方會依造成的傷害量獲得 Mega 能量（被打不會累積）。</li>
         <li>Mega 能量集滿 20、且目前上場的寶可夢擁有 Mega 形態時，會出現「Mega 進化」按鈕，點下去可以立即進化——換上 Mega 造型、屬性、特性，並且<b>HP 全滿、解除異常狀態</b>。</li>
         <li>Mega 進化是<b>免費行動</b>，不會結束你的回合，進化後還可以繼續正常選招攻擊。</li>
         <li>⚠️ 整場戰鬥<b>只能使用一次</b>——不論隊上有幾隻能 Mega 進化的寶可夢，用掉一次之後這條槽就會消失，無法再次進化。</li>
@@ -2435,7 +2437,7 @@ const CP = () => G.cpuDeck[G.cpuIdx];
 
 function clone(p) {
   return { ...p, attacks: p.attacks.map(a => ({...a})), cur: p.hp, dmgDealt: 0, status: null,
-    megaEvolved: p.mega ? false : undefined };
+    baseId: p.id, megaEvolved: p.mega ? false : undefined };
 }
 
 /* ─────────────────────────────────────────
@@ -2723,6 +2725,18 @@ function launchStage() {
   // Restore all playerRoster HP
   G.playerRoster.forEach(p => { p.cur = p.hp; p.dmgDealt = 0; p.status = null; });
 
+  // Revert any Mega Evolution back to base form — Mega only lasts for the one battle it happened in
+  G.playerRoster.forEach(p => {
+    if (!p.megaEvolved) return;
+    const base = POKEMON.find(pp => pp.id === (p.baseId ?? p.id));
+    if (!base) return;
+    p.id = base.id;
+    p.type = base.type;
+    p.type2 = base.type2 ?? null;
+    p.ability = base.ability ? { ...base.ability } : null;
+    p.megaEvolved = false;
+  });
+
   // Build CPU deck from the current stage's tier
   const tierPoke = POKEMON.filter(p => p.tier === G.stage).sort(() => Math.random() - 0.5);
   G.cpuDeck = tierPoke.slice(0, 3).map(p => clone(p));
@@ -2799,8 +2813,9 @@ function showPickScreen() {
 
 function pickEnemy(idx) {
   const picked = G.cpuDeck[idx];
-  // Find original data and clone fresh
-  const original = POKEMON.find(p => p.id === picked.id);
+  // Find original data and clone fresh — use baseId, not id, since a Mega-evolved
+  // Pokémon's id has been overwritten with its Mega sprite id (not a real dex entry)
+  const original = POKEMON.find(p => p.id === (picked.baseId ?? picked.id));
   if (original) G.playerRoster.push(clone(original));
   G.stage++;
   launchStage();
@@ -4009,15 +4024,12 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
     log(`造成了 ${dmg} 點傷害！${dLabel}${defender.name} 剩餘 HP：${Math.max(0,defender.cur)} / ${defender.hp}`, 'system');
     updateHp(dSide, defender);
 
-    /* Mega 能量：跟招式能量一樣是雙方共用的一條槽，依這次交換造成/承受的傷害累積；用過一次就不再累積 */
+    /* Mega 能量：跟招式能量一樣是雙方各自共用一條槽（隊上3隻共用），只有攻擊方依造成的傷害累積 */
     if (dmg > 0) {
       const megaGain = Math.max(1, Math.round(dmg / 25));
       const aMegaKey = aSide === 'player' ? 'playerMegaEnergy' : 'cpuMegaEnergy';
-      const dMegaKey = dSide === 'player' ? 'playerMegaEnergy' : 'cpuMegaEnergy';
       const aMegaUsedKey = aSide === 'player' ? 'playerMegaUsed' : 'cpuMegaUsed';
-      const dMegaUsedKey = dSide === 'player' ? 'playerMegaUsed' : 'cpuMegaUsed';
       if (!G[aMegaUsedKey]) G[aMegaKey] = Math.min(20, G[aMegaKey] + megaGain);
-      if (!G[dMegaUsedKey]) G[dMegaKey] = Math.min(20, G[dMegaKey] + megaGain);
     }
 
     if (dmg > 0 && atkType === 'fire' && defender.status?.type === 'freeze') {
@@ -4149,7 +4161,13 @@ function playMegaEvolveAnim(side, poke) {
   const gem = document.createElement('div');
   gem.className = 'mega-gem';
   card.appendChild(gem);
-  sprEl.style.animation = 'megaGemPulse 0.6s ease infinite';
+  // Use a dedicated class, not inline style.animation — inline animation overrides the
+  // class-based sprite-idle/sprite-enter animations and would leave the sprite stuck frozen
+  // once this finishes (setSprite's own 'sprite-enter' class-animation gets silently
+  // suppressed the whole time an inline animation is set, so its animationend never fires,
+  // so it's never cleaned up, so syncSpriteAnim's "busy" check blocks sprite-idle forever).
+  sprEl.classList.remove('sprite-idle', 'sprite-danger');
+  sprEl.classList.add('sprite-mega-glow');
 
   setTimeout(() => {
     gem.remove();
@@ -4168,10 +4186,17 @@ function playMegaEvolveAnim(side, poke) {
       setTimeout(() => particle.remove(), 650);
     }
 
-    sprEl.style.animation = 'megaSpriteReveal 0.5s ease';
+    sprEl.classList.remove('sprite-mega-glow');
+    sprEl.classList.add('sprite-mega-reveal');
     setTimeout(() => {
       burst.remove();
-      sprEl.style.animation = '';
+      // Force-clear every transient class, not just our own — the Mega sprite's "animated" GIF
+      // URL routinely 404s (no animated version exists for these internal PokeAPI form ids),
+      // so setSprite's onerror→fallback round-trip can still be in flight this whole time and
+      // may only add 'sprite-enter' *after* this point; don't wait on it; if it lands late it'll
+      // self-remove via its own animationend once nothing else contests the slot.
+      sprEl.classList.remove('sprite-mega-reveal', 'sprite-enter', 'sprite-hit', 'sprite-lunge-r', 'sprite-lunge-l');
+      syncSpriteAnim(side, poke); // restore idle/danger breathing now that the animation is done
     }, 550);
   }, 620);
 }
