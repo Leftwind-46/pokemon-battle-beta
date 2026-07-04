@@ -145,6 +145,7 @@
     .status-tag.burn      { background:#bf360c; }
     .status-tag.freeze    { background:#006064; }
     .ability-badge { display:inline-block; font-size:0.62rem; font-weight:700; padding:0.1rem 0.48rem; border-radius:999px; margin-top:0.22rem; letter-spacing:0.02em; background:rgba(186,104,200,0.22); color:#ce93d8; border:1px solid rgba(186,104,200,0.55); }
+    .mega-badge { display:inline-block; font-size:0.62rem; font-weight:700; padding:0.1rem 0.48rem; border-radius:999px; margin-top:0.22rem; margin-left:0.2rem; letter-spacing:0.02em; background:rgba(224,64,251,0.22); color:#e040fb; border:1px solid rgba(224,64,251,0.55); }
 
     /* ══════════════════════════════
        BATTLE SCREEN
@@ -469,6 +470,47 @@
     .anim-flash   { animation: flashHit 0.3s ease 3; }
     .anim-ko      { animation: koFade   0.6s ease forwards; }
     .anim-slidein { animation: slideIn  0.4s ease; }
+
+    /* === Mega Evolution animation === */
+    @keyframes megaWrapIn {
+      0%   { transform: scale(0) rotate(0deg);   opacity: 0; }
+      55%  { transform: scale(1.2) rotate(200deg); opacity: 1; }
+      100% { transform: scale(1) rotate(180deg); opacity: 1; }
+    }
+    @keyframes megaGemPulse {
+      0%,100% { filter: brightness(1) drop-shadow(0 0 6px #e040fb); }
+      50%     { filter: brightness(1.7) drop-shadow(0 0 22px #e040fb); }
+    }
+    @keyframes megaBurstFlash {
+      0%   { transform: scale(0.2); opacity: 0; }
+      35%  { transform: scale(1.5); opacity: 1; }
+      100% { transform: scale(2.6); opacity: 0; }
+    }
+    @keyframes megaParticleFly {
+      0%   { transform: translate(0,0) scale(1);   opacity: 1; }
+      100% { transform: translate(var(--mpx), var(--mpy)) scale(0.15); opacity: 0; }
+    }
+    @keyframes megaSpriteReveal {
+      0%   { opacity: 0; transform: scale(0.4); filter: brightness(2); }
+      60%  { opacity: 1; transform: scale(1.12); filter: brightness(1.4); }
+      100% { opacity: 1; transform: scale(1); filter: brightness(1); }
+    }
+    .mega-gem {
+      position: absolute; inset: 10%; z-index: 25; pointer-events: none; border-radius: 22%;
+      background: linear-gradient(135deg, rgba(240,120,255,0.9), rgba(123,31,162,0.9));
+      box-shadow: 0 0 26px 8px rgba(224,64,251,0.75);
+      animation: megaWrapIn 0.6s cubic-bezier(.34,1.56,.64,1) forwards;
+    }
+    .mega-burst {
+      position: absolute; inset: 0; z-index: 30; pointer-events: none; border-radius: 10px;
+      background: radial-gradient(circle, #fff 0%, #e040fb 40%, transparent 72%);
+      animation: megaBurstFlash 0.5s ease forwards;
+    }
+    .mega-particle {
+      position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; margin: -4px;
+      background: #f3e5f5; border-radius: 2px; z-index: 29; pointer-events: none;
+      animation: megaParticleFly 0.6s ease-out forwards;
+    }
 
     /* === Pokémon sprite life animations === */
     @keyframes sprite-float {
@@ -1221,10 +1263,11 @@
 
       <h3>💎 Mega 進化</h3>
       <ul>
-        <li>部分寶可夢擁有 Mega 形態，戰鬥中會多顯示一條「Mega」能量條（0–20，初始值 0）。</li>
-        <li>Mega 能量依戰鬥表現累積：這隻寶可夢每造成或承受一次傷害，都會依傷害量獲得 Mega 能量。</li>
-        <li>Mega 能量集滿 20 後，會出現「Mega 進化」按鈕，點下去可以立即進化——換上 Mega 造型、屬性、特性。</li>
+        <li>Mega 能量條跟招式能量一樣是<b>雙方各自共用一條</b>（0–20，初始值 0），不是每隻寶可夢各自獨立——只要隊上有寶可夢擁有 Mega 形態，就會顯示這條槽。</li>
+        <li>Mega 能量依戰鬥表現累積：每次交換造成／承受傷害，攻守雙方都會依傷害量獲得 Mega 能量。</li>
+        <li>Mega 能量集滿 20、且目前上場的寶可夢擁有 Mega 形態時，會出現「Mega 進化」按鈕，點下去可以立即進化——換上 Mega 造型、屬性、特性，並且<b>HP 全滿、解除異常狀態</b>。</li>
         <li>Mega 進化是<b>免費行動</b>，不會結束你的回合，進化後還可以繼續正常選招攻擊。</li>
+        <li>⚠️ 整場戰鬥<b>只能使用一次</b>——不論隊上有幾隻能 Mega 進化的寶可夢，用掉一次之後這條槽就會消失，無法再次進化。</li>
         <li>Mega 進化後會維持到本場戰鬥結束，即使中途換人下場、之後再換回來，也不會恢復原形。</li>
         <li>Mega 特性新增了 4 種：硬爪（攻擊傷害 ×1.3）、技術高手（威力 60 以下的招式傷害 ×1.5）、破格（攻擊時無視對方的防禦型特性，如厚脂肪／硬岩／神秘之守／多重鱗片／頑強）、複製（進化當下複製對手當前的特性）。</li>
       </ul>
@@ -1261,7 +1304,7 @@
       <ul>
         <li><b>道具牌</b>（綠框）每回合可使用多張。開局後每回合只會抽到道具牌：</li>
         <ul>
-          <li>傷藥 — 回復上場寶可夢 80 HP</li>
+          <li>傷藥（小／中／大／特大）— 回復上場寶可夢 60／80／100／120 HP</li>
           <li>攻擊強化 — 下次攻擊 +40 傷害</li>
           <li>防禦強化 — 下次承受傷害 −40</li>
           <li>能量強化 — 下次攻擊傷害 ×2，但自身損失 50 HP</li>
@@ -1293,6 +1336,7 @@
           <li>反轉世界 — 場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×2）</li>
           <li>龍之谷 — 龍屬性寶可夢對妖精、冰系招式最多×1效果</li>
           <li>邪惡森林 — 草系寶可夢不受屬性克制；草系招式改以毒屬性計算效果</li>
+          <li>Mega 稜鏡塔 — 雙方每個自己的回合開始時，獲得 10 點 Mega 能量</li>
         </ul>
       </ul>
 
@@ -2258,7 +2302,10 @@ function effActive(atkType, defType, defType2) {
 
 const TRAINERS = [
   // ── 道具牌 ──
-  {id:'potion',     name:'傷藥',       cat:'item',      desc:'回復上場寶可夢 80 HP'},
+  {id:'potion-s',   name:'傷藥（小）', cat:'item',      desc:'回復上場寶可夢 60 HP'},
+  {id:'potion-m',   name:'傷藥（中）', cat:'item',      desc:'回復上場寶可夢 80 HP'},
+  {id:'potion-l',   name:'傷藥（大）', cat:'item',      desc:'回復上場寶可夢 100 HP'},
+  {id:'potion-xl',  name:'傷藥（特大）', cat:'item',    desc:'回復上場寶可夢 120 HP'},
   {id:'x-atk',      name:'攻擊強化',   cat:'item',      desc:'下次攻擊威力 +40'},
   {id:'x-def',      name:'防禦強化',   cat:'item',      desc:'下次受傷害減少 40'},
   {id:'energize',   name:'能量強化',   cat:'item',      desc:'下次攻擊傷害 ×2，但自身損失 50 HP'},
@@ -2300,6 +2347,7 @@ const TRAINERS = [
   {id:'stadium-invert',        name:'反轉世界',   cat:'stadium', desc:'場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×2）'},
   {id:'stadium-dragon-valley', name:'龍之谷',     cat:'stadium', desc:'龍屬性寶可夢對妖精、冰系招式不受克制（效果最多×1）'},
   {id:'stadium-evil-forest',   name:'邪惡森林',   cat:'stadium', desc:'草系寶可夢不受屬性克制；草系招式傷害改以毒屬性計算'},
+  {id:'stadium-mega-prism',    name:'Mega 稜鏡塔', cat:'stadium', desc:'雙方每個自己的回合開始時，獲得 10 點 Mega 能量'},
 ];
 
 function dealHand(n) {
@@ -2357,6 +2405,10 @@ let G = {
   cpuHand:         [],
   playerEnergy:    5,
   cpuEnergy:       5,
+  playerMegaEnergy: 0,
+  cpuMegaEnergy:    0,
+  playerMegaUsed:   false,
+  cpuMegaUsed:      false,
   playerSuppUsed:       false,
   playerSuppStageUsed:  0,
   cpuSuppUsed:          false,
@@ -2383,7 +2435,7 @@ const CP = () => G.cpuDeck[G.cpuIdx];
 
 function clone(p) {
   return { ...p, attacks: p.attacks.map(a => ({...a})), cur: p.hp, dmgDealt: 0, status: null,
-    megaEnergy: p.mega ? 0 : undefined, megaEvolved: p.mega ? false : undefined };
+    megaEvolved: p.mega ? false : undefined };
 }
 
 /* ─────────────────────────────────────────
@@ -2508,6 +2560,9 @@ function showBenchPopup(poke, canSwitch, switchIdx, anchorEl) {
     abilityEl.style.display = 'none';
   }
 
+  const megaEl = document.getElementById('bp-mega');
+  if (megaEl) megaEl.style.display = poke.mega ? '' : 'none';
+
   const hpPct = poke.cur <= 0 ? 0 : Math.round(poke.cur / poke.hp * 100);
   const hpC   = hpPct > 50 ? '#4caf50' : hpPct > 20 ? '#ffc107' : '#ef5350';
   document.getElementById('bp-hp').innerHTML = poke.cur <= 0
@@ -2627,12 +2682,14 @@ function renderSelCard(p, isSelected, onClick) {
     </div>`;
   }).join('');
   const abilityHtml = p.ability ? `<div class="ability-badge" title="${p.ability.desc}">✨ ${p.ability.name}</div>` : '';
+  const megaHtml = p.mega ? `<div class="mega-badge" title="可以 Mega 進化">💎 可 Mega 進化</div>` : '';
   el.innerHTML = `
     <div class="sel-strip" style="background:${col}"></div>
     <img src="${spriteUrl(p.id)}" alt="${p.name}">
     <div class="sel-name">${p.name}</div>
     <div><span class="type-badge" style="background:${col};margin-top:0.2rem">${TYPE_ZH[p.type]||p.type}</span></div>
     ${abilityHtml}
+    ${megaHtml}
     <div class="sel-hp">HP ${p.hp}</div>
     <div class="sel-moves">${movesHtml}</div>
   `;
@@ -2801,6 +2858,10 @@ function startBattle() {
   G.cpuHand        = dealHand(3);
   G.playerEnergy   = 5;
   G.cpuEnergy      = 5;
+  G.playerMegaEnergy = 0;
+  G.cpuMegaEnergy    = 0;
+  G.playerMegaUsed   = false;
+  G.cpuMegaUsed      = false;
   G.playerSuppUsed      = false;
   G.playerSuppStageUsed = 0;
   G.cpuSuppUsed         = false;
@@ -2942,16 +3003,19 @@ function renderSide(side, poke, deck, activeIdx) {
   const energyFill = document.getElementById(`${side}-energy-fill`);
   if (energyFill) energyFill.style.width = (energy / 20 * 100) + '%';
 
-  // Mega energy bar — only shown for Pokémon that have a Mega form and haven't evolved yet
+  // Mega energy bar — shared per side (like the move-energy bar), shown while this team has
+  // at least one Mega-capable Pokémon left to use it and hasn't used its one-time Mega yet
   const megaMeta  = document.getElementById(`${side}-mega-meta`);
   const megaTrack = document.getElementById(`${side}-mega-track`);
   if (megaMeta && megaTrack) {
-    const showMega = poke.mega && !poke.megaEvolved;
+    const megaUsed = side === 'player' ? G.playerMegaUsed : G.cpuMegaUsed;
+    const megaEnergy = side === 'player' ? G.playerMegaEnergy : G.cpuMegaEnergy;
+    const showMega = !megaUsed && deck.some(p => p.mega);
     megaMeta.style.display  = showMega ? 'flex'  : 'none';
     megaTrack.style.display = showMega ? 'block' : 'none';
     if (showMega) {
-      document.getElementById(`${side}-mega-text`).textContent = `${poke.megaEnergy} / 20`;
-      document.getElementById(`${side}-mega-fill`).style.width = (poke.megaEnergy / 20 * 100) + '%';
+      document.getElementById(`${side}-mega-text`).textContent = `${megaEnergy} / 20`;
+      document.getElementById(`${side}-mega-fill`).style.width = (megaEnergy / 20 * 100) + '%';
     }
   }
 
@@ -3026,8 +3090,9 @@ function renderActions() {
   const cp = CP();
   const megaBtn = document.getElementById('btn-mega');
   if (megaBtn) {
-    const canMega = p.mega && !p.megaEvolved && p.megaEnergy >= 20;
-    megaBtn.style.display = p.mega && !p.megaEvolved ? '' : 'none';
+    const eligible = p.mega && !p.megaEvolved && !G.playerMegaUsed;
+    const canMega = eligible && G.playerMegaEnergy >= 20;
+    megaBtn.style.display = eligible ? '' : 'none';
     megaBtn.disabled = G.busy || !canMega;
   }
   p.attacks.forEach((a, i) => {
@@ -3128,9 +3193,10 @@ function applyTrainer(card, side) {
   const pron    = side === 'player' ? '你' : '對手';
 
   switch (card.id) {
-    case 'potion': {
-      const gain = Math.min(active.hp - active.cur, 80);
-      active.cur = Math.min(active.hp, active.cur + 80);
+    case 'potion-s': case 'potion-m': case 'potion-l': case 'potion-xl': {
+      const healAmt = { 'potion-s':60, 'potion-m':80, 'potion-l':100, 'potion-xl':120 }[card.id];
+      const gain = Math.min(active.hp - active.cur, healAmt);
+      active.cur = Math.min(active.hp, active.cur + healAmt);
       log(`${pron}使用了【${card.name}】，${active.name} 回復了 ${gain} HP！（現在 ${active.cur}/${active.hp}）`, tag);
       updateHp(side, active);
       break;
@@ -3274,7 +3340,8 @@ function applyTrainer(card, side) {
     case 'stadium-reversal':
     case 'stadium-invert':
     case 'stadium-dragon-valley':
-    case 'stadium-evil-forest': {
+    case 'stadium-evil-forest':
+    case 'stadium-mega-prism': {
       const oldStadium = G.activeStadium;
       G.activeStadium = card;
       if (oldStadium) log(`🏟 新競技場【${card.name}】取代了【${oldStadium.name}】！`, 'special');
@@ -3373,15 +3440,19 @@ function applyMegaEvolution(poke, side) {
   poke.type2 = poke.mega.type2 ?? null;
   poke.ability = { ...poke.mega.ability };
   poke.megaEvolved = true;
+  poke.cur = poke.hp; // Mega 進化時補滿血
+  poke.status = null; // 並解除異常狀態
+  G[side === 'player' ? 'playerMegaUsed' : 'cpuMegaUsed'] = true; // 雙方共用一條槽，整場只能用一次
   const label = side === 'player' ? '你的' : '對手的';
-  log(`${label}${poke.name} Mega 進化了！`, 'special');
+  log(`${label}${poke.name} Mega 進化了！HP 全滿，異常狀態解除！`, 'special');
   triggerOnEnter(poke, side); // lets an ability like 複製(trace) fire immediately on evolving
+  playMegaEvolveAnim(side, poke);
 }
 
 function megaEvolve() {
   if (G.busy) return;
   const p = P();
-  if (!p.mega || p.megaEvolved || p.megaEnergy < 20) return;
+  if (!p.mega || p.megaEvolved || G.playerMegaUsed || G.playerMegaEnergy < 20) return;
   applyMegaEvolution(p, 'player');
   renderBattle();
 }
@@ -3535,7 +3606,7 @@ function cpuUseTrainers() {
   }
   /* Heal when below 40% HP */
   if (cpu.cur < cpu.hp * 0.4) {
-    useCard('nurse') || useCard('potion');
+    useCard('nurse') || useCard('potion-xl') || useCard('potion-l') || useCard('potion-m') || useCard('potion-s');
   }
   /* Revive a fainted bench Pokémon */
   if (G.cpuDeck.some(p => p.cur <= 0)) useCard('revive');
@@ -3559,7 +3630,11 @@ function cpuAttack() {
     G.cpuHand.push(itemsOnly[Math.floor(Math.random() * itemsOnly.length)]);
   }
   G.cpuEnergy = Math.min(20, G.cpuEnergy + 3);
-  if (CP().mega && !CP().megaEvolved && CP().megaEnergy >= 20) applyMegaEvolution(CP(), 'cpu');
+  if (G.activeStadium?.id === 'stadium-mega-prism' && !G.cpuMegaUsed) {
+    G.cpuMegaEnergy = Math.min(20, G.cpuMegaEnergy + 10);
+    log('【Mega 稜鏡塔】對手獲得了 10 點 Mega 能量！', 'special');
+  }
+  if (CP().mega && !CP().megaEvolved && !G.cpuMegaUsed && G.cpuMegaEnergy >= 20) applyMegaEvolution(CP(), 'cpu');
   cpuUseTrainers();
   const cpu = CP();
 
@@ -3934,11 +4009,15 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
     log(`造成了 ${dmg} 點傷害！${dLabel}${defender.name} 剩餘 HP：${Math.max(0,defender.cur)} / ${defender.hp}`, 'system');
     updateHp(dSide, defender);
 
-    /* Mega 能量：依這次交換造成/承受的傷害，攻守雙方各自累積 */
+    /* Mega 能量：跟招式能量一樣是雙方共用的一條槽，依這次交換造成/承受的傷害累積；用過一次就不再累積 */
     if (dmg > 0) {
       const megaGain = Math.max(1, Math.round(dmg / 25));
-      if (attacker.mega && !attacker.megaEvolved) attacker.megaEnergy = Math.min(20, attacker.megaEnergy + megaGain);
-      if (defender.mega && !defender.megaEvolved) defender.megaEnergy = Math.min(20, defender.megaEnergy + megaGain);
+      const aMegaKey = aSide === 'player' ? 'playerMegaEnergy' : 'cpuMegaEnergy';
+      const dMegaKey = dSide === 'player' ? 'playerMegaEnergy' : 'cpuMegaEnergy';
+      const aMegaUsedKey = aSide === 'player' ? 'playerMegaUsed' : 'cpuMegaUsed';
+      const dMegaUsedKey = dSide === 'player' ? 'playerMegaUsed' : 'cpuMegaUsed';
+      if (!G[aMegaUsedKey]) G[aMegaKey] = Math.min(20, G[aMegaKey] + megaGain);
+      if (!G[dMegaUsedKey]) G[dMegaKey] = Math.min(20, G[dMegaKey] + megaGain);
     }
 
     if (dmg > 0 && atkType === 'fire' && defender.status?.type === 'freeze') {
@@ -4058,6 +4137,45 @@ const HIT_EMOJI = {
   steel:'⚙️',ground:'💥',flying:'💨',rock:'🪨',fairy:'✨',
   normal:'💫',poison:'☠️',
 };
+/* Mega Evolution animation: gem wraps the sprite → charges → bursts open → new sprite revealed.
+   By the time this runs, `poke` has already been mutated to its Mega form and renderBattle() has
+   (or is about to) swap the <img> src — the gem overlay just has to fully hide the sprite until
+   the burst, so it doesn't matter which sprite is underneath while it's covered. */
+function playMegaEvolveAnim(side, poke) {
+  const card = document.getElementById(`${side}-bcard`);
+  const sprEl = document.getElementById(`${side}-sprite`);
+  if (!card || !sprEl) return;
+
+  const gem = document.createElement('div');
+  gem.className = 'mega-gem';
+  card.appendChild(gem);
+  sprEl.style.animation = 'megaGemPulse 0.6s ease infinite';
+
+  setTimeout(() => {
+    gem.remove();
+    const burst = document.createElement('div');
+    burst.className = 'mega-burst';
+    card.appendChild(burst);
+
+    for (let i = 0; i < 10; i++) {
+      const particle = document.createElement('div');
+      const angle = (i / 10) * 2 * Math.PI;
+      const dist = 55 + Math.random() * 25;
+      particle.className = 'mega-particle';
+      particle.style.setProperty('--mpx', Math.cos(angle) * dist + 'px');
+      particle.style.setProperty('--mpy', Math.sin(angle) * dist + 'px');
+      card.appendChild(particle);
+      setTimeout(() => particle.remove(), 650);
+    }
+
+    sprEl.style.animation = 'megaSpriteReveal 0.5s ease';
+    setTimeout(() => {
+      burst.remove();
+      sprEl.style.animation = '';
+    }, 550);
+  }, 620);
+}
+
 function showHitEffect(atkType, targetEl) {
   const bg = HIT_COLORS[atkType] || 'rgba(200,200,200,0.5)';
   const emoji = HIT_EMOJI[atkType] || '💥';
@@ -4243,6 +4361,7 @@ function resetGame() {
     playerDeck:[], cpuDeck:[], playerIdx:0, cpuIdx:0, round:0, busy:false,
     playerHand:[], cpuHand:[], playerSuppUsed:false, playerSuppStageUsed:0, cpuSuppUsed:false, cpuSuppStageUsed:0, freeSwitch:false,
     switchedThisTurn:false, playerSwitchGuard:false,
+    playerMegaEnergy:0, cpuMegaEnergy:0, playerMegaUsed:false, cpuMegaUsed:false,
     playerBuff:{atkBonus:0,atkMult:1,shield:0,typeOverride:null,reflect:false}, cpuBuff:{atkBonus:0,atkMult:1,shield:0,typeOverride:null,reflect:false},
     playerDmgDealt:0, cpuDmgDealt:0, playerCardsUsed:0,
     swapCandidates:[], swapDone:false,
@@ -4284,6 +4403,10 @@ function drawAfterTurn(onDone) {
   }
   // Player gains energy at start of their own turn
   G.playerEnergy = Math.min(20, G.playerEnergy + 3);
+  if (G.activeStadium?.id === 'stadium-mega-prism' && !G.playerMegaUsed) {
+    G.playerMegaEnergy = Math.min(20, G.playerMegaEnergy + 10);
+    log('【Mega 稜鏡塔】你獲得了 10 點 Mega 能量！', 'special');
+  }
   // Player draws at start of their own turn; items-only pool
   const itemsOnly = TRAINERS.filter(c => c.cat !== 'supporter');
   const n = Math.floor(Math.random() * 2) + 1;
@@ -4443,12 +4566,14 @@ function renderDex() {
         </div>`;
       }).join('');
       const abilityHtml = p.ability ? `<div class="ability-badge" title="${p.ability.desc}">✨ ${p.ability.name}</div>` : '';
+      const megaHtml = p.mega ? `<div class="mega-badge" title="可以 Mega 進化">💎 可 Mega 進化</div>` : '';
       html += `<div class="dex-card">
         <img class="dex-sprite" src="${spriteUrl(p.id)}" alt="${p.name}">
         <div class="dex-info">
           <div class="dex-name">${p.name}&nbsp;<span class="type-badge" style="background:${col};font-size:0.58rem;padding:0.04rem 0.28rem;vertical-align:middle">${TYPE_ZH[p.type]||p.type}</span></div>
           <div class="dex-hp">HP ${p.hp}</div>
           ${abilityHtml}
+          ${megaHtml}
           <div class="dex-moves">${movesHtml}</div>
         </div>
       </div>`;
@@ -4543,6 +4668,7 @@ function renderDex() {
         <span id="bp-type-badge2" class="type-badge" style="font-size:0.65rem;padding:0.1rem 0.45rem;display:none"></span>
       </div>
       <div id="bp-ability" class="ability-badge" style="display:none;margin-top:0.3rem"></div>
+      <div id="bp-mega" class="mega-badge" style="display:none;margin-top:0.3rem">💎 可 Mega 進化</div>
     </div>
   </div>
   <div class="bp-hp" id="bp-hp"></div>

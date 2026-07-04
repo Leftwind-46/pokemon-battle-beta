@@ -150,6 +150,7 @@
     .status-tag.burn      { background:#bf360c; }
     .status-tag.freeze    { background:#006064; }
     .ability-badge { display:inline-block; font-size:0.62rem; font-weight:700; padding:0.1rem 0.48rem; border-radius:999px; margin-top:0.22rem; letter-spacing:0.02em; background:rgba(186,104,200,0.22); color:#ce93d8; border:1px solid rgba(186,104,200,0.55); }
+    .mega-badge { display:inline-block; font-size:0.62rem; font-weight:700; padding:0.1rem 0.48rem; border-radius:999px; margin-top:0.22rem; margin-left:0.2rem; letter-spacing:0.02em; background:rgba(224,64,251,0.22); color:#e040fb; border:1px solid rgba(224,64,251,0.55); }
     .field { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:1rem; }
     .field-label { font-size:0.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:0.6rem; }
     .active-area { display:flex; align-items:flex-start; gap:1rem; }
@@ -216,6 +217,45 @@
     @keyframes fadeUp { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:none} }
     #action-area { display:grid; grid-template-columns:1fr 1fr; gap:0.4rem; margin-top:0.35rem; }
     @keyframes hitPulse { 0%{opacity:1;transform:scale(1);} 60%{opacity:0.85;transform:scale(1.15);} 100%{opacity:0;transform:scale(1.3);} }
+    @keyframes megaWrapIn {
+      0%   { transform: scale(0) rotate(0deg);   opacity: 0; }
+      55%  { transform: scale(1.2) rotate(200deg); opacity: 1; }
+      100% { transform: scale(1) rotate(180deg); opacity: 1; }
+    }
+    @keyframes megaGemPulse {
+      0%,100% { filter: brightness(1) drop-shadow(0 0 6px #e040fb); }
+      50%     { filter: brightness(1.7) drop-shadow(0 0 22px #e040fb); }
+    }
+    @keyframes megaBurstFlash {
+      0%   { transform: scale(0.2); opacity: 0; }
+      35%  { transform: scale(1.5); opacity: 1; }
+      100% { transform: scale(2.6); opacity: 0; }
+    }
+    @keyframes megaParticleFly {
+      0%   { transform: translate(0,0) scale(1);   opacity: 1; }
+      100% { transform: translate(var(--mpx), var(--mpy)) scale(0.15); opacity: 0; }
+    }
+    @keyframes megaSpriteReveal {
+      0%   { opacity: 0; transform: scale(0.4); filter: brightness(2); }
+      60%  { opacity: 1; transform: scale(1.12); filter: brightness(1.4); }
+      100% { opacity: 1; transform: scale(1); filter: brightness(1); }
+    }
+    .mega-gem {
+      position: absolute; inset: 10%; z-index: 25; pointer-events: none; border-radius: 22%;
+      background: linear-gradient(135deg, rgba(240,120,255,0.9), rgba(123,31,162,0.9));
+      box-shadow: 0 0 26px 8px rgba(224,64,251,0.75);
+      animation: megaWrapIn 0.6s cubic-bezier(.34,1.56,.64,1) forwards;
+    }
+    .mega-burst {
+      position: absolute; inset: 0; z-index: 30; pointer-events: none; border-radius: 10px;
+      background: radial-gradient(circle, #fff 0%, #e040fb 40%, transparent 72%);
+      animation: megaBurstFlash 0.5s ease forwards;
+    }
+    .mega-particle {
+      position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; margin: -4px;
+      background: #f3e5f5; border-radius: 2px; z-index: 29; pointer-events: none;
+      animation: megaParticleFly 0.6s ease-out forwards;
+    }
     @keyframes stadiumPop { 0%{transform:scaleY(0);opacity:0;} 60%{transform:scaleY(1.08);} 100%{transform:scaleY(1);opacity:1;} }
     #active-stadium {
       display: none;
@@ -600,10 +640,11 @@
     </ul>
     <h3>💎 Mega 進化</h3>
     <ul>
-      <li>部分寶可夢擁有 Mega 形態，戰鬥中會多顯示一條「Mega」能量條（0–20，初始值 0）。</li>
-      <li>Mega 能量依戰鬥表現累積：這隻寶可夢每造成或承受一次傷害，都會依傷害量獲得 Mega 能量。</li>
-      <li>Mega 能量集滿 20 後，會出現「Mega 進化」按鈕，點下去可以立即進化——換上 Mega 造型、屬性、特性。</li>
+      <li>Mega 能量條跟招式能量一樣是<b>雙方各自共用一條</b>（0–20，初始值 0），不是每隻寶可夢各自獨立——只要隊上有寶可夢擁有 Mega 形態，就會顯示這條槽。</li>
+      <li>Mega 能量依戰鬥表現累積：每次交換造成／承受傷害，攻守雙方都會依傷害量獲得 Mega 能量。</li>
+      <li>Mega 能量集滿 20、且目前上場的寶可夢擁有 Mega 形態時，會出現「Mega 進化」按鈕，點下去可以立即進化——換上 Mega 造型、屬性、特性，並且<b>HP 全滿、解除異常狀態</b>。</li>
       <li>Mega 進化是<b>免費行動</b>，不會結束你的回合，進化後還可以繼續正常選招攻擊。</li>
+      <li>⚠️ 整場戰鬥<b>只能使用一次</b>——不論隊上有幾隻能 Mega 進化的寶可夢，用掉一次之後這條槽就會消失，無法再次進化。</li>
       <li>Mega 進化後會維持到本場戰鬥結束，即使中途換人下場、之後再換回來，也不會恢復原形。</li>
       <li>Mega 特性新增了 4 種：硬爪（攻擊傷害 ×1.3）、技術高手（威力 60 以下的招式傷害 ×1.5）、破格（攻擊時無視對方的防禦型特性，如厚脂肪／硬岩／神秘之守／多重鱗片／頑強）、複製（進化當下複製對手當前的特性）。</li>
     </ul>
@@ -627,7 +668,7 @@
     <ul>
       <li><b>道具牌</b>（綠框）每回合可用多張，每回合開始時補抽 1–2 張：</li>
       <ul>
-        <li>傷藥 — 回復 80 HP ／ 攻擊強化 — 下次 +40 傷害 ／ 防禦強化 — 下次受傷 -40</li>
+        <li>傷藥（小／中／大／特大）— 回復 60／80／100／120 HP ／ 攻擊強化 — 下次 +40 傷害 ／ 防禦強化 — 下次受傷 -40</li>
         <li>能量強化 — 下次攻擊 ×2，但自損 50 HP</li>
         <li>萬能藥 — 解除異常狀態</li>
         <li>火焰彈 — 讓對手燒傷 ／ 瓦斯攻擊 — 讓對手中毒</li>
@@ -654,6 +695,7 @@
         <li>反轉世界 — 場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×2）</li>
         <li>龍之谷 — 龍屬性寶可夢對妖精、冰系招式最多×1效果</li>
         <li>邪惡森林 — 草系寶可夢不受屬性克制；草系招式改以毒屬性計算效果</li>
+        <li>Mega 稜鏡塔 — 雙方每個自己的回合開始時，獲得 10 點 Mega 能量</li>
       </ul>
     </ul>
     <h3>特性</h3>
@@ -906,6 +948,45 @@ const HIT_EMOJI = {
   fighting:'👊',ghost:'👻',dragon:'🐲',dark:'🌑',steel:'⚙️',ground:'💥',
   flying:'💨',rock:'🪨',fairy:'✨',normal:'💫',poison:'☠️',
 };
+/* Mega Evolution animation: gem wraps the sprite → charges → bursts open → new sprite revealed.
+   Triggered off the server's `megaEvolved` flag on the broadcasted update, so both players see it
+   at the same time regardless of who evolved — the state (and new sprite) is already applied by
+   the time this runs via applyServerState(), the gem overlay just hides it until the burst. */
+function playMegaEvolveAnim(side) {
+  const card = document.getElementById(`${side}-bcard`);
+  const sprEl = document.getElementById(`${side}-sprite`);
+  if (!card || !sprEl) return;
+
+  const gem = document.createElement('div');
+  gem.className = 'mega-gem';
+  card.appendChild(gem);
+  sprEl.style.animation = 'megaGemPulse 0.6s ease infinite';
+
+  setTimeout(() => {
+    gem.remove();
+    const burst = document.createElement('div');
+    burst.className = 'mega-burst';
+    card.appendChild(burst);
+
+    for (let i = 0; i < 10; i++) {
+      const particle = document.createElement('div');
+      const angle = (i / 10) * 2 * Math.PI;
+      const dist = 55 + Math.random() * 25;
+      particle.className = 'mega-particle';
+      particle.style.setProperty('--mpx', Math.cos(angle) * dist + 'px');
+      particle.style.setProperty('--mpy', Math.sin(angle) * dist + 'px');
+      card.appendChild(particle);
+      setTimeout(() => particle.remove(), 650);
+    }
+
+    sprEl.style.animation = 'megaSpriteReveal 0.5s ease';
+    setTimeout(() => {
+      burst.remove();
+      sprEl.style.animation = '';
+    }, 550);
+  }, 620);
+}
+
 function showHitEffect(atkType, targetEl) {
   const bg = HIT_COLORS[atkType] || 'rgba(200,200,200,0.5)';
   const emoji = HIT_EMOJI[atkType] || '💥';
@@ -1065,6 +1146,10 @@ function handleMsg(msg) {
         }
         if (defCard) showHitEffect(msg.atkType, defCard);
       }
+      if (msg.megaEvolved) {
+        const evolvedSide = msg.actor === myRole ? 'player' : 'cpu';
+        playMegaEvolveAnim(evolvedSide);
+      }
       // KO switch check
       if (msg.state.pendingKOSwitch === myRole) showKOSwitch();
       // Discard check
@@ -1115,6 +1200,10 @@ function applyServerState(sG) {
   G.cpuHand            = sG[`${op}Hand`];
   G.playerEnergy       = sG[`${me}Energy`];
   G.cpuEnergy          = sG[`${op}Energy`];
+  G.playerMegaEnergy   = sG[`${me}MegaEnergy`] || 0;
+  G.cpuMegaEnergy      = sG[`${op}MegaEnergy`] || 0;
+  G.playerMegaUsed     = sG[`${me}MegaUsed`] || false;
+  G.cpuMegaUsed        = sG[`${op}MegaUsed`] || false;
   G.playerSuppUsed     = sG[`${me}SuppUsed`];
   G.playerSuppStageUsed= sG[`${me}SuppStageUsed`];
   G.cpuSuppUsed        = sG[`${op}SuppUsed`];
@@ -1188,6 +1277,7 @@ function renderTeamSelect() {
       <img src="${spriteUrl(p.id)}" alt="${p.name}">
       <div class="sel-name">${p.name}</div>
       ${p.ability ? `<div class="ability-badge" title="${p.ability.desc}">✨ ${p.ability.name}</div>` : ''}
+      ${p.mega ? `<div class="mega-badge" title="可以 Mega 進化">💎 可 Mega 進化</div>` : ''}
       <div class="sel-hp">HP ${p.hp}</div>
       <div class="sel-moves">${p.attacks.map(a=>`<div class="sel-move"><span class="sel-move-badge" style="background:${TYPE_COLOR[a.type]||'#888'}">${TYPE_ZH[a.type]||a.type}</span><span>${a.name} ${a.dmg} · ⚡${a.cost}</span></div>`).join('')}</div>
     `;
@@ -1307,12 +1397,14 @@ function renderSide(side, poke, deck, activeIdx) {
   const megaMeta  = document.getElementById(`${side}-mega-meta`);
   const megaTrack = document.getElementById(`${side}-mega-track`);
   if (megaMeta && megaTrack) {
-    const showMega = poke.mega && !poke.megaEvolved;
+    const megaUsed = side === 'player' ? G.playerMegaUsed : G.cpuMegaUsed;
+    const megaEnergy = side === 'player' ? G.playerMegaEnergy : G.cpuMegaEnergy;
+    const showMega = !megaUsed && (deck || []).some(p => p.mega);
     megaMeta.style.display  = showMega ? 'flex'  : 'none';
     megaTrack.style.display = showMega ? 'block' : 'none';
     if (showMega) {
-      document.getElementById(`${side}-mega-text`).textContent = `${poke.megaEnergy ?? 0} / 20`;
-      document.getElementById(`${side}-mega-fill`).style.width = ((poke.megaEnergy ?? 0) / 20 * 100) + '%';
+      document.getElementById(`${side}-mega-text`).textContent = `${megaEnergy ?? 0} / 20`;
+      document.getElementById(`${side}-mega-fill`).style.width = ((megaEnergy ?? 0) / 20 * 100) + '%';
     }
   }
 
@@ -1363,8 +1455,9 @@ function renderActions() {
   const p = P(); const cp = CP();
   const megaBtn = document.getElementById('btn-mega');
   if (megaBtn) {
-    const canMega = p.mega && !p.megaEvolved && (p.megaEnergy ?? 0) >= 20;
-    megaBtn.style.display = p.mega && !p.megaEvolved ? '' : 'none';
+    const eligible = p.mega && !p.megaEvolved && !G.playerMegaUsed;
+    const canMega = eligible && (G.playerMegaEnergy ?? 0) >= 20;
+    megaBtn.style.display = eligible ? '' : 'none';
     megaBtn.disabled = G.busy || !canMega;
   }
   p.attacks.forEach((a, i) => {
@@ -1433,7 +1526,7 @@ function playerAttack(idx) {
 function megaEvolve() {
   if (G.busy || G.playerNeedsDiscard) return;
   const p = P();
-  if (!p?.mega || p.megaEvolved || (p.megaEnergy ?? 0) < 20) return;
+  if (!p?.mega || p.megaEvolved || G.playerMegaUsed || (G.playerMegaEnergy ?? 0) < 20) return;
   send({ type: 'mega_evolve' }); // free action — doesn't end the turn, so G.busy stays false
 }
 
@@ -1497,6 +1590,7 @@ function renderMsCard(p, onClick) {
     <img src="${spriteUrl(p.id)}" alt="${p.name}">
     <div class="sel-name">${p.name}</div>
     ${p.ability ? `<div class="ability-badge" title="${p.ability.desc}">✨ ${p.ability.name}</div>` : ''}
+    ${p.mega ? `<div class="mega-badge" title="可以 Mega 進化">💎 可 Mega 進化</div>` : ''}
     <div class="sel-hp">HP ${p.hp}</div>
     <div class="sel-moves">${p.attacks.map(a=>`<div class="sel-move"><span class="sel-move-badge" style="background:${TYPE_COLOR[a.type]||'#888'}">${TYPE_ZH[a.type]||a.type}</span><span>${a.name} ${a.dmg}</span></div>`).join('')}</div>
   `;
@@ -1835,6 +1929,7 @@ function showBenchPopup(e, poke, deckIdx, canSwitch, freeSwitch) {
     ? `<button class="bp-switch-btn" onclick="playerSwitch(${deckIdx})">換上場${freeSwitch ? '（不佔用回合）' : ''}</button>`
     : (poke.cur<=0 ? '<div style="font-size:0.78rem;color:#ef5350;text-align:center">已倒下</div>' : '');
   const abilityHtml = poke.ability ? `<div class="ability-badge" title="${poke.ability.desc}" style="margin-top:0.3rem">✨ ${poke.ability.name}</div>` : '';
+  const megaHtml = poke.mega ? `<div class="mega-badge" title="可以 Mega 進化" style="margin-top:0.3rem">💎 可 Mega 進化</div>` : '';
   popup.innerHTML = `
     <div class="bp-header">
       <img src="${spriteUrl(poke.id)}" alt="${poke.name}">
@@ -1842,6 +1937,7 @@ function showBenchPopup(e, poke, deckIdx, canSwitch, freeSwitch) {
         <div class="bp-pname">${poke.name}</div>
         <div style="display:flex;gap:0.28rem;flex-wrap:wrap;margin-top:0.18rem">${typeBadges}</div>
         ${abilityHtml}
+        ${megaHtml}
         <div class="bp-hp" style="margin-top:0.2rem">HP <span style="color:${hpCol}">${cur}</span> / ${poke.hp}</div>
       </div>
     </div>
