@@ -165,6 +165,11 @@
     .energy-meta { display:flex; justify-content:space-between; font-size:0.72rem; color:#4fc3f7; margin-top:0.35rem; margin-bottom:0.22rem; }
     .energy-track { background:rgba(255,255,255,0.1); border-radius:999px; height:8px; overflow:hidden; }
     .energy-fill { height:100%; border-radius:999px; background:linear-gradient(90deg, #0288d1, #4fc3f7); transition:width 0.4s ease; }
+    .mega-meta { display:flex; justify-content:space-between; font-size:0.72rem; color:#ce93d8; margin-top:0.35rem; margin-bottom:0.22rem; }
+    .mega-track { background:rgba(255,255,255,0.1); border-radius:999px; height:8px; overflow:hidden; }
+    .mega-fill { height:100%; border-radius:999px; background:linear-gradient(90deg, #7b1fa2, #e040fb); transition:width 0.4s ease; }
+    .btn-mega { grid-column:span 2; background:linear-gradient(135deg, rgba(224,64,251,0.25), rgba(123,31,162,0.25)); border:1px solid rgba(224,64,251,0.6); color:#f3e5f5; font-weight:700; }
+    .btn-mega:disabled { opacity:0.4; }
     .bench-row { display:flex; flex-wrap:wrap; gap:0.45rem; margin-top:0.7rem; }
     .b-bench { background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:8px; padding:0.3rem 0.55rem; display:flex; align-items:center; gap:0.35rem; font-size:0.73rem; cursor:pointer; transition:all 0.15s; }
     .b-bench:hover { background:rgba(255,255,255,0.09); transform:translateY(-1px); }
@@ -484,6 +489,8 @@
           <div class="hp-track"><div class="hp-fill" id="cpu-hp-fill"></div></div>
           <div class="energy-meta"><span>⚡能量</span><span id="cpu-energy-text"></span></div>
           <div class="energy-track"><div class="energy-fill" id="cpu-energy-fill"></div></div>
+          <div class="mega-meta" id="cpu-mega-meta" style="display:none"><span>💎 Mega</span><span id="cpu-mega-text"></span></div>
+          <div class="mega-track" id="cpu-mega-track" style="display:none"><div class="mega-fill" id="cpu-mega-fill"></div></div>
         </div>
       </div>
       <div class="bench-row" id="cpu-bench"></div>
@@ -508,8 +515,14 @@
           <div class="hp-track"><div class="hp-fill" id="player-hp-fill"></div></div>
           <div class="energy-meta"><span>⚡能量</span><span id="player-energy-text"></span></div>
           <div class="energy-track"><div class="energy-fill" id="player-energy-fill"></div></div>
+          <div class="mega-meta" id="player-mega-meta" style="display:none"><span>💎 Mega</span><span id="player-mega-text"></span></div>
+          <div class="mega-track" id="player-mega-track" style="display:none"><div class="mega-fill" id="player-mega-fill"></div></div>
           <div id="active-stadium"></div>
           <div id="action-area">
+            <button class="btn-atk btn-mega" id="btn-mega" onclick="megaEvolve()" style="display:none">
+              <div class="atk-name">💎 Mega 進化</div>
+              <div class="atk-meta"><span style="font-size:0.72rem">免費行動，不消耗回合</span></div>
+            </button>
             <button class="btn-atk" id="btn-atk0" onclick="playerAttack(0)">
               <div class="atk-name" id="atk-name0"></div>
               <div class="atk-meta"><span class="atk-type-badge" id="atk-type0"></span><span class="atk-dmg" id="atk-dmg0"></span></div>
@@ -584,6 +597,15 @@
       <li>弱招消耗低（甚至 0），可以幾乎每回合使用；強招消耗高，需要先囤積幾回合能量才打得出來。</li>
       <li>若能量不足以使用任何招式，該回合只能待機、換人或使用道具卡，無法攻擊。</li>
       <li>可透過棄2換能量（+5）、能量補丁道具卡、或啦啦隊支援者卡（直接補滿到 20）額外獲取能量。</li>
+    </ul>
+    <h3>💎 Mega 進化</h3>
+    <ul>
+      <li>部分寶可夢擁有 Mega 形態，戰鬥中會多顯示一條「Mega」能量條（0–20，初始值 0）。</li>
+      <li>Mega 能量依戰鬥表現累積：這隻寶可夢每造成或承受一次傷害，都會依傷害量獲得 Mega 能量。</li>
+      <li>Mega 能量集滿 20 後，會出現「Mega 進化」按鈕，點下去可以立即進化——換上 Mega 造型、屬性、特性。</li>
+      <li>Mega 進化是<b>免費行動</b>，不會結束你的回合，進化後還可以繼續正常選招攻擊。</li>
+      <li>Mega 進化後會維持到本場戰鬥結束，即使中途換人下場、之後再換回來，也不會恢復原形。</li>
+      <li>Mega 特性新增了 4 種：硬爪（攻擊傷害 ×1.3）、技術高手（威力 60 以下的招式傷害 ×1.5）、破格（攻擊時無視對方的防禦型特性，如厚脂肪／硬岩／神秘之守／多重鱗片／頑強）、複製（進化當下複製對手當前的特性）。</li>
     </ul>
     <h3>屬性相剋</h3>
     <ul>
@@ -1281,6 +1303,19 @@ function renderSide(side, poke, deck, activeIdx) {
   if (energyText) energyText.textContent = `${energy ?? 0} / 20`;
   const energyFill = document.getElementById(`${side}-energy-fill`);
   if (energyFill) energyFill.style.width = ((energy ?? 0) / 20 * 100) + '%';
+
+  const megaMeta  = document.getElementById(`${side}-mega-meta`);
+  const megaTrack = document.getElementById(`${side}-mega-track`);
+  if (megaMeta && megaTrack) {
+    const showMega = poke.mega && !poke.megaEvolved;
+    megaMeta.style.display  = showMega ? 'flex'  : 'none';
+    megaTrack.style.display = showMega ? 'block' : 'none';
+    if (showMega) {
+      document.getElementById(`${side}-mega-text`).textContent = `${poke.megaEnergy ?? 0} / 20`;
+      document.getElementById(`${side}-mega-fill`).style.width = ((poke.megaEnergy ?? 0) / 20 * 100) + '%';
+    }
+  }
+
   const statusEl = document.getElementById(`${side}-status`);
   if (statusEl) {
     if (poke.status) {
@@ -1326,6 +1361,12 @@ function renderSide(side, poke, deck, activeIdx) {
 function renderActions() {
   if (!P()) return;
   const p = P(); const cp = CP();
+  const megaBtn = document.getElementById('btn-mega');
+  if (megaBtn) {
+    const canMega = p.mega && !p.megaEvolved && (p.megaEnergy ?? 0) >= 20;
+    megaBtn.style.display = p.mega && !p.megaEvolved ? '' : 'none';
+    megaBtn.disabled = G.busy || !canMega;
+  }
   p.attacks.forEach((a, i) => {
     const btn = document.getElementById(`btn-atk${i}`);
     if (!btn) return;
@@ -1387,6 +1428,13 @@ function playerAttack(idx) {
   G.busy = true;
   renderBattle();
   send({ type: 'attack', idx });
+}
+
+function megaEvolve() {
+  if (G.busy || G.playerNeedsDiscard) return;
+  const p = P();
+  if (!p?.mega || p.megaEvolved || (p.megaEnergy ?? 0) < 20) return;
+  send({ type: 'mega_evolve' }); // free action — doesn't end the turn, so G.busy stays false
 }
 
 let _pendingSwitchDeckIdx = null;
