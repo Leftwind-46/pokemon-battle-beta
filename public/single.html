@@ -3850,7 +3850,9 @@ function applyTrainer(card, side, chosenType) {
     case 'stadium-invert':
     case 'stadium-dragon-valley':
     case 'stadium-evil-forest':
-    case 'stadium-mega-prism': {
+    case 'stadium-mega-prism':
+    case 'stadium-spikes':
+    case 'stadium-toxic-field': {
       const oldStadium = G.activeStadium;
       G.activeStadium = card;
       if (oldStadium) log(`🏟 新競技場【${card.name}】取代了【${oldStadium.name}】！`, 'special');
