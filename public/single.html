@@ -219,64 +219,76 @@
       }
       .battle-main { max-width: 100%; }
 
-      /* Battle log: small toggle button in normal flow, full content pops up as a
-         fixed overlay modal so reading it never requires scrolling the whole page —
-         same position:fixed;inset:0 pattern as #warn-modal/#mega-cutscene-modal. */
-      #log-drawer {
-        width: 100%;
-        position: relative;
-        top: 0;
-        order: 5;
+      /* Battle log + hand: on mobile both collapse to a small floating circle button
+         (same FAB pattern as PvP's #chat-btn) fixed to a screen corner — always
+         reachable without scrolling — and their full content pops up as a fixed
+         overlay modal, same position:fixed;inset:0 pattern as #warn-modal.
+         !important needed throughout: this media query block appears earlier in the
+         file than these elements' base (desktop) rules, so with equal id-selector
+         specificity the base rule (later in source order) would otherwise win
+         regardless of viewport width — same reasoning as PvP's #chat-btn override. */
+      #log-drawer, #hand-drawer { width: auto !important; position: static !important; }
+      .drawer-btn-label { display: none !important; }
+      #log-drawer-btn, #hand-drawer-btn {
+        display: flex !important;
+        align-items: center; justify-content: center;
+        position: fixed !important;
+        bottom: 1rem !important;
+        width: 48px !important; height: 48px !important;
+        border-radius: 50% !important;
+        padding: 0 !important;
+        font-size: 1.3rem;
+        background: linear-gradient(135deg, #6890f0, #7986cb) !important;
+        border: none !important;
+        box-shadow: 0 4px 16px rgba(104,144,240,0.4);
+        z-index: 91 !important;
       }
-      #log-drawer-btn { display: block; }
+      #log-drawer-btn { left: 1rem !important; }
+      #hand-drawer-btn { right: 1rem !important; }
+      #log-drawer-btn.open, #hand-drawer-btn.open {
+        border-radius: 50% !important;
+        background: linear-gradient(135deg, #e040fb, #7b1fa2) !important;
+      }
       #battle-log {
-        display: none;
-        position: fixed;
-        inset: 0;
-        width: auto;
-        max-height: none;
-        top: 0;
-        z-index: 92;
-        border-radius: 0;
-        padding: 3.2rem 1rem 1rem;
-        background: rgba(4,2,12,0.96);
+        display: none !important;
+        position: fixed !important;
+        inset: 0 !important;
+        width: auto !important;
+        max-height: none !important;
+        top: 0 !important;
+        z-index: 92 !important;
+        border-radius: 0 !important;
+        padding: 3.2rem 1rem 1rem !important;
+        background: rgba(4,2,12,0.96) !important;
       }
-      #battle-log.open { display: flex; }
+      #battle-log.open { display: flex !important; }
       #log-drawer-close.open {
-        display: block;
-        position: fixed;
-        top: 0.6rem; right: 0.6rem;
-        z-index: 93;
+        display: block !important;
+        position: fixed !important;
+        top: 0.6rem !important; right: 0.6rem !important;
+        z-index: 93 !important;
       }
 
-      /* Hand drawer: small toggle button in normal flow, panel pops up as a fixed
-         overlay modal instead of expanding inline (which used to push page content
-         and require hunting for it via scroll). */
-      #hand-drawer {
-        width: 100%;
-        position: relative;
-        top: 0;
-        order: 6;
-      }
+      #hand-panel { display: none !important; }
       #hand-panel.open {
-        display: flex;
+        display: flex !important;
         flex-direction: column;
-        position: fixed;
-        inset: 0;
-        z-index: 92;
-        border-radius: 0;
-        border: none;
-        padding: 3.2rem 1rem 1rem;
-        background: rgba(4,2,12,0.96);
+        position: fixed !important;
+        inset: 0 !important;
+        z-index: 92 !important;
+        border-radius: 0 !important;
+        border: none !important;
+        padding: 3.2rem 1rem 1rem !important;
+        background: rgba(4,2,12,0.96) !important;
         overflow-y: auto;
       }
       #hand-panel.open #hand-area { flex-wrap: wrap; flex-direction: row; gap: 0.5rem; }
       #hand-panel .t-card { flex: 1; min-width: 110px; width: auto; }
       #hand-panel.open #hand-panel-close {
-        display: block;
-        position: fixed;
-        top: 0.6rem; right: 0.6rem;
-        z-index: 93;
+        display: block !important;
+        position: fixed !important;
+        top: 0.6rem !important; right: 0.6rem !important;
+        z-index: 93 !important;
       }
 
       /* Tighter spacing on mobile */
@@ -1510,7 +1522,7 @@
 
   <!-- Battle Log (left panel on desktop; toggled popup on mobile) -->
   <div id="log-drawer">
-    <button id="log-drawer-btn" onclick="toggleLogPanel()">📜 戰報</button>
+    <button id="log-drawer-btn" onclick="toggleLogPanel()">📜<span class="drawer-btn-label"> 戰報</span></button>
     <button id="log-drawer-close" onclick="toggleLogPanel()">✕ 關閉</button>
     <div id="battle-log"></div>
   </div>
@@ -1647,7 +1659,7 @@
 
   <!-- Hand Drawer (right panel) -->
   <div id="hand-drawer">
-    <button id="hand-drawer-btn" onclick="toggleHandDrawer()">🃏 <span id="hand-count-label">手牌</span></button>
+    <button id="hand-drawer-btn" onclick="toggleHandDrawer()">🃏<span class="drawer-btn-label"> <span id="hand-count-label">手牌</span></span></button>
     <div id="hand-panel">
       <button id="hand-panel-close" onclick="toggleHandDrawer()">✕ 關閉</button>
       <div id="hand-area"></div>
