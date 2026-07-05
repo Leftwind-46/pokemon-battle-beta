@@ -207,6 +207,7 @@
     #hand-panel.open { display: block; }
     #hand-area { display: flex; flex-direction: column; gap: 0.5rem; }
     #hand-panel .t-card { flex: none; min-width: unset; width: 100%; }
+    #hand-panel-close, #log-drawer-close { display: none; }
 
     @media (max-width: 900px) {
       /* Stack everything vertically */
@@ -217,22 +218,67 @@
         align-items: stretch;
       }
       .battle-main { max-width: 100%; }
-      /* Battle log: compact strip pushed to bottom */
-      #battle-log {
-        width: 100% !important;
-        position: relative !important;
-        top: 0 !important;
-        max-height: 90px;
-        order: 10;
+
+      /* Battle log: small toggle button in normal flow, full content pops up as a
+         fixed overlay modal so reading it never requires scrolling the whole page —
+         same position:fixed;inset:0 pattern as #warn-modal/#mega-cutscene-modal. */
+      #log-drawer {
+        width: 100%;
+        position: relative;
+        top: 0;
+        order: 5;
       }
-      /* Hand drawer: full width below battle main */
+      #log-drawer-btn { display: block; }
+      #battle-log {
+        display: none;
+        position: fixed;
+        inset: 0;
+        width: auto;
+        max-height: none;
+        top: 0;
+        z-index: 92;
+        border-radius: 0;
+        padding: 3.2rem 1rem 1rem;
+        background: rgba(4,2,12,0.96);
+      }
+      #battle-log.open { display: flex; }
+      #log-drawer-close.open {
+        display: block;
+        position: fixed;
+        top: 0.6rem; right: 0.6rem;
+        z-index: 93;
+      }
+
+      /* Hand drawer: small toggle button in normal flow, panel pops up as a fixed
+         overlay modal instead of expanding inline (which used to push page content
+         and require hunting for it via scroll). */
       #hand-drawer {
         width: 100%;
         position: relative;
         top: 0;
+        order: 6;
       }
-      #hand-panel.open { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+      #hand-panel.open {
+        display: flex;
+        flex-direction: column;
+        position: fixed;
+        inset: 0;
+        z-index: 92;
+        border-radius: 0;
+        border: none;
+        padding: 3.2rem 1rem 1rem;
+        background: rgba(4,2,12,0.96);
+        overflow-y: auto;
+      }
+      #hand-panel.open #hand-area { flex-wrap: wrap; flex-direction: row; gap: 0.5rem; }
       #hand-panel .t-card { flex: 1; min-width: 110px; width: auto; }
+      #hand-panel.open #hand-panel-close {
+        display: block;
+        position: fixed;
+        top: 0.6rem; right: 0.6rem;
+        z-index: 93;
+      }
+
       /* Tighter spacing on mobile */
       .field { padding: 0.65rem 0.75rem; }
       #action-area { gap: 0.3rem; }
@@ -368,13 +414,45 @@
       margin-left: 0.2rem;
     }
 
-    /* Battle log */
-    /* Battle log — left panel on desktop, inline on mobile */
-    #battle-log {
+    /* Battle log — sticky left panel on desktop; #log-drawer-btn opens it as a
+       full-screen popup on mobile instead (see media query below) */
+    #log-drawer {
       width: 220px;
       flex-shrink: 0;
       position: sticky;
       top: 1rem;
+      align-self: flex-start;
+      display: flex;
+      flex-direction: column;
+    }
+    #log-drawer-btn {
+      display: none;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.55rem 0.85rem;
+      color: var(--text);
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      width: 100%;
+      margin-bottom: 0.5rem;
+    }
+    #log-drawer-btn:hover { background: rgba(255,255,255,0.12); }
+    #log-drawer-btn.open { background: rgba(121,134,203,0.18); border-color: rgba(121,134,203,0.5); }
+    #log-drawer-close {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.45rem 0.8rem;
+      color: var(--text);
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    #battle-log {
+      flex: 1;
       max-height: calc(100vh - 2rem);
       background: rgba(0,0,0,0.45);
       border: 1px solid var(--border);
@@ -1430,8 +1508,12 @@
 <!-- ══ BATTLE ══ -->
 <div id="battle-screen" class="screen">
 
-  <!-- Battle Log (left panel on desktop) -->
-  <div id="battle-log"></div>
+  <!-- Battle Log (left panel on desktop; toggled popup on mobile) -->
+  <div id="log-drawer">
+    <button id="log-drawer-btn" onclick="toggleLogPanel()">📜 戰報</button>
+    <button id="log-drawer-close" onclick="toggleLogPanel()">✕ 關閉</button>
+    <div id="battle-log"></div>
+  </div>
 
   <!-- Main battle content -->
   <div class="battle-main">
@@ -1567,6 +1649,7 @@
   <div id="hand-drawer">
     <button id="hand-drawer-btn" onclick="toggleHandDrawer()">🃏 <span id="hand-count-label">手牌</span></button>
     <div id="hand-panel">
+      <button id="hand-panel-close" onclick="toggleHandDrawer()">✕ 關閉</button>
       <div id="hand-area"></div>
     </div>
   </div>
@@ -2964,6 +3047,12 @@ function playerCardClick(e) {
 function toggleHandDrawer() {
   document.getElementById('hand-drawer-btn').classList.toggle('open');
   document.getElementById('hand-panel').classList.toggle('open');
+}
+
+function toggleLogPanel() {
+  document.getElementById('log-drawer-btn').classList.toggle('open');
+  document.getElementById('battle-log').classList.toggle('open');
+  document.getElementById('log-drawer-close').classList.toggle('open');
 }
 
 function confirmBenchSwitch() {
