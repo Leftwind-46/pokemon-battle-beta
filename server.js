@@ -487,25 +487,18 @@ const TRAINERS = [
   {id:'gas-attack', name:'瓦斯攻擊',   cat:'item',      desc:'讓對手上場寶可夢陷入中毒'},
   {id:'switcher',   name:'交換器',     cat:'item',      desc:'讓對手上場寶可夢與備戰寶可夢隨機互換'},
   {id:'reflect',    name:'反彈鏡',     cat:'item',      desc:'下回合對手的攻擊傷害反彈回自身'},
-  {id:'orb-fire',   name:'火焰寶珠',   cat:'item',      desc:'本回合攻擊改為火屬性'},
-  {id:'orb-water',  name:'水流寶珠',   cat:'item',      desc:'本回合攻擊改為水屬性'},
-  {id:'orb-elec',   name:'電氣寶珠',   cat:'item',      desc:'本回合攻擊改為電屬性'},
-  {id:'orb-ice',    name:'冰晶寶珠',   cat:'item',      desc:'本回合攻擊改為冰屬性'},
-  {id:'orb-dark',   name:'暗影寶珠',   cat:'item',      desc:'本回合攻擊改為惡屬性'},
-  {id:'orb-fairy',  name:'妖精寶珠',   cat:'item',      desc:'本回合攻擊改為妖精屬性'},
-  {id:'orb-grass',  name:'草葉寶珠',   cat:'item',      desc:'本回合攻擊改為草屬性'},
-  {id:'orb-fight',  name:'格鬥寶珠',   cat:'item',      desc:'本回合攻擊改為格鬥屬性'},
-  {id:'orb-poison', name:'毒素寶珠',   cat:'item',      desc:'本回合攻擊改為毒屬性'},
-  {id:'orb-bug',    name:'蟲鳴寶珠',   cat:'item',      desc:'本回合攻擊改為蟲屬性'},
-  {id:'orb-ghost',  name:'幽靈寶珠',   cat:'item',      desc:'本回合攻擊改為幽靈屬性'},
-  {id:'orb-steel',  name:'鋼鐵寶珠',   cat:'item',      desc:'本回合攻擊改為鋼屬性'},
-  {id:'orb-ground', name:'大地寶珠',   cat:'item',      desc:'本回合攻擊改為地面屬性'},
+  {id:'type-orb',   name:'屬性轉換',   cat:'item',      desc:'選擇一個屬性，本回合攻擊視為該屬性（可享有屬性加成）'},
   {id:'retreat-vest', name:'撤退背心', cat:'item',      desc:'下次換場不會結束回合'},
   {id:'confuse-potion', name:'混亂藥', cat:'item',      desc:'讓對手上場寶可夢陷入混亂'},
   {id:'absolute-zero', name:'絕對零度', cat:'item',     desc:'讓對手上場寶可夢陷入結凍'},
   {id:'energy-patch-s', name:'能量補丁（小）', cat:'item', desc:'回復 2 點能量'},
   {id:'energy-patch-m', name:'能量補丁（中）', cat:'item', desc:'回復 3 點能量'},
   {id:'energy-patch-l', name:'能量補丁（大）', cat:'item', desc:'回復 4 點能量'},
+  {id:'hand-wreck', name:'手牌破壞',   cat:'item',      desc:'讓對方隨機棄掉 1 張手牌'},
+  {id:'energy-drain', name:'能量剝奪', cat:'item',      desc:'讓對方損失 6 點能量'},
+  {id:'gamble',     name:'一擲千金',   cat:'item',      desc:'30% 機率下次攻擊傷害 ×4；70% 機率自身損失 40% 最大HP'},
+  {id:'desperate-boost', name:'背水一戰', cat:'item',   desc:'HP 越低，下次攻擊威力加成越高（最高 +50）'},
+  {id:'double-strike', name:'連擊',     cat:'item',    desc:'下次攻擊傷害 ×1.4，異常狀態機率額外判定一次'},
   // ── supporters ──
   {id:'revive',     name:'復活藥',     cat:'supporter', desc:'復活備戰欄第一隻倒下的寶可夢（回復 80 HP）'},
   {id:'nurse',      name:'治療師',     cat:'supporter', desc:'上場寶可夢完全回復 HP 並解除異常狀態'},
@@ -521,6 +514,8 @@ const TRAINERS = [
   {id:'stadium-dragon-valley', name:'龍之谷',     cat:'stadium', desc:'龍屬性寶可夢對妖精、冰系招式不受克制（效果最多×1）'},
   {id:'stadium-evil-forest',   name:'邪惡森林',   cat:'stadium', desc:'草系寶可夢不受屬性克制；草系招式傷害改以毒屬性計算'},
   {id:'stadium-mega-prism',    name:'Mega 稜鏡塔', cat:'stadium', desc:'雙方每個自己的回合開始時，獲得 10 點 Mega 能量'},
+  {id:'stadium-spikes',        name:'尖峰陷阱',   cat:'stadium', desc:'寶可夢上場時，受到最大HP 15% 的傷害（雙方對等）'},
+  {id:'stadium-toxic-field',   name:'劇毒領域',   cat:'stadium', desc:'寶可夢上場時，陷入中毒（雙方對等）'},
 ];
 
 const STATUS_ZH = {poison:'中毒',burn:'燒傷',paralysis:'麻痺',sleep:'睡眠',freeze:'結凍',confusion:'混亂'};
@@ -673,7 +668,7 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     const dmg     = Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus) * aBuff.atkMult * burnMult * (rawMult || 1)));
     attacker.cur  = Math.max(0, attacker.cur - dmg);
     log.push({ text: `反彈鏡！攻擊被反彈，${attacker.name} 承受了 ${dmg} 傷害！`, cls: 'special' });
-    aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; dBuff.shield = 0;
+    aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; aBuff.doubleStrike = false; dBuff.shield = 0;
     return { damage: dmg, mult: 1 };
   }
 
@@ -684,7 +679,7 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     defender.cur = Math.min(defender.hp, defender.cur + heal);
     log.push({ text: `${attacker.name} 使用了 ${atk.name}！`, cls: 'attack' });
     log.push({ text: `${defender.name} 的儲水吸收了攻擊，回復了 ${actualHeal} HP！`, cls: 'special' });
-    aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; dBuff.shield = 0;
+    aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; aBuff.doubleStrike = false; dBuff.shield = 0;
     return { damage: 0, mult: 1 };
   }
 
@@ -694,7 +689,7 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     G[`${dRole}Energy`] = Math.min(20, (G[`${dRole}Energy`] || 0) + 3);
     log.push({ text: `${attacker.name} 使用了 ${atk.name}！`, cls: 'attack' });
     log.push({ text: `${defender.name} 的電氣引擎吸收了攻擊，回復了 3 點能量！`, cls: 'special' });
-    aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; dBuff.shield = 0;
+    aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; aBuff.doubleStrike = false; dBuff.shield = 0;
     return { damage: 0, mult: 1 };
   }
 
@@ -703,12 +698,13 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     dBuff.atkBonus += 20;
     log.push({ text: `${attacker.name} 使用了 ${atk.name}！`, cls: 'attack' });
     log.push({ text: `${defender.name} 的引火吸收了攻擊，下次攻擊威力提升！`, cls: 'special' });
-    aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; dBuff.shield = 0;
+    aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; aBuff.doubleStrike = false; dBuff.shield = 0;
     return { damage: 0, mult: 1 };
   }
 
   const mult = srvEffActive(atkType, defender.type, defender.type2, G);
-  const isOwnType = (atkType === attacker.type || (attacker.type2 && atkType === attacker.type2));
+  // 屬性轉換 (type-orb) makes the overridden type count as own for STAB purposes — pure upside.
+  const isOwnType = aBuff.typeOverride ? true : (atkType === attacker.type || (attacker.type2 && atkType === attacker.type2));
   const stabMult = isOwnType ? (attacker.ability?.id === 'adaptability' ? 2 : 1.5) : 1;
   const stadiumBonus = G?.activeStadium?.id === 'stadium-training' ? 20 : 0;
   const reversalBonus = G?.activeStadium?.id === 'stadium-reversal' && attacker.cur <= attacker.hp * 0.5 ? 30 : 0;
@@ -774,37 +770,56 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
       defender.status = null;
       log.push({ text: `被火焰融化，${defender.name} 從結凍中解脫！`, cls: 'special' });
     }
-    // Inflict status
-    if (damage > 0 && atk.status && !defender.status && defender.cur > 0 && Math.random() < atk.status.chance) {
-      const effect = atk.status.effect;
-      if (effect === 'confusion' && defender.ability?.id === 'own-tempo') {
-        log.push({ text: `${defender.name} 的我行我素抵消了混亂！`, cls: 'special' });
-      } else if (effect === 'sleep' && defender.ability?.id === 'insomnia') {
-        log.push({ text: `${defender.name} 的不眠抵消了睡眠！`, cls: 'special' });
-      } else {
-        const turnsLeft = effect === 'sleep' ? (Math.floor(Math.random()*2)+2)
-                        : effect === 'confusion' ? (Math.floor(Math.random()*3)+2)
-                        : effect === 'freeze'    ? 2
-                        : 999;
-        defender.status = { type: effect, turnsLeft };
-        log.push({ text: `${defender.name} 陷入了${STATUS_ZH[effect]}！`, cls: 'special' });
-        if (['poison','burn','paralysis'].includes(effect) && defender.ability?.id === 'sync-status' && !attacker.status && attacker.cur > 0) {
-          attacker.status = { type: effect, turnsLeft: 999 };
-          log.push({ text: `${defender.name} 的同步將${STATUS_ZH[effect]}傳染給了${attacker.name}！`, cls: 'special' });
+    // Inflict status — wrapped so 連擊 (double-strike) can roll it a second time
+    const rollStatus = () => {
+      if (damage > 0 && atk.status && !defender.status && defender.cur > 0 && Math.random() < atk.status.chance) {
+        const effect = atk.status.effect;
+        if (effect === 'confusion' && defender.ability?.id === 'own-tempo') {
+          log.push({ text: `${defender.name} 的我行我素抵消了混亂！`, cls: 'special' });
+        } else if (effect === 'sleep' && defender.ability?.id === 'insomnia') {
+          log.push({ text: `${defender.name} 的不眠抵消了睡眠！`, cls: 'special' });
+        } else {
+          const turnsLeft = effect === 'sleep' ? (Math.floor(Math.random()*2)+2)
+                          : effect === 'confusion' ? (Math.floor(Math.random()*3)+2)
+                          : effect === 'freeze'    ? 2
+                          : 999;
+          defender.status = { type: effect, turnsLeft };
+          log.push({ text: `${defender.name} 陷入了${STATUS_ZH[effect]}！`, cls: 'special' });
+          if (['poison','burn','paralysis'].includes(effect) && defender.ability?.id === 'sync-status' && !attacker.status && attacker.cur > 0) {
+            attacker.status = { type: effect, turnsLeft: 999 };
+            log.push({ text: `${defender.name} 的同步將${STATUS_ZH[effect]}傳染給了${attacker.name}！`, cls: 'special' });
+          }
         }
       }
-    }
+    };
+    rollStatus();
+    if (aBuff.doubleStrike) rollStatus();
     if (damage > 0) triggerAttackerAbilitySrv(attacker, defender, log);
     if (damage > 0) triggerDefenderAbilitySrv(defender, attacker, log);
   }
 
   // Consume buffs
-  aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; dBuff.shield = 0;
+  aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; aBuff.doubleStrike = false; dBuff.shield = 0;
   return { damage, mult };
 }
 
+function triggerTrapStadiumSrv(poke, role, G, log) {
+  if (!poke || poke.cur <= 0) return;
+  if (G.activeStadium?.id === 'stadium-spikes') {
+    const dmg = Math.max(1, Math.round(poke.hp * 0.15));
+    poke.cur = Math.max(1, poke.cur - dmg); // never KOs on entry, matches other card/mechanic self-damage floors
+    log.push({ text: `${poke.name} 受到了尖峰陷阱的傷害！（-${dmg} HP）`, cls: 'special' });
+  }
+  if (G.activeStadium?.id === 'stadium-toxic-field' && !poke.status) {
+    poke.status = { type: 'poison', turnsLeft: 999 };
+    log.push({ text: `${poke.name} 踏入了劇毒領域，陷入了中毒！`, cls: 'special' });
+  }
+}
 // Ability hooks — no-op for Pokémon without `ability` (see project memory for full list)
-function triggerOnEnterSrv(poke, role, G, log) {
+// `isFieldEntry=false` for in-place transforms (瘋狂博士/Mega 進化) — those never "switch in"
+// from the bench, so trap stadiums (which punish entering the field) shouldn't fire for them.
+function triggerOnEnterSrv(poke, role, G, log, isFieldEntry = true) {
+  if (isFieldEntry) triggerTrapStadiumSrv(poke, role, G, log);
   if (!poke?.ability) return;
   const op = role === 'p1' ? 'p2' : 'p1';
   if (poke.ability.id === 'intimidate') {
@@ -853,12 +868,13 @@ function triggerDefenderAbilitySrv(defender, attacker, log) {
 }
 
 // Applies a trainer card effect to the given role's side.
-function applyTrainer(card, role, G, log) {
+function applyTrainer(card, role, G, log, chosenType) {
   const op     = role === 'p1' ? 'p2' : 'p1';
   const deck   = G[`${role}Deck`];
   const idx    = G[`${role}Idx`];
   const buff   = G[`${role}Buff`];
   const active = deck[idx];
+  const attackTypes = Object.keys(EFF);
 
   switch (card.id) {
     case 'potion-s': case 'potion-m': case 'potion-l': case 'potion-xl': {
@@ -948,19 +964,52 @@ function applyTrainer(card, role, G, log) {
       buff.reflect = true;
       log.push({ text: `設置了反彈鏡！下次對手攻擊將反彈！`, cls: 'special' });
       break;
-    case 'orb-fire':    buff.typeOverride = 'fire';     log.push({ text: `火焰寶珠：本回合攻擊改為火屬性！`, cls: 'system' }); break;
-    case 'orb-water':   buff.typeOverride = 'water';    log.push({ text: `水流寶珠：本回合攻擊改為水屬性！`, cls: 'system' }); break;
-    case 'orb-elec':    buff.typeOverride = 'electric'; log.push({ text: `電氣寶珠：本回合攻擊改為電屬性！`, cls: 'system' }); break;
-    case 'orb-ice':     buff.typeOverride = 'ice';      log.push({ text: `冰晶寶珠：本回合攻擊改為冰屬性！`, cls: 'system' }); break;
-    case 'orb-dark':    buff.typeOverride = 'dark';     log.push({ text: `暗影寶珠：本回合攻擊改為惡屬性！`, cls: 'system' }); break;
-    case 'orb-fairy':   buff.typeOverride = 'fairy';    log.push({ text: `妖精寶珠：本回合攻擊改為妖精屬性！`, cls: 'system' }); break;
-    case 'orb-grass':   buff.typeOverride = 'grass';    log.push({ text: `草葉寶珠：本回合攻擊改為草屬性！`, cls: 'system' }); break;
-    case 'orb-fight':   buff.typeOverride = 'fighting'; log.push({ text: `格鬥寶珠：本回合攻擊改為格鬥屬性！`, cls: 'system' }); break;
-    case 'orb-poison':  buff.typeOverride = 'poison';   log.push({ text: `毒素寶珠：本回合攻擊改為毒屬性！`, cls: 'system' }); break;
-    case 'orb-bug':     buff.typeOverride = 'bug';      log.push({ text: `蟲鳴寶珠：本回合攻擊改為蟲屬性！`, cls: 'system' }); break;
-    case 'orb-ghost':   buff.typeOverride = 'ghost';    log.push({ text: `幽靈寶珠：本回合攻擊改為幽靈屬性！`, cls: 'system' }); break;
-    case 'orb-steel':   buff.typeOverride = 'steel';    log.push({ text: `鋼鐵寶珠：本回合攻擊改為鋼屬性！`, cls: 'system' }); break;
-    case 'orb-ground':  buff.typeOverride = 'ground';   log.push({ text: `大地寶珠：本回合攻擊改為地面屬性！`, cls: 'system' }); break;
+    case 'type-orb': {
+      const chosen = attackTypes.includes(chosenType) ? chosenType : attackTypes[Math.floor(Math.random() * attackTypes.length)];
+      buff.typeOverride = chosen;
+      log.push({ text: `使用了屬性轉換，本回合攻擊視為${chosen}屬性（享有屬性加成）！`, cls: 'system' });
+      break;
+    }
+    case 'hand-wreck': {
+      const opHand = G[`${op}Hand`];
+      if (opHand.length) {
+        const wIdx = Math.floor(Math.random() * opHand.length);
+        const discarded = opHand.splice(wIdx, 1)[0];
+        log.push({ text: `使用了手牌破壞，對方棄掉了【${discarded.name}】！`, cls: 'system' });
+      } else {
+        log.push({ text: `使用了手牌破壞，但對方沒有手牌可以棄。`, cls: 'system' });
+      }
+      break;
+    }
+    case 'energy-drain': {
+      const opEnergyKey = `${op}Energy`;
+      const before = G[opEnergyKey];
+      G[opEnergyKey] = Math.max(0, G[opEnergyKey] - 6);
+      log.push({ text: `使用了能量剝奪，對方損失了 ${before - G[opEnergyKey]} 點能量！`, cls: 'system' });
+      break;
+    }
+    case 'gamble': {
+      if (Math.random() < 0.3) {
+        buff.atkMult = Math.max(buff.atkMult, 4);
+        log.push({ text: `使用了一擲千金，賭贏了！下次攻擊傷害 ×4！`, cls: 'system' });
+      } else {
+        const dmgLoss = Math.round(active.hp * 0.4);
+        active.cur = Math.max(1, active.cur - dmgLoss);
+        log.push({ text: `使用了一擲千金，賭輸了……${active.name} 損失了 ${dmgLoss} HP！`, cls: 'system' });
+      }
+      break;
+    }
+    case 'desperate-boost': {
+      const bonus = Math.round(50 * (1 - active.cur / active.hp));
+      buff.atkBonus += bonus;
+      log.push({ text: `使用了背水一戰，HP 越低加成越高，下次攻擊威力 +${bonus}！`, cls: 'system' });
+      break;
+    }
+    case 'double-strike':
+      buff.atkMult = Math.max(buff.atkMult, 1.4);
+      buff.doubleStrike = true;
+      log.push({ text: `使用了連擊，下次攻擊將分兩段結算！`, cls: 'system' });
+      break;
     case 'energy-patch-s':
     case 'energy-patch-m':
     case 'energy-patch-l': {
@@ -1195,6 +1244,10 @@ function handleMessage(ws, msg) {
       const card = hand[msg.handIdx];
       if (!card) return;
       if (card.cat === 'supporter' && G[`${role}SuppUsed`]) return;
+      // 屬性轉換：先驗證 client 送來的屬性是合法值再消耗手牌，不信任隨便傳的字串
+      if (card.id === 'type-orb' && !Object.keys(EFF).includes(msg.chosenType)) {
+        send(ws, { type: 'error', message: '屬性轉換的屬性無效！' }); return;
+      }
 
       // 瘋狂博士：需要額外的目標索引；先驗證目標合法才消耗手牌
       if (card.id === 'mad-scientist') {
@@ -1214,7 +1267,7 @@ function handleMessage(ws, msg) {
         mine.cur = Math.max(1, Math.round(target.hp * pct));
         mine.status = null;
         const log = [{ text: `使用了瘋狂博士，${oldName} 變身成了 ${mine.name}！`, cls: 'special' }];
-        triggerOnEnterSrv(mine, role, G, log);
+        triggerOnEnterSrv(mine, role, G, log, false);
         broadcast(room, { type: 'update', state: G, log, actor: role });
         return;
       }
@@ -1253,7 +1306,7 @@ function handleMessage(ws, msg) {
       }
 
       const log = [];
-      applyTrainer(card, role, G, log);
+      applyTrainer(card, role, G, log, msg.chosenType);
       broadcast(room, { type: 'update', state: G, log, actor: role });
       return;
     }
@@ -1284,7 +1337,7 @@ function handleMessage(ws, msg) {
       attacker.status = null; // 並解除異常狀態
       G[`${role}MegaUsed`] = true;
       const log = [{ text: `${attacker.name} Mega 進化了！HP 全滿，異常狀態解除！`, cls: 'special' }];
-      triggerOnEnterSrv(attacker, role, G, log);
+      triggerOnEnterSrv(attacker, role, G, log, false);
       broadcast(room, { type: 'update', state: G, log, actor: role, megaEvolved: true });
       return;
     }

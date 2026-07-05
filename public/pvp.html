@@ -475,8 +475,11 @@
     /* ── Discard Modal ── */
     #discard-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
     #discard-modal.open { display:flex; }
-    #trade-modal, #trade-choose-modal, #switch-confirm-modal, #mad-scientist-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
-    #trade-modal.open, #trade-choose-modal.open, #switch-confirm-modal.open, #mad-scientist-modal.open { display:flex; }
+    #trade-modal, #trade-choose-modal, #switch-confirm-modal, #mad-scientist-modal, #type-orb-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
+    #trade-modal.open, #trade-choose-modal.open, #switch-confirm-modal.open, #mad-scientist-modal.open, #type-orb-modal.open { display:flex; }
+    #type-orb-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:0.5rem; margin-top:0.8rem; max-width:360px; }
+    .type-orb-btn { padding:0.5rem 0.3rem; border:none; border-radius:8px; color:#fff; font-size:0.78rem; font-weight:700; cursor:pointer; transition:transform 0.12s, opacity 0.12s; }
+    .type-orb-btn:hover { transform:scale(1.06); opacity:0.9; }
     #trade-modal .t-card { cursor:pointer; transition:box-shadow 0.15s; }
     #trade-modal .t-card.selected { box-shadow: 0 0 0 2px #ffd740; }
     .btn-modal-ok { background:rgba(99,102,241,0.25); border:1px solid rgba(99,102,241,0.5); color:#c5cae9; border-radius:8px; padding:0.55rem 1.2rem; cursor:pointer; font-size:0.9rem; }
@@ -881,6 +884,15 @@
       <button class="btn-modal-ok" onclick="confirmPlayerSwitch()">確定換人</button>
       <button class="btn-modal-cancel" onclick="closeSwitchConfirm()">取消</button>
     </div>
+  </div>
+</div>
+
+<!-- 屬性轉換 (type-orb) type picker -->
+<div id="type-orb-modal">
+  <div class="discard-inner">
+    <div class="discard-title">選擇屬性轉換</div>
+    <div class="discard-sub">本回合攻擊將視為選擇的屬性（享有屬性加成）</div>
+    <div id="type-orb-grid"></div>
   </div>
 </div>
 
@@ -1706,7 +1718,28 @@ function useTrainer(handIdx) {
     openMadScientistModal(handIdx);
     return;
   }
+  if (card.id === 'type-orb') {
+    openTypeOrbModal(handIdx);
+    return;
+  }
   send({ type: 'use_trainer', handIdx });
+}
+
+function openTypeOrbModal(handIdx) {
+  const grid = document.getElementById('type-orb-grid');
+  grid.innerHTML = '';
+  Object.keys(TYPE_ZH).forEach(t => {
+    const btn = document.createElement('button');
+    btn.className = 'type-orb-btn';
+    btn.style.background = TYPE_COLOR[t] || '#888';
+    btn.textContent = TYPE_ZH[t];
+    btn.onclick = () => {
+      document.getElementById('type-orb-modal').classList.remove('open');
+      send({ type: 'use_trainer', handIdx, chosenType: t });
+    };
+    grid.appendChild(btn);
+  });
+  document.getElementById('type-orb-modal').classList.add('open');
 }
 
 /* ─────────────────────────────────────────
