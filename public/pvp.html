@@ -1010,7 +1010,15 @@ const EFF = {
   bug:     {grass:2,psychic:2,dark:2,fire:0.5,fighting:0.5,poison:0.5,flying:0.5,ghost:0.5,steel:0.5,fairy:0.5},
 };
 
-function spriteUrl(id){ return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`; }
+// Internal PokeAPI form ids confirmed to have no sprite at all in the regular folder
+// (species+ability data exists, but the sprite was never committed) — redirect these
+// at the source so every render path gets a working image, no per-callsite onerror
+// needed. Currently just Mega Zygarde; add more ids here if found.
+const SPRITE_ID_OVERRIDE = { 10301: 'other/official-artwork/10301' };
+function spriteUrl(id){
+  if (SPRITE_ID_OVERRIDE[id]) return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${SPRITE_ID_OVERRIDE[id]}.png`;
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
+}
 function animatedSpriteUrl(id){ return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${id}.gif`; }
 function setSprite(el, id, poke) {
   // PvP state arrives freshly deserialized every update, so object identity is never stable here —

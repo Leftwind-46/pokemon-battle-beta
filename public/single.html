@@ -2782,11 +2782,24 @@ function dealHand(n) {
   return [...TRAINERS].sort(() => Math.random() - 0.5).slice(0, n);
 }
 
+// Internal PokeAPI form ids confirmed to have no sprite at all in the regular folder
+// (species+ability data exists, but the sprite was never committed) — redirect these
+// at the source so every render path (bench popup, victory screen, dex, team-select,
+// mad-scientist picker, ...) gets a working image without each needing its own
+// onerror handling. Currently just Mega Zygarde; add more ids here if found.
+const SPRITE_ID_OVERRIDE = { 10301: 'other/official-artwork/10301' };
 function spriteUrl(id) {
+  if (SPRITE_ID_OVERRIDE[id]) return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${SPRITE_ID_OVERRIDE[id]}.png`;
   return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
 }
 function animatedSpriteUrl(id) {
   return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${id}.gif`;
+}
+// Last-resort fallback for internal Mega/form ids that have no small game sprite at all
+// (e.g. Mega Zygarde/10301 — PokeAPI has the species+ability data but never got a sprite
+// committed to the regular folder). Higher-res, but far better than a broken image icon.
+function officialArtworkUrl(id) {
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`;
 }
 function setSprite(el, id, poke) {
   // Skip reload only if it's truly the same, unchanged instance (id may change in place via 瘋狂博士 transform)
@@ -2803,7 +2816,10 @@ function setSprite(el, id, poke) {
     el.addEventListener('animationend', () => el.classList.remove('sprite-enter'), { once: true });
   };
   el.src = animatedSpriteUrl(id);
-  el.onerror = () => { el.onerror = null; el.src = spriteUrl(id); };
+  el.onerror = () => {
+    el.onerror = () => { el.onerror = null; el.src = officialArtworkUrl(id); };
+    el.src = spriteUrl(id);
+  };
 }
 function syncSpriteAnim(side, poke) {
   const el = document.getElementById(`${side}-sprite`);
@@ -4630,6 +4646,7 @@ function playMegaEvolveAnim(side, poke) {
       setTimeout(() => particle.remove(), 900);
     }
 
+    csSprite.onerror = () => { csSprite.onerror = null; csSprite.src = officialArtworkUrl(poke.id); };
     csSprite.src = spriteUrl(poke.id);
     csSprite.classList.add('reveal');
   }, 1300);
