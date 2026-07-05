@@ -731,12 +731,13 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
   const wasFullHp = defender.cur === defender.hp;
   const multiscaleMult = (!moldBreaker && defender.ability?.id === 'multiscale' && wasFullHp) ? 0.5 : 1;
   const defAbilityMult = thickFatMult * solidRockMult * friskWardMult * multiscaleMult;
+  const megaBoostMult = attacker.megaEvolved ? 1.1 : 1; // Mega 進化的通用攻擊加成，跟特性效果分開疊加
   let damage;
   if (mult === 0) {
     damage = 0;
     log.push({ text: `${atk.name} 對 ${defender.name} 完全無效！`, cls: 'resist' });
   } else {
-    damage = Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumBonus + reversalBonus) * aBuff.atkMult * burnMult * mult * stabMult * switchGuardMult * abilityDmgMult * defAbilityMult) - dBuff.shield);
+    damage = Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumBonus + reversalBonus) * aBuff.atkMult * burnMult * mult * stabMult * switchGuardMult * abilityDmgMult * defAbilityMult * megaBoostMult) - dBuff.shield);
     defender.cur = Math.max(0, defender.cur - damage);
     if (!moldBreaker && defender.ability?.id === 'sturdy' && wasFullHp && defender.cur <= 0) {
       defender.cur = 1;
@@ -1278,6 +1279,7 @@ function handleMessage(ws, msg) {
       attacker.type2 = attacker.mega.type2 ?? null;
       attacker.ability = { ...attacker.mega.ability };
       attacker.megaEvolved = true;
+      attacker.hp = Math.round(attacker.hp * 1.2); // Mega 進化額外提升 HP 上限（比照真實種族值總和提升）
       attacker.cur = attacker.hp; // Mega 進化時補滿血
       attacker.status = null; // 並解除異常狀態
       G[`${role}MegaUsed`] = true;

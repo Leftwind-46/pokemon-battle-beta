@@ -3786,6 +3786,7 @@ function applyMegaEvolution(poke, side) {
   poke.type2 = poke.mega.type2 ?? null;
   poke.ability = { ...poke.mega.ability };
   poke.megaEvolved = true;
+  poke.hp = Math.round(poke.hp * 1.2); // Mega 進化額外提升 HP 上限（比照真實種族值總和提升）
   poke.cur = poke.hp; // Mega 進化時補滿血
   poke.status = null; // 並解除異常狀態
   G[side === 'player' ? 'playerMegaUsed' : 'cpuMegaUsed'] = true; // 雙方共用一條槽，整場只能用一次
@@ -4298,8 +4299,9 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   const wasFullHp = defender.cur === defender.hp;
   const multiscaleMult = (!moldBreaker && defender.ability?.id === 'multiscale' && wasFullHp) ? 0.5 : 1;
   const defAbilityMult = thickFatMult * solidRockMult * friskWardMult * multiscaleMult;
+  const megaBoostMult = attacker.megaEvolved ? 1.1 : 1; // Mega 進化的通用攻擊加成，跟特性效果分開疊加
   let dmg = mult === 0 ? 0
-    : Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumBonus + reversalBonus) * aBuff.atkMult * burnMult * mult * stabMult * switchGuardMult * abilityDmgMult * defAbilityMult) - dBuff.shield);
+    : Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumBonus + reversalBonus) * aBuff.atkMult * burnMult * mult * stabMult * switchGuardMult * abilityDmgMult * defAbilityMult * megaBoostMult) - dBuff.shield);
   aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; dBuff.shield = 0;
 
   const defTypeStr = defender.type2 ? `${TYPE_ZH[defender.type]||defender.type}／${TYPE_ZH[defender.type2]||defender.type2}` : (TYPE_ZH[defender.type]||defender.type);
