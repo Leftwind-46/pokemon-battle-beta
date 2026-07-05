@@ -32,7 +32,7 @@ const POKEMON = [
   { mega:{spriteId:10038, type:'ghost', type2:'poison', ability:{id:'frisk-ward', name:'踩影', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}}, id:94,  name:'耿鬼',       type:'ghost',    type2:'poison',  hp:220, tier:1, ability:{id:'poison-heal', name:'毒療', trigger:'onStatus', desc:'中毒時每回合回復 1/8 最大HP，而非扣血'}, attacks:[{name:'催眠術',dmg:30,cost:0,type:'psychic',status:{effect:'sleep', chance:0.5}},{name:'幽靈之爪',dmg:32,cost:0,type:'ghost',status:{effect:'poison', chance:0.2}},{name:'暗影球',dmg:65,cost:10,type:'ghost'},{name:'咬碎',dmg:70,cost:11,type:'dark'}]},
   { id:68,  name:'怪力',       type:'fighting', hp:260, tier:1, ability:{id:'guts', name:'毅力', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}, attacks:[{name:'動感拳',dmg:36,cost:1,type:'fighting'},{name:'岩石滑落',dmg:38,cost:1,type:'rock',status:{effect:'paralysis', chance:0.15}},{name:'地震',dmg:76,cost:13,type:'ground'},{name:'超強衝擊',dmg:80,cost:14,type:'fighting'}]},
   { mega:{spriteId:10037, type:'psychic', type2:null, ability:{id:'trace', name:'複製', trigger:'onEnter', desc:'上場時複製對手當前的特性'}}, id:65,  name:'胡地',       type:'psychic',  hp:200, tier:1, ability:{id:'sync-status', name:'同步', trigger:'onDefend', desc:'陷入中毒／麻痺／燒傷時，會將該狀態傳染給攻擊者'}, attacks:[{name:'超能力',dmg:31,cost:0,type:'psychic',status:{effect:'confusion', chance:0.3}},{name:'念力',dmg:35,cost:1,type:'psychic',status:{effect:'confusion', chance:0.25}},{name:'暗影球',dmg:68,cost:11,type:'ghost'},{name:'閃電拳',dmg:75,cost:13,type:'electric',status:{effect:'paralysis', chance:0.2}}]},
-  { id:26,  name:'雷丘',       type:'electric', hp:200, tier:1, ability:{id:'static', name:'靜電', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者陷入麻痺'}, attacks:[{name:'衝撞',dmg:30,cost:0,type:'normal'},{name:'十萬伏特',dmg:34,cost:1,type:'electric',status:{effect:'paralysis', chance:0.3}},{name:'電磁衝浪',dmg:66,cost:10,type:'electric',status:{effect:'paralysis', chance:0.2}},{name:'鐵尾',dmg:73,cost:12,type:'steel'}]},
+  { mega:{spriteId:10304, type:'electric', type2:null, ability:{id:'motor-drive', name:'電氣場地', trigger:'onDefend', desc:'受到電屬性攻擊時完全免疫，並回復 3 點能量'}}, id:26,  name:'雷丘',       type:'electric', hp:200, tier:1, ability:{id:'static', name:'靜電', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者陷入麻痺'}, attacks:[{name:'衝撞',dmg:30,cost:0,type:'normal'},{name:'十萬伏特',dmg:34,cost:1,type:'electric',status:{effect:'paralysis', chance:0.3}},{name:'電磁衝浪',dmg:66,cost:10,type:'electric',status:{effect:'paralysis', chance:0.2}},{name:'鐵尾',dmg:73,cost:12,type:'steel'}]},
   { mega:{spriteId:10076, type:'steel', type2:'psychic', ability:{id:'tough-claws', name:'硬爪', trigger:'onAttack', desc:'攻擊傷害 ×1.3'}}, id:376, name:'巨金怪',     type:'steel',    type2:'psychic', hp:260, tier:1, ability:{id:'solid-rock', name:'硬岩', trigger:'onDefend', desc:'受到剋制（×2以上）的攻擊傷害再減少 25%'}, attacks:[{name:'子彈拳',dmg:35,cost:1,type:'steel'},{name:'精神強擊',dmg:38,cost:1,type:'psychic',status:{effect:'confusion', chance:0.2}},{name:'閃光炮',dmg:74,cost:12,type:'steel'},{name:'隕石衝擊',dmg:80,cost:14,type:'rock'}]},
   { mega:{spriteId:10059, type:'fighting', type2:'steel', ability:{id:'adaptability', name:'適應力', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×2（原本 ×1.5）'}}, id:448, name:'路卡利歐',   type:'fighting', type2:'steel',   hp:220, tier:1, ability:{id:'guts', name:'堅韌', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}, attacks:[{name:'波導彈',dmg:32,cost:0,type:'fighting'},{name:'金屬爪',dmg:36,cost:1,type:'steel'},{name:'龍之脈動',dmg:70,cost:11,type:'dragon'},{name:'暗影球',dmg:77,cost:13,type:'ghost'}]},
   { mega:{spriteId:10041, type:'water', type2:'dark', ability:{id:'mold-breaker', name:'破格', trigger:'onAttack', desc:'攻擊時無視對方的防禦型特性'}}, id:130, name:'暴鯉龍',     type:'water',    type2:'flying',  hp:260, tier:1, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊威力 −15'}, attacks:[{name:'大浪',dmg:34,cost:1,type:'water'},{name:'龍息',dmg:38,cost:1,type:'dragon'},{name:'怒風',dmg:72,cost:12,type:'flying'},{name:'咬碎',dmg:80,cost:14,type:'dark'}]},
@@ -42,26 +42,26 @@ const POKEMON = [
   { id:28,  name:'穿山王',     type:'ground',   hp:240, tier:1, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊威力 -15'}, attacks:[{name:'十字切',dmg:30,cost:0,type:'normal'},{name:'地震',dmg:34,cost:1,type:'ground'},{name:'岩石碎裂',dmg:65,cost:10,type:'rock'},{name:'岩石滑落',dmg:73,cost:12,type:'rock'}]},
   { mega:{spriteId:10071, type:'water', type2:'psychic', ability:{id:'sturdy', name:'硬殼盔甲', trigger:'onDefend', desc:'HP 全滿時，受到會直接擊倒的攻擊會保留 1 HP'}}, id:80,  name:'呆殼獸',     type:'water',    type2:'psychic', hp:260, tier:1, ability:{id:'own-tempo', name:'我行我素', trigger:'onDefend', desc:'不會陷入混亂狀態'}, attacks:[{name:'衝浪',dmg:32,cost:0,type:'water'},{name:'精神強擊',dmg:36,cost:1,type:'psychic',status:{effect:'confusion', chance:0.2}},{name:'大浪',dmg:70,cost:11,type:'water'},{name:'念力',dmg:77,cost:13,type:'psychic',status:{effect:'confusion', chance:0.2}}]},
   { id:823, name:'鋼鎧鴉',     type:'steel',    type2:'flying',  hp:250, tier:1, ability:{id:'pressure', name:'壓迫感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[{name:'鐵翼',dmg:32,cost:0,type:'steel'},{name:'鋼鐵身壓',dmg:36,cost:1,type:'steel'},{name:'夜斬',dmg:68,cost:11,type:'dark'},{name:'颶風飛翔',dmg:76,cost:13,type:'flying'}]},
-  { id:160, name:'大力鱷',     type:'water',    hp:260, tier:1, ability:{id:'blaze-boost', name:'激流', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[{name:'咬碎',dmg:34,cost:1,type:'dark'},{name:'冰凍拳',dmg:38,cost:1,type:'ice',status:{effect:'freeze', chance:0.1}},{name:'衝浪',dmg:73,cost:12,type:'water'},{name:'水砲',dmg:80,cost:14,type:'water'}]},
-  { id:658, name:'甲賀忍蛙',       type:'water',    type2:'dark',    hp:220, tier:1, ability:{id:'rough-skin', name:'粗糙皮膚', trigger:'onDefend', desc:'受到攻擊傷害時，反彈攻擊者 1/8 最大HP 傷害'}, attacks:[{name:'水手裏劍',dmg:30,cost:0,type:'water'},{name:'夜斬',dmg:34,cost:1,type:'dark'},{name:'暗影球',dmg:66,cost:10,type:'ghost'},{name:'大浪',dmg:73,cost:12,type:'water'}]},
+  { mega:{spriteId:10283, type:'water', type2:'dragon', ability:{id:'adaptability', name:'龍化', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×2（原本 ×1.5）'}}, id:160, name:'大力鱷',     type:'water',    hp:260, tier:1, ability:{id:'blaze-boost', name:'激流', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[{name:'咬碎',dmg:34,cost:1,type:'dark'},{name:'冰凍拳',dmg:38,cost:1,type:'ice',status:{effect:'freeze', chance:0.1}},{name:'衝浪',dmg:73,cost:12,type:'water'},{name:'水砲',dmg:80,cost:14,type:'water'}]},
+  { mega:{spriteId:10294, type:'water', type2:'dark', ability:{id:'adaptability', name:'變幻自如', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×2（原本 ×1.5）'}}, id:658, name:'甲賀忍蛙',       type:'water',    type2:'dark',    hp:220, tier:1, ability:{id:'rough-skin', name:'粗糙皮膚', trigger:'onDefend', desc:'受到攻擊傷害時，反彈攻擊者 1/8 最大HP 傷害'}, attacks:[{name:'水手裏劍',dmg:30,cost:0,type:'water'},{name:'夜斬',dmg:34,cost:1,type:'dark'},{name:'暗影球',dmg:66,cost:10,type:'ghost'},{name:'大浪',dmg:73,cost:12,type:'water'}]},
   // Tier 2
   { mega:{spriteId:10034, type:'fire', type2:'dragon', ability:{id:'tough-claws', name:'硬爪', trigger:'onAttack', desc:'攻擊傷害 ×1.3'}}, id:6,   name:'噴火龍',     type:'fire',     type2:'flying',  hp:290, tier:2, ability:{id:'blaze-boost', name:'猛火', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[{name:'火焰噴射',dmg:35,cost:1,type:'fire',status:{effect:'burn', chance:0.25}},{name:'龍息',dmg:38,cost:1,type:'dragon'},{name:'火焰衝擊',dmg:75,cost:13,type:'fire',status:{effect:'burn', chance:0.2}},{name:'破空飛翔',dmg:85,cost:15,type:'flying'}]},
   { mega:{spriteId:10036, type:'water', type2:null, ability:{id:'huge-power', name:'超級發射器', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}}, id:9,   name:'水箭龜',     type:'water',    hp:280, tier:2, ability:{id:'blaze-boost', name:'激流', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[{name:'水砲',dmg:35,cost:1,type:'water'},{name:'閃光炮',dmg:37,cost:1,type:'steel'},{name:'衝浪',dmg:75,cost:13,type:'water'},{name:'冰凍光束',dmg:82,cost:14,type:'ice',status:{effect:'freeze', chance:0.15}}]},
   { mega:{spriteId:10043, type:'psychic', type2:'fighting', ability:{id:'guts', name:'不屈之心', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}}, id:150, name:'超夢',       type:'psychic',  hp:320, tier:2, ability:{id:'pressure', name:'壓迫感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[{name:'念力衝擊',dmg:35,cost:1,type:'psychic',status:{effect:'confusion', chance:0.3}},{name:'氣功拳',dmg:38,cost:1,type:'fighting'},{name:'閃電拳',dmg:75,cost:13,type:'electric',status:{effect:'paralysis', chance:0.2}},{name:'暗影球',dmg:85,cost:15,type:'ghost'}]},
-  { id:149, name:'快龍',       type:'dragon',   type2:'flying',  hp:320, tier:2, ability:{id:'multiscale', name:'多重鱗片', trigger:'onDefend', desc:'HP 全滿時，受到的攻擊傷害減半'}, attacks:[{name:'龍息',dmg:37,cost:1,type:'dragon'},{name:'雷電',dmg:40,cost:2,type:'electric',status:{effect:'paralysis', chance:0.25}},{name:'怒風',dmg:81,cost:14,type:'flying'},{name:'破壞光線',dmg:91,cost:16,type:'normal'}]},
+  { mega:{spriteId:10281, type:'dragon', type2:'flying', ability:{id:'multiscale', name:'多重鱗片', trigger:'onDefend', desc:'HP 全滿時，受到的攻擊傷害減半'}}, id:149, name:'快龍',       type:'dragon',   type2:'flying',  hp:320, tier:2, ability:{id:'multiscale', name:'多重鱗片', trigger:'onDefend', desc:'HP 全滿時，受到的攻擊傷害減半'}, attacks:[{name:'龍息',dmg:37,cost:1,type:'dragon'},{name:'雷電',dmg:40,cost:2,type:'electric',status:{effect:'paralysis', chance:0.25}},{name:'怒風',dmg:81,cost:14,type:'flying'},{name:'破壞光線',dmg:91,cost:16,type:'normal'}]},
   { id:143, name:'卡比獸',     type:'normal',   hp:380, tier:2, ability:{id:'thick-fat', name:'厚脂肪', trigger:'onDefend', desc:'受到火／冰屬性攻擊傷害 ×0.6'}, attacks:[{name:'磚塊',dmg:35,cost:1,type:'rock'},{name:'連踢',dmg:38,cost:1,type:'normal'},{name:'地震',dmg:75,cost:13,type:'ground'},{name:'破壞光線',dmg:84,cost:15,type:'normal'}]},
   { id:59,  name:'風速狗',     type:'fire',     hp:260, tier:2, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊威力 −15'}, attacks:[{name:'夜斬',dmg:35,cost:1,type:'dark'},{name:'閃電犬牙',dmg:37,cost:1,type:'electric',status:{effect:'paralysis', chance:0.15}},{name:'衝撞',dmg:75,cost:13,type:'normal'},{name:'噴射火焰',dmg:80,cost:14,type:'fire',status:{effect:'burn', chance:0.25}}]},
   { id:131, name:'拉普拉斯',   type:'water',    type2:'ice',     hp:290, tier:2, ability:{id:'water-absorb', name:'儲水', trigger:'onDefend', desc:'受到水屬性攻擊時完全免疫，並回復最大HP的1/4'}, attacks:[{name:'衝浪',dmg:35,cost:1,type:'water'},{name:'冷凍光線',dmg:37,cost:1,type:'ice',status:{effect:'freeze', chance:0.15}},{name:'雷電',dmg:75,cost:13,type:'electric',status:{effect:'paralysis', chance:0.2}},{name:'暴風雪',dmg:81,cost:14,type:'ice',status:{effect:'freeze', chance:0.2}}]},
   { mega:{spriteId:10058, type:'dragon', type2:'ground', ability:{id:'blaze-boost', name:'沙之力', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}}, id:445, name:'烈咬陸鯊',   type:'dragon',   type2:'ground',  hp:280, tier:2, ability:{id:'frisk-ward', name:'沙隱', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}, attacks:[{name:'龍爪',dmg:36,cost:1,type:'dragon'},{name:'岩石滑落',dmg:40,cost:2,type:'rock'},{name:'地震',dmg:79,cost:14,type:'ground'},{name:'龍之隕星',dmg:89,cost:16,type:'dragon'}]},
   { id:210, name:'布魯皇',     type:'fairy',    hp:300, tier:2, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊威力 −15'}, attacks:[{name:'仙女之力',dmg:35,cost:1,type:'fairy'},{name:'雷電',dmg:38,cost:1,type:'electric',status:{effect:'paralysis', chance:0.15}},{name:'咬碎',dmg:75,cost:13,type:'dark'},{name:'地震',dmg:82,cost:14,type:'ground'}]},
   { id:700, name:'仙子伊布',   type:'fairy',    hp:300, tier:2, ability:{id:'frisk-ward', name:'迷人之軀', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}, attacks:[{name:'妖精風',dmg:35,cost:1,type:'fairy'},{name:'冰凍光束',dmg:39,cost:2,type:'ice',status:{effect:'freeze', chance:0.15}},{name:'月亮力量',dmg:76,cost:13,type:'fairy'},{name:'暗影球',dmg:86,cost:15,type:'ghost'}]},
-  { id:478, name:'雪妖女',     type:'ice',      type2:'ghost',   hp:280, tier:2, ability:{id:'frisk-ward', name:'雪隱', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}, attacks:[{name:'冰凍光束',dmg:35,cost:1,type:'ice',status:{effect:'freeze', chance:0.15}},{name:'怒風',dmg:39,cost:2,type:'flying'},{name:'冰耳光',dmg:76,cost:13,type:'ice',status:{effect:'freeze', chance:0.15}},{name:'暗影球',dmg:86,cost:15,type:'ghost'}]},
+  { mega:{spriteId:10285, type:'ice', type2:'ghost', ability:{id:'solid-rock', name:'降雪', trigger:'onDefend', desc:'受到剋制（×2以上）的攻擊傷害再減少 25%'}}, id:478, name:'雪妖女',     type:'ice',      type2:'ghost',   hp:280, tier:2, ability:{id:'frisk-ward', name:'雪隱', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}, attacks:[{name:'冰凍光束',dmg:35,cost:1,type:'ice',status:{effect:'freeze', chance:0.15}},{name:'怒風',dmg:39,cost:2,type:'flying'},{name:'冰耳光',dmg:76,cost:13,type:'ice',status:{effect:'freeze', chance:0.15}},{name:'暗影球',dmg:86,cost:15,type:'ghost'}]},
   { id:614, name:'凍原熊',     type:'ice',      hp:320, tier:2, ability:{id:'frisk-ward', name:'雪隱', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}, attacks:[{name:'冰耳光',dmg:36,cost:1,type:'ice',status:{effect:'freeze', chance:0.15}},{name:'大浪',dmg:40,cost:2,type:'water'},{name:'暴風雪',dmg:78,cost:14,type:'ice',status:{effect:'freeze', chance:0.15}},{name:'地震',dmg:88,cost:16,type:'ground'}]},
   { id:430, name:'烏鴉頭頭',     type:'dark',     type2:'flying',  hp:300, tier:2, ability:{id:'insomnia', name:'不眠', trigger:'onDefend', desc:'不會陷入睡眠狀態'}, attacks:[{name:'夜斬',dmg:35,cost:1,type:'dark'},{name:'夜騷動',dmg:39,cost:2,type:'dark'},{name:'空氣斬',dmg:76,cost:13,type:'flying'},{name:'怒風',dmg:86,cost:15,type:'flying'}]},
   { id:466, name:'電擊魔獸',   type:'electric', hp:300, tier:2, ability:{id:'motor-drive', name:'電氣引擎', trigger:'onDefend', desc:'受到電屬性攻擊時完全免疫，並回復 3 點能量'}, attacks:[{name:'電磁衝浪',dmg:35,cost:1,type:'electric',status:{effect:'paralysis', chance:0.25}},{name:'動感拳',dmg:39,cost:2,type:'fighting'},{name:'十萬伏特',dmg:76,cost:13,type:'electric',status:{effect:'paralysis', chance:0.2}},{name:'冰凍拳',dmg:86,cost:15,type:'ice',status:{effect:'freeze', chance:0.15}}]},
   { id:467, name:'鴨嘴炎獸',   type:'fire',     hp:300, tier:2, ability:{id:'flame-body', name:'火焰之軀', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者陷入燒傷'}, attacks:[{name:'火焰衝擊',dmg:35,cost:1,type:'fire',status:{effect:'burn', chance:0.25}},{name:'地震',dmg:39,cost:2,type:'ground'},{name:'噴射火焰',dmg:76,cost:13,type:'fire',status:{effect:'burn', chance:0.2}},{name:'雷電',dmg:86,cost:15,type:'electric',status:{effect:'paralysis', chance:0.2}}]},
   { id:157, name:'火爆獸',     type:'fire',                      hp:260, tier:2, ability:{id:'blaze-boost', name:'猛火', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[{name:'噴火',dmg:39,cost:2,type:'fire',status:{effect:'burn', chance:0.25}},{name:'地震',dmg:42,cost:2,type:'ground'},{name:'爆炸火焰',dmg:85,cost:15,type:'fire'},{name:'烈火強衝',dmg:95,cost:17,type:'fire'}]},
-  { id:154, name:'大竺葵',     type:'grass',                     hp:270, tier:2, ability:{id:'blaze-boost', name:'茂盛', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[{name:'能量球',dmg:38,cost:1,type:'grass'},{name:'大地之力',dmg:41,cost:2,type:'ground'},{name:'花瓣風暴',dmg:82,cost:14,type:'grass'},{name:'葉刃',dmg:92,cost:16,type:'grass'}]},
+  { mega:{spriteId:10282, type:'grass', type2:'fairy', ability:{id:'huge-power', name:'太陽核心', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}}, id:154, name:'大竺葵',     type:'grass',                     hp:270, tier:2, ability:{id:'blaze-boost', name:'茂盛', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[{name:'能量球',dmg:38,cost:1,type:'grass'},{name:'大地之力',dmg:41,cost:2,type:'ground'},{name:'花瓣風暴',dmg:82,cost:14,type:'grass'},{name:'葉刃',dmg:92,cost:16,type:'grass'}]},
   // Tier 3
   { id:383, name:'固拉多',     type:'ground',   hp:340, tier:3, ability:{id:'huge-power', name:'日照', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}, attacks:[{name:'地震',dmg:40,cost:2,type:'ground'},{name:'岩石碎裂',dmg:42,cost:2,type:'rock'},{name:'火焰噴射',dmg:85,cost:16,type:'fire',status:{effect:'burn', chance:0.25}},{name:'原始大地',dmg:91,cost:17,type:'fire',status:{effect:'burn', chance:0.3}}]},
   { id:382, name:'蓋歐卡',     type:'water',    hp:340, tier:3, ability:{id:'adaptability', name:'降雨', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×2（原本 ×1.5）'}, attacks:[{name:'源起之波',dmg:40,cost:2,type:'water'},{name:'雷電',dmg:43,cost:2,type:'electric',status:{effect:'paralysis', chance:0.25}},{name:'大浪',dmg:85,cost:16,type:'water'},{name:'原始海洋',dmg:95,cost:18,type:'ice',status:{effect:'freeze', chance:0.2}}]},
@@ -90,7 +90,7 @@ const POKEMON = [
   { id:454, name:'毒骷蛙',     type:'fighting', type2:'poison',  hp:230, tier:1, ability:{id:'water-absorb', name:'乾燥皮膚', trigger:'onDefend', desc:'受到水屬性攻擊時完全免疫，並回復最大HP的1/4'}, attacks:[{name:'毒衝拳',dmg:34,cost:1,type:'poison',status:{effect:'poison', chance:0.3}},{name:'突擊',dmg:38,cost:1,type:'dark'},{name:'十字劈',dmg:73,cost:12,type:'fighting'},{name:'近身戰',dmg:80,cost:14,type:'fighting'}]},
   { id:553, name:'流氓鱷',     type:'ground',   type2:'dark',    hp:270, tier:2, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊威力 −15'}, attacks:[{name:'岩石滑落',dmg:36,cost:1,type:'rock',status:{effect:'paralysis', chance:0.15}},{name:'咬碎',dmg:40,cost:2,type:'dark',status:{effect:'confusion', chance:0.2}},{name:'地震',dmg:78,cost:14,type:'ground'},{name:'夜斬',dmg:88,cost:16,type:'dark'}]},
   { id:641, name:'龍捲雲',     type:'flying',                    hp:290, tier:2, ability:{id:'huge-power', name:'惡作劇之心', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}, attacks:[{name:'空氣斬',dmg:37,cost:1,type:'flying',status:{effect:'confusion', chance:0.2}},{name:'雷電',dmg:41,cost:2,type:'electric',status:{effect:'paralysis', chance:0.2}},{name:'颶風',dmg:82,cost:14,type:'flying',status:{effect:'confusion', chance:0.25}},{name:'暴風',dmg:92,cost:16,type:'flying'}]},
-  { id:398, name:'姆克鷹',     type:'normal',   type2:'flying',  hp:240, tier:1, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊威力 −15'}, attacks:[{name:'燕返',dmg:33,cost:0,type:'normal'},{name:'衝撞',dmg:37,cost:1,type:'normal'},{name:'空氣斬',dmg:71,cost:12,type:'flying',status:{effect:'confusion', chance:0.2}},{name:'勇鳥猛衝',dmg:78,cost:13,type:'flying'}]},
+  { mega:{spriteId:10308, type:'fighting', type2:'flying', ability:{id:'huge-power', name:'唱反調', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}}, id:398, name:'姆克鷹',     type:'normal',   type2:'flying',  hp:240, tier:1, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊威力 −15'}, attacks:[{name:'燕返',dmg:33,cost:0,type:'normal'},{name:'衝撞',dmg:37,cost:1,type:'normal'},{name:'空氣斬',dmg:71,cost:12,type:'flying',status:{effect:'confusion', chance:0.2}},{name:'勇鳥猛衝',dmg:78,cost:13,type:'flying'}]},
   { id:663, name:'烈箭鷹',     type:'fire',     type2:'flying',  hp:260, tier:2, ability:{id:'flame-body', name:'火焰之軀', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者陷入燒傷'}, attacks:[{name:'炎翼衝刺',dmg:35,cost:1,type:'fire',status:{effect:'burn', chance:0.2}},{name:'空氣斬',dmg:38,cost:1,type:'flying',status:{effect:'confusion', chance:0.2}},{name:'火焰衝擊',dmg:75,cost:13,type:'fire',status:{effect:'burn', chance:0.25}},{name:'勇鳥猛衝',dmg:85,cost:15,type:'flying'}]},
   { mega:{spriteId:10047, type:'bug', type2:'fighting', ability:{id:'huge-power', name:'連續攻擊', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}}, id:214, name:'赫拉克羅斯', type:'bug',      type2:'fighting',hp:270, tier:2, ability:{id:'guts', name:'毅力', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}, attacks:[{name:'岩石滑落',dmg:38,cost:1,type:'rock',status:{effect:'paralysis', chance:0.15}},{name:'地震',dmg:42,cost:2,type:'ground'},{name:'聖甲蟲衝擊',dmg:84,cost:15,type:'bug'},{name:'近身戰',dmg:94,cost:17,type:'fighting'}]},
   { mega:{spriteId:10046, type:'bug', type2:'steel', ability:{id:'technician', name:'技術高手', trigger:'onAttack', desc:'威力 60 以下的招式，傷害 ×1.5'}}, id:212, name:'巨鉗螳螂',   type:'bug',      type2:'steel',   hp:260, tier:2, ability:{id:'blaze-boost', name:'蟲之預感', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[{name:'空氣斬',dmg:36,cost:1,type:'flying',status:{effect:'confusion', chance:0.2}},{name:'子彈拳',dmg:39,cost:2,type:'steel'},{name:'蟲刃剪',dmg:77,cost:13,type:'bug'},{name:'鐵頭功',dmg:87,cost:15,type:'steel'}]},
@@ -99,7 +99,7 @@ const POKEMON = [
   { mega:{spriteId:10042, type:'rock', type2:'flying', ability:{id:'tough-claws', name:'硬爪', trigger:'onAttack', desc:'攻擊傷害 ×1.3'}}, id:142, name:'化石翼龍',   type:'rock',     type2:'flying',  hp:260, tier:2, ability:{id:'pressure', name:'壓迫感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[{name:'咬碎',dmg:36,cost:1,type:'dark',status:{effect:'confusion', chance:0.15}},{name:'翼擊',dmg:39,cost:2,type:'flying'},{name:'空氣斬',dmg:78,cost:14,type:'flying',status:{effect:'confusion', chance:0.2}},{name:'岩石炮',dmg:88,cost:16,type:'rock'}]},
   { id:526, name:'龐岩怪',     type:'rock',                      hp:280, tier:2, ability:{id:'sturdy', name:'結實', trigger:'onDefend', desc:'HP 全滿時，受到會直接擊倒的攻擊會保留 1 HP'}, attacks:[{name:'閃光炮',dmg:39,cost:2,type:'steel'},{name:'碎岩',dmg:42,cost:2,type:'rock'},{name:'地震',dmg:86,cost:15,type:'ground'},{name:'岩石炮',dmg:95,cost:17,type:'rock'}]},
   { id:477, name:'黑夜魔靈',   type:'ghost',                     hp:220, tier:1, ability:{id:'pressure', name:'壓迫感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[{name:'暗影爪',dmg:32,cost:0,type:'ghost',status:{effect:'paralysis', chance:0.2}},{name:'冰凍拳',dmg:36,cost:1,type:'ice',status:{effect:'freeze', chance:0.1}},{name:'幽靈球',dmg:70,cost:11,type:'ghost'},{name:'地震',dmg:77,cost:13,type:'ground'}]},
-  { id:609, name:'水晶燈火靈', type:'ghost',    type2:'fire',    hp:260, tier:2, ability:{id:'flash-fire', name:'引火', trigger:'onDefend', desc:'受到火屬性攻擊時完全免疫，下次攻擊威力 +20'}, attacks:[{name:'幽靈火焰',dmg:37,cost:1,type:'ghost',status:{effect:'burn', chance:0.25}},{name:'噴火',dmg:40,cost:2,type:'fire',status:{effect:'burn', chance:0.25}},{name:'火焰漩渦',dmg:81,cost:14,type:'fire',status:{effect:'burn', chance:0.2}},{name:'暗影球',dmg:91,cost:16,type:'ghost'}]},
+  { mega:{spriteId:10291, type:'ghost', type2:'fire', ability:{id:'frisk-ward', name:'穿透', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}}, id:609, name:'水晶燈火靈', type:'ghost',    type2:'fire',    hp:260, tier:2, ability:{id:'flash-fire', name:'引火', trigger:'onDefend', desc:'受到火屬性攻擊時完全免疫，下次攻擊威力 +20'}, attacks:[{name:'幽靈火焰',dmg:37,cost:1,type:'ghost',status:{effect:'burn', chance:0.25}},{name:'噴火',dmg:40,cost:2,type:'fire',status:{effect:'burn', chance:0.25}},{name:'火焰漩渦',dmg:81,cost:14,type:'fire',status:{effect:'burn', chance:0.2}},{name:'暗影球',dmg:91,cost:16,type:'ghost'}]},
   { mega:{spriteId:10057, type:'dark', type2:null, ability:{id:'frisk-ward', name:'魔法鏡', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}}, id:359, name:'阿勃梭魯',   type:'dark',                      hp:220, tier:1, ability:{id:'huge-power', name:'超幸運', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}, attacks:[{name:'夜斬',dmg:34,cost:1,type:'dark'},{name:'追影斬',dmg:38,cost:1,type:'dark'},{name:'精神力',dmg:73,cost:12,type:'psychic',status:{effect:'confusion', chance:0.2}},{name:'暗黑脈衝',dmg:80,cost:14,type:'dark'}]},
   // ── +30 新增（最終進化型，非幻獸/神獸，無龍/妖精屬性）──
   { id:865, name:'蔥遊兵', type:'fighting',  hp:220, tier:1, ability:{id:'desperate-blade', name:'背水之刃', trigger:'onAttack', desc:'HP 低於 50% 時，攻擊傷害 ×1.3'}, attacks:[{name:'連續攻擊',dmg:32,cost:0,type:'normal'},{name:'劍術',dmg:36,cost:1,type:'fighting'},{name:'居合斬',dmg:72,cost:12,type:'fighting',status:{effect:'paralysis', chance:0.15}},{name:'近身戰',dmg:80,cost:14,type:'fighting'}]},
@@ -121,10 +121,10 @@ const POKEMON = [
   { id:452, name:'龍王蠍', type:'poison', type2:'dark', hp:280, tier:2, ability:{id:'poison-point', name:'毒刺', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者中毒'}, attacks:[{name:'毒針',dmg:36,cost:1,type:'poison',status:{effect:'poison', chance:0.3}},{name:'夜斬',dmg:38,cost:1,type:'dark'},{name:'十字毒刃',dmg:84,cost:15,type:'poison',status:{effect:'poison', chance:0.2}},{name:'惡意突刺',dmg:90,cost:16,type:'dark'}]},
   { id:862, name:'堵攔熊', type:'dark', type2:'normal', hp:300, tier:2, ability:{id:'guts', name:'堅韌', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}, attacks:[{name:'夜斬',dmg:36,cost:1,type:'dark'},{name:'連續切',dmg:38,cost:1,type:'normal'},{name:'惡意突刺',dmg:82,cost:14,type:'dark'},{name:'蠻力',dmg:88,cost:16,type:'normal'}]},
   { id:738, name:'鍬農炮蟲', type:'bug', type2:'electric', hp:270, tier:2, ability:{id:'desperate-blade', name:'背水之刃', trigger:'onAttack', desc:'HP 低於 50% 時，攻擊傷害 ×1.3'}, attacks:[{name:'蟲咬',dmg:35,cost:1,type:'bug'},{name:'電擊',dmg:38,cost:1,type:'electric'},{name:'蟲鳴',dmg:80,cost:14,type:'bug'},{name:'十萬伏特',dmg:86,cost:15,type:'electric',status:{effect:'paralysis', chance:0.25}}]},
-  { id:623, name:'泥偶巨人', type:'ground', type2:'ghost', hp:310, tier:2, ability:{id:'solid-rock', name:'硬岩', trigger:'onDefend', desc:'受到剋制（×2以上）的攻擊傷害再減少 25%'}, attacks:[{name:'泥巴射擊',dmg:36,cost:1,type:'ground'},{name:'影子偷襲',dmg:38,cost:1,type:'ghost'},{name:'地震',dmg:88,cost:16,type:'ground'},{name:'惡靈波動',dmg:82,cost:14,type:'ghost'}]},
-  { id:121, name:'寶石海星', type:'water', type2:'psychic', hp:270, tier:2, ability:{id:'frisk-ward', name:'神秘之守', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}, attacks:[{name:'水槍',dmg:35,cost:1,type:'water'},{name:'念力',dmg:38,cost:1,type:'psychic'},{name:'水炮',dmg:80,cost:14,type:'water'},{name:'精神強擊',dmg:85,cost:15,type:'psychic',status:{effect:'confusion', chance:0.2}}]},
+  { mega:{spriteId:10313, type:'ground', type2:'ghost', ability:{id:'tough-claws', name:'隱形拳', trigger:'onAttack', desc:'攻擊傷害 ×1.3'}}, id:623, name:'泥偶巨人', type:'ground', type2:'ghost', hp:310, tier:2, ability:{id:'solid-rock', name:'硬岩', trigger:'onDefend', desc:'受到剋制（×2以上）的攻擊傷害再減少 25%'}, attacks:[{name:'泥巴射擊',dmg:36,cost:1,type:'ground'},{name:'影子偷襲',dmg:38,cost:1,type:'ghost'},{name:'地震',dmg:88,cost:16,type:'ground'},{name:'惡靈波動',dmg:82,cost:14,type:'ghost'}]},
+  { mega:{spriteId:10280, type:'water', type2:'psychic', ability:{id:'huge-power', name:'大力士', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}}, id:121, name:'寶石海星', type:'water', type2:'psychic', hp:270, tier:2, ability:{id:'frisk-ward', name:'神秘之守', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}, attacks:[{name:'水槍',dmg:35,cost:1,type:'water'},{name:'念力',dmg:38,cost:1,type:'psychic'},{name:'水炮',dmg:80,cost:14,type:'water'},{name:'精神強擊',dmg:85,cost:15,type:'psychic',status:{effect:'confusion', chance:0.2}}]},
   { mega:{spriteId:10045, type:'electric', type2:'dragon', ability:{id:'mold-breaker', name:'破格', trigger:'onAttack', desc:'攻擊時無視對方的防禦型特性'}}, id:181, name:'電龍', type:'electric',  hp:300, tier:2, ability:{id:'static', name:'靜電', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者陷入麻痺'}, attacks:[{name:'電擊',dmg:36,cost:1,type:'electric'},{name:'電光一閃',dmg:38,cost:1,type:'normal'},{name:'十萬伏特',dmg:84,cost:15,type:'electric',status:{effect:'paralysis', chance:0.3}},{name:'雷電',dmg:90,cost:16,type:'electric',status:{effect:'paralysis', chance:0.2}}]},
-  { id:768, name:'具甲武者', type:'bug', type2:'water', hp:290, tier:2, ability:{id:'blaze-boost', name:'突襲', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[{name:'水流手裏劍',dmg:38,cost:1,type:'water'},{name:'蟲咬',dmg:36,cost:1,type:'bug'},{name:'X 剪刀',dmg:82,cost:14,type:'bug'},{name:'水炮',dmg:86,cost:15,type:'water'}]},
+  { mega:{spriteId:10316, type:'bug', type2:'steel', ability:{id:'solid-rock', name:'重甲化', trigger:'onDefend', desc:'受到剋制（×2以上）的攻擊傷害再減少 25%'}}, id:768, name:'具甲武者', type:'bug', type2:'water', hp:290, tier:2, ability:{id:'blaze-boost', name:'突襲', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[{name:'水流手裏劍',dmg:38,cost:1,type:'water'},{name:'蟲咬',dmg:36,cost:1,type:'bug'},{name:'X 剪刀',dmg:82,cost:14,type:'bug'},{name:'水炮',dmg:86,cost:15,type:'water'}]},
   { id:465, name:'巨蔓藤', type:'grass',  hp:310, tier:2, ability:{id:'adaptability', name:'適應力', trigger:'onAttack', desc:'本系加成（STAB）提升為 ×2（原本 ×1.5）'}, attacks:[{name:'魔法葉',dmg:36,cost:1,type:'grass'},{name:'藤鞭',dmg:38,cost:1,type:'grass'},{name:'實力全開',dmg:84,cost:15,type:'normal'},{name:'能量球',dmg:80,cost:14,type:'grass',status:{effect:'confusion', chance:0.15}}]},
   { id:713, name:'冰岩怪', type:'ice',  hp:320, tier:2, ability:{id:'sturdy', name:'頑強', trigger:'onDefend', desc:'HP 全滿時，受到會直接擊倒的攻擊會保留 1 HP'}, attacks:[{name:'冰凍拳',dmg:36,cost:1,type:'ice',status:{effect:'freeze', chance:0.15}},{name:'碎岩',dmg:38,cost:1,type:'rock'},{name:'暴風雪',dmg:88,cost:16,type:'ice',status:{effect:'freeze', chance:0.2}},{name:'雪崩',dmg:82,cost:14,type:'ice'}]},
   { id:576, name:'哥德小姐', type:'psychic',  hp:280, tier:2, ability:{id:'frisk-ward', name:'神秘之守', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}, attacks:[{name:'念力',dmg:36,cost:1,type:'psychic'},{name:'音波',dmg:38,cost:1,type:'normal'},{name:'精神強擊',dmg:85,cost:15,type:'psychic',status:{effect:'confusion', chance:0.25}},{name:'未來預知',dmg:90,cost:16,type:'psychic'}]},
@@ -132,6 +132,325 @@ const POKEMON = [
   { id:464, name:'超甲狂犀', type:'ground', type2:'rock', hp:360, tier:3, ability:{id:'solid-rock', name:'硬岩', trigger:'onDefend', desc:'受到剋制（×2以上）的攻擊傷害再減少 25%'}, attacks:[{name:'角撞',dmg:42,cost:2,type:'normal'},{name:'泥巴射擊',dmg:46,cost:3,type:'ground'},{name:'岩崩',dmg:92,cost:17,type:'rock'},{name:'地震',dmg:105,cost:19,type:'ground'}]},
   { id:473, name:'象牙豬', type:'ice', type2:'ground', hp:350, tier:3, ability:{id:'thick-fat', name:'厚脂肪', trigger:'onDefend', desc:'受到火／冰屬性攻擊傷害 ×0.6'}, attacks:[{name:'冰凍拳',dmg:44,cost:3,type:'ice',status:{effect:'freeze', chance:0.15}},{name:'地震',dmg:46,cost:3,type:'ground'},{name:'雪崩',dmg:95,cost:18,type:'ice',status:{effect:'freeze', chance:0.2}},{name:'冰牙',dmg:100,cost:18,type:'ice',status:{effect:'freeze', chance:0.15}}]},
   { id:625, name:'劈斬司令', type:'dark', type2:'steel', hp:330, tier:3, ability:{id:'guts', name:'堅韌', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}, attacks:[{name:'金屬爪',dmg:42,cost:2,type:'steel'},{name:'夜斬',dmg:44,cost:3,type:'dark'},{name:'惡意突刺',dmg:95,cost:18,type:'dark'},{name:'鐵頭功',dmg:100,cost:18,type:'steel'}]},
+  /* ── Mega 進化擴充（Legends Z-A / 原有 46 種缺漏補完） ── */
+  { mega:{spriteId:10073, type:'normal', type2:'flying', ability:{id:'huge-power', name:'無防守', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}}, id:18, name:'大比鳥', type:'normal', type2:'flying', hp:220, tier:1, ability:{id:'frisk-ward', name:'牽制', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}, attacks:[
+    {name:'啄', dmg:32, cost:0, type:'flying'},
+    {name:'疾風拳', dmg:36, cost:1, type:'normal'},
+    {name:'燕返', dmg:70, cost:11, type:'flying'},
+    {name:'猛禽炸彈', dmg:78, cost:13, type:'flying'},
+  ]},
+  { mega:{spriteId:10039, type:'normal', type2:null, ability:{id:'huge-power', name:'親子羈絆', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}}, id:115, name:'袋獸', type:'normal', hp:280, tier:2, ability:{id:'guts', name:'根性', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}, attacks:[
+    {name:'扒', dmg:36, cost:1, type:'normal'},
+    {name:'連環巴掌', dmg:40, cost:2, type:'normal'},
+    {name:'近身戰', dmg:80, cost:14, type:'fighting'},
+    {name:'地震', dmg:88, cost:16, type:'ground'},
+  ]},
+  { mega:{spriteId:10040, type:'bug', type2:'flying', ability:{id:'adaptability', name:'飛行皮膚', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×2（原本 ×1.5）'}}, id:127, name:'凱羅斯', type:'bug', hp:210, tier:1, ability:{id:'mold-breaker', name:'破格', trigger:'onAttack', desc:'攻擊時無視對方的防禦型特性'}, attacks:[
+    {name:'斷頭台', dmg:32, cost:0, type:'bug'},
+    {name:'十字剪', dmg:36, cost:1, type:'bug'},
+    {name:'角撞', dmg:68, cost:11, type:'normal'},
+    {name:'石頭砸落', dmg:76, cost:13, type:'rock'},
+  ]},
+  { mega:{spriteId:10072, type:'steel', type2:'ground', ability:{id:'blaze-boost', name:'沙之力', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}}, id:208, name:'大鋼蛇', type:'steel', type2:'ground', hp:290, tier:2, ability:{id:'sturdy', name:'結實', trigger:'onDefend', desc:'HP 全滿時，受到會直接擊倒的攻擊會保留 1 HP'}, attacks:[
+    {name:'綁緊', dmg:35, cost:1, type:'normal'},
+    {name:'鐵尾', dmg:39, cost:2, type:'steel'},
+    {name:'地震', dmg:78, cost:14, type:'ground'},
+    {name:'重磅衝撞', dmg:86, cost:16, type:'steel'},
+  ]},
+  { mega:{spriteId:10050, type:'fire', type2:'fighting', ability:{id:'huge-power', name:'加速', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}}, id:257, name:'火焰雞', type:'fire', type2:'fighting', hp:260, tier:2, ability:{id:'blaze-boost', name:'猛火', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[
+    {name:'踢腿', dmg:36, cost:1, type:'fighting'},
+    {name:'火花', dmg:40, cost:2, type:'fire'},
+    {name:'烈焰衝浪腳', dmg:80, cost:14, type:'fire'},
+    {name:'近身戰', dmg:88, cost:16, type:'fighting'},
+  ]},
+  { mega:{spriteId:10066, type:'dark', type2:'ghost', ability:{id:'frisk-ward', name:'魔法鏡', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}}, id:302, name:'勾魂眼', type:'dark', type2:'ghost', hp:200, tier:1, ability:{id:'frisk-ward', name:'洞察力', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}, attacks:[
+    {name:'暗影球', dmg:30, cost:0, type:'ghost'},
+    {name:'惡意彈珠', dmg:34, cost:1, type:'dark'},
+    {name:'寶石爆破', dmg:66, cost:10, type:'rock'},
+    {name:'暗黑爆破', dmg:74, cost:12, type:'dark'},
+  ]},
+  { mega:{spriteId:10052, type:'steel', type2:'fairy', ability:{id:'huge-power', name:'大力士', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}}, id:303, name:'大嘴娃', type:'steel', type2:'fairy', hp:200, tier:1, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊傷害 ×0.5'}, attacks:[
+    {name:'啃咬', dmg:32, cost:0, type:'dark'},
+    {name:'鐵頭', dmg:36, cost:1, type:'steel'},
+    {name:'巨大化拳', dmg:70, cost:11, type:'normal'},
+    {name:'重磅衝撞', dmg:78, cost:13, type:'steel'},
+  ]},
+  { mega:{spriteId:10053, type:'steel', type2:null, ability:{id:'solid-rock', name:'過濾', trigger:'onDefend', desc:'受到剋制（×2以上）的攻擊傷害再減少 25%'}}, id:306, name:'波士可多拉', type:'steel', type2:'rock', hp:310, tier:2, ability:{id:'sturdy', name:'結實', trigger:'onDefend', desc:'HP 全滿時，受到會直接擊倒的攻擊會保留 1 HP'}, attacks:[
+    {name:'金屬爪', dmg:35, cost:1, type:'steel'},
+    {name:'岩石滑落', dmg:39, cost:2, type:'rock'},
+    {name:'重磅衝撞', dmg:78, cost:14, type:'steel'},
+    {name:'劈斬', dmg:86, cost:16, type:'steel'},
+  ]},
+  { mega:{spriteId:10054, type:'fighting', type2:'psychic', ability:{id:'huge-power', name:'驚人怪力', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}}, id:308, name:'恰雷姆', type:'fighting', type2:'psychic', hp:210, tier:1, ability:{id:'huge-power', name:'驚人怪力', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}, attacks:[
+    {name:'空手劈', dmg:32, cost:0, type:'fighting'},
+    {name:'念力', dmg:36, cost:1, type:'psychic'},
+    {name:'高速旋轉踢', dmg:70, cost:11, type:'fighting'},
+    {name:'惡意彈珠', dmg:78, cost:13, type:'dark'},
+  ]},
+  { mega:{spriteId:10055, type:'electric', type2:null, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊傷害 ×0.5'}}, id:310, name:'雷電獸', type:'electric', hp:230, tier:1, ability:{id:'static', name:'靜電', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者陷入麻痺'}, attacks:[
+    {name:'電擊', dmg:32, cost:0, type:'electric'},
+    {name:'咬碎', dmg:36, cost:1, type:'dark'},
+    {name:'十萬伏特', dmg:70, cost:11, type:'electric'},
+    {name:'火焰牙', dmg:78, cost:13, type:'fire'},
+  ]},
+  { mega:{spriteId:10070, type:'water', type2:'dark', ability:{id:'tough-claws', name:'強壯之顎', trigger:'onAttack', desc:'攻擊傷害 ×1.3'}}, id:319, name:'巨牙鯊', type:'water', type2:'dark', hp:220, tier:1, ability:{id:'rough-skin', name:'粗糙皮膚', trigger:'onDefend', desc:'受到攻擊傷害時，反彈攻擊者 1/8 最大HP 傷害'}, attacks:[
+    {name:'水槍', dmg:32, cost:0, type:'water'},
+    {name:'咬碎', dmg:36, cost:1, type:'dark'},
+    {name:'衝浪', dmg:70, cost:11, type:'water'},
+    {name:'冰牙', dmg:78, cost:13, type:'ice'},
+  ]},
+  { mega:{spriteId:10087, type:'fire', type2:'ground', ability:{id:'tough-claws', name:'強行', trigger:'onAttack', desc:'攻擊傷害 ×1.3'}}, id:323, name:'噴火駝', type:'fire', type2:'ground', hp:260, tier:2, ability:{id:'solid-rock', name:'硬岩', trigger:'onDefend', desc:'受到剋制（×2以上）的攻擊傷害再減少 25%'}, attacks:[
+    {name:'火花', dmg:36, cost:1, type:'fire'},
+    {name:'泥巴射擊', dmg:40, cost:2, type:'ground'},
+    {name:'熔岩爆發', dmg:80, cost:14, type:'fire'},
+    {name:'地震', dmg:88, cost:16, type:'ground'},
+  ]},
+  { mega:{spriteId:10067, type:'dragon', type2:'fairy', ability:{id:'adaptability', name:'妖精皮膚', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×2（原本 ×1.5）'}}, id:334, name:'七夕青鳥', type:'dragon', type2:'flying', hp:270, tier:2, ability:{id:'frisk-ward', name:'自然回復', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}, attacks:[
+    {name:'啄', dmg:36, cost:1, type:'flying'},
+    {name:'龍之氣息', dmg:40, cost:2, type:'dragon'},
+    {name:'空氣斬', dmg:80, cost:14, type:'flying'},
+    {name:'龍之波動', dmg:88, cost:16, type:'dragon'},
+  ]},
+  { mega:{spriteId:10056, type:'ghost', type2:null, ability:{id:'frisk-ward', name:'惡作劇之心', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}}, id:354, name:'詛咒娃娃', type:'ghost', hp:210, tier:1, ability:{id:'insomnia', name:'不眠', trigger:'onDefend', desc:'不會陷入睡眠狀態'}, attacks:[
+    {name:'暗影球', dmg:32, cost:0, type:'ghost'},
+    {name:'惡意彈珠', dmg:36, cost:1, type:'dark'},
+    {name:'暗黑爆破', dmg:70, cost:11, type:'dark'},
+    {name:'念力', dmg:78, cost:13, type:'psychic'},
+  ]},
+  { mega:{spriteId:10074, type:'ice', type2:null, ability:{id:'adaptability', name:'冰肌', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×2（原本 ×1.5）'}}, id:362, name:'冰鬼護', type:'ice', hp:260, tier:2, ability:{id:'thick-fat', name:'冰凍之軀', trigger:'onDefend', desc:'受到火／冰屬性攻擊傷害 ×0.6'}, attacks:[
+    {name:'冰霜拳', dmg:36, cost:1, type:'ice'},
+    {name:'頭錘', dmg:40, cost:2, type:'normal'},
+    {name:'冰凍光束', dmg:80, cost:14, type:'ice'},
+    {name:'雪崩', dmg:88, cost:16, type:'ice'},
+  ]},
+  { mega:{spriteId:10089, type:'dragon', type2:'flying', ability:{id:'adaptability', name:'飛行皮膚', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×2（原本 ×1.5）'}}, id:373, name:'暴飛龍', type:'dragon', type2:'flying', hp:340, tier:3, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊傷害 ×0.5'}, attacks:[
+    {name:'咬碎', dmg:40, cost:2, type:'dark'},
+    {name:'龍息', dmg:45, cost:3, type:'dragon'},
+    {name:'逆鱗', dmg:90, cost:17, type:'dragon'},
+    {name:'暴風', dmg:100, cost:19, type:'flying'},
+  ]},
+  { mega:{spriteId:10062, type:'dragon', type2:'psychic', ability:{id:'motor-drive', name:'飄浮', trigger:'onDefend', desc:'受到電屬性攻擊時完全免疫，並回復 3 點能量'}}, id:380, name:'拉帝亞斯', type:'dragon', type2:'psychic', hp:320, tier:3, ability:{id:'motor-drive', name:'飄浮', trigger:'onDefend', desc:'受到電屬性攻擊時完全免疫，並回復 3 點能量'}, attacks:[
+    {name:'念力', dmg:40, cost:2, type:'psychic'},
+    {name:'龍之氣息', dmg:44, cost:3, type:'dragon'},
+    {name:'魔法閃耀', dmg:88, cost:16, type:'fairy'},
+    {name:'龍之波動', dmg:96, cost:18, type:'dragon'},
+  ]},
+  { mega:{spriteId:10063, type:'dragon', type2:'psychic', ability:{id:'motor-drive', name:'飄浮', trigger:'onDefend', desc:'受到電屬性攻擊時完全免疫，並回復 3 點能量'}}, id:381, name:'拉帝歐斯', type:'dragon', type2:'psychic', hp:320, tier:3, ability:{id:'motor-drive', name:'飄浮', trigger:'onDefend', desc:'受到電屬性攻擊時完全免疫，並回復 3 點能量'}, attacks:[
+    {name:'龍息', dmg:40, cost:2, type:'dragon'},
+    {name:'念力', dmg:44, cost:3, type:'psychic'},
+    {name:'龍爪', dmg:88, cost:16, type:'dragon'},
+    {name:'未來預知', dmg:96, cost:18, type:'psychic'},
+  ]},
+  { mega:{spriteId:10088, type:'normal', type2:'fighting', ability:{id:'huge-power', name:'根性', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}}, id:428, name:'長耳兔', type:'normal', hp:220, tier:1, ability:{id:'frisk-ward', name:'魅力', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}, attacks:[
+    {name:'連續拳', dmg:32, cost:0, type:'normal'},
+    {name:'高速星星拳', dmg:36, cost:1, type:'normal'},
+    {name:'高速旋轉踢', dmg:70, cost:11, type:'fighting'},
+    {name:'冰凍拳', dmg:78, cost:13, type:'ice'},
+  ]},
+  { mega:{spriteId:10060, type:'grass', type2:'ice', ability:{id:'solid-rock', name:'降雪', trigger:'onDefend', desc:'受到剋制（×2以上）的攻擊傷害再減少 25%'}}, id:460, name:'暴雪王', type:'grass', type2:'ice', hp:280, tier:2, ability:{id:'solid-rock', name:'降雪', trigger:'onDefend', desc:'受到剋制（×2以上）的攻擊傷害再減少 25%'}, attacks:[
+    {name:'冰霜拳', dmg:36, cost:1, type:'ice'},
+    {name:'魔法葉', dmg:40, cost:2, type:'grass'},
+    {name:'暴風雪', dmg:80, cost:14, type:'ice'},
+    {name:'葉刃', dmg:88, cost:16, type:'grass'},
+  ]},
+  { mega:{spriteId:10068, type:'psychic', type2:'fighting', ability:{id:'huge-power', name:'精神力', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}}, id:475, name:'艾路雷朵', type:'psychic', type2:'fighting', hp:260, tier:2, ability:{id:'guts', name:'不屈之心', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}, attacks:[
+    {name:'空手劈', dmg:36, cost:1, type:'fighting'},
+    {name:'念力', dmg:40, cost:2, type:'psychic'},
+    {name:'劈斬', dmg:80, cost:14, type:'psychic'},
+    {name:'近身戰', dmg:88, cost:16, type:'fighting'},
+  ]},
+  { mega:{spriteId:10069, type:'normal', type2:'fairy', ability:{id:'thick-fat', name:'治癒之心', trigger:'onDefend', desc:'受到火／冰屬性攻擊傷害 ×0.6'}}, id:531, name:'差不多娃娃', type:'normal', hp:300, tier:2, ability:{id:'thick-fat', name:'回復力', trigger:'onDefend', desc:'受到火／冰屬性攻擊傷害 ×0.6'}, attacks:[
+    {name:'拍打', dmg:35, cost:1, type:'normal'},
+    {name:'音爆拳', dmg:39, cost:2, type:'normal'},
+    {name:'高周波音', dmg:78, cost:14, type:'normal'},
+    {name:'日光束', dmg:86, cost:16, type:'grass'},
+  ]},
+  { mega:{spriteId:10075, type:'rock', type2:'fairy', ability:{id:'frisk-ward', name:'魔法鏡', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}}, id:719, name:'蒂安希', type:'rock', type2:'fairy', hp:300, tier:3, ability:{id:'solid-rock', name:'恆淨之軀', trigger:'onDefend', desc:'受到剋制（×2以上）的攻擊傷害再減少 25%'}, attacks:[
+    {name:'岩石滑落', dmg:40, cost:2, type:'rock'},
+    {name:'魔法閃耀', dmg:44, cost:3, type:'fairy'},
+    {name:'石刃', dmg:88, cost:16, type:'rock'},
+    {name:'月亮之力', dmg:96, cost:18, type:'fairy'},
+  ]},
+  { mega:{spriteId:10278, type:'fairy', type2:'flying', ability:{id:'frisk-ward', name:'魔法鏡', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}}, id:36, name:'皮可西', type:'fairy', hp:280, tier:2, ability:{id:'magic-guard', name:'魔法防守', trigger:'onStatus', desc:'不會受到中毒／燒傷的傷害'}, attacks:[
+    {name:'拍打', dmg:36, cost:1, type:'normal'},
+    {name:'魔法閃耀', dmg:40, cost:2, type:'fairy'},
+    {name:'高周波音', dmg:80, cost:14, type:'normal'},
+    {name:'月亮之力', dmg:88, cost:16, type:'fairy'},
+  ]},
+  { mega:{spriteId:10279, type:'grass', type2:'poison', ability:{id:'tough-claws', name:'揭露之貌', trigger:'onAttack', desc:'攻擊傷害 ×1.3'}}, id:71, name:'大食花', type:'grass', type2:'poison', hp:230, tier:1, ability:{id:'blaze-boost', name:'葉綠素', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[
+    {name:'藤鞭', dmg:32, cost:0, type:'grass'},
+    {name:'毒液', dmg:36, cost:1, type:'poison'},
+    {name:'葉刃', dmg:70, cost:11, type:'grass'},
+    {name:'污泥炸彈', dmg:78, cost:13, type:'poison'},
+  ]},
+  { mega:{spriteId:10284, type:'steel', type2:'flying', ability:{id:'solid-rock', name:'頑強', trigger:'onDefend', desc:'受到剋制（×2以上）的攻擊傷害再減少 25%'}}, id:227, name:'盔甲鳥', type:'steel', type2:'flying', hp:270, tier:2, ability:{id:'sturdy', name:'頑強', trigger:'onDefend', desc:'HP 全滿時，受到會直接擊倒的攻擊會保留 1 HP'}, attacks:[
+    {name:'啄', dmg:36, cost:1, type:'flying'},
+    {name:'鐵頭', dmg:40, cost:2, type:'steel'},
+    {name:'猛禽炸彈', dmg:80, cost:14, type:'flying'},
+    {name:'重磅衝撞', dmg:88, cost:16, type:'steel'},
+  ]},
+  { mega:{spriteId:10306, type:'psychic', type2:'steel', ability:{id:'motor-drive', name:'飄浮', trigger:'onDefend', desc:'受到電屬性攻擊時完全免疫，並回復 3 點能量'}}, id:358, name:'風鈴鈴', type:'psychic', hp:220, tier:1, ability:{id:'motor-drive', name:'飄浮', trigger:'onDefend', desc:'受到電屬性攻擊時完全免疫，並回復 3 點能量'}, attacks:[
+    {name:'念力', dmg:32, cost:0, type:'psychic'},
+    {name:'音爆拳', dmg:36, cost:1, type:'normal'},
+    {name:'未來預知', dmg:70, cost:11, type:'psychic'},
+    {name:'高周波音', dmg:78, cost:13, type:'normal'},
+  ]},
+  { mega:{spriteId:10311, type:'fire', type2:'steel', ability:{id:'blaze-boost', name:'熾熱核心', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}}, id:485, name:'席多藍恩', type:'fire', type2:'steel', hp:330, tier:3, ability:{id:'flash-fire', name:'引火', trigger:'onDefend', desc:'受到火屬性攻擊時完全免疫，下次攻擊威力 +20'}, attacks:[
+    {name:'金屬爪', dmg:40, cost:2, type:'steel'},
+    {name:'熔岩爆發', dmg:45, cost:3, type:'fire'},
+    {name:'大字爆炎', dmg:90, cost:17, type:'fire'},
+    {name:'隕石衝擊', dmg:100, cost:19, type:'rock'},
+  ]},
+  { mega:{spriteId:10312, type:'dark', type2:null, ability:{id:'tough-claws', name:'暗影', trigger:'onAttack', desc:'攻擊傷害 ×1.3'}}, id:491, name:'達克萊伊', type:'dark', hp:310, tier:3, ability:{id:'tough-claws', name:'惡夢', trigger:'onAttack', desc:'攻擊傷害 ×1.3'}, attacks:[
+    {name:'惡意彈珠', dmg:40, cost:2, type:'dark'},
+    {name:'暗影球', dmg:44, cost:3, type:'ghost'},
+    {name:'黑暗脈動', dmg:88, cost:16, type:'dark'},
+    {name:'暗黑爆破', dmg:96, cost:18, type:'dark'},
+  ]},
+  { mega:{spriteId:10286, type:'fire', type2:'fighting', ability:{id:'mold-breaker', name:'破格', trigger:'onAttack', desc:'攻擊時無視對方的防禦型特性'}}, id:500, name:'炎武王', type:'fire', type2:'fighting', hp:300, tier:2, ability:{id:'blaze-boost', name:'猛火', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[
+    {name:'火花', dmg:36, cost:1, type:'fire'},
+    {name:'近身戰', dmg:40, cost:2, type:'fighting'},
+    {name:'熔岩爆發', dmg:80, cost:14, type:'fire'},
+    {name:'超級power', dmg:88, cost:16, type:'fighting'},
+  ]},
+  { mega:{spriteId:10287, type:'ground', type2:'steel', ability:{id:'tough-claws', name:'貫穿之鑽', trigger:'onAttack', desc:'攻擊傷害 ×1.3'}}, id:530, name:'龍頭地鼠', type:'ground', type2:'steel', hp:300, tier:2, ability:{id:'blaze-boost', name:'沙之力', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[
+    {name:'金屬爪', dmg:36, cost:1, type:'steel'},
+    {name:'泥巴射擊', dmg:40, cost:2, type:'ground'},
+    {name:'地震', dmg:80, cost:14, type:'ground'},
+    {name:'鑽鑿', dmg:88, cost:16, type:'steel'},
+  ]},
+  { mega:{spriteId:10288, type:'bug', type2:'poison', ability:{id:'sturdy', name:'硬殼盔甲', trigger:'onDefend', desc:'HP 全滿時，受到會直接擊倒的攻擊會保留 1 HP'}}, id:545, name:'蜈蚣王', type:'bug', type2:'poison', hp:260, tier:2, ability:{id:'poison-point', name:'毒刺', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者中毒'}, attacks:[
+    {name:'連續啃咬', dmg:36, cost:1, type:'bug'},
+    {name:'毒針', dmg:40, cost:2, type:'poison'},
+    {name:'百萬針', dmg:80, cost:14, type:'bug'},
+    {name:'污泥炸彈', dmg:88, cost:16, type:'poison'},
+  ]},
+  { mega:{spriteId:10289, type:'dark', type2:'fighting', ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊傷害 ×0.5'}}, id:560, name:'頭巾混混', type:'dark', type2:'fighting', hp:240, tier:1, ability:{id:'guts', name:'蛻皮', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}, attacks:[
+    {name:'空手劈', dmg:32, cost:0, type:'fighting'},
+    {name:'惡意彈珠', dmg:36, cost:1, type:'dark'},
+    {name:'近身戰', dmg:70, cost:11, type:'fighting'},
+    {name:'暗黑爆破', dmg:78, cost:13, type:'dark'},
+  ]},
+  { mega:{spriteId:10290, type:'electric', type2:null, ability:{id:'motor-drive', name:'電鰻升格', trigger:'onDefend', desc:'受到電屬性攻擊時完全免疫，並回復 3 點能量'}}, id:604, name:'麻麻鰻魚王', type:'electric', hp:270, tier:2, ability:{id:'motor-drive', name:'飄浮', trigger:'onDefend', desc:'受到電屬性攻擊時完全免疫，並回復 3 點能量'}, attacks:[
+    {name:'咬碎', dmg:36, cost:1, type:'dark'},
+    {name:'電擊', dmg:40, cost:2, type:'electric'},
+    {name:'十萬伏特', dmg:80, cost:14, type:'electric'},
+    {name:'惡意彈珠', dmg:88, cost:16, type:'dark'},
+  ]},
+  { mega:{spriteId:10292, type:'grass', type2:'fighting', ability:{id:'solid-rock', name:'防彈', trigger:'onDefend', desc:'受到剋制（×2以上）的攻擊傷害再減少 25%'}}, id:652, name:'布里卡隆', type:'grass', type2:'fighting', hp:300, tier:2, ability:{id:'blaze-boost', name:'茂盛', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[
+    {name:'藤鞭', dmg:36, cost:1, type:'grass'},
+    {name:'空手劈', dmg:40, cost:2, type:'fighting'},
+    {name:'葉刃', dmg:80, cost:14, type:'grass'},
+    {name:'近身戰', dmg:88, cost:16, type:'fighting'},
+  ]},
+  { mega:{spriteId:10293, type:'fire', type2:'psychic', ability:{id:'motor-drive', name:'飄浮', trigger:'onDefend', desc:'受到電屬性攻擊時完全免疫，並回復 3 點能量'}}, id:655, name:'妖火紅狐', type:'fire', type2:'psychic', hp:260, tier:2, ability:{id:'blaze-boost', name:'猛火', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[
+    {name:'火花', dmg:36, cost:1, type:'fire'},
+    {name:'念力', dmg:40, cost:2, type:'psychic'},
+    {name:'大字爆炎', dmg:80, cost:14, type:'fire'},
+    {name:'未來預知', dmg:88, cost:16, type:'psychic'},
+  ]},
+  { mega:{spriteId:10295, type:'fire', type2:'normal', ability:{id:'blaze-boost', name:'火鬃', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}}, id:668, name:'火炎獅', type:'fire', type2:'normal', hp:270, tier:2, ability:{id:'pressure', name:'緊張感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[
+    {name:'拍打', dmg:36, cost:1, type:'normal'},
+    {name:'火花', dmg:40, cost:2, type:'fire'},
+    {name:'大字爆炎', dmg:80, cost:14, type:'fire'},
+    {name:'高周波音', dmg:88, cost:16, type:'normal'},
+  ]},
+  { mega:{spriteId:10296, type:'fairy', type2:null, ability:{id:'adaptability', name:'妖精領域', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×2（原本 ×1.5）'}}, id:670, name:'花葉蒂', type:'fairy', hp:200, tier:1, ability:{id:'frisk-ward', name:'花之守護', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}, attacks:[
+    {name:'魔法閃耀', dmg:32, cost:0, type:'fairy'},
+    {name:'日光束', dmg:36, cost:1, type:'grass'},
+    {name:'月亮之力', dmg:70, cost:11, type:'fairy'},
+    {name:'葉暴風', dmg:78, cost:13, type:'grass'},
+  ]},
+  { mega:{spriteId:10314, type:'psychic', type2:null, ability:{id:'trace', name:'複製', trigger:'onEnter', desc:'上場時複製對手當前的特性'}}, id:678, name:'超能妙喵', type:'psychic', hp:220, tier:1, ability:{id:'frisk-ward', name:'穿透', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}, attacks:[
+    {name:'念力', dmg:32, cost:0, type:'psychic'},
+    {name:'惡意彈珠', dmg:36, cost:1, type:'dark'},
+    {name:'未來預知', dmg:70, cost:11, type:'psychic'},
+    {name:'暗黑爆破', dmg:78, cost:13, type:'dark'},
+  ]},
+  { mega:{spriteId:10297, type:'dark', type2:'psychic', ability:{id:'huge-power', name:'唱反調', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}}, id:687, name:'烏賊王', type:'dark', type2:'psychic', hp:260, tier:2, ability:{id:'huge-power', name:'唱反調', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}, attacks:[
+    {name:'惡意彈珠', dmg:36, cost:1, type:'dark'},
+    {name:'念力', dmg:40, cost:2, type:'psychic'},
+    {name:'暗黑爆破', dmg:80, cost:14, type:'dark'},
+    {name:'未來預知', dmg:88, cost:16, type:'psychic'},
+  ]},
+  { mega:{spriteId:10298, type:'rock', type2:'fighting', ability:{id:'tough-claws', name:'硬爪', trigger:'onAttack', desc:'攻擊傷害 ×1.3'}}, id:689, name:'龜足巨鎧', type:'rock', type2:'water', hp:260, tier:2, ability:{id:'tough-claws', name:'硬爪', trigger:'onAttack', desc:'攻擊傷害 ×1.3'}, attacks:[
+    {name:'岩石滑落', dmg:36, cost:1, type:'rock'},
+    {name:'水流裂破', dmg:40, cost:2, type:'water'},
+    {name:'石刃', dmg:80, cost:14, type:'rock'},
+    {name:'衝浪', dmg:88, cost:16, type:'water'},
+  ]},
+  { mega:{spriteId:10299, type:'poison', type2:'dragon', ability:{id:'thick-fat', name:'再生力', trigger:'onDefend', desc:'受到火／冰屬性攻擊傷害 ×0.6'}}, id:691, name:'毒藻龍', type:'poison', type2:'dragon', hp:260, tier:2, ability:{id:'poison-point', name:'毒刺', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者中毒'}, attacks:[
+    {name:'毒液', dmg:36, cost:1, type:'poison'},
+    {name:'龍之氣息', dmg:40, cost:2, type:'dragon'},
+    {name:'污泥炸彈', dmg:80, cost:14, type:'poison'},
+    {name:'龍之波動', dmg:88, cost:16, type:'dragon'},
+  ]},
+  { mega:{spriteId:10300, type:'fighting', type2:'flying', ability:{id:'huge-power', name:'無防守', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}}, id:701, name:'摔角鷹人', type:'fighting', type2:'flying', hp:230, tier:1, ability:{id:'desperate-blade', name:'輕盈', trigger:'onAttack', desc:'HP 低於 50% 時，攻擊傷害 ×1.3'}, attacks:[
+    {name:'空手劈', dmg:32, cost:0, type:'fighting'},
+    {name:'啄', dmg:36, cost:1, type:'flying'},
+    {name:'近身戰', dmg:70, cost:11, type:'fighting'},
+    {name:'空氣斬', dmg:78, cost:13, type:'flying'},
+  ]},
+  { mega:{spriteId:10301, type:'dragon', type2:'ground', ability:{id:'solid-rock', name:'極巨腺體', trigger:'onDefend', desc:'受到剋制（×2以上）的攻擊傷害再減少 25%'}}, id:718, name:'基格爾德', type:'dragon', type2:'ground', hp:360, tier:3, ability:{id:'solid-rock', name:'終結之地', trigger:'onDefend', desc:'受到剋制（×2以上）的攻擊傷害再減少 25%'}, attacks:[
+    {name:'咬碎', dmg:40, cost:2, type:'dark'},
+    {name:'泥巴射擊', dmg:45, cost:3, type:'ground'},
+    {name:'地震', dmg:90, cost:17, type:'ground'},
+    {name:'龍爪', dmg:100, cost:19, type:'dragon'},
+  ]},
+  { mega:{spriteId:10315, type:'fighting', type2:'ice', ability:{id:'tough-claws', name:'鐵拳', trigger:'onAttack', desc:'攻擊傷害 ×1.3'}}, id:740, name:'好勝毛蟹', type:'fighting', type2:'ice', hp:270, tier:2, ability:{id:'tough-claws', name:'鐵拳', trigger:'onAttack', desc:'攻擊傷害 ×1.3'}, attacks:[
+    {name:'冰霜拳', dmg:36, cost:1, type:'ice'},
+    {name:'空手劈', dmg:40, cost:2, type:'fighting'},
+    {name:'冰凍拳', dmg:80, cost:14, type:'ice'},
+    {name:'近身戰', dmg:88, cost:16, type:'fighting'},
+  ]},
+  { mega:{spriteId:10302, type:'normal', type2:'dragon', ability:{id:'guts', name:'崩潰', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}}, id:780, name:'老翁龍', type:'normal', type2:'dragon', hp:300, tier:2, ability:{id:'guts', name:'崩潰', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}, attacks:[
+    {name:'拍打', dmg:36, cost:1, type:'normal'},
+    {name:'龍之氣息', dmg:40, cost:2, type:'dragon'},
+    {name:'高周波音', dmg:80, cost:14, type:'normal'},
+    {name:'龍之波動', dmg:88, cost:16, type:'dragon'},
+  ]},
+  { mega:{spriteId:10317, type:'steel', type2:'fairy', ability:{id:'huge-power', name:'心之力', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}}, id:801, name:'瑪機雅娜', type:'steel', type2:'fairy', hp:310, tier:3, ability:{id:'huge-power', name:'心之力', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}, attacks:[
+    {name:'金屬爪', dmg:40, cost:2, type:'steel'},
+    {name:'魔法閃耀', dmg:45, cost:3, type:'fairy'},
+    {name:'重磅衝撞', dmg:90, cost:17, type:'steel'},
+    {name:'月亮之力', dmg:100, cost:19, type:'fairy'},
+  ]},
+  { mega:{spriteId:10319, type:'electric', type2:null, ability:{id:'motor-drive', name:'蓄電', trigger:'onDefend', desc:'受到電屬性攻擊時完全免疫，並回復 3 點能量'}}, id:807, name:'捷拉奧拉', type:'electric', hp:310, tier:3, ability:{id:'motor-drive', name:'蓄電', trigger:'onDefend', desc:'受到電屬性攻擊時完全免疫，並回復 3 點能量'}, attacks:[
+    {name:'電擊', dmg:40, cost:2, type:'electric'},
+    {name:'空手劈', dmg:45, cost:3, type:'fighting'},
+    {name:'十萬伏特', dmg:90, cost:17, type:'electric'},
+    {name:'近身戰', dmg:100, cost:19, type:'fighting'},
+  ]},
+  { mega:{spriteId:10303, type:'fighting', type2:null, ability:{id:'guts', name:'不服輸', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}}, id:870, name:'列陣兵', type:'fighting', hp:230, tier:1, ability:{id:'sturdy', name:'戰鬥盔甲', trigger:'onDefend', desc:'HP 全滿時，受到會直接擊倒的攻擊會保留 1 HP'}, attacks:[
+    {name:'空手劈', dmg:32, cost:0, type:'fighting'},
+    {name:'連續拳', dmg:36, cost:1, type:'normal'},
+    {name:'近身戰', dmg:70, cost:11, type:'fighting'},
+    {name:'超強衝擊', dmg:78, cost:13, type:'fighting'},
+  ]},
+  { mega:{spriteId:10320, type:'grass', type2:'fire', ability:{id:'blaze-boost', name:'辣椒噴霧', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}}, id:952, name:'狠辣椒', type:'grass', type2:'fire', hp:220, tier:1, ability:{id:'insomnia', name:'不眠', trigger:'onDefend', desc:'不會陷入睡眠狀態'}, attacks:[
+    {name:'藤鞭', dmg:32, cost:0, type:'grass'},
+    {name:'火花', dmg:36, cost:1, type:'fire'},
+    {name:'葉刃', dmg:70, cost:11, type:'grass'},
+    {name:'大字爆炎', dmg:78, cost:13, type:'fire'},
+  ]},
+  { mega:{spriteId:10321, type:'rock', type2:'poison', ability:{id:'adaptability', name:'適應力', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×2（原本 ×1.5）'}}, id:970, name:'晶光花', type:'rock', type2:'poison', hp:260, tier:2, ability:{id:'poison-point', name:'毒素碎片', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者中毒'}, attacks:[
+    {name:'岩石滑落', dmg:36, cost:1, type:'rock'},
+    {name:'毒液', dmg:40, cost:2, type:'poison'},
+    {name:'石刃', dmg:80, cost:14, type:'rock'},
+    {name:'污泥炸彈', dmg:88, cost:16, type:'poison'},
+  ]},
+  { mega:{spriteId:10322, type:'dragon', type2:'water', ability:{id:'huge-power', name:'指揮', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}}, id:978, name:'米立龍', type:'dragon', type2:'water', hp:210, tier:1, ability:{id:'huge-power', name:'指揮', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}, attacks:[
+    {name:'水槍', dmg:32, cost:0, type:'water'},
+    {name:'龍之氣息', dmg:36, cost:1, type:'dragon'},
+    {name:'衝浪', dmg:70, cost:11, type:'water'},
+    {name:'龍之波動', dmg:78, cost:13, type:'dragon'},
+  ]},
+  { mega:{spriteId:10325, type:'dragon', type2:'ice', ability:{id:'guts', name:'熱交換', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}}, id:998, name:'戟脊龍', type:'dragon', type2:'ice', hp:340, tier:3, ability:{id:'guts', name:'熱交換', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}, attacks:[
+    {name:'冰霜拳', dmg:40, cost:2, type:'ice'},
+    {name:'龍息', dmg:45, cost:3, type:'dragon'},
+    {name:'冰凍光束', dmg:90, cost:17, type:'ice'},
+    {name:'逆鱗', dmg:100, cost:19, type:'dragon'},
+  ]},
 ];
 const EFF = {
   fire:     {grass:2, ice:2, steel:2, bug:2, water:0.5, fire:0.5, rock:0.5, dragon:0.5},
@@ -394,6 +713,7 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
   const stadiumBonus = G?.activeStadium?.id === 'stadium-training' ? 20 : 0;
   const reversalBonus = G?.activeStadium?.id === 'stadium-reversal' && attacker.cur <= attacker.hp * 0.5 ? 30 : 0;
   const lowHpSelf = attacker.cur <= attacker.hp / 3;
+  const halfHpSelf = attacker.cur <= attacker.hp / 2;
   const tintedLensProc = attacker.ability?.id === 'tinted-lens' && mult > 0 && mult < 1;
   const tintedLensMult = tintedLensProc ? (1 / mult) : 1; // cancels out resisted (but not immune) hits
   const abilityDmgMult = ((attacker.ability?.id === 'guts' && attacker.status) ? 1.3
@@ -401,6 +721,7 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     : (attacker.ability?.id === 'blaze-boost' && lowHpSelf && isOwnType) ? 1.5
     : (attacker.ability?.id === 'tough-claws') ? 1.3
     : (attacker.ability?.id === 'technician' && atk.dmg <= 60) ? 1.5
+    : (attacker.ability?.id === 'desperate-blade' && halfHpSelf) ? 1.3
     : 1) * tintedLensMult;
   const moldBreaker = attacker.ability?.id === 'mold-breaker';
   const thickFatMult  = (!moldBreaker && defender.ability?.id === 'thick-fat' && (atkType === 'fire' || atkType === 'ice')) ? 0.6 : 1;
@@ -435,6 +756,7 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     if (attacker.ability?.id === 'blaze-boost' && lowHpSelf && isOwnType) log.push({ text: `${attacker.name} 瀕危爆發，本系招式威力大幅提升！`, cls: 'super' });
     if (attacker.ability?.id === 'tough-claws') log.push({ text: `${attacker.name} 的硬爪發動，攻擊威力提升！`, cls: 'super' });
     if (attacker.ability?.id === 'technician' && atk.dmg <= 60) log.push({ text: `${attacker.name} 的技術高手發動，攻擊威力提升！`, cls: 'super' });
+    if (attacker.ability?.id === 'desperate-blade' && halfHpSelf) log.push({ text: `${attacker.name} 的${attacker.ability.name}發動，攻擊威力提升！`, cls: 'super' });
     if (moldBreaker && defender.ability && ['thick-fat','solid-rock','frisk-ward','multiscale','sturdy'].includes(defender.ability.id)) log.push({ text: `${attacker.name} 的破格無視了${defender.name}的特性！`, cls: 'super' });
     if (tintedLensProc) log.push({ text: `${attacker.name} 的有色眼鏡發動，抵消了效果不佳！`, cls: 'super' });
     if (thickFatMult < 1) log.push({ text: `${defender.name} 的厚脂肪減輕了傷害！`, cls: 'special' });

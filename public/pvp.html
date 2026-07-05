@@ -217,47 +217,60 @@
     @keyframes fadeUp { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:none} }
     #action-area { display:grid; grid-template-columns:1fr 1fr; gap:0.4rem; margin-top:0.35rem; }
     @keyframes hitPulse { 0%{opacity:1;transform:scale(1);} 60%{opacity:0.85;transform:scale(1.15);} 100%{opacity:0;transform:scale(1.3);} }
-    @keyframes megaWrapIn {
-      0%   { transform: scale(0) rotate(0deg);   opacity: 0; }
-      55%  { transform: scale(1.2) rotate(200deg); opacity: 1; }
-      100% { transform: scale(1) rotate(180deg); opacity: 1; }
+    /* === Mega Evolution full-screen cutscene === */
+    #mega-cutscene-modal {
+      position: fixed; inset: 0; z-index: 200; display: none;
+      align-items: center; justify-content: center;
+      background: radial-gradient(circle, rgba(50,10,70,0.94) 0%, rgba(4,2,12,0.98) 78%);
+      opacity: 0; transition: opacity 0.3s ease;
     }
-    @keyframes megaGemPulse {
-      0%,100% { filter: brightness(1) drop-shadow(0 0 6px #e040fb); }
-      50%     { filter: brightness(1.7) drop-shadow(0 0 22px #e040fb); }
+    #mega-cutscene-modal.open { display: flex; opacity: 1; }
+    .mega-cs-stage { position: relative; width: 280px; height: 280px; display: flex; align-items: center; justify-content: center; }
+    .mega-cs-stone { position: absolute; font-size: 6rem; opacity: 0; filter: drop-shadow(0 0 30px #e040fb); }
+    .mega-cs-stone.appear  { animation: megaCsStoneAppear 0.6s cubic-bezier(.34,1.56,.64,1) forwards; }
+    .mega-cs-stone.pulse   { animation: megaCsStonePulse 0.5s ease-in-out infinite; }
+    .mega-cs-stone.shatter { animation: megaCsStoneShatter 0.4s ease forwards; }
+    @keyframes megaCsStoneAppear {
+      0%   { opacity: 0; transform: scale(0) rotate(-40deg); }
+      100% { opacity: 1; transform: scale(1) rotate(0deg); }
     }
-    @keyframes megaBurstFlash {
-      0%   { transform: scale(0.2); opacity: 0; }
-      35%  { transform: scale(1.5); opacity: 1; }
-      100% { transform: scale(2.6); opacity: 0; }
+    @keyframes megaCsStonePulse {
+      0%,100% { filter: drop-shadow(0 0 22px #e040fb); transform: scale(1); }
+      50%     { filter: drop-shadow(0 0 44px #e040fb); transform: scale(1.08); }
     }
-    @keyframes megaParticleFly {
+    @keyframes megaCsStoneShatter {
+      0%   { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(2.4); filter: brightness(3) drop-shadow(0 0 70px #fff); }
+    }
+    .mega-cs-particle {
+      position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px;
+      background: #f3e5f5; border-radius: 3px; pointer-events: none;
+      animation: megaCsParticleFly 0.85s ease-out forwards;
+    }
+    @keyframes megaCsParticleFly {
       0%   { transform: translate(0,0) scale(1);   opacity: 1; }
-      100% { transform: translate(var(--mpx), var(--mpy)) scale(0.15); opacity: 0; }
+      100% { transform: translate(var(--mpx), var(--mpy)) scale(0.1); opacity: 0; }
     }
-    @keyframes megaSpriteReveal {
-      0%   { opacity: 0; transform: scale(0.4); filter: brightness(2); }
-      60%  { opacity: 1; transform: scale(1.12); filter: brightness(1.4); }
-      100% { opacity: 1; transform: scale(1); filter: brightness(1); }
+    .mega-cs-sprite {
+      position: absolute; width: 170px; height: 170px; image-rendering: pixelated;
+      opacity: 0; transform: scale(0.2);
     }
-    .mega-gem {
-      position: absolute; inset: 10%; z-index: 25; pointer-events: none; border-radius: 22%;
-      background: linear-gradient(135deg, rgba(240,120,255,0.9), rgba(123,31,162,0.9));
-      box-shadow: 0 0 26px 8px rgba(224,64,251,0.75);
-      animation: megaWrapIn 0.6s cubic-bezier(.34,1.56,.64,1) forwards;
+    .mega-cs-sprite.reveal { animation: megaCsSpriteReveal 0.7s cubic-bezier(.22,1.4,.36,1) forwards; }
+    @keyframes megaCsSpriteReveal {
+      0%   { opacity: 0; transform: scale(0.2); filter: brightness(3); }
+      55%  { opacity: 1; transform: scale(1.25); filter: brightness(1.6); }
+      100% { opacity: 1; transform: scale(1);    filter: brightness(1); }
     }
-    .mega-burst {
-      position: absolute; inset: 0; z-index: 30; pointer-events: none; border-radius: 10px;
-      background: radial-gradient(circle, #fff 0%, #e040fb 40%, transparent 72%);
-      animation: megaBurstFlash 0.5s ease forwards;
+    .mega-cs-title {
+      position: absolute; bottom: -64px; width: 260px; text-align: center;
+      font-size: 1.25rem; font-weight: 800; color: #f3e5f5; text-shadow: 0 0 14px #e040fb;
+      opacity: 0; letter-spacing: 0.04em;
     }
-    .mega-particle {
-      position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; margin: -4px;
-      background: #f3e5f5; border-radius: 2px; z-index: 29; pointer-events: none;
-      animation: megaParticleFly 0.6s ease-out forwards;
+    .mega-cs-title.show { animation: megaCsTitleShow 0.45s ease forwards; }
+    @keyframes megaCsTitleShow {
+      0%   { opacity: 0; transform: translateY(10px); }
+      100% { opacity: 1; transform: translateY(0); }
     }
-    .b-card img.sprite-mega-glow   { animation: megaGemPulse 0.62s ease 1; }
-    .b-card img.sprite-mega-reveal { animation: megaSpriteReveal 0.5s ease 1; }
     @keyframes stadiumPop { 0%{transform:scaleY(0);opacity:0;} 60%{transform:scaleY(1.08);} 100%{transform:scaleY(1);opacity:1;} }
     #active-stadium {
       display: none;
@@ -807,6 +820,15 @@
   </div>
 </div>
 
+<!-- Mega Evolution cutscene -->
+<div id="mega-cutscene-modal">
+  <div class="mega-cs-stage">
+    <div class="mega-cs-stone" id="mega-cs-stone">💎</div>
+    <img id="mega-cs-sprite" class="mega-cs-sprite" src="" alt="">
+    <div class="mega-cs-title" id="mega-cs-title"></div>
+  </div>
+</div>
+
 <!-- ── Disconnected overlay ── -->
 <div id="dc-overlay">
   <p>對手已離線</p>
@@ -950,53 +972,61 @@ const HIT_EMOJI = {
   fighting:'👊',ghost:'👻',dragon:'🐲',dark:'🌑',steel:'⚙️',ground:'💥',
   flying:'💨',rock:'🪨',fairy:'✨',normal:'💫',poison:'☠️',
 };
-/* Mega Evolution animation: gem wraps the sprite → charges → bursts open → new sprite revealed.
-   Triggered off the server's `megaEvolved` flag on the broadcasted update, so both players see it
-   at the same time regardless of who evolved — the state (and new sprite) is already applied by
-   the time this runs via applyServerState(), the gem overlay just hides it until the burst. */
+/* Mega Evolution cutscene: full-screen takeover, like a victory screen but temporary — a Mega
+   Stone appears and pulses, shatters into a burst of particles, the Pokémon's (already-mutated)
+   Mega sprite bursts out from behind it, title fades in, then the whole thing fades out and
+   control returns to the ordinary battle screen underneath (already showing the evolved
+   Pokémon via applyServerState()). Triggered off the server's `megaEvolved` flag on the
+   broadcasted update, so both players see it at the same time regardless of who evolved. */
 function playMegaEvolveAnim(side) {
-  const card = document.getElementById(`${side}-bcard`);
-  const sprEl = document.getElementById(`${side}-sprite`);
-  if (!card || !sprEl) return;
+  const poke = side === 'player' ? P() : CP();
+  const modal = document.getElementById('mega-cutscene-modal');
+  const stage = modal?.querySelector('.mega-cs-stage');
+  const stone = document.getElementById('mega-cs-stone');
+  const csSprite = document.getElementById('mega-cs-sprite');
+  const title = document.getElementById('mega-cs-title');
+  if (!poke || !modal || !stage || !stone || !csSprite || !title) return;
 
-  const gem = document.createElement('div');
-  gem.className = 'mega-gem';
-  card.appendChild(gem);
-  // Class-based, not inline style.animation — inline animation overrides the class-based
-  // sprite-idle/sprite-enter animations and leaves the sprite stuck frozen once this finishes
-  // (setSprite's 'sprite-enter' animationend never fires while an inline animation is set, so
-  // it's never cleaned up, so syncSpriteAnim's "busy" check blocks sprite-idle forever).
-  sprEl.classList.remove('sprite-idle', 'sprite-danger');
-  sprEl.classList.add('sprite-mega-glow');
+  stone.className = 'mega-cs-stone';
+  csSprite.className = 'mega-cs-sprite';
+  csSprite.src = '';
+  title.className = 'mega-cs-title';
+  title.textContent = '';
+  modal.classList.add('open');
+
+  stone.classList.add('appear');
+  setTimeout(() => {
+    stone.classList.remove('appear');
+    stone.classList.add('pulse');
+  }, 600);
 
   setTimeout(() => {
-    gem.remove();
-    const burst = document.createElement('div');
-    burst.className = 'mega-burst';
-    card.appendChild(burst);
+    stone.classList.remove('pulse');
+    stone.classList.add('shatter');
 
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 16; i++) {
       const particle = document.createElement('div');
-      const angle = (i / 10) * 2 * Math.PI;
-      const dist = 55 + Math.random() * 25;
-      particle.className = 'mega-particle';
+      const angle = (i / 16) * 2 * Math.PI;
+      const dist = 90 + Math.random() * 50;
+      particle.className = 'mega-cs-particle';
       particle.style.setProperty('--mpx', Math.cos(angle) * dist + 'px');
       particle.style.setProperty('--mpy', Math.sin(angle) * dist + 'px');
-      card.appendChild(particle);
-      setTimeout(() => particle.remove(), 650);
+      stage.appendChild(particle);
+      setTimeout(() => particle.remove(), 900);
     }
 
-    sprEl.classList.remove('sprite-mega-glow');
-    sprEl.classList.add('sprite-mega-reveal');
-    setTimeout(() => {
-      burst.remove();
-      // Force-clear every transient class, not just our own — the Mega sprite's "animated" GIF
-      // URL routinely 404s, so setSprite's onerror→fallback round-trip can still be in flight
-      // and may only add 'sprite-enter' after this point; don't wait on it.
-      sprEl.classList.remove('sprite-mega-reveal', 'sprite-enter', 'sprite-hit', 'sprite-lunge-r', 'sprite-lunge-l');
-      syncSpriteAnim(side, side === 'player' ? P() : CP());
-    }, 550);
-  }, 620);
+    csSprite.src = spriteUrl(poke.id);
+    csSprite.classList.add('reveal');
+  }, 1300);
+
+  setTimeout(() => {
+    title.textContent = `${poke.name} Mega 進化！`;
+    title.classList.add('show');
+  }, 2000);
+
+  setTimeout(() => {
+    modal.classList.remove('open');
+  }, 3200);
 }
 
 function showHitEffect(atkType, targetEl) {
