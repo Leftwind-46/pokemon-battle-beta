@@ -109,6 +109,22 @@ All 70 (now 100 — the +30 batch was hand-authored directly into this same tier
 
 Within a tier, where a specific mon lands in its range is interpolated from its *original* total move power relative to other mons in the same tier (not flat per-tier constants) — a mon that had higher power originally still lands closer to the top of its tier's new range. If you add a new Pokémon later, pick `dmg`/`cost` by eyeballing this table for its tier rather than reusing another mon's exact numbers.
 
+**Medium-tier diversification (2026-07-08)** — user feedback: every mon's 4 moves were always exactly "2 weak + 2 strong," never anything in between, making movesets feel same-y across the whole 153-species roster. Rather than redesigning every mon's moveset by hand, a one-time script converted move-slot 2 (0-indexed `attacks[1]` — the *stronger* of the original 2 weak moves) into a new **medium** band for roughly half the roster (every other Pokémon by roster-array order, i.e. `index % 2 === 0` — 77 of 153), leaving `attacks[0]`/`[2]`/`[3]` and all move names/types/status effects untouched:
+
+| Tier | Medium power | Medium cost |
+|---|---|---|
+| 1 | 48-58 | 4-6 |
+| 2 | 55-68 | 6-8 |
+| 3 | 62-75 | 8-10 |
+
+Exact per-mon value within the band is `id`-derived (`dmgLo + (id*7) % range`, `costLo + (id*3) % range`) purely for reproducible variety, not a balance signal — don't read meaning into why one mon's medium move is a couple points higher than another's. Applied via targeted regex text-surgery keyed on `id:${N},` as a block anchor (not full-array re-serialization) so every other field in each Pokémon's entry stayed byte-identical — **if you do this kind of "some entries, not all, mutate one field" batch edit again, verify each replacement's *old* value matches what you expect before writing the *new* one** (a first pass here silently failed to update `cost` because the capturing regex didn't include the trailing comma, so the `.replace()` calls for `cost:` never matched — caught by spot-checking Venusaur's output afterward, not by the script itself, since it reported "applied" even for the silently-failed cost half).
+
+## Mega Evolution moveset transformation (2026-07-08)
+
+Beyond the flat +20% HP / +10% damage bonuses (see battle-logic skill's Mega Evolution section), Mega Evolution now also **rewrites all 4 of the Pokémon's moves in place** — user asked for Mega forms to consistently have "能量消耗中間(5~7)但高傷害的" (medium 5-7 energy cost, but high damage) movesets, rather than keeping whatever weak/medium/strong spread the base form had. `applyMegaMoveset(poke)` (present in both `pokemon_battle.html` and `server.js`, identical logic) ranks the 4 moves by their *current* `dmg` ascending, then reassigns `cost` from a fixed `[5,6,6,7]` array by rank and `dmg` by linearly interpolating into a tier-based band (`{1:[90,105], 2:[100,120], 3:[115,140]}`) — so the move that was weakest pre-Mega is still the "weakest" of the four post-Mega, just now costing 5 and hitting for 90-140 instead of 30-48. This runs once, at the moment of evolving (`applyMegaEvolution()` single-player / the `mega_evolve` WS handler PvP), mutating `poke.attacks` directly — **not** a display-only recalculation, so `poke.attacks[i].dmg`/`.cost` are the real values `doAttack` reads.
+
+**Must be reverted alongside the rest of Mega state** — single-player's `launchStage()` already had a block that reverts `id`/`type`/`type2`/`ability`/`megaEvolved` back to the base species (via `baseId`) when starting a new stage, since Mega only lasts the one battle it happened in; that block now also does `p.attacks = base.attacks.map(a => ({...a}))` (deep-cloned, not a shared reference) to undo the moveset rewrite too — forgetting this would have left a Mega-boosted moveset permanently stuck on a Pokémon even after its type/ability/HP correctly reverted. PvP has no multi-stage concept (a match is one battle), so there's no equivalent revert path needed there.
+
 ## Trainer cards reference the same POKEMON pool indirectly
 
 Some cards (交換器/switcher, 瘋狂博士/mad-scientist) pick Pokémon *from the current battle's decks*, not from the master POKEMON list — see battle-logic skill for the card system itself; this skill only covers the underlying species/move/type/ability data.

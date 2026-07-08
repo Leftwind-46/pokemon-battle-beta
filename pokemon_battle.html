@@ -1443,6 +1443,8 @@
           <li>一擲千金 — 30% 機率下次攻擊傷害 ×4；70% 機率自身損失 40% 最大HP</li>
           <li>背水一戰 — HP 越低，下次攻擊威力加成越高（最高 +50）</li>
           <li>連擊 — 下次攻擊傷害 ×1.4，異常狀態機率額外判定一次</li>
+          <li>掠奪 — 隨機搶奪對手一張手牌</li>
+          <li>通訊封印 — 下回合對手不能使用支援者卡</li>
         </ul>
         <li><b>支援者牌</b>（藍框）每回合限用 1 張，沒有場次上限。僅開局手牌中會出現：</li>
         <ul>
@@ -1464,6 +1466,7 @@
           <li>Mega 稜鏡塔 — 雙方每個自己的回合開始時，獲得 10 點 Mega 能量</li>
           <li>尖峰陷阱 — 寶可夢上場時，受到最大HP 15% 的傷害（雙方對等）</li>
           <li>劇毒領域 — 寶可夢上場時，陷入中毒（雙方對等）</li>
+          <li>羅馬鬥技場 — 格鬥屬性招式傷害 ×1.5；格鬥屬性攻擊不再被幽靈屬性完全免疫</li>
         </ul>
       </ul>
 
@@ -1745,7 +1748,7 @@ const POKEMON = [
   /* ── Tier 1 弱 ── */
   { mega:{spriteId:10033, type:'grass', type2:'poison', ability:{id:'thick-fat', name:'厚脂肪', trigger:'onDefend', desc:'受到火／冰屬性攻擊傷害 ×0.6'}}, id:3,   name:'妙蛙花',     type:'grass',    type2:'poison',  hp:250, tier:1, ability:{id:'blaze-boost', name:'茂盛', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[
     {name:'太陽射線', dmg:32, cost:0, type:'grass', status:{effect:'sleep', chance:0.2}},
-    {name:'毒粉刺', dmg:36, cost:1, type:'poison', status:{effect:'poison', chance:0.35}},
+    {name:'毒粉刺', dmg:58, cost:4, type:'poison', status:{effect:'poison', chance:0.35}},
     {name:'葉刃', dmg:69, cost:11, type:'grass'},
     {name:'大地之力', dmg:77, cost:13, type:'ground', status:{effect:'poison', chance:0.3}},
   ]},
@@ -1757,7 +1760,7 @@ const POKEMON = [
   ]},
   { id:68,  name:'怪力',       type:'fighting', hp:260, tier:1, ability:{id:'guts', name:'毅力', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}, attacks:[
     {name:'動感拳', dmg:36, cost:1, type:'fighting'},
-    {name:'岩石滑落', dmg:38, cost:1, type:'rock', status:{effect:'paralysis', chance:0.15}},
+    {name:'岩石滑落', dmg:51, cost:4, type:'rock', status:{effect:'paralysis', chance:0.15}},
     {name:'地震', dmg:76, cost:13, type:'ground'},
     {name:'超強衝擊', dmg:80, cost:14, type:'fighting'},
   ]},
@@ -1769,7 +1772,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10304, type:'electric', type2:null, ability:{id:'motor-drive', name:'電氣場地', trigger:'onDefend', desc:'受到電屬性攻擊時完全免疫，並回復 3 點能量'}}, id:26,  name:'雷丘',       type:'electric', hp:200, tier:1, ability:{id:'static', name:'靜電', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者陷入麻痺'}, attacks:[
     {name:'衝撞', dmg:30, cost:0, type:'normal'},
-    {name:'十萬伏特', dmg:34, cost:1, type:'electric', status:{effect:'paralysis', chance:0.3}},
+    {name:'十萬伏特', dmg:54, cost:4, type:'electric', status:{effect:'paralysis', chance:0.3}},
     {name:'電磁衝浪', dmg:66, cost:10, type:'electric', status:{effect:'paralysis', chance:0.2}},
     {name:'鐵尾', dmg:73, cost:12, type:'steel'},
   ]},
@@ -1781,7 +1784,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10059, type:'fighting', type2:'steel', ability:{id:'adaptability', name:'適應力', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×2（原本 ×1.5）'}}, id:448, name:'路卡利歐',   type:'fighting', type2:'steel',   hp:220, tier:1, ability:{id:'guts', name:'堅韌', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}, attacks:[
     {name:'波導彈', dmg:32, cost:0, type:'fighting'},
-    {name:'金屬爪', dmg:36, cost:1, type:'steel'},
+    {name:'金屬爪', dmg:49, cost:4, type:'steel'},
     {name:'龍之脈動', dmg:70, cost:11, type:'dragon'},
     {name:'暗影球', dmg:77, cost:13, type:'ghost'},
   ]},
@@ -1793,7 +1796,7 @@ const POKEMON = [
   ]},
   { id:35,  name:'皮皮',       type:'fairy',    hp:220, tier:1, ability:{id:'magic-guard', name:'魔法防守', trigger:'onStatus', desc:'不會受到中毒／燒傷的傷害'}, attacks:[
     {name:'月亮力量', dmg:30, cost:0, type:'fairy', status:{effect:'confusion', chance:0.25}},
-    {name:'火焰拳', dmg:34, cost:1, type:'fire'},
+    {name:'火焰拳', dmg:51, cost:4, type:'fire'},
     {name:'冰凍拳', dmg:65, cost:10, type:'ice'},
     {name:'元氣拳', dmg:72, cost:12, type:'normal'},
   ]},
@@ -1805,7 +1808,7 @@ const POKEMON = [
   ]},
   { id:82,  name:'三合一磁怪',   type:'electric', type2:'steel',   hp:210, tier:1, ability:{id:'static-trail', name:'電擊尾隨', trigger:'onAttack', desc:'攻擊命中時額外 15% 機率讓目標陷入麻痺'}, attacks:[
     {name:'電磁炮', dmg:31, cost:0, type:'electric', status:{effect:'paralysis', chance:0.3}},
-    {name:'鋼鐵身壓', dmg:35, cost:1, type:'steel'},
+    {name:'鋼鐵身壓', dmg:50, cost:4, type:'steel'},
     {name:'電磁衝浪', dmg:68, cost:11, type:'electric', status:{effect:'paralysis', chance:0.2}},
     {name:'閃光炮', dmg:75, cost:13, type:'steel'},
   ]},
@@ -1817,7 +1820,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10071, type:'water', type2:'psychic', ability:{id:'sturdy', name:'硬殼盔甲', trigger:'onDefend', desc:'HP 全滿時，受到會直接擊倒的攻擊會保留 1 HP'}}, id:80,  name:'呆殼獸',     type:'water',    type2:'psychic', hp:260, tier:1, ability:{id:'own-tempo', name:'我行我素', trigger:'onDefend', desc:'不會陷入混亂狀態'}, attacks:[
     {name:'衝浪', dmg:32, cost:0, type:'water'},
-    {name:'精神強擊', dmg:36, cost:1, type:'psychic', status:{effect:'confusion', chance:0.2}},
+    {name:'精神強擊', dmg:58, cost:4, type:'psychic', status:{effect:'confusion', chance:0.2}},
     {name:'大浪', dmg:70, cost:11, type:'water'},
     {name:'念力', dmg:77, cost:13, type:'psychic', status:{effect:'confusion', chance:0.2}},
   ]},
@@ -1831,7 +1834,7 @@ const POKEMON = [
 
   { mega:{spriteId:10283, type:'water', type2:'dragon', ability:{id:'adaptability', name:'龍化', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×2（原本 ×1.5）'}}, id:160, name:'大力鱷',     type:'water',    hp:260, tier:1, ability:{id:'blaze-boost', name:'激流', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[
     {name:'咬碎', dmg:34, cost:1, type:'dark'},
-    {name:'冰凍拳', dmg:38, cost:1, type:'ice', status:{effect:'freeze', chance:0.1}},
+    {name:'冰凍拳', dmg:57, cost:4, type:'ice', status:{effect:'freeze', chance:0.1}},
     {name:'衝浪', dmg:73, cost:12, type:'water'},
     {name:'水砲', dmg:80, cost:14, type:'water'},
   ]},
@@ -1844,7 +1847,7 @@ const POKEMON = [
   /* ── Tier 2 中 ── */
   { mega:{spriteId:10034, type:'fire', type2:'dragon', ability:{id:'tough-claws', name:'硬爪', trigger:'onAttack', desc:'攻擊傷害 ×1.3'}}, id:6,   name:'噴火龍',     type:'fire',     type2:'flying',  hp:290, tier:2, ability:{id:'blaze-boost', name:'猛火', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[
     {name:'火焰噴射', dmg:35, cost:1, type:'fire', status:{effect:'burn', chance:0.25}},
-    {name:'龍息', dmg:38, cost:1, type:'dragon'},
+    {name:'龍息', dmg:55, cost:6, type:'dragon'},
     {name:'火焰衝擊', dmg:75, cost:13, type:'fire', status:{effect:'burn', chance:0.2}},
     {name:'破空飛翔', dmg:85, cost:15, type:'flying'},
   ]},
@@ -1856,7 +1859,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10043, type:'psychic', type2:'fighting', ability:{id:'guts', name:'不屈之心', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}}, id:150, name:'超夢',       type:'psychic',  hp:320, tier:2, ability:{id:'pressure', name:'壓迫感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[
     {name:'念力衝擊', dmg:35, cost:1, type:'psychic', status:{effect:'confusion', chance:0.3}},
-    {name:'氣功拳', dmg:38, cost:1, type:'fighting'},
+    {name:'氣功拳', dmg:55, cost:6, type:'fighting'},
     {name:'閃電拳', dmg:75, cost:13, type:'electric', status:{effect:'paralysis', chance:0.2}},
     {name:'暗影球', dmg:85, cost:15, type:'ghost'},
   ]},
@@ -1868,7 +1871,7 @@ const POKEMON = [
   ]},
   { id:143, name:'卡比獸',     type:'normal',   hp:380, tier:2, ability:{id:'thick-fat', name:'厚脂肪', trigger:'onDefend', desc:'受到火／冰屬性攻擊傷害 ×0.6'}, attacks:[
     {name:'磚塊', dmg:35, cost:1, type:'rock'},
-    {name:'連踢', dmg:38, cost:1, type:'normal'},
+    {name:'連踢', dmg:62, cost:6, type:'normal'},
     {name:'地震', dmg:75, cost:13, type:'ground'},
     {name:'破壞光線', dmg:84, cost:15, type:'normal'},
   ]},
@@ -1880,7 +1883,7 @@ const POKEMON = [
   ]},
   { id:131, name:'拉普拉斯',   type:'water',    type2:'ice',     hp:290, tier:2, ability:{id:'water-absorb', name:'儲水', trigger:'onDefend', desc:'受到水屬性攻擊時完全免疫，並回復最大HP的1/4'}, attacks:[
     {name:'衝浪', dmg:35, cost:1, type:'water'},
-    {name:'冷凍光線', dmg:37, cost:1, type:'ice', status:{effect:'freeze', chance:0.15}},
+    {name:'冷凍光線', dmg:62, cost:6, type:'ice', status:{effect:'freeze', chance:0.15}},
     {name:'雷電', dmg:75, cost:13, type:'electric', status:{effect:'paralysis', chance:0.2}},
     {name:'暴風雪', dmg:81, cost:14, type:'ice', status:{effect:'freeze', chance:0.2}},
   ]},
@@ -1892,7 +1895,7 @@ const POKEMON = [
   ]},
   { id:210, name:'布魯皇',     type:'fairy',    hp:300, tier:2, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊威力 −15'}, attacks:[
     {name:'仙女之力', dmg:35, cost:1, type:'fairy'},
-    {name:'雷電', dmg:38, cost:1, type:'electric', status:{effect:'paralysis', chance:0.15}},
+    {name:'雷電', dmg:55, cost:6, type:'electric', status:{effect:'paralysis', chance:0.15}},
     {name:'咬碎', dmg:75, cost:13, type:'dark'},
     {name:'地震', dmg:82, cost:14, type:'ground'},
   ]},
@@ -1904,7 +1907,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10285, type:'ice', type2:'ghost', ability:{id:'solid-rock', name:'降雪', trigger:'onDefend', desc:'受到剋制（×2以上）的攻擊傷害再減少 25%'}}, id:478, name:'雪妖女',     type:'ice',      type2:'ghost',   hp:280, tier:2, ability:{id:'frisk-ward', name:'雪隱', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}, attacks:[
     {name:'冰凍光束', dmg:35, cost:1, type:'ice', status:{effect:'freeze', chance:0.15}},
-    {name:'怒風', dmg:39, cost:2, type:'flying'},
+    {name:'怒風', dmg:55, cost:6, type:'flying'},
     {name:'冰耳光', dmg:76, cost:13, type:'ice', status:{effect:'freeze', chance:0.15}},
     {name:'暗影球', dmg:86, cost:15, type:'ghost'},
   ]},
@@ -1916,7 +1919,7 @@ const POKEMON = [
   ]},
   { id:430, name:'烏鴉頭頭',     type:'dark',     type2:'flying',  hp:300, tier:2, ability:{id:'insomnia', name:'不眠', trigger:'onDefend', desc:'不會陷入睡眠狀態'}, attacks:[
     {name:'夜斬', dmg:35, cost:1, type:'dark'},
-    {name:'夜騷動', dmg:39, cost:2, type:'dark'},
+    {name:'夜騷動', dmg:55, cost:6, type:'dark'},
     {name:'空氣斬', dmg:76, cost:13, type:'flying'},
     {name:'怒風', dmg:86, cost:15, type:'flying'},
   ]},
@@ -1928,7 +1931,7 @@ const POKEMON = [
   ]},
   { id:467, name:'鴨嘴炎獸',   type:'fire',     hp:300, tier:2, ability:{id:'flame-body', name:'火焰之軀', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者陷入燒傷'}, attacks:[
     {name:'火焰衝擊', dmg:35, cost:1, type:'fire', status:{effect:'burn', chance:0.25}},
-    {name:'地震', dmg:39, cost:2, type:'ground'},
+    {name:'地震', dmg:62, cost:6, type:'ground'},
     {name:'噴射火焰', dmg:76, cost:13, type:'fire', status:{effect:'burn', chance:0.2}},
     {name:'雷電', dmg:86, cost:15, type:'electric', status:{effect:'paralysis', chance:0.2}},
   ]},
@@ -1941,7 +1944,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10282, type:'grass', type2:'fairy', ability:{id:'huge-power', name:'太陽核心', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}}, id:154, name:'大竺葵',     type:'grass',                     hp:270, tier:2, ability:{id:'blaze-boost', name:'茂盛', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[
     {name:'能量球', dmg:38, cost:1, type:'grass'},
-    {name:'大地之力', dmg:41, cost:2, type:'ground'},
+    {name:'大地之力', dmg:55, cost:6, type:'ground'},
     {name:'花瓣風暴', dmg:82, cost:14, type:'grass'},
     {name:'葉刃', dmg:92, cost:16, type:'grass'},
   ]},
@@ -1954,7 +1957,7 @@ const POKEMON = [
   ]},
   { id:382, name:'蓋歐卡',     type:'water',    hp:340, tier:3, ability:{id:'adaptability', name:'降雨', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×2（原本 ×1.5）'}, attacks:[
     {name:'源起之波', dmg:40, cost:2, type:'water'},
-    {name:'雷電', dmg:43, cost:2, type:'electric', status:{effect:'paralysis', chance:0.25}},
+    {name:'雷電', dmg:62, cost:8, type:'electric', status:{effect:'paralysis', chance:0.25}},
     {name:'大浪', dmg:85, cost:16, type:'water'},
     {name:'原始海洋', dmg:95, cost:18, type:'ice', status:{effect:'freeze', chance:0.2}},
   ]},
@@ -1966,7 +1969,7 @@ const POKEMON = [
   ]},
   { id:1008,name:'密勒頓',     type:'electric', type2:'dragon',  hp:360, tier:3, ability:{id:'blaze-boost', name:'強子引擎', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[
     {name:'電磁衝浪', dmg:41, cost:2, type:'electric', status:{effect:'paralysis', chance:0.25}},
-    {name:'龍息', dmg:45, cost:3, type:'dragon'},
+    {name:'龍息', dmg:62, cost:8, type:'dragon'},
     {name:'電磁炮', dmg:87, cost:16, type:'electric', status:{effect:'paralysis', chance:0.2}},
     {name:'未來雷霆', dmg:99, cost:18, type:'psychic', status:{effect:'confusion', chance:0.25}},
   ]},
@@ -1978,7 +1981,7 @@ const POKEMON = [
   ]},
   { id:249, name:'洛奇亞',     type:'psychic',  type2:'flying',  hp:340, tier:3, ability:{id:'pressure', name:'壓迫感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[
     {name:'怒風', dmg:40, cost:2, type:'flying'},
-    {name:'冰凍光束', dmg:44, cost:3, type:'ice', status:{effect:'freeze', chance:0.2}},
+    {name:'冰凍光束', dmg:69, cost:8, type:'ice', status:{effect:'freeze', chance:0.2}},
     {name:'暴風', dmg:86, cost:16, type:'flying'},
     {name:'心靈衝擊', dmg:99, cost:18, type:'psychic', status:{effect:'confusion', chance:0.3}},
   ]},
@@ -1990,7 +1993,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10051, type:'psychic', type2:'fairy', ability:{id:'adaptability', name:'妖精皮膚', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×2（原本 ×1.5）'}}, id:282, name:'沙奈朵',     type:'psychic',  type2:'fairy',   hp:320, tier:3, ability:{id:'sync-status', name:'同步', trigger:'onDefend', desc:'陷入中毒／麻痺／燒傷時，會將該狀態傳染給攻擊者'}, attacks:[
     {name:'妖精之力', dmg:40, cost:2, type:'fairy'},
-    {name:'暗影球', dmg:44, cost:3, type:'ghost'},
+    {name:'暗影球', dmg:62, cost:8, type:'ghost'},
     {name:'月亮力量', dmg:85, cost:16, type:'fairy'},
     {name:'精神強擊', dmg:97, cost:18, type:'psychic', status:{effect:'confusion', chance:0.3}},
   ]},
@@ -2002,7 +2005,7 @@ const POKEMON = [
   ]},
   { id:145, name:'閃電鳥',     type:'electric', type2:'flying',  hp:340, tier:3, ability:{id:'pressure', name:'壓迫感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[
     {name:'雷霆', dmg:40, cost:2, type:'electric', status:{effect:'paralysis', chance:0.3}},
-    {name:'電磁衝浪', dmg:44, cost:3, type:'electric', status:{effect:'paralysis', chance:0.25}},
+    {name:'電磁衝浪', dmg:69, cost:8, type:'electric', status:{effect:'paralysis', chance:0.25}},
     {name:'雷電', dmg:85, cost:16, type:'electric', status:{effect:'paralysis', chance:0.2}},
     {name:'怒風', dmg:98, cost:18, type:'flying'},
   ]},
@@ -2014,7 +2017,7 @@ const POKEMON = [
   ]},
   { id:888,name:'蒼響',      type:'fairy',    type2:'steel',   hp:370, tier:3, ability:{id:'huge-power', name:'不撓之劍', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}, attacks:[
     {name:'鐵頭功', dmg:46, cost:3, type:'steel'},
-    {name:'剛劍', dmg:48, cost:3, type:'steel'},
+    {name:'剛劍', dmg:62, cost:8, type:'steel'},
     {name:'接近戰', dmg:104, cost:19, type:'fighting'},
     {name:'神秘劍', dmg:110, cost:20, type:'fairy'},
   ]},
@@ -2026,7 +2029,7 @@ const POKEMON = [
   ]},
   { id:378, name:'雷吉艾斯',   type:'ice',      hp:370, tier:3, ability:{id:'thick-fat', name:'厚脂肪', trigger:'onDefend', desc:'受到火／冰屬性攻擊傷害 ×0.6'}, attacks:[
     {name:'暴風雪', dmg:40, cost:2, type:'ice', status:{effect:'freeze', chance:0.2}},
-    {name:'閃光炮', dmg:44, cost:3, type:'steel'},
+    {name:'閃光炮', dmg:62, cost:8, type:'steel'},
     {name:'冰耳光', dmg:85, cost:16, type:'ice', status:{effect:'freeze', chance:0.15}},
     {name:'電磁砲', dmg:96, cost:18, type:'electric', status:{effect:'paralysis', chance:0.3}},
   ]},
@@ -2039,7 +2042,7 @@ const POKEMON = [
   ]},
   { id:483, name:'帝牙盧卡',   type:'steel',    type2:'dragon',  hp:360, tier:3, ability:{id:'pressure', name:'壓迫感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[
     {name:'閃光炮', dmg:42, cost:2, type:'steel'},
-    {name:'鋼鐵翼', dmg:46, cost:3, type:'steel'},
+    {name:'鋼鐵翼', dmg:69, cost:8, type:'steel'},
     {name:'龍爪', dmg:90, cost:17, type:'dragon'},
     {name:'時間咆哮', dmg:103, cost:19, type:'dragon'},
   ]},
@@ -2051,7 +2054,7 @@ const POKEMON = [
   ]},
   { id:727, name:'熾焰咆哮虎', type:'fire',     type2:'dark',    hp:300, tier:2, ability:{id:'blaze-boost', name:'猛火', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[
     {name:'火焰噴射', dmg:39, cost:2, type:'fire', status:{effect:'burn', chance:0.25}},
-    {name:'暗黑強打', dmg:42, cost:2, type:'dark'},
+    {name:'暗黑強打', dmg:62, cost:6, type:'dark'},
     {name:'超強衝擊', dmg:85, cost:15, type:'fighting'},
     {name:'赤焰衝擊', dmg:95, cost:17, type:'fire', status:{effect:'burn', chance:0.2}},
   ]},
@@ -2065,7 +2068,7 @@ const POKEMON = [
   ]},
   { id:295, name:'爆音怪',       type:'normal',                    hp:240, tier:1, ability:{id:'frisk-ward', name:'隔音', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}, attacks:[
     {name:'超音炸裂', dmg:33, cost:0, type:'normal', status:{effect:'confusion', chance:0.25}},
-    {name:'噴火', dmg:37, cost:1, type:'fire', status:{effect:'burn', chance:0.2}},
+    {name:'噴火', dmg:56, cost:4, type:'fire', status:{effect:'burn', chance:0.2}},
     {name:'衝浪', dmg:71, cost:12, type:'water'},
     {name:'破壞光線', dmg:79, cost:14, type:'normal'},
   ]},
@@ -2079,7 +2082,7 @@ const POKEMON = [
   /* 毒 */
   { id:24,  name:'阿柏怪',       type:'poison',                    hp:200, tier:1, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊威力 −15'}, attacks:[
     {name:'纏繞', dmg:30, cost:0, type:'normal', status:{effect:'sleep', chance:0.25}},
-    {name:'毒牙', dmg:32, cost:0, type:'poison', status:{effect:'poison', chance:0.35}},
+    {name:'毒牙', dmg:51, cost:4, type:'poison', status:{effect:'poison', chance:0.35}},
     {name:'甩尾', dmg:65, cost:10, type:'normal'},
     {name:'強酸', dmg:69, cost:11, type:'poison', status:{effect:'poison', chance:0.25}},
   ]},
@@ -2091,7 +2094,7 @@ const POKEMON = [
   ]},
   { id:454, name:'毒骷蛙',       type:'fighting', type2:'poison',  hp:230, tier:1, ability:{id:'water-absorb', name:'乾燥皮膚', trigger:'onDefend', desc:'受到水屬性攻擊時完全免疫，並回復最大HP的1/4'}, attacks:[
     {name:'毒衝拳', dmg:34, cost:1, type:'poison', status:{effect:'poison', chance:0.3}},
-    {name:'突擊', dmg:38, cost:1, type:'dark'},
+    {name:'突擊', dmg:58, cost:4, type:'dark'},
     {name:'十字劈', dmg:73, cost:12, type:'fighting'},
     {name:'近身戰', dmg:80, cost:14, type:'fighting'},
   ]},
@@ -2105,7 +2108,7 @@ const POKEMON = [
   /* 飛行 */
   { id:641, name:'龍捲雲',       type:'flying',                    hp:290, tier:2, ability:{id:'huge-power', name:'惡作劇之心', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}, attacks:[
     {name:'空氣斬', dmg:37, cost:1, type:'flying', status:{effect:'confusion', chance:0.2}},
-    {name:'雷電', dmg:41, cost:2, type:'electric', status:{effect:'paralysis', chance:0.2}},
+    {name:'雷電', dmg:62, cost:6, type:'electric', status:{effect:'paralysis', chance:0.2}},
     {name:'颶風', dmg:82, cost:14, type:'flying', status:{effect:'confusion', chance:0.25}},
     {name:'暴風', dmg:92, cost:16, type:'flying'},
   ]},
@@ -2117,7 +2120,7 @@ const POKEMON = [
   ]},
   { id:663, name:'烈箭鷹',       type:'fire',     type2:'flying',  hp:260, tier:2, ability:{id:'flame-body', name:'火焰之軀', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者陷入燒傷'}, attacks:[
     {name:'炎翼衝刺', dmg:35, cost:1, type:'fire', status:{effect:'burn', chance:0.2}},
-    {name:'空氣斬', dmg:38, cost:1, type:'flying', status:{effect:'confusion', chance:0.2}},
+    {name:'空氣斬', dmg:62, cost:6, type:'flying', status:{effect:'confusion', chance:0.2}},
     {name:'火焰衝擊', dmg:75, cost:13, type:'fire', status:{effect:'burn', chance:0.25}},
     {name:'勇鳥猛衝', dmg:85, cost:15, type:'flying'},
   ]},
@@ -2130,7 +2133,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10046, type:'bug', type2:'steel', ability:{id:'technician', name:'技術高手', trigger:'onAttack', desc:'威力 60 以下的招式，傷害 ×1.5'}}, id:212, name:'巨鉗螳螂',     type:'bug',      type2:'steel',   hp:260, tier:2, ability:{id:'blaze-boost', name:'蟲之預感', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[
     {name:'空氣斬', dmg:36, cost:1, type:'flying', status:{effect:'confusion', chance:0.2}},
-    {name:'子彈拳', dmg:39, cost:2, type:'steel'},
+    {name:'子彈拳', dmg:55, cost:6, type:'steel'},
     {name:'蟲刃剪', dmg:77, cost:13, type:'bug'},
     {name:'鐵頭功', dmg:87, cost:15, type:'steel'},
   ]},
@@ -2143,7 +2146,7 @@ const POKEMON = [
   /* 岩石 */
   { mega:{spriteId:10049, type:'rock', type2:'dark', ability:{id:'solid-rock', name:'揚沙', trigger:'onDefend', desc:'受到剋制（×2以上）的攻擊傷害再減少 25%'}}, id:248, name:'班基拉斯',     type:'rock',     type2:'dark',    hp:300, tier:2, ability:{id:'solid-rock', name:'揚沙', trigger:'onDefend', desc:'受到剋制（×2以上）的攻擊傷害再減少 25%'}, attacks:[
     {name:'碎岩', dmg:40, cost:2, type:'rock', status:{effect:'paralysis', chance:0.15}},
-    {name:'咬碎', dmg:42, cost:2, type:'dark', status:{effect:'confusion', chance:0.2}},
+    {name:'咬碎', dmg:55, cost:6, type:'dark', status:{effect:'confusion', chance:0.2}},
     {name:'地震', dmg:90, cost:16, type:'ground'},
     {name:'岩石炮', dmg:95, cost:17, type:'rock'},
   ]},
@@ -2155,7 +2158,7 @@ const POKEMON = [
   ]},
   { id:526, name:'龐岩怪',       type:'rock',                      hp:280, tier:2, ability:{id:'sturdy', name:'結實', trigger:'onDefend', desc:'HP 全滿時，受到會直接擊倒的攻擊會保留 1 HP'}, attacks:[
     {name:'閃光炮', dmg:39, cost:2, type:'steel'},
-    {name:'碎岩', dmg:42, cost:2, type:'rock'},
+    {name:'碎岩', dmg:55, cost:6, type:'rock'},
     {name:'地震', dmg:86, cost:15, type:'ground'},
     {name:'岩石炮', dmg:95, cost:17, type:'rock'},
   ]},
@@ -2168,7 +2171,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10291, type:'ghost', type2:'fire', ability:{id:'frisk-ward', name:'穿透', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}}, id:609, name:'水晶燈火靈',   type:'ghost',    type2:'fire',    hp:260, tier:2, ability:{id:'flash-fire', name:'引火', trigger:'onDefend', desc:'受到火屬性攻擊時完全免疫，下次攻擊威力 +20'}, attacks:[
     {name:'幽靈火焰', dmg:37, cost:1, type:'ghost', status:{effect:'burn', chance:0.25}},
-    {name:'噴火', dmg:40, cost:2, type:'fire', status:{effect:'burn', chance:0.25}},
+    {name:'噴火', dmg:62, cost:6, type:'fire', status:{effect:'burn', chance:0.25}},
     {name:'火焰漩渦', dmg:81, cost:14, type:'fire', status:{effect:'burn', chance:0.2}},
     {name:'暗影球', dmg:91, cost:16, type:'ghost'},
   ]},
@@ -2182,7 +2185,7 @@ const POKEMON = [
   // ── +30 新增（最終進化型，非幻獸/神獸，無龍/妖精屬性）──
   { id:865, name:'蔥遊兵', type:'fighting', hp:220, tier:1, ability:{id:'desperate-blade', name:'背水之刃', trigger:'onAttack', desc:'HP 低於 50% 時，攻擊傷害 ×1.3'}, attacks:[
     {name:'連續攻擊', dmg:32, cost:0, type:'normal'},
-    {name:'劍術', dmg:36, cost:1, type:'fighting'},
+    {name:'劍術', dmg:53, cost:4, type:'fighting'},
     {name:'居合斬', dmg:72, cost:12, type:'fighting', status:{effect:'paralysis', chance:0.15}},
     {name:'近身戰', dmg:80, cost:14, type:'fighting'},
   ]},
@@ -2194,7 +2197,7 @@ const POKEMON = [
   ]},
   { id:342, name:'鐵螯龍蝦', type:'water', type2:'dark', hp:210, tier:1, ability:{id:'adaptability', name:'適應力', trigger:'onAttack', desc:'本系加成（STAB）提升為 ×2（原本 ×1.5）'}, attacks:[
     {name:'水槍', dmg:30, cost:0, type:'water'},
-    {name:'夜斬', dmg:34, cost:1, type:'dark'},
+    {name:'夜斬', dmg:55, cost:4, type:'dark'},
     {name:'亂爪', dmg:68, cost:11, type:'dark'},
     {name:'泥巴射擊', dmg:75, cost:13, type:'ground'},
   ]},
@@ -2206,7 +2209,7 @@ const POKEMON = [
   ]},
   { id:632, name:'鐵蟻', type:'steel', type2:'bug', hp:200, tier:1, ability:{id:'huge-power', name:'大力士', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}, attacks:[
     {name:'蟲咬', dmg:30, cost:0, type:'bug'},
-    {name:'金屬爪', dmg:34, cost:1, type:'steel'},
+    {name:'金屬爪', dmg:50, cost:4, type:'steel'},
     {name:'鋼鐵頭', dmg:68, cost:11, type:'steel'},
     {name:'蟲之抵抗', dmg:72, cost:12, type:'bug'},
   ]},
@@ -2218,7 +2221,7 @@ const POKEMON = [
   ]},
   { id:105, name:'嘎啦嘎啦', type:'ground', hp:220, tier:1, ability:{id:'guts', name:'堅韌', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}, attacks:[
     {name:'骨頭丟擲', dmg:32, cost:0, type:'ground'},
-    {name:'喊叫', dmg:30, cost:0, type:'normal'},
+    {name:'喊叫', dmg:57, cost:4, type:'normal'},
     {name:'地震', dmg:74, cost:12, type:'ground'},
     {name:'骨棒', dmg:80, cost:14, type:'ground'},
   ]},
@@ -2230,7 +2233,7 @@ const POKEMON = [
   ]},
   { id:53, name:'貓老大', type:'normal', hp:210, tier:1, ability:{id:'desperate-blade', name:'背水之刃', trigger:'onAttack', desc:'HP 低於 50% 時，攻擊傷害 ×1.3'}, attacks:[
     {name:'抓', dmg:30, cost:0, type:'normal'},
-    {name:'音爆拳', dmg:34, cost:1, type:'fighting'},
+    {name:'音爆拳', dmg:56, cost:4, type:'fighting'},
     {name:'惡意突刺', dmg:68, cost:11, type:'dark'},
     {name:'連續切', dmg:74, cost:12, type:'normal'},
   ]},
@@ -2242,7 +2245,7 @@ const POKEMON = [
   ]},
   { id:134, name:'水伊布', type:'water', hp:260, tier:1, ability:{id:'water-absorb', name:'儲水', trigger:'onDefend', desc:'受到水屬性攻擊時完全免疫，並回復最大HP的1/4'}, attacks:[
     {name:'水槍', dmg:32, cost:0, type:'water'},
-    {name:'迴旋踢', dmg:30, cost:0, type:'fighting'},
+    {name:'迴旋踢', dmg:51, cost:4, type:'fighting'},
     {name:'水炮', dmg:78, cost:13, type:'water'},
     {name:'冰凍光束', dmg:74, cost:12, type:'ice', status:{effect:'freeze', chance:0.15}},
   ]},
@@ -2254,7 +2257,7 @@ const POKEMON = [
   ]},
   { id:411, name:'護城龍', type:'rock', type2:'steel', hp:220, tier:1, ability:{id:'sturdy', name:'頑強', trigger:'onDefend', desc:'HP 全滿時，受到會直接擊倒的攻擊會保留 1 HP'}, attacks:[
     {name:'金屬音', dmg:30, cost:0, type:'steel'},
-    {name:'頭槌', dmg:34, cost:1, type:'normal'},
+    {name:'頭槌', dmg:54, cost:4, type:'normal'},
     {name:'岩崩', dmg:72, cost:12, type:'rock'},
     {name:'重擊', dmg:78, cost:13, type:'steel'},
   ]},
@@ -2266,7 +2269,7 @@ const POKEMON = [
   ]},
   { id:407, name:'羅絲雷朵', type:'grass', type2:'poison', hp:270, tier:2, ability:{id:'poison-point', name:'毒刺', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者中毒'}, attacks:[
     {name:'毒粉', dmg:36, cost:1, type:'poison', status:{effect:'poison', chance:0.3}},
-    {name:'魔法葉', dmg:38, cost:1, type:'grass'},
+    {name:'魔法葉', dmg:62, cost:6, type:'grass'},
     {name:'花瓣舞', dmg:82, cost:14, type:'grass'},
     {name:'污泥炸彈', dmg:88, cost:16, type:'poison', status:{effect:'poison', chance:0.25}},
   ]},
@@ -2278,7 +2281,7 @@ const POKEMON = [
   ]},
   { id:452, name:'龍王蠍', type:'poison', type2:'dark', hp:280, tier:2, ability:{id:'poison-point', name:'毒刺', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者中毒'}, attacks:[
     {name:'毒針', dmg:36, cost:1, type:'poison', status:{effect:'poison', chance:0.3}},
-    {name:'夜斬', dmg:38, cost:1, type:'dark'},
+    {name:'夜斬', dmg:55, cost:6, type:'dark'},
     {name:'十字毒刃', dmg:84, cost:15, type:'poison', status:{effect:'poison', chance:0.2}},
     {name:'惡意突刺', dmg:90, cost:16, type:'dark'},
   ]},
@@ -2290,7 +2293,7 @@ const POKEMON = [
   ]},
   { id:738, name:'鍬農炮蟲', type:'bug', type2:'electric', hp:270, tier:2, ability:{id:'desperate-blade', name:'背水之刃', trigger:'onAttack', desc:'HP 低於 50% 時，攻擊傷害 ×1.3'}, attacks:[
     {name:'蟲咬', dmg:35, cost:1, type:'bug'},
-    {name:'電擊', dmg:38, cost:1, type:'electric'},
+    {name:'電擊', dmg:55, cost:6, type:'electric'},
     {name:'蟲鳴', dmg:80, cost:14, type:'bug'},
     {name:'十萬伏特', dmg:86, cost:15, type:'electric', status:{effect:'paralysis', chance:0.25}},
   ]},
@@ -2302,7 +2305,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10280, type:'water', type2:'psychic', ability:{id:'huge-power', name:'大力士', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}}, id:121, name:'寶石海星', type:'water', type2:'psychic', hp:270, tier:2, ability:{id:'frisk-ward', name:'神秘之守', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}, attacks:[
     {name:'水槍', dmg:35, cost:1, type:'water'},
-    {name:'念力', dmg:38, cost:1, type:'psychic'},
+    {name:'念力', dmg:62, cost:6, type:'psychic'},
     {name:'水炮', dmg:80, cost:14, type:'water'},
     {name:'精神強擊', dmg:85, cost:15, type:'psychic', status:{effect:'confusion', chance:0.2}},
   ]},
@@ -2314,7 +2317,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10316, type:'bug', type2:'steel', ability:{id:'solid-rock', name:'重甲化', trigger:'onDefend', desc:'受到剋制（×2以上）的攻擊傷害再減少 25%'}}, id:768, name:'具甲武者', type:'bug', type2:'water', hp:290, tier:2, ability:{id:'blaze-boost', name:'突襲', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[
     {name:'水流手裏劍', dmg:38, cost:1, type:'water'},
-    {name:'蟲咬', dmg:36, cost:1, type:'bug'},
+    {name:'蟲咬', dmg:55, cost:6, type:'bug'},
     {name:'X 剪刀', dmg:82, cost:14, type:'bug'},
     {name:'水炮', dmg:86, cost:15, type:'water'},
   ]},
@@ -2326,7 +2329,7 @@ const POKEMON = [
   ]},
   { id:713, name:'冰岩怪', type:'ice', hp:320, tier:2, ability:{id:'sturdy', name:'頑強', trigger:'onDefend', desc:'HP 全滿時，受到會直接擊倒的攻擊會保留 1 HP'}, attacks:[
     {name:'冰凍拳', dmg:36, cost:1, type:'ice', status:{effect:'freeze', chance:0.15}},
-    {name:'碎岩', dmg:38, cost:1, type:'rock'},
+    {name:'碎岩', dmg:62, cost:6, type:'rock'},
     {name:'暴風雪', dmg:88, cost:16, type:'ice', status:{effect:'freeze', chance:0.2}},
     {name:'雪崩', dmg:82, cost:14, type:'ice'},
   ]},
@@ -2338,7 +2341,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10048, type:'dark', type2:'fire', ability:{id:'blaze-boost', name:'太陽之力', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}}, id:229, name:'黑魯加', type:'fire', type2:'dark', hp:280, tier:2, ability:{id:'blaze-boost', name:'猛火', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[
     {name:'夜斬', dmg:36, cost:1, type:'dark'},
-    {name:'火焰牙', dmg:38, cost:1, type:'fire', status:{effect:'burn', chance:0.2}},
+    {name:'火焰牙', dmg:62, cost:6, type:'fire', status:{effect:'burn', chance:0.2}},
     {name:'惡意突刺', dmg:84, cost:15, type:'dark'},
     {name:'火焰噴射', dmg:90, cost:16, type:'fire', status:{effect:'burn', chance:0.25}},
   ]},
@@ -2350,7 +2353,7 @@ const POKEMON = [
   ]},
   { id:473, name:'象牙豬', type:'ice', type2:'ground', hp:350, tier:3, ability:{id:'thick-fat', name:'厚脂肪', trigger:'onDefend', desc:'受到火／冰屬性攻擊傷害 ×0.6'}, attacks:[
     {name:'冰凍拳', dmg:44, cost:3, type:'ice', status:{effect:'freeze', chance:0.15}},
-    {name:'地震', dmg:46, cost:3, type:'ground'},
+    {name:'地震', dmg:69, cost:8, type:'ground'},
     {name:'雪崩', dmg:95, cost:18, type:'ice', status:{effect:'freeze', chance:0.2}},
     {name:'冰牙', dmg:100, cost:18, type:'ice', status:{effect:'freeze', chance:0.15}},
   ]},
@@ -2363,7 +2366,7 @@ const POKEMON = [
   /* ── Mega 進化擴充（Legends Z-A / 原有 46 種缺漏補完） ── */
   { mega:{spriteId:10073, type:'normal', type2:'flying', ability:{id:'huge-power', name:'無防守', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}}, id:18, name:'大比鳥', type:'normal', type2:'flying', hp:220, tier:1, ability:{id:'frisk-ward', name:'牽制', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}, attacks:[
     {name:'啄', dmg:32, cost:0, type:'flying'},
-    {name:'疾風拳', dmg:36, cost:1, type:'normal'},
+    {name:'疾風拳', dmg:53, cost:4, type:'normal'},
     {name:'燕返', dmg:70, cost:11, type:'flying'},
     {name:'猛禽炸彈', dmg:78, cost:13, type:'flying'},
   ]},
@@ -2375,7 +2378,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10040, type:'bug', type2:'flying', ability:{id:'adaptability', name:'飛行皮膚', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×2（原本 ×1.5）'}}, id:127, name:'凱羅斯', type:'bug', hp:210, tier:1, ability:{id:'mold-breaker', name:'破格', trigger:'onAttack', desc:'攻擊時無視對方的防禦型特性'}, attacks:[
     {name:'斷頭台', dmg:32, cost:0, type:'bug'},
-    {name:'十字剪', dmg:36, cost:1, type:'bug'},
+    {name:'十字剪', dmg:57, cost:4, type:'bug'},
     {name:'角撞', dmg:68, cost:11, type:'normal'},
     {name:'石頭砸落', dmg:76, cost:13, type:'rock'},
   ]},
@@ -2387,7 +2390,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10050, type:'fire', type2:'fighting', ability:{id:'huge-power', name:'加速', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}}, id:257, name:'火焰雞', type:'fire', type2:'fighting', hp:260, tier:2, ability:{id:'blaze-boost', name:'猛火', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[
     {name:'踢腿', dmg:36, cost:1, type:'fighting'},
-    {name:'火花', dmg:40, cost:2, type:'fire'},
+    {name:'火花', dmg:62, cost:6, type:'fire'},
     {name:'烈焰衝浪腳', dmg:80, cost:14, type:'fire'},
     {name:'近身戰', dmg:88, cost:16, type:'fighting'},
   ]},
@@ -2399,7 +2402,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10052, type:'steel', type2:'fairy', ability:{id:'huge-power', name:'大力士', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}}, id:303, name:'大嘴娃', type:'steel', type2:'fairy', hp:200, tier:1, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊傷害 ×0.5'}, attacks:[
     {name:'啃咬', dmg:32, cost:0, type:'dark'},
-    {name:'鐵頭', dmg:36, cost:1, type:'steel'},
+    {name:'鐵頭', dmg:57, cost:4, type:'steel'},
     {name:'巨大化拳', dmg:70, cost:11, type:'normal'},
     {name:'重磅衝撞', dmg:78, cost:13, type:'steel'},
   ]},
@@ -2411,7 +2414,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10054, type:'fighting', type2:'psychic', ability:{id:'huge-power', name:'驚人怪力', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}}, id:308, name:'恰雷姆', type:'fighting', type2:'psychic', hp:210, tier:1, ability:{id:'huge-power', name:'驚人怪力', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}, attacks:[
     {name:'空手劈', dmg:32, cost:0, type:'fighting'},
-    {name:'念力', dmg:36, cost:1, type:'psychic'},
+    {name:'念力', dmg:48, cost:4, type:'psychic'},
     {name:'高速旋轉踢', dmg:70, cost:11, type:'fighting'},
     {name:'惡意彈珠', dmg:78, cost:13, type:'dark'},
   ]},
@@ -2423,7 +2426,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10070, type:'water', type2:'dark', ability:{id:'tough-claws', name:'強壯之顎', trigger:'onAttack', desc:'攻擊傷害 ×1.3'}}, id:319, name:'巨牙鯊', type:'water', type2:'dark', hp:220, tier:1, ability:{id:'rough-skin', name:'粗糙皮膚', trigger:'onDefend', desc:'受到攻擊傷害時，反彈攻擊者 1/8 最大HP 傷害'}, attacks:[
     {name:'水槍', dmg:32, cost:0, type:'water'},
-    {name:'咬碎', dmg:36, cost:1, type:'dark'},
+    {name:'咬碎', dmg:48, cost:4, type:'dark'},
     {name:'衝浪', dmg:70, cost:11, type:'water'},
     {name:'冰牙', dmg:78, cost:13, type:'ice'},
   ]},
@@ -2435,7 +2438,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10067, type:'dragon', type2:'fairy', ability:{id:'adaptability', name:'妖精皮膚', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×2（原本 ×1.5）'}}, id:334, name:'七夕青鳥', type:'dragon', type2:'flying', hp:270, tier:2, ability:{id:'frisk-ward', name:'自然回復', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}, attacks:[
     {name:'啄', dmg:36, cost:1, type:'flying'},
-    {name:'龍之氣息', dmg:40, cost:2, type:'dragon'},
+    {name:'龍之氣息', dmg:55, cost:6, type:'dragon'},
     {name:'空氣斬', dmg:80, cost:14, type:'flying'},
     {name:'龍之波動', dmg:88, cost:16, type:'dragon'},
   ]},
@@ -2447,7 +2450,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10074, type:'ice', type2:null, ability:{id:'adaptability', name:'冰肌', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×2（原本 ×1.5）'}}, id:362, name:'冰鬼護', type:'ice', hp:260, tier:2, ability:{id:'thick-fat', name:'冰凍之軀', trigger:'onDefend', desc:'受到火／冰屬性攻擊傷害 ×0.6'}, attacks:[
     {name:'冰霜拳', dmg:36, cost:1, type:'ice'},
-    {name:'頭錘', dmg:40, cost:2, type:'normal'},
+    {name:'頭錘', dmg:55, cost:6, type:'normal'},
     {name:'冰凍光束', dmg:80, cost:14, type:'ice'},
     {name:'雪崩', dmg:88, cost:16, type:'ice'},
   ]},
@@ -2459,7 +2462,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10062, type:'dragon', type2:'psychic', ability:{id:'motor-drive', name:'飄浮', trigger:'onDefend', desc:'受到電屬性攻擊時完全免疫，並回復 3 點能量'}}, id:380, name:'拉帝亞斯', type:'dragon', type2:'psychic', hp:320, tier:3, ability:{id:'motor-drive', name:'飄浮', trigger:'onDefend', desc:'受到電屬性攻擊時完全免疫，並回復 3 點能量'}, attacks:[
     {name:'念力', dmg:40, cost:2, type:'psychic'},
-    {name:'龍之氣息', dmg:44, cost:3, type:'dragon'},
+    {name:'龍之氣息', dmg:62, cost:8, type:'dragon'},
     {name:'魔法閃耀', dmg:88, cost:16, type:'fairy'},
     {name:'龍之波動', dmg:96, cost:18, type:'dragon'},
   ]},
@@ -2471,7 +2474,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10088, type:'normal', type2:'fighting', ability:{id:'huge-power', name:'根性', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}}, id:428, name:'長耳兔', type:'normal', hp:220, tier:1, ability:{id:'frisk-ward', name:'魅力', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}, attacks:[
     {name:'連續拳', dmg:32, cost:0, type:'normal'},
-    {name:'高速星星拳', dmg:36, cost:1, type:'normal'},
+    {name:'高速星星拳', dmg:52, cost:4, type:'normal'},
     {name:'高速旋轉踢', dmg:70, cost:11, type:'fighting'},
     {name:'冰凍拳', dmg:78, cost:13, type:'ice'},
   ]},
@@ -2483,7 +2486,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10068, type:'psychic', type2:'fighting', ability:{id:'huge-power', name:'精神力', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}}, id:475, name:'艾路雷朵', type:'psychic', type2:'fighting', hp:260, tier:2, ability:{id:'guts', name:'不屈之心', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}, attacks:[
     {name:'空手劈', dmg:36, cost:1, type:'fighting'},
-    {name:'念力', dmg:40, cost:2, type:'psychic'},
+    {name:'念力', dmg:62, cost:6, type:'psychic'},
     {name:'劈斬', dmg:80, cost:14, type:'psychic'},
     {name:'近身戰', dmg:88, cost:16, type:'fighting'},
   ]},
@@ -2495,7 +2498,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10075, type:'rock', type2:'fairy', ability:{id:'frisk-ward', name:'魔法鏡', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}}, id:719, name:'蒂安希', type:'rock', type2:'fairy', hp:300, tier:3, ability:{id:'solid-rock', name:'恆淨之軀', trigger:'onDefend', desc:'受到剋制（×2以上）的攻擊傷害再減少 25%'}, attacks:[
     {name:'岩石滑落', dmg:40, cost:2, type:'rock'},
-    {name:'魔法閃耀', dmg:44, cost:3, type:'fairy'},
+    {name:'魔法閃耀', dmg:69, cost:8, type:'fairy'},
     {name:'石刃', dmg:88, cost:16, type:'rock'},
     {name:'月亮之力', dmg:96, cost:18, type:'fairy'},
   ]},
@@ -2507,7 +2510,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10279, type:'grass', type2:'poison', ability:{id:'tough-claws', name:'揭露之貌', trigger:'onAttack', desc:'攻擊傷害 ×1.3'}}, id:71, name:'大食花', type:'grass', type2:'poison', hp:230, tier:1, ability:{id:'blaze-boost', name:'葉綠素', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[
     {name:'藤鞭', dmg:32, cost:0, type:'grass'},
-    {name:'毒液', dmg:36, cost:1, type:'poison'},
+    {name:'毒液', dmg:50, cost:4, type:'poison'},
     {name:'葉刃', dmg:70, cost:11, type:'grass'},
     {name:'污泥炸彈', dmg:78, cost:13, type:'poison'},
   ]},
@@ -2519,7 +2522,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10306, type:'psychic', type2:'steel', ability:{id:'motor-drive', name:'飄浮', trigger:'onDefend', desc:'受到電屬性攻擊時完全免疫，並回復 3 點能量'}}, id:358, name:'風鈴鈴', type:'psychic', hp:220, tier:1, ability:{id:'motor-drive', name:'飄浮', trigger:'onDefend', desc:'受到電屬性攻擊時完全免疫，並回復 3 點能量'}, attacks:[
     {name:'念力', dmg:32, cost:0, type:'psychic'},
-    {name:'音爆拳', dmg:36, cost:1, type:'normal'},
+    {name:'音爆拳', dmg:57, cost:4, type:'normal'},
     {name:'未來預知', dmg:70, cost:11, type:'psychic'},
     {name:'高周波音', dmg:78, cost:13, type:'normal'},
   ]},
@@ -2531,7 +2534,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10312, type:'dark', type2:null, ability:{id:'tough-claws', name:'暗影', trigger:'onAttack', desc:'攻擊傷害 ×1.3'}}, id:491, name:'達克萊伊', type:'dark', hp:310, tier:3, ability:{id:'tough-claws', name:'惡夢', trigger:'onAttack', desc:'攻擊傷害 ×1.3'}, attacks:[
     {name:'惡意彈珠', dmg:40, cost:2, type:'dark'},
-    {name:'暗影球', dmg:44, cost:3, type:'ghost'},
+    {name:'暗影球', dmg:69, cost:8, type:'ghost'},
     {name:'黑暗脈動', dmg:88, cost:16, type:'dark'},
     {name:'暗黑爆破', dmg:96, cost:18, type:'dark'},
   ]},
@@ -2543,7 +2546,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10287, type:'ground', type2:'steel', ability:{id:'tough-claws', name:'貫穿之鑽', trigger:'onAttack', desc:'攻擊傷害 ×1.3'}}, id:530, name:'龍頭地鼠', type:'ground', type2:'steel', hp:300, tier:2, ability:{id:'blaze-boost', name:'沙之力', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[
     {name:'金屬爪', dmg:36, cost:1, type:'steel'},
-    {name:'泥巴射擊', dmg:40, cost:2, type:'ground'},
+    {name:'泥巴射擊', dmg:55, cost:6, type:'ground'},
     {name:'地震', dmg:80, cost:14, type:'ground'},
     {name:'鑽鑿', dmg:88, cost:16, type:'steel'},
   ]},
@@ -2555,7 +2558,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10289, type:'dark', type2:'fighting', ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊傷害 ×0.5'}}, id:560, name:'頭巾混混', type:'dark', type2:'fighting', hp:240, tier:1, ability:{id:'guts', name:'蛻皮', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}, attacks:[
     {name:'空手劈', dmg:32, cost:0, type:'fighting'},
-    {name:'惡意彈珠', dmg:36, cost:1, type:'dark'},
+    {name:'惡意彈珠', dmg:52, cost:4, type:'dark'},
     {name:'近身戰', dmg:70, cost:11, type:'fighting'},
     {name:'暗黑爆破', dmg:78, cost:13, type:'dark'},
   ]},
@@ -2567,7 +2570,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10292, type:'grass', type2:'fighting', ability:{id:'solid-rock', name:'防彈', trigger:'onDefend', desc:'受到剋制（×2以上）的攻擊傷害再減少 25%'}}, id:652, name:'布里卡隆', type:'grass', type2:'fighting', hp:300, tier:2, ability:{id:'blaze-boost', name:'茂盛', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[
     {name:'藤鞭', dmg:36, cost:1, type:'grass'},
-    {name:'空手劈', dmg:40, cost:2, type:'fighting'},
+    {name:'空手劈', dmg:55, cost:6, type:'fighting'},
     {name:'葉刃', dmg:80, cost:14, type:'grass'},
     {name:'近身戰', dmg:88, cost:16, type:'fighting'},
   ]},
@@ -2579,7 +2582,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10295, type:'fire', type2:'normal', ability:{id:'blaze-boost', name:'火鬃', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}}, id:668, name:'火炎獅', type:'fire', type2:'normal', hp:270, tier:2, ability:{id:'pressure', name:'緊張感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[
     {name:'拍打', dmg:36, cost:1, type:'normal'},
-    {name:'火花', dmg:40, cost:2, type:'fire'},
+    {name:'火花', dmg:55, cost:6, type:'fire'},
     {name:'大字爆炎', dmg:80, cost:14, type:'fire'},
     {name:'高周波音', dmg:88, cost:16, type:'normal'},
   ]},
@@ -2591,7 +2594,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10314, type:'psychic', type2:null, ability:{id:'trace', name:'複製', trigger:'onEnter', desc:'上場時複製對手當前的特性'}}, id:678, name:'超能妙喵', type:'psychic', hp:220, tier:1, ability:{id:'frisk-ward', name:'穿透', trigger:'onDefend', desc:'25% 機率將受到的傷害減半'}, attacks:[
     {name:'念力', dmg:32, cost:0, type:'psychic'},
-    {name:'惡意彈珠', dmg:36, cost:1, type:'dark'},
+    {name:'惡意彈珠', dmg:53, cost:4, type:'dark'},
     {name:'未來預知', dmg:70, cost:11, type:'psychic'},
     {name:'暗黑爆破', dmg:78, cost:13, type:'dark'},
   ]},
@@ -2603,7 +2606,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10298, type:'rock', type2:'fighting', ability:{id:'tough-claws', name:'硬爪', trigger:'onAttack', desc:'攻擊傷害 ×1.3'}}, id:689, name:'龜足巨鎧', type:'rock', type2:'water', hp:260, tier:2, ability:{id:'tough-claws', name:'硬爪', trigger:'onAttack', desc:'攻擊傷害 ×1.3'}, attacks:[
     {name:'岩石滑落', dmg:36, cost:1, type:'rock'},
-    {name:'水流裂破', dmg:40, cost:2, type:'water'},
+    {name:'水流裂破', dmg:62, cost:6, type:'water'},
     {name:'石刃', dmg:80, cost:14, type:'rock'},
     {name:'衝浪', dmg:88, cost:16, type:'water'},
   ]},
@@ -2615,7 +2618,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10300, type:'fighting', type2:'flying', ability:{id:'huge-power', name:'無防守', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}}, id:701, name:'摔角鷹人', type:'fighting', type2:'flying', hp:230, tier:1, ability:{id:'desperate-blade', name:'輕盈', trigger:'onAttack', desc:'HP 低於 50% 時，攻擊傷害 ×1.3'}, attacks:[
     {name:'空手劈', dmg:32, cost:0, type:'fighting'},
-    {name:'啄', dmg:36, cost:1, type:'flying'},
+    {name:'啄', dmg:49, cost:4, type:'flying'},
     {name:'近身戰', dmg:70, cost:11, type:'fighting'},
     {name:'空氣斬', dmg:78, cost:13, type:'flying'},
   ]},
@@ -2627,7 +2630,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10315, type:'fighting', type2:'ice', ability:{id:'tough-claws', name:'鐵拳', trigger:'onAttack', desc:'攻擊傷害 ×1.3'}}, id:740, name:'好勝毛蟹', type:'fighting', type2:'ice', hp:270, tier:2, ability:{id:'tough-claws', name:'鐵拳', trigger:'onAttack', desc:'攻擊傷害 ×1.3'}, attacks:[
     {name:'冰霜拳', dmg:36, cost:1, type:'ice'},
-    {name:'空手劈', dmg:40, cost:2, type:'fighting'},
+    {name:'空手劈', dmg:55, cost:6, type:'fighting'},
     {name:'冰凍拳', dmg:80, cost:14, type:'ice'},
     {name:'近身戰', dmg:88, cost:16, type:'fighting'},
   ]},
@@ -2639,7 +2642,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10317, type:'steel', type2:'fairy', ability:{id:'huge-power', name:'心之力', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}}, id:801, name:'瑪機雅娜', type:'steel', type2:'fairy', hp:310, tier:3, ability:{id:'huge-power', name:'心之力', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}, attacks:[
     {name:'金屬爪', dmg:40, cost:2, type:'steel'},
-    {name:'魔法閃耀', dmg:45, cost:3, type:'fairy'},
+    {name:'魔法閃耀', dmg:69, cost:8, type:'fairy'},
     {name:'重磅衝撞', dmg:90, cost:17, type:'steel'},
     {name:'月亮之力', dmg:100, cost:19, type:'fairy'},
   ]},
@@ -2651,7 +2654,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10303, type:'fighting', type2:null, ability:{id:'guts', name:'不服輸', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}}, id:870, name:'列陣兵', type:'fighting', hp:230, tier:1, ability:{id:'sturdy', name:'戰鬥盔甲', trigger:'onDefend', desc:'HP 全滿時，受到會直接擊倒的攻擊會保留 1 HP'}, attacks:[
     {name:'空手劈', dmg:32, cost:0, type:'fighting'},
-    {name:'連續拳', dmg:36, cost:1, type:'normal'},
+    {name:'連續拳', dmg:55, cost:4, type:'normal'},
     {name:'近身戰', dmg:70, cost:11, type:'fighting'},
     {name:'超強衝擊', dmg:78, cost:13, type:'fighting'},
   ]},
@@ -2663,7 +2666,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10321, type:'rock', type2:'poison', ability:{id:'adaptability', name:'適應力', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×2（原本 ×1.5）'}}, id:970, name:'晶光花', type:'rock', type2:'poison', hp:260, tier:2, ability:{id:'poison-point', name:'毒素碎片', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者中毒'}, attacks:[
     {name:'岩石滑落', dmg:36, cost:1, type:'rock'},
-    {name:'毒液', dmg:40, cost:2, type:'poison'},
+    {name:'毒液', dmg:55, cost:6, type:'poison'},
     {name:'石刃', dmg:80, cost:14, type:'rock'},
     {name:'污泥炸彈', dmg:88, cost:16, type:'poison'},
   ]},
@@ -2675,7 +2678,7 @@ const POKEMON = [
   ]},
   { mega:{spriteId:10325, type:'dragon', type2:'ice', ability:{id:'guts', name:'熱交換', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}}, id:998, name:'戟脊龍', type:'dragon', type2:'ice', hp:340, tier:3, ability:{id:'guts', name:'熱交換', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}, attacks:[
     {name:'冰霜拳', dmg:40, cost:2, type:'ice'},
-    {name:'龍息', dmg:45, cost:3, type:'dragon'},
+    {name:'龍息', dmg:62, cost:8, type:'dragon'},
     {name:'冰凍光束', dmg:90, cost:17, type:'ice'},
     {name:'逆鱗', dmg:100, cost:19, type:'dragon'},
   ]},
@@ -2748,6 +2751,10 @@ function effActive(atkType, defType, defType2) {
   if (G.activeStadium?.id === 'stadium-evil-forest') {
     if ((defType === 'grass' || defType2 === 'grass') && m > 1) m = 1;
   }
+  // Roman Colosseum: fighting-type attacks are no longer immune against ghost-type (treated as neutral)
+  if (G.activeStadium?.id === 'stadium-colosseum') {
+    if (eAtk === 'fighting' && (defType === 'ghost' || defType2 === 'ghost') && m === 0) m = 1;
+  }
   return m;
 }
 
@@ -2786,6 +2793,8 @@ const TRAINERS = [
   {id:'gamble',     name:'一擲千金',   cat:'item',      desc:'30% 機率下次攻擊傷害 ×4；70% 機率自身損失 40% 最大HP'},
   {id:'desperate-boost', name:'背水一戰', cat:'item',   desc:'HP 越低，下次攻擊威力加成越高（最高 +50）'},
   {id:'double-strike', name:'連擊',     cat:'item',    desc:'下次攻擊傷害 ×1.4，異常狀態機率額外判定一次'},
+  {id:'plunder',    name:'掠奪',       cat:'item',      desc:'隨機搶奪對手一張手牌'},
+  {id:'comm-seal',  name:'通訊封印',   cat:'item',      desc:'下回合對手不能使用支援者卡'},
   // ── 支援者牌 ──
   {id:'revive',     name:'復活藥',     cat:'supporter', desc:'復活備戰欄第一隻倒下的寶可夢（回復 80 HP）'},
   {id:'nurse',      name:'治療師',     cat:'supporter', desc:'上場寶可夢完全回復 HP 並解除異常狀態'},
@@ -2803,6 +2812,7 @@ const TRAINERS = [
   {id:'stadium-mega-prism',    name:'Mega 稜鏡塔', cat:'stadium', desc:'雙方每個自己的回合開始時，獲得 10 點 Mega 能量'},
   {id:'stadium-spikes',        name:'尖峰陷阱',   cat:'stadium', desc:'寶可夢上場時，受到最大HP 15% 的傷害（雙方對等）'},
   {id:'stadium-toxic-field',   name:'劇毒領域',   cat:'stadium', desc:'寶可夢上場時，陷入中毒（雙方對等）'},
+  {id:'stadium-colosseum',     name:'羅馬鬥技場', cat:'stadium', desc:'格鬥屬性招式傷害 ×1.5；格鬥屬性攻擊不再被幽靈屬性完全免疫'},
 ];
 
 function dealHand(n) {
@@ -3234,6 +3244,7 @@ function launchStage() {
     p.type = base.type;
     p.type2 = base.type2 ?? null;
     p.ability = base.ability ? { ...base.ability } : null;
+    p.attacks = base.attacks.map(a => ({ ...a })); // undo Mega 進化的招式改造，恢復原始4招
     p.megaEvolved = false;
   });
 
@@ -3665,6 +3676,10 @@ function useTrainer(idx) {
   const card = G.playerHand[idx];
   if (!card) return;
   if (card.cat === 'supporter' && G.playerSuppUsed) return;
+  if (card.cat === 'supporter' && G.playerSupporterLockedThisTurn) {
+    showWarn('通訊封印中，這回合無法使用支援者卡！');
+    return;
+  }
 
   /* 瘋狂博士：需要二段選擇，確認前不消耗手牌 */
   if (card.id === 'mad-scientist') {
@@ -3844,6 +3859,26 @@ function applyTrainer(card, side, chosenType) {
       }
       break;
     }
+    case 'plunder': {
+      const opHand = opSide === 'player' ? G.playerHand : G.cpuHand;
+      const myHand = side === 'player' ? G.playerHand : G.cpuHand;
+      if (opHand.length) {
+        const pIdx = Math.floor(Math.random() * opHand.length);
+        const stolen = opHand.splice(pIdx, 1)[0];
+        myHand.push(stolen);
+        log(`${pron}使用了【${card.name}】，搶走了對方的【${stolen.name}】！`, tag);
+        if (side === 'player' && G.playerHand.length > 5) showDiscardModal(() => {});
+      } else {
+        log(`${pron}使用了【${card.name}】，但對方沒有手牌可以搶。`, 'system');
+      }
+      break;
+    }
+    case 'comm-seal': {
+      const lockKey = opSide === 'player' ? 'playerSupporterLocked' : 'cpuSupporterLocked';
+      G[lockKey] = true;
+      log(`${pron}使用了【${card.name}】，對方下回合無法使用支援者卡！`, tag);
+      break;
+    }
     case 'energy-drain': {
       const opEnergyKey = opSide === 'player' ? 'playerEnergy' : 'cpuEnergy';
       const before = G[opEnergyKey];
@@ -3900,7 +3935,8 @@ function applyTrainer(card, side, chosenType) {
     case 'stadium-evil-forest':
     case 'stadium-mega-prism':
     case 'stadium-spikes':
-    case 'stadium-toxic-field': {
+    case 'stadium-toxic-field':
+    case 'stadium-colosseum': {
       const oldStadium = G.activeStadium;
       G.activeStadium = card;
       if (oldStadium) log(`🏟 新競技場【${card.name}】取代了【${oldStadium.name}】！`, 'special');
@@ -4017,6 +4053,26 @@ function log(msg, cls = 'system') {
 
 /* Mutates `poke` into its Mega form in place — id (sprite), type, ability. Free action,
    never ends the turn on its own; caller decides what happens next. */
+// Mega 進化後招式改造：4招消耗全部壓縮到 5~7（維持原本4招的相對強弱排名，
+// 弱招落在5、強招落在7），傷害則依 tier 拉到一個統一的高傷害區間——
+// 用「排名」而非「原始數值」決定新的 dmg/cost，確保每隻寶可夢 Mega 化後
+// 4 招都維持「有變化但整體偏強」的手感，不會因為原本招式強弱差距太大而
+// 出現「弱招 Mega 化後還是比強招弱很多」的落差感。
+const MEGA_MOVESET_BANDS = {
+  1: { dmgLo: 90,  dmgHi: 105 },
+  2: { dmgLo: 100, dmgHi: 120 },
+  3: { dmgLo: 115, dmgHi: 140 },
+};
+const MEGA_MOVESET_COSTS = [5, 6, 6, 7];
+function applyMegaMoveset(poke) {
+  const band = MEGA_MOVESET_BANDS[poke.tier] || MEGA_MOVESET_BANDS[2];
+  const order = poke.attacks.map((a, i) => i).sort((a, b) => poke.attacks[a].dmg - poke.attacks[b].dmg);
+  order.forEach((moveIdx, rank) => {
+    const frac = rank / (order.length - 1);
+    poke.attacks[moveIdx].dmg = Math.round(band.dmgLo + (band.dmgHi - band.dmgLo) * frac);
+    poke.attacks[moveIdx].cost = MEGA_MOVESET_COSTS[rank];
+  });
+}
 function applyMegaEvolution(poke, side) {
   poke.id = poke.mega.spriteId;
   poke.type = poke.mega.type;
@@ -4026,6 +4082,7 @@ function applyMegaEvolution(poke, side) {
   poke.hp = Math.round(poke.hp * 1.2); // Mega 進化額外提升 HP 上限（比照真實種族值總和提升）
   poke.cur = poke.hp; // Mega 進化時補滿血
   poke.status = null; // 並解除異常狀態
+  applyMegaMoveset(poke); // 4招消耗壓到5~7、傷害拉到tier對應的高傷害區間
   G[side === 'player' ? 'playerMegaUsed' : 'cpuMegaUsed'] = true; // 雙方共用一條槽，整場只能用一次
   const label = side === 'player' ? '你的' : '對手的';
   log(`${label}${poke.name} Mega 進化了！HP 全滿，異常狀態解除！`, 'special');
@@ -4170,6 +4227,8 @@ function playerStandby() {
 
 function cpuUseTrainers() {
   G.cpuSuppUsed = false;
+  const supporterLocked = G.cpuSupporterLocked; // 通訊封印：只鎖這一回合，讀取後立刻消耗掉旗標
+  G.cpuSupporterLocked = false;
   const cpu = CP();
   const hand = G.cpuHand;
 
@@ -4177,7 +4236,7 @@ function cpuUseTrainers() {
     const i = hand.findIndex(c => c.id === id);
     if (i === -1) return false;
     const card = hand[i];
-    if (card.cat === 'supporter' && G.cpuSuppUsed) return false;
+    if (card.cat === 'supporter' && (G.cpuSuppUsed || supporterLocked)) return false;
     if (card.cat === 'supporter') { G.cpuSuppUsed = true; G.cpuSuppStageUsed++; }
     hand.splice(i, 1);
     applyTrainer(card, 'cpu');
@@ -4559,8 +4618,9 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   const multiscaleMult = (!moldBreaker && defender.ability?.id === 'multiscale' && wasFullHp) ? 0.5 : 1;
   const defAbilityMult = thickFatMult * solidRockMult * friskWardMult * multiscaleMult;
   const megaBoostMult = attacker.megaEvolved ? 1.1 : 1; // Mega 進化的通用攻擊加成，跟特性效果分開疊加
+  const colosseumMult = (G.activeStadium?.id === 'stadium-colosseum' && atkType === 'fighting') ? 1.5 : 1;
   let dmg = mult === 0 ? 0
-    : Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumBonus + reversalBonus) * aBuff.atkMult * burnMult * mult * stabMult * switchGuardMult * abilityDmgMult * defAbilityMult * megaBoostMult) - dBuff.shield);
+    : Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumBonus + reversalBonus) * aBuff.atkMult * burnMult * mult * stabMult * switchGuardMult * abilityDmgMult * defAbilityMult * megaBoostMult * colosseumMult) - dBuff.shield);
   const wasDoubleStrike = aBuff.doubleStrike; // captured before reset — 連擊 rolls the move's own status chance a second time
   aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; aBuff.doubleStrike = false; dBuff.shield = 0;
 
@@ -5036,6 +5096,10 @@ function closeWarn() {
 let _discardOnDone = null;
 
 function drawAfterTurn(onDone) {
+  // 通訊封印：把「下回合鎖定」的旗標升級成「這回合鎖定中」，並清掉原始旗標——
+  // 這樣鎖定只會卡住緊接著的這一回合，之後的回合不會被誤鎖
+  G.playerSupporterLockedThisTurn = G.playerSupporterLocked;
+  G.playerSupporterLocked = false;
   // Hot Springs stadium: both active heal 15 HP each turn
   if (G.activeStadium?.id === 'stadium-spring') {
     [{ poke:P(), side:'player' }, { poke:CP(), side:'cpu' }].forEach(({poke, side}) => {
