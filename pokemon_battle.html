@@ -296,6 +296,19 @@
       #action-area { gap: 0.3rem; }
       .btn-atk { padding: 0.5rem 0.6rem; }
       .atk-name { font-size: 0.82rem; }
+
+      /* Battle card: hide the text-heavy "secondary" info (ability description, buff tags) —
+         reported by the user as too much crammed onto a small screen, forcing constant
+         scrolling to see both fields + action buttons at once. HP/energy/Mega bars and the
+         status badge stay visible since those are checked every turn to decide a move; ability
+         detail and buffs are still one tap away via the existing #player-bcard/#cpu-bcard
+         onclick → showBenchPopup() full-detail view (that's what the "ℹ" hint in the corner of
+         each card already points at — this just makes the card itself lean on it more on
+         mobile instead of also duplicating the same info inline).
+         !important: these elements' display is set inline by renderSide() (abilityEl.style.display
+         = '' / 'none'), and inline style beats a plain external rule regardless of specificity or
+         source order — only `!important` in the stylesheet can still override it. */
+      #player-ability, #cpu-ability, #player-buff-tags { display: none !important; }
     }
 
     .field {
@@ -2829,11 +2842,26 @@ function setSprite(el, id, poke) {
     el.classList.add('sprite-enter');
     el.addEventListener('animationend', () => el.classList.remove('sprite-enter'), { once: true });
   };
-  el.src = animatedSpriteUrl(id);
-  el.onerror = () => {
-    el.onerror = () => { el.onerror = null; el.src = officialArtworkUrl(id); };
-    el.src = spriteUrl(id);
+  // Show the static sprite immediately — it always resolves (real dex sprite, or the
+  // SPRITE_ID_OVERRIDE fallback for the few known-missing internal form ids), so there's no
+  // failed-request round-trip blocking the reveal. Animated GIFs only exist for a patchy subset
+  // of species (mostly Gen ≤5, plus a handful of later additions) and are missing entirely for
+  // Mega/internal form ids — trying that first, as this function used to, meant every Pokémon
+  // without one visibly lagged/flashed blank while the browser waited for that request to 404
+  // before falling back. Reported by the user as "載入圖片會lag，或是顯示錯誤".
+  el.src = spriteUrl(id);
+  el.onerror = () => { el.onerror = null; el.src = officialArtworkUrl(id); };
+
+  // Silently try upgrading to the animated version in the background; swap it in only if it
+  // loads successfully. Guarded by dataset.pokeId so a late-arriving probe can't stomp a sprite
+  // that's since moved on to a different Pokémon. Deliberately clears onload before the swap so
+  // this doesn't replay the entrance pop-in animation — it's a quiet quality upgrade, not a new
+  // reveal; the next real setSprite() call resets onload fresh regardless.
+  const probe = new Image();
+  probe.onload = () => {
+    if (el.dataset.pokeId === String(id)) { el.onload = null; el.src = probe.src; }
   };
+  probe.src = animatedSpriteUrl(id);
 }
 function syncSpriteAnim(side, poke) {
   const el = document.getElementById(`${side}-sprite`);
@@ -3019,7 +3047,13 @@ function showBenchPopup(poke, canSwitch, switchIdx, anchorEl) {
   }
 
   const megaEl = document.getElementById('bp-mega');
-  if (megaEl) megaEl.style.display = poke.mega ? '' : 'none';
+  if (megaEl) {
+    megaEl.style.display = poke.mega ? '' : 'none';
+    if (poke.mega) {
+      megaEl.textContent = poke.megaEvolved ? '💎 已 Mega 進化' : '💎 可 Mega 進化';
+      megaEl.title = poke.megaEvolved ? '這場戰鬥已經 Mega 進化過了' : '可以 Mega 進化';
+    }
+  }
 
   const hpPct = poke.cur <= 0 ? 0 : Math.round(poke.cur / poke.hp * 100);
   const hpC   = hpPct > 50 ? '#4caf50' : hpPct > 20 ? '#ffc107' : '#ef5350';
@@ -3146,7 +3180,11 @@ function renderSelCard(p, isSelected, onClick) {
     </div>`;
   }).join('');
   const abilityHtml = p.ability ? `<div class="ability-badge" title="${p.ability.desc}">✨ ${p.ability.name}</div>` : '';
-  const megaHtml = p.mega ? `<div class="mega-badge" title="可以 Mega 進化">💎 可 Mega 進化</div>` : '';
+  const megaHtml = p.mega
+    ? (p.megaEvolved
+        ? `<div class="mega-badge" title="這場戰鬥已經 Mega 進化過了">💎 已 Mega 進化</div>`
+        : `<div class="mega-badge" title="可以 Mega 進化">💎 可 Mega 進化</div>`)
+    : '';
   el.innerHTML = `
     <div class="sel-strip" style="background:${col}"></div>
     <img src="${spriteUrl(p.id)}" alt="${p.name}">

@@ -1371,7 +1371,12 @@ function handleMessage(ws, msg) {
       const sResult = handleStatus(attacker, log);
 
       if (sResult.died) {
-        // Attacker KO'd by own status (confusion self-hit — poison/burn no longer resolve here)
+        // Attacker KO'd by own status (confusion self-hit — poison/burn no longer resolve here).
+        // Attempting to attack (even one that backfired) still consumes the turn, same as the
+        // reflect-death case below — previously G.turn was left unchanged here too, letting the
+        // same role act again immediately after picking a replacement (same bug class as the
+        // reflect fix just below, see project memory for the 2026-07-02 note this was a known,
+        // deliberately-unaddressed quirk at the time).
         const alive = G[`${role}Deck`].filter(p => p.cur > 0).length;
         if (alive === 0) {
           G.winner = op;
@@ -1379,6 +1384,10 @@ function handleMessage(ws, msg) {
           room.phase = 'done'; return;
         }
         G.pendingKOSwitch = role;
+        G.turn = op;
+        G.round++;
+        G[`${op}Buff`].reflect = false; // reflect expires if this role never actually attacked
+        drawForRole(G, op);
         broadcast(room, { type: 'update', state: G, log, actor: role }); return;
       }
 
@@ -1455,7 +1464,13 @@ function handleMessage(ws, msg) {
       }
 
       if (attackerDied) {
-        // Reflected damage killed the attacker's own Pokémon
+        // Reflected damage (or defender-ability recoil) killed the attacker's own Pokémon —
+        // the attack still landed, so the turn passes to the opponent same as any other
+        // successful attack; the attacker separately needs to pick a replacement via
+        // pendingKOSwitch, but that's independent of whose turn it now is. Previously G.turn
+        // was left unchanged here (still the attacker's), so after picking a replacement the
+        // attacker could immediately act again — reported by the user as "反彈致死後應該換
+        //對方回合".
         const alive = G[`${role}Deck`].filter(p => p.cur > 0).length;
         if (alive === 0) {
           G.winner = op;
@@ -1463,6 +1478,9 @@ function handleMessage(ws, msg) {
           room.phase = 'done'; return;
         }
         G.pendingKOSwitch = role;
+        G.turn = op;
+        G.round++;
+        drawForRole(G, op);
         broadcast(room, { type: 'update', state: G, log, actor: role }); return;
       }
 

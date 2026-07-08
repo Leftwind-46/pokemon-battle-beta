@@ -171,6 +171,11 @@
       #action-area { gap: 0.3rem; }
       .btn-atk { padding: 0.5rem 0.6rem; }
       .atk-name { font-size: 0.82rem; }
+      /* Battle card: hide the text-heavy "secondary" info (ability description, buff tags) —
+         same reasoning as pokemon_battle.html's identical rule; full detail is one tap away via
+         the existing card onclick → bench-popup view. !important needed since renderSide() sets
+         these elements' display inline, which only an !important stylesheet rule can override. */
+      #player-ability, #cpu-ability, #player-buff-tags { display: none !important; }
       /* chat FAB is vertically-centered on the right edge on desktop, where there's empty
          space beside the battle card — on mobile the layout stacks to full width, so that
          same position lands on top of the attack buttons instead. Pin it to the corner.
@@ -1032,6 +1037,8 @@ function spriteUrl(id){
   return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
 }
 function animatedSpriteUrl(id){ return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${id}.gif`; }
+// Last-resort fallback for internal Mega/form ids that have no small game sprite at all.
+function officialArtworkUrl(id){ return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`; }
 function setSprite(el, id, poke) {
   // PvP state arrives freshly deserialized every update, so object identity is never stable here —
   // species id is the only reliable "did this actually change" signal (rosters can't contain duplicate species).
@@ -1046,8 +1053,19 @@ function setSprite(el, id, poke) {
     el.classList.add('sprite-enter');
     el.addEventListener('animationend', () => el.classList.remove('sprite-enter'), { once: true });
   };
-  el.src = animatedSpriteUrl(id);
-  el.onerror = () => { el.onerror = null; el.src = spriteUrl(id); };
+  // Show the static sprite immediately (see pokemon_battle.html's setSprite for the full
+  // reasoning) — animated GIFs are missing for most species now, so trying that first caused a
+  // visible lag/blank flash on every sprite reveal before falling back.
+  el.src = spriteUrl(id);
+  el.onerror = () => { el.onerror = null; el.src = officialArtworkUrl(id); };
+
+  // Silently upgrade to animated in the background if one happens to exist; guarded by
+  // dataset.pokeId so a late probe can't stomp a sprite that's moved on to a different Pokémon.
+  const probe = new Image();
+  probe.onload = () => {
+    if (el.dataset.pokeId === String(id)) { el.onload = null; el.src = probe.src; }
+  };
+  probe.src = animatedSpriteUrl(id);
 }
 function syncSpriteAnim(side, poke) {
   const el = document.getElementById(`${side}-sprite`);
@@ -1757,7 +1775,7 @@ function renderMsCard(p, onClick) {
     <img src="${spriteUrl(p.id)}" alt="${p.name}">
     <div class="sel-name">${p.name}</div>
     ${p.ability ? `<div class="ability-badge" title="${p.ability.desc}">✨ ${p.ability.name}</div>` : ''}
-    ${p.mega ? `<div class="mega-badge" title="可以 Mega 進化">💎 可 Mega 進化</div>` : ''}
+    ${p.mega ? (p.megaEvolved ? `<div class="mega-badge" title="這場戰鬥已經 Mega 進化過了">💎 已 Mega 進化</div>` : `<div class="mega-badge" title="可以 Mega 進化">💎 可 Mega 進化</div>`) : ''}
     <div class="sel-hp">HP ${p.hp}</div>
     <div class="sel-moves">${p.attacks.map(a=>`<div class="sel-move"><span class="sel-move-badge" style="background:${TYPE_COLOR[a.type]||'#888'}">${TYPE_ZH[a.type]||a.type}</span><span>${a.name} ${a.dmg}</span></div>`).join('')}</div>
   `;
@@ -2102,7 +2120,11 @@ function showBenchPopup(e, poke, deckIdx, canSwitch, freeSwitch) {
     ? `<button class="bp-switch-btn" onclick="playerSwitch(${deckIdx})">換上場${freeSwitch ? '（不佔用回合）' : ''}</button>`
     : (poke.cur<=0 ? '<div style="font-size:0.78rem;color:#ef5350;text-align:center">已倒下</div>' : '');
   const abilityHtml = poke.ability ? `<div class="ability-badge" title="${poke.ability.desc}" style="margin-top:0.3rem">✨ ${poke.ability.name}</div>` : '';
-  const megaHtml = poke.mega ? `<div class="mega-badge" title="可以 Mega 進化" style="margin-top:0.3rem">💎 可 Mega 進化</div>` : '';
+  const megaHtml = poke.mega
+    ? (poke.megaEvolved
+        ? `<div class="mega-badge" title="這場戰鬥已經 Mega 進化過了" style="margin-top:0.3rem">💎 已 Mega 進化</div>`
+        : `<div class="mega-badge" title="可以 Mega 進化" style="margin-top:0.3rem">💎 可 Mega 進化</div>`)
+    : '';
   popup.innerHTML = `
     <div class="bp-header">
       <img src="${spriteUrl(poke.id)}" alt="${poke.name}">
