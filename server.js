@@ -528,6 +528,10 @@ const TRAINERS = [
   {id:'stadium-spikes',        name:'尖峰陷阱',   cat:'stadium', desc:'寶可夢上場時，受到最大HP 15% 的傷害（雙方對等）'},
   {id:'stadium-toxic-field',   name:'劇毒領域',   cat:'stadium', desc:'寶可夢上場時，陷入中毒（雙方對等）'},
   {id:'stadium-colosseum',     name:'羅馬鬥技場', cat:'stadium', desc:'格鬥屬性招式傷害 ×1.5；格鬥屬性攻擊不再被幽靈屬性完全免疫'},
+  {id:'stadium-mystic-space',  name:'魔幻空間',   cat:'stadium', desc:'超能力屬性寶可夢受到的傷害 ×0.9；弱點消失（不受超效傷害影響）'},
+  {id:'stadium-lava',          name:'熔岩火山',   cat:'stadium', desc:'火屬性招式傷害 ×1.1；水屬性招式傷害 ×0.5'},
+  {id:'stadium-ocean',         name:'海洋世界',   cat:'stadium', desc:'水屬性招式消耗能量減半；電屬性招式傷害 ×1.5'},
+  {id:'stadium-shrine',        name:'莊嚴神社',   cat:'stadium', desc:'一般屬性招式一律視為剋制對手（效果拉滿 ×2）'},
 ];
 
 const STATUS_ZH = {poison:'中毒',burn:'燒傷',paralysis:'麻痺',sleep:'睡眠',freeze:'結凍',confusion:'混亂'};
@@ -541,8 +545,10 @@ function clonePoke(p) {
 }
 
 // 壓迫感：對手在場時，己方招式消耗能量 +2（上限仍是 20，不會超過能量欄本身的上限）
-function effectiveCostSrv(atk, opponentPoke) {
-  return opponentPoke?.ability?.id === 'pressure' ? Math.min(20, atk.cost + 2) : atk.cost;
+function effectiveCostSrv(atk, opponentPoke, G) {
+  let cost = opponentPoke?.ability?.id === 'pressure' ? Math.min(20, atk.cost + 2) : atk.cost;
+  if (G?.activeStadium?.id === 'stadium-ocean' && atk.type === 'water') cost = Math.floor(cost / 2);
+  return cost;
 }
 
 function srvEff(atkType, defType, defType2) {
@@ -567,6 +573,12 @@ function srvEffActive(atkType, defType, defType2, G) {
   }
   if (G?.activeStadium?.id === 'stadium-colosseum') {
     if (eAtk === 'fighting' && (defType === 'ghost' || defType2 === 'ghost') && m === 0) m = 1;
+  }
+  if (G?.activeStadium?.id === 'stadium-mystic-space') {
+    if ((defType === 'psychic' || defType2 === 'psychic') && m > 1) m = 1;
+  }
+  if (G?.activeStadium?.id === 'stadium-shrine' && eAtk === 'normal') {
+    m = 2;
   }
   return m;
 }
@@ -744,12 +756,16 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
   const defAbilityMult = thickFatMult * solidRockMult * friskWardMult * multiscaleMult;
   const megaBoostMult = attacker.megaEvolved ? 1.1 : 1; // Mega 進化的通用攻擊加成，跟特性效果分開疊加
   const colosseumMult = (G.activeStadium?.id === 'stadium-colosseum' && atkType === 'fighting') ? 1.5 : 1;
+  const mysticSpaceMult = (G.activeStadium?.id === 'stadium-mystic-space' && (defender.type === 'psychic' || defender.type2 === 'psychic')) ? 0.9 : 1;
+  const lavaMult = G.activeStadium?.id === 'stadium-lava' ? (atkType === 'fire' ? 1.1 : atkType === 'water' ? 0.5 : 1) : 1;
+  const oceanMult = (G.activeStadium?.id === 'stadium-ocean' && atkType === 'electric') ? 1.5 : 1;
+  const stadiumMult = colosseumMult * mysticSpaceMult * lavaMult * oceanMult;
   let damage;
   if (mult === 0) {
     damage = 0;
     log.push({ text: `${atk.name} 對 ${defender.name} 完全無效！`, cls: 'resist' });
   } else {
-    damage = Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumBonus + reversalBonus) * aBuff.atkMult * burnMult * mult * stabMult * switchGuardMult * abilityDmgMult * defAbilityMult * megaBoostMult * colosseumMult) - dBuff.shield);
+    damage = Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumBonus + reversalBonus) * aBuff.atkMult * burnMult * mult * stabMult * switchGuardMult * abilityDmgMult * defAbilityMult * megaBoostMult * stadiumMult) - dBuff.shield);
     defender.cur = Math.max(0, defender.cur - damage);
     if (!moldBreaker && defender.ability?.id === 'sturdy' && wasFullHp && defender.cur <= 0) {
       defender.cur = 1;
@@ -1085,7 +1101,11 @@ function applyTrainer(card, role, G, log, chosenType) {
     case 'stadium-mega-prism':
     case 'stadium-spikes':
     case 'stadium-toxic-field':
-    case 'stadium-colosseum': {
+    case 'stadium-colosseum':
+    case 'stadium-mystic-space':
+    case 'stadium-lava':
+    case 'stadium-ocean':
+    case 'stadium-shrine': {
       const old = G.activeStadium;
       G.activeStadium = card;
       if (old) log.push({ text: `新競技場【${card.name}】取代了【${old.name}】！`, cls: 'special' });
@@ -1416,7 +1436,7 @@ function handleMessage(ws, msg) {
       const dBuff    = G[`${op}Buff`];
       const atk      = attacker.attacks[msg.idx];
       if (!atk) return;
-      const atkCost = effectiveCostSrv(atk, defender);
+      const atkCost = effectiveCostSrv(atk, defender, G);
       if ((G[`${role}Energy`] || 0) < atkCost) { send(ws, { type:'error', message:'能量不足，無法使用這個招式' }); return; }
 
       const log = [];
