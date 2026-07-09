@@ -1137,6 +1137,7 @@ function playMegaEvolveAnim(side) {
       setTimeout(() => particle.remove(), 900);
     }
 
+    csSprite.onerror = () => { csSprite.onerror = null; csSprite.src = officialArtworkUrl(poke.id); };
     csSprite.src = spriteUrl(poke.id);
     csSprite.classList.add('reveal');
   }, 1300);
@@ -1438,7 +1439,7 @@ function renderTeamSelect() {
     el.className = `sel-card${selected ? ' sel-selected' : ''}`;
     el.innerHTML = `
       <div class="sel-strip" style="background:${col}"></div>
-      <img src="${spriteUrl(p.id)}" alt="${p.name}">
+      <img src="${spriteUrl(p.id)}" alt="${p.name}" onerror="this.onerror=null;this.src='${officialArtworkUrl(p.id)}'">
       <div class="sel-name">${p.name}</div>
       ${p.ability ? `<div class="ability-badge" title="${p.ability.desc}">✨ ${p.ability.name}</div>` : ''}
       ${p.mega ? `<div class="mega-badge" title="可以 Mega 進化">💎 可 Mega 進化</div>` : ''}
@@ -1604,7 +1605,7 @@ function renderSide(side, poke, deck, activeIdx) {
     const switchable = side === 'player' && !ko && !G.busy && !G.switchedThisTurn;
     const freeSwitch = side === 'player' && G.playerFreeSwitch;
     div.className = `b-bench${ko ? ' ko' : ''}${switchable ? ' switchable' : ''}`;
-    div.innerHTML = `<img src="${spriteUrl(p.id)}" alt="${p.name}"><span>${p.name}</span><span style="font-size:0.65rem;color:${p.cur/p.hp>0.5?'#4caf50':p.cur/p.hp>0.2?'#ff9800':'#ef5350'}">${Math.max(0,p.cur??p.hp)}</span>`;
+    div.innerHTML = `<img src="${spriteUrl(p.id)}" alt="${p.name}" onerror="this.onerror=null;this.src='${officialArtworkUrl(p.id)}'"><span>${p.name}</span><span style="font-size:0.65rem;color:${p.cur/p.hp>0.5?'#4caf50':p.cur/p.hp>0.2?'#ff9800':'#ef5350'}">${Math.max(0,p.cur??p.hp)}</span>`;
     if (side === 'player') {
       div.onclick = (e) => { e.stopPropagation(); showBenchPopup(e, p, i, switchable, freeSwitch); };
     } else {
@@ -1772,7 +1773,7 @@ function renderMsCard(p, onClick) {
   el.className = 'sel-card';
   el.innerHTML = `
     <div class="sel-strip" style="background:${col}"></div>
-    <img src="${spriteUrl(p.id)}" alt="${p.name}">
+    <img src="${spriteUrl(p.id)}" alt="${p.name}" onerror="this.onerror=null;this.src='${officialArtworkUrl(p.id)}'">
     <div class="sel-name">${p.name}</div>
     ${p.ability ? `<div class="ability-badge" title="${p.ability.desc}">✨ ${p.ability.name}</div>` : ''}
     ${p.mega ? (p.megaEvolved ? `<div class="mega-badge" title="這場戰鬥已經 Mega 進化過了">💎 已 Mega 進化</div>` : `<div class="mega-badge" title="可以 Mega 進化">💎 可 Mega 進化</div>`) : ''}
@@ -1838,7 +1839,7 @@ function showKOSwitch() {
     const el = document.createElement('div');
     el.className = 'sel-card';
     const col = TYPE_COLOR[p.type]||'#888';
-    el.innerHTML = `<div class="sel-strip" style="background:${col}"></div><img src="${spriteUrl(p.id)}" alt="${p.name}"><div class="sel-name">${p.name}</div><div class="sel-hp">HP ${Math.max(0,p.cur)}</div>`;
+    el.innerHTML = `<div class="sel-strip" style="background:${col}"></div><img src="${spriteUrl(p.id)}" alt="${p.name}" onerror="this.onerror=null;this.src='${officialArtworkUrl(p.id)}'"><div class="sel-name">${p.name}</div><div class="sel-hp">HP ${Math.max(0,p.cur)}</div>`;
     el.onclick = () => { modal.classList.remove('open'); send({ type:'ko_switch', deckIdx:i }); };
     row.appendChild(el);
   });
@@ -1892,7 +1893,10 @@ function showResult(iWon, isDraw, winnerDeck) {
     const pool = alivePool.length ? alivePool : winnerDeck;
     const champion = pool[Math.floor(Math.random() * pool.length)];
     const img = document.getElementById('result-champion-sprite');
-    img.onerror = () => { img.onerror = null; img.src = spriteUrl(champion.id); };
+    img.onerror = () => {
+      img.onerror = () => { img.onerror = null; img.src = officialArtworkUrl(champion.id); };
+      img.src = spriteUrl(champion.id);
+    };
     img.src = animatedSpriteUrl(champion.id);
     img.alt = champion.name;
   }
@@ -2127,7 +2131,7 @@ function showBenchPopup(e, poke, deckIdx, canSwitch, freeSwitch) {
     : '';
   popup.innerHTML = `
     <div class="bp-header">
-      <img src="${spriteUrl(poke.id)}" alt="${poke.name}">
+      <img src="${spriteUrl(poke.id)}" alt="${poke.name}" onerror="this.onerror=null;this.src='${officialArtworkUrl(poke.id)}'">
       <div>
         <div class="bp-pname">${poke.name}</div>
         <div style="display:flex;gap:0.28rem;flex-wrap:wrap;margin-top:0.18rem">${typeBadges}</div>

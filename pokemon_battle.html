@@ -2984,7 +2984,7 @@ function renderSwapTeam(selectable) {
     el.className = 'swap-card' + (selectable ? ' selectable' : '');
     el.innerHTML = `
       <div style="position:absolute;top:0;left:0;right:0;height:4px;border-radius:10px 10px 0 0;background:${col}"></div>
-      <img src="${spriteUrl(p.id)}" alt="${p.name}">
+      <img src="${spriteUrl(p.id)}" alt="${p.name}" onerror="this.onerror=null;this.src='${officialArtworkUrl(p.id)}'">
       <div class="sc-name">${p.name}</div>
       <div class="type-badge" style="background:${col};margin-top:0.2rem">${TYPE_ZH[p.type]||p.type}</div>
       <div class="sc-hp">HP ${p.hp}</div>
@@ -3016,7 +3016,7 @@ function renderSwapCandidates() {
     el.className = 'swap-card selectable' + (_swapPickedIdx === i ? ' hi-new' : '');
     el.innerHTML = `
       <div style="position:absolute;top:0;left:0;right:0;height:4px;border-radius:10px 10px 0 0;background:${col}"></div>
-      <img src="${spriteUrl(p.id)}" alt="${p.name}">
+      <img src="${spriteUrl(p.id)}" alt="${p.name}" onerror="this.onerror=null;this.src='${officialArtworkUrl(p.id)}'">
       <div class="sc-name">${p.name}</div>
       <div class="type-badge" style="background:${col};margin-top:0.2rem">${TYPE_ZH[p.type]||p.type}</div>
       <div class="sc-hp">HP ${p.hp}</div>
@@ -3051,7 +3051,9 @@ function showBenchPopup(poke, canSwitch, switchIdx, anchorEl) {
   _pendingSwitchIdx = canSwitch ? switchIdx : null;
   const popup = document.getElementById('bench-popup');
 
-  document.getElementById('bp-sprite').src = spriteUrl(poke.id);
+  const bpSprite = document.getElementById('bp-sprite');
+  bpSprite.onerror = () => { bpSprite.onerror = null; bpSprite.src = officialArtworkUrl(poke.id); };
+  bpSprite.src = spriteUrl(poke.id);
   document.getElementById('bp-pname').textContent = poke.name;
 
   const badge = document.getElementById('bp-type-badge');
@@ -3213,7 +3215,7 @@ function renderSelCard(p, isSelected, onClick) {
     : '';
   el.innerHTML = `
     <div class="sel-strip" style="background:${col}"></div>
-    <img src="${spriteUrl(p.id)}" alt="${p.name}">
+    <img src="${spriteUrl(p.id)}" alt="${p.name}" onerror="this.onerror=null;this.src='${officialArtworkUrl(p.id)}'">
     <div class="sel-name">${p.name}</div>
     <div><span class="type-badge" style="background:${col};margin-top:0.2rem">${TYPE_ZH[p.type]||p.type}</span></div>
     ${abilityHtml}
@@ -3365,7 +3367,7 @@ function showFinalVictory() {
     const delay  = (i * 0.13).toFixed(2) + 's';
     return `
       <div class="vic-poke ${inDeck ? 'in-deck' : ''}" style="--vi:${delay}">
-        <img src="${spriteUrl(p.id)}" alt="${p.name}">
+        <img src="${spriteUrl(p.id)}" alt="${p.name}" onerror="this.onerror=null;this.src='${officialArtworkUrl(p.id)}'">
         <div class="vic-poke-name">${p.name}</div>
         <div class="vic-poke-badge" style="background:${col}">${TYPE_ZH[p.type]||p.type}</div>
       </div>
@@ -3617,7 +3619,7 @@ function renderSide(side, poke, deck, activeIdx) {
     const canSwitch = side === 'player' && p.cur > 0 && !G.busy && !G.switchedThisTurn;
     const b = document.createElement('div');
     b.className = 'b-bench' + (p.cur <= 0 ? ' ko' : '') + (canSwitch ? ' switchable' : '');
-    b.innerHTML = `<img src="${spriteUrl(p.id)}" alt="${p.name}"><span>${p.name}</span>`
+    b.innerHTML = `<img src="${spriteUrl(p.id)}" alt="${p.name}" onerror="this.onerror=null;this.src='${officialArtworkUrl(p.id)}'"><span>${p.name}</span>`
       + (canSwitch ? '<span class="switch-hint">換</span>' : '');
     b.addEventListener('click', e => { e.stopPropagation(); showBenchPopup(p, canSwitch, i, b); });
     benchEl.appendChild(b);
@@ -5070,9 +5072,9 @@ function showResult(winner) {
     return `
       <div class="nj-slot" style="--d:${d}">
         <div class="nj-slot-inner">
-          <img class="nj-sprite" src="${spriteUrl(p.id)}" alt="${p.name}">
+          <img class="nj-sprite" src="${spriteUrl(p.id)}" alt="${p.name}" onerror="this.onerror=null;this.src='${officialArtworkUrl(p.id)}'">
           <div class="nj-ball-small"></div>
-          <img class="nj-healed" src="${spriteUrl(p.id)}" alt="${p.name}">
+          <img class="nj-healed" src="${spriteUrl(p.id)}" alt="${p.name}" onerror="this.onerror=null;this.src='${officialArtworkUrl(p.id)}'">
         </div>
         <div class="nj-slot-name">${p.name}</div>
       </div>
@@ -5308,7 +5310,7 @@ function renderDex() {
       const abilityHtml = p.ability ? `<div class="ability-badge" title="${p.ability.desc}">✨ ${p.ability.name}</div>` : '';
       const megaHtml = p.mega ? `<div class="mega-badge" title="可以 Mega 進化">💎 可 Mega 進化</div>` : '';
       html += `<div class="dex-card">
-        <img class="dex-sprite" src="${spriteUrl(p.id)}" alt="${p.name}">
+        <img class="dex-sprite" src="${spriteUrl(p.id)}" alt="${p.name}" onerror="this.onerror=null;this.src='${officialArtworkUrl(p.id)}'">
         <div class="dex-info">
           <div class="dex-name">${p.name}&nbsp;<span class="type-badge" style="background:${col};font-size:0.58rem;padding:0.04rem 0.28rem;vertical-align:middle">${TYPE_ZH[p.type]||p.type}</span></div>
           <div class="dex-hp">HP ${p.hp}</div>
