@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "verify": "node scripts/verify.js"
   },
   "dependencies": {
     "express": "^4.19.2",
