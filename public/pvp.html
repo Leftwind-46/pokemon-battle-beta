@@ -33,7 +33,7 @@
     .btn-ghost:disabled { opacity:0.3; cursor:not-allowed; }
 
     /* ══ LOBBY ══ */
-    #lobby-screen { align-items:center; justify-content:center; padding:2rem; }
+    #lobby-screen, #auth-screen, #leaderboard-screen { align-items:center; justify-content:center; padding:2rem; }
     .lobby-center { display:flex; flex-direction:column; align-items:center; gap:1.8rem; text-align:center; max-width:400px; width:100%; }
     .pokeball { width:90px; height:90px; border-radius:50%; background:linear-gradient(180deg,#e63946 50%,#f1f1f1 50%); border:5px solid #111; position:relative; animation:spin 5s linear infinite; }
     .pokeball::before { content:''; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:24px; height:24px; border-radius:50%; background:#f1f1f1; border:5px solid #111; z-index:2; }
@@ -63,6 +63,7 @@
     .sel-card { background:rgba(255,255,255,0.04); border:2px solid var(--border); border-radius:14px; padding:0.8rem 0.65rem 0.7rem; width:150px; text-align:center; cursor:pointer; position:relative; overflow:hidden; transition:all 0.18s; }
     .sel-card:hover { border-color:rgba(255,255,255,0.35); transform:translateY(-3px); background:rgba(255,255,255,0.08); }
     .sel-card.sel-selected { border-color:#f8d030; box-shadow:0 0 20px rgba(248,208,48,0.45); background:rgba(248,208,48,0.07); }
+    .sel-card.hi-new { border-color:#4fc3f7; box-shadow:0 0 20px rgba(79,195,247,0.45); background:rgba(79,195,247,0.07); }
     .sel-card .sel-strip { position:absolute; top:0; left:0; right:0; height:4px; border-radius:12px 12px 0 0; }
     .sel-card img { width:72px; height:72px; image-rendering:pixelated; margin-top:0.25rem; }
     .sel-card .sel-name { font-size:0.88rem; font-weight:700; margin-top:0.22rem; }
@@ -570,6 +571,17 @@
       <p>雙人連線版</p>
     </div>
 
+    <div id="auth-bar" style="display:flex;gap:0.6rem;align-items:center;font-size:0.85rem;color:var(--muted);flex-wrap:wrap;justify-content:center">
+      <span id="auth-status-anon" style="display:flex;gap:0.5rem;align-items:center">
+        <button class="btn btn-secondary" onclick="showScreen('auth-screen')" style="font-size:0.82rem;padding:0.45rem 1.2rem">登入 / 註冊</button>
+      </span>
+      <span id="auth-status-loggedin" style="display:none;gap:0.5rem;align-items:center">
+        已登入：<b id="auth-username-label"></b>
+        <button class="btn btn-secondary" onclick="logout()" style="font-size:0.82rem;padding:0.45rem 1rem">登出</button>
+      </span>
+      <button class="btn btn-secondary" onclick="openLeaderboard()" style="font-size:0.82rem;padding:0.45rem 1.2rem">🏆 排行榜</button>
+    </div>
+
     <div id="lobby-main" class="lobby-actions">
       <button class="btn btn-primary" onclick="createRoom()" style="width:200px">建立對戰房間</button>
       <div class="lobby-divider">或</div>
@@ -594,15 +606,49 @@
   </div>
 </div>
 
+<!-- ══ AUTH ══ -->
+<div id="auth-screen" class="screen">
+  <div class="lobby-center">
+    <div class="logo"><h1>帳號</h1><p id="auth-mode-label">登入</p></div>
+    <div class="lobby-actions" style="max-width:280px">
+      <input id="auth-username-input" placeholder="帳號（3-20碼英數/底線）" style="padding:0.6rem 1rem;border-radius:999px;border:2px solid var(--border);background:rgba(255,255,255,0.07);color:var(--text);font-size:1rem;width:100%;box-sizing:border-box;text-align:center;outline:none">
+      <input id="auth-password-input" type="password" placeholder="密碼（至少8碼）" onkeydown="if(event.key==='Enter')submitAuth()" style="padding:0.6rem 1rem;border-radius:999px;border:2px solid var(--border);background:rgba(255,255,255,0.07);color:var(--text);font-size:1rem;width:100%;box-sizing:border-box;text-align:center;outline:none">
+      <button class="btn btn-primary" id="auth-submit-btn" onclick="submitAuth()" style="width:100%">登入</button>
+      <button class="btn btn-secondary" onclick="toggleAuthMode()" style="font-size:0.85rem;padding:0.5rem 1rem" id="auth-toggle-btn">還沒有帳號？註冊一個</button>
+    </div>
+    <div id="auth-err" style="color:#ef5350;font-size:0.88rem;min-height:1.2em"></div>
+    <button class="btn btn-secondary" onclick="showScreen('lobby-screen')" style="font-size:0.88rem;padding:0.55rem 1.5rem">← 返回大廳</button>
+  </div>
+</div>
+
+<!-- ══ LEADERBOARD ══ -->
+<div id="leaderboard-screen" class="screen">
+  <div class="lobby-center">
+    <div class="logo"><h1>🏆 每週排行榜</h1><p id="lb-week-label"></p></div>
+    <div id="lb-list" style="display:flex;flex-direction:column;gap:0.5rem;width:100%;max-width:360px;max-height:55vh;overflow-y:auto"></div>
+    <div id="lb-err" style="color:#ef5350;font-size:0.88rem;min-height:1.2em"></div>
+    <button class="btn btn-secondary" onclick="showScreen('lobby-screen')" style="font-size:0.88rem;padding:0.55rem 1.5rem">← 返回大廳</button>
+  </div>
+</div>
+
 <!-- ══ TEAM SELECT ══ -->
 <div id="team-select-screen" class="screen">
   <h2>選擇出戰隊伍</h2>
   <div class="ts-subtitle">從你的 6 隻寶可夢中選出 3 隻（<span id="ts-count">0</span>/3）</div>
   <div class="sel-cards-row" id="ts-cards-row"></div>
+  <div id="ts-edit-section" style="display:none;width:100%;max-width:900px">
+    <div class="ts-subtitle">選一隻候補寶可夢，再點上方要換掉的現役成員（可配對多組）</div>
+    <div class="sel-cards-row" id="ts-edit-cand-row"></div>
+    <div style="display:flex;gap:0.75rem;justify-content:center;margin-top:0.5rem">
+      <button class="btn btn-secondary" onclick="cancelTeamEdit()" style="font-size:0.85rem;padding:0.5rem 1.2rem">取消編輯</button>
+      <button class="btn btn-primary" onclick="confirmTeamEdit()" style="font-size:0.85rem;padding:0.5rem 1.2rem">確認換隻</button>
+    </div>
+  </div>
   <div id="ts-opponent-status" class="ts-waiting" style="display:none">對手正在選隊伍…</div>
   <div id="ts-err" style="color:#ef5350;font-size:0.88rem;min-height:1.2em"></div>
   <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;justify-content:center">
     <button class="btn btn-secondary" id="ts-reroll-btn" onclick="rerollRoster()" style="font-size:0.88rem;padding:0.55rem 1.4rem">重新生成（剩 <span id="ts-rerolls">3</span> 次）</button>
+    <button class="btn btn-secondary" id="ts-edit-team-btn" onclick="startTeamEdit()" style="display:none;font-size:0.88rem;padding:0.55rem 1.4rem">編輯隊伍（剩 <span id="ts-edits-left">3</span> 次）</button>
     <button class="btn btn-primary" id="ts-confirm-btn" disabled onclick="confirmTeam()">確認出戰</button>
   </div>
 </div>
@@ -1175,6 +1221,18 @@ let myRoster = [];     // 5 Pokémon dealt by server
 let tsSelected = [];   // selected indices in team-select screen
 let tsConfirmed = false;
 
+// Account state — purely additive; connect()/createRoom()/joinRoom() work identically with myToken === null
+let myToken    = localStorage.getItem('pvpToken') || null;
+let myUsername = localStorage.getItem('pvpUsername') || null;
+let authMode   = 'login'; // or 'register'
+
+// 編輯隊伍（登入玩家專用，取代匿名玩家的「重新生成」按鈕）
+let teamEditMode       = false;
+let teamEditCandidates = [];       // 6 Pokémon 候補
+let teamEditPairs      = [];       // [{slotIdx, candidateIdx}]
+let teamEditArmed      = null;     // 目前被點選、等待配對的候補 index
+let teamEditBusy       = false;
+
 // Client-side G — mirrors single-player structure, populated from server state
 let G = {
   playerDeck:[], cpuDeck:[], playerIdx:0, cpuIdx:0,
@@ -1195,7 +1253,8 @@ const CP = () => G.cpuDeck[G.cpuIdx];
 ───────────────────────────────────────── */
 function connect() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  ws = new WebSocket(`${proto}://${location.host}`);
+  const tokenParam = myToken ? `?token=${encodeURIComponent(myToken)}` : '';
+  ws = new WebSocket(`${proto}://${location.host}${tokenParam}`);
   ws.onmessage = e => handleMsg(JSON.parse(e.data));
   ws.onclose   = () => {
     // Only show DC overlay if we were in a game
@@ -1208,6 +1267,119 @@ function connect() {
 
 function send(msg) {
   if (ws?.readyState === 1) ws.send(JSON.stringify(msg));
+}
+
+/* ─────────────────────────────────────────
+   ACCOUNTS (登入是加分功能，不是玩PvP的前提)
+───────────────────────────────────────── */
+function updateAuthUI() {
+  const anon = document.getElementById('auth-status-anon');
+  const li   = document.getElementById('auth-status-loggedin');
+  if (myToken) {
+    anon.style.display = 'none';
+    li.style.display = 'flex';
+    document.getElementById('auth-username-label').textContent = myUsername || '';
+  } else {
+    anon.style.display = 'flex';
+    li.style.display = 'none';
+  }
+}
+
+async function refreshAuthFromServer() {
+  if (!myToken) { updateAuthUI(); return; }
+  try {
+    const res = await fetch('/api/me', { headers: { Authorization: `Bearer ${myToken}` } });
+    if (!res.ok) {
+      myToken = null; myUsername = null;
+      localStorage.removeItem('pvpToken'); localStorage.removeItem('pvpUsername');
+    } else {
+      const data = await res.json();
+      myUsername = data.username;
+      localStorage.setItem('pvpUsername', myUsername);
+    }
+  } catch (e) { /* 網路暫時失敗就先維持本機狀態，不因為這樣把人登出 */ }
+  updateAuthUI();
+}
+
+function toggleAuthMode() {
+  authMode = authMode === 'login' ? 'register' : 'login';
+  document.getElementById('auth-mode-label').textContent  = authMode === 'login' ? '登入' : '註冊';
+  document.getElementById('auth-submit-btn').textContent  = authMode === 'login' ? '登入' : '註冊';
+  document.getElementById('auth-toggle-btn').textContent  = authMode === 'login' ? '還沒有帳號？註冊一個' : '已經有帳號？登入';
+  document.getElementById('auth-err').textContent = '';
+}
+
+function authErrMessage(code) {
+  switch (code) {
+    case 'invalid_username':   return '帳號格式錯誤（3-20碼英數或底線）';
+    case 'invalid_password':   return '密碼至少需要8碼';
+    case 'username_taken':     return '這個帳號已經有人使用了';
+    case 'invalid_credentials':return '帳號或密碼錯誤';
+    case 'no_db':              return '帳號功能目前無法使用';
+    default:                   return '發生錯誤，請稍後再試';
+  }
+}
+
+async function submitAuth() {
+  const username = document.getElementById('auth-username-input').value.trim();
+  const password = document.getElementById('auth-password-input').value;
+  const errEl = document.getElementById('auth-err');
+  errEl.textContent = '';
+  const endpoint = authMode === 'login' ? '/api/login' : '/api/register';
+  try {
+    const res  = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = authErrMessage(data.error); return; }
+    myToken = data.token; myUsername = data.username;
+    localStorage.setItem('pvpToken', myToken);
+    localStorage.setItem('pvpUsername', myUsername);
+    updateAuthUI();
+    showScreen('lobby-screen');
+    if (ws && ws.readyState === 1) ws.close(); // 換帳號了，重新連線才會帶上新token
+    connect();
+  } catch (e) {
+    errEl.textContent = '連線失敗，請稍後再試';
+  }
+}
+
+async function logout() {
+  if (myToken) {
+    try { await fetch('/api/logout', { method: 'POST', headers: { Authorization: `Bearer ${myToken}` } }); } catch (e) {}
+  }
+  myToken = null; myUsername = null;
+  localStorage.removeItem('pvpToken'); localStorage.removeItem('pvpUsername');
+  updateAuthUI();
+  if (ws && ws.readyState === 1) ws.close();
+  connect();
+}
+
+function openLeaderboard() {
+  showScreen('leaderboard-screen');
+  loadLeaderboard();
+}
+
+async function loadLeaderboard() {
+  const listEl = document.getElementById('lb-list');
+  const errEl  = document.getElementById('lb-err');
+  errEl.textContent = '';
+  listEl.innerHTML = '載入中…';
+  try {
+    const res  = await fetch('/api/leaderboard');
+    const data = await res.json();
+    if (!res.ok) { listEl.innerHTML = ''; errEl.textContent = data.error === 'no_db' ? '排行榜功能目前無法使用' : '載入失敗，請稍後再試'; return; }
+    document.getElementById('lb-week-label').textContent = `本週（${data.weekStart} 起）`;
+    listEl.innerHTML = '';
+    if (!data.entries.length) { listEl.innerHTML = '<div style="color:var(--muted);font-size:0.9rem">本週還沒有任何對戰紀錄</div>'; return; }
+    data.entries.forEach((e, i) => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:0.55rem 1rem;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid var(--border)';
+      row.innerHTML = `<span>#${i + 1} ${e.username}</span><span style="font-weight:700;color:#f8d030">${e.wins} 勝</span>`;
+      listEl.appendChild(row);
+    });
+  } catch (e) {
+    listEl.innerHTML = '';
+    errEl.textContent = '連線失敗，請稍後再試';
+  }
 }
 
 function currentScreen() {
@@ -1250,6 +1422,30 @@ function handleMsg(msg) {
       document.getElementById('ts-err').textContent = '';
       document.getElementById('ts-rerolls').textContent = msg.rerollsLeft;
       document.getElementById('ts-reroll-btn').disabled = msg.rerollsLeft === 0;
+      renderTeamSelect();
+      break;
+
+    case 'team_edit_candidates':
+      teamEditBusy       = false;
+      teamEditMode       = true;
+      teamEditCandidates = msg.candidates;
+      teamEditPairs      = [];
+      teamEditArmed      = null;
+      document.getElementById('ts-err').textContent = '';
+      document.getElementById('ts-edits-left').textContent = msg.editsLeft;
+      document.getElementById('ts-edit-team-btn').disabled = msg.editsLeft === 0;
+      renderTeamSelect();
+      break;
+
+    case 'team_edit_confirmed':
+      teamEditMode       = false;
+      teamEditCandidates = [];
+      teamEditPairs      = [];
+      teamEditArmed      = null;
+      myRoster  = msg.roster;
+      tsSelected = [];
+      document.getElementById('ts-edits-left').textContent = msg.editsLeft;
+      document.getElementById('ts-edit-team-btn').disabled = msg.editsLeft === 0;
       renderTeamSelect();
       break;
 
@@ -1337,6 +1533,8 @@ function handleMsg(msg) {
         document.getElementById('ts-err').textContent = msg.message;
         rerollBusy = false;
         document.getElementById('ts-reroll-btn').disabled = tsConfirmed;
+        teamEditBusy = false;
+        document.getElementById('ts-edit-team-btn').disabled = tsConfirmed;
       } else {
         document.getElementById('lobby-err').textContent = msg.message;
       }
@@ -1422,35 +1620,48 @@ function backToLobby() {
 ───────────────────────────────────────── */
 function showTeamSelect() {
   tsSelected = []; tsConfirmed = false; rerollBusy = false;
+  teamEditMode = false; teamEditCandidates = []; teamEditPairs = []; teamEditArmed = null; teamEditBusy = false;
   showScreen('team-select-screen');
-  renderTeamSelect();
   document.getElementById('ts-opponent-status').style.display = 'none';
   document.getElementById('ts-err').textContent = '';
+  // 已登入玩家看到「編輯隊伍」（作用在永久帳號收藏庫），匿名玩家維持看到「重新生成」——兩者不共用同一顆按鈕
+  const loggedIn = !!myToken;
+  document.getElementById('ts-reroll-btn').style.display = loggedIn ? 'none' : '';
   document.getElementById('ts-reroll-btn').disabled = false;
+  document.getElementById('ts-edit-team-btn').style.display = loggedIn ? '' : 'none';
+  document.getElementById('ts-edit-team-btn').disabled = false;
+  document.getElementById('ts-edits-left').textContent = 3;
+  renderTeamSelect();
 }
 
 function renderTeamSelect() {
   const row = document.getElementById('ts-cards-row');
   row.innerHTML = '';
   myRoster.forEach((p, i) => {
-    const col = TYPE_COLOR[p.type] || '#888';
-    const selected = tsSelected.includes(i);
+    const pairIdx    = teamEditMode ? teamEditPairs.findIndex(s => s.slotIdx === i) : -1;
+    const displayMon = pairIdx !== -1 ? teamEditCandidates[teamEditPairs[pairIdx].candidateIdx] : p;
+    const changed    = pairIdx !== -1;
+    const col        = TYPE_COLOR[displayMon.type] || '#888';
+    const selected   = !teamEditMode && tsSelected.includes(i);
     const el = document.createElement('div');
-    el.className = `sel-card${selected ? ' sel-selected' : ''}`;
+    el.className = `sel-card${selected ? ' sel-selected' : ''}${changed ? ' hi-new' : ''}`;
     el.innerHTML = `
       <div class="sel-strip" style="background:${col}"></div>
-      <img src="${spriteUrl(p.id)}" alt="${p.name}" onerror="this.onerror=null;this.src='${officialArtworkUrl(p.id)}'">
-      <div class="sel-name">${p.name}</div>
-      ${p.ability ? `<div class="ability-badge" title="${p.ability.desc}">✨ ${p.ability.name}</div>` : ''}
-      ${p.mega ? `<div class="mega-badge" title="可以 Mega 進化">💎 可 Mega 進化</div>` : ''}
-      <div class="sel-hp">HP ${p.hp}</div>
-      <div class="sel-moves">${p.attacks.map(a=>`<div class="sel-move"><span class="sel-move-badge" style="background:${TYPE_COLOR[a.type]||'#888'}">${TYPE_ZH[a.type]||a.type}</span><span>${a.name} ${a.dmg} · ⚡${a.cost}</span></div>`).join('')}</div>
+      <img src="${spriteUrl(displayMon.id)}" alt="${displayMon.name}" onerror="this.onerror=null;this.src='${officialArtworkUrl(displayMon.id)}'">
+      <div class="sel-name">${displayMon.name}${changed ? ' 🔄' : ''}</div>
+      ${displayMon.ability ? `<div class="ability-badge" title="${displayMon.ability.desc}">✨ ${displayMon.ability.name}</div>` : ''}
+      ${displayMon.mega ? `<div class="mega-badge" title="可以 Mega 進化">💎 可 Mega 進化</div>` : ''}
+      <div class="sel-hp">HP ${displayMon.hp}</div>
+      <div class="sel-moves">${displayMon.attacks.map(a=>`<div class="sel-move"><span class="sel-move-badge" style="background:${TYPE_COLOR[a.type]||'#888'}">${TYPE_ZH[a.type]||a.type}</span><span>${a.name} ${a.dmg} · ⚡${a.cost}</span></div>`).join('')}</div>
     `;
-    el.onclick = () => toggleTSCard(i);
+    el.onclick = teamEditMode ? () => pickEditSlot(i) : () => toggleTSCard(i);
     row.appendChild(el);
   });
   document.getElementById('ts-count').textContent = tsSelected.length;
-  document.getElementById('ts-confirm-btn').disabled = tsSelected.length !== 3 || tsConfirmed;
+  document.getElementById('ts-confirm-btn').disabled = tsSelected.length !== 3 || tsConfirmed || teamEditMode;
+
+  document.getElementById('ts-edit-section').style.display = teamEditMode ? '' : 'none';
+  if (teamEditMode) renderEditCandidates();
 }
 
 function toggleTSCard(i) {
@@ -1473,12 +1684,89 @@ function rerollRoster() {
 }
 
 function confirmTeam() {
-  if (tsSelected.length !== 3 || tsConfirmed) return;
+  if (tsSelected.length !== 3 || tsConfirmed || teamEditMode) return;
   tsConfirmed = true;
   document.getElementById('ts-confirm-btn').disabled = true;
   document.getElementById('ts-reroll-btn').disabled  = true;
+  document.getElementById('ts-edit-team-btn').disabled = true;
   document.getElementById('ts-opponent-status').style.display = '';
   send({ type: 'select_team', indices: tsSelected });
+}
+
+/* ─────────────────────────────────────────
+   TEAM EDIT（登入玩家：永久更新6隻收藏庫，每場對戰前最多3次）
+───────────────────────────────────────── */
+function startTeamEdit() {
+  if (tsConfirmed || teamEditBusy || teamEditMode) return;
+  teamEditBusy = true;
+  document.getElementById('ts-edit-team-btn').disabled = true;
+  document.getElementById('ts-err').textContent = '';
+  send({ type: 'edit_team' });
+}
+
+function cancelTeamEdit() {
+  teamEditMode = false;
+  teamEditCandidates = [];
+  teamEditPairs = [];
+  teamEditArmed = null;
+  renderTeamSelect();
+}
+
+function confirmTeamEdit() {
+  const swaps = teamEditPairs.map(s => ({ slotIdx: s.slotIdx, candidatePokemonId: teamEditCandidates[s.candidateIdx].id }));
+  send({ type: 'confirm_team_edit', swaps });
+}
+
+function renderEditCandidates() {
+  const row = document.getElementById('ts-edit-cand-row');
+  row.innerHTML = '';
+  teamEditCandidates.forEach((p, j) => {
+    const pairIdx = teamEditPairs.findIndex(s => s.candidateIdx === j);
+    const used    = pairIdx !== -1;
+    const armed   = teamEditArmed === j;
+    const col     = TYPE_COLOR[p.type] || '#888';
+    const el = document.createElement('div');
+    el.className = `sel-card${armed ? ' sel-selected' : ''}${used ? ' hi-new' : ''}`;
+    el.style.opacity = used && !armed ? '0.55' : '1';
+    el.innerHTML = `
+      <div class="sel-strip" style="background:${col}"></div>
+      <img src="${spriteUrl(p.id)}" alt="${p.name}" onerror="this.onerror=null;this.src='${officialArtworkUrl(p.id)}'">
+      <div class="sel-name">${p.name}${used ? ' ✓' : ''}</div>
+      ${p.ability ? `<div class="ability-badge" title="${p.ability.desc}">✨ ${p.ability.name}</div>` : ''}
+      ${p.mega ? `<div class="mega-badge" title="可以 Mega 進化">💎 可 Mega 進化</div>` : ''}
+      <div class="sel-hp">HP ${p.hp}</div>
+      <div class="sel-moves">${p.attacks.map(a=>`<div class="sel-move"><span class="sel-move-badge" style="background:${TYPE_COLOR[a.type]||'#888'}">${TYPE_ZH[a.type]||a.type}</span><span>${a.name} ${a.dmg} · ⚡${a.cost}</span></div>`).join('')}</div>
+    `;
+    el.onclick = () => pickEditCandidate(j);
+    row.appendChild(el);
+  });
+}
+
+function pickEditCandidate(j) {
+  const pairIdx = teamEditPairs.findIndex(s => s.candidateIdx === j);
+  if (pairIdx !== -1) {
+    // 已經配對過了 → 點一下取消這組配對
+    teamEditPairs.splice(pairIdx, 1);
+    teamEditArmed = null;
+    renderTeamSelect();
+    return;
+  }
+  teamEditArmed = teamEditArmed === j ? null : j;
+  renderTeamSelect();
+}
+
+function pickEditSlot(i) {
+  const existingPairIdx = teamEditPairs.findIndex(s => s.slotIdx === i);
+  if (teamEditArmed === null) {
+    // 沒有選中候補時，點已配對的現役成員 = 取消那組配對
+    if (existingPairIdx !== -1) teamEditPairs.splice(existingPairIdx, 1);
+    renderTeamSelect();
+    return;
+  }
+  if (existingPairIdx !== -1) teamEditPairs.splice(existingPairIdx, 1);
+  teamEditPairs.push({ slotIdx: i, candidateIdx: teamEditArmed });
+  teamEditArmed = null;
+  renderTeamSelect();
 }
 
 function showCoinFlip(firstTurn) {
@@ -2271,6 +2559,8 @@ initChat();
 /* ─────────────────────────────────────────
    INIT
 ───────────────────────────────────────── */
+updateAuthUI();
+refreshAuthFromServer();
 connect();
 </script>
 </body>

@@ -16,8 +16,12 @@ const pgUri = process.env.DATABASE_URL
       ? `postgresql://${process.env.POSTGRES_USERNAME||'postgres'}:${process.env.POSTGRES_PASSWORD}@${process.env.POSTGRES_HOST}:${process.env.POSTGRES_PORT||5432}/${process.env.POSTGRES_DB||'postgres'}`
       : null);
 
+// Local/throwaway Postgres (Homebrew, docker run postgres:16, etc.) doesn't speak SSL at all —
+// only force it for non-localhost hosts, so Zeabur's behavior is unchanged but `DATABASE_URL`
+// pointed at localhost for local testing (see pvp-networking skill) actually connects.
+const pgIsLocalHost = /^postgres(?:ql)?:\/\/[^/]*@?(localhost|127\.0\.0\.1)(?::|\/)/.test(pgUri || '');
 const pool = pgUri
-  ? new Pool({ connectionString: pgUri, ssl: { rejectUnauthorized: false } })
+  ? new Pool({ connectionString: pgUri, ssl: pgIsLocalHost ? false : { rejectUnauthorized: false } })
   : null;
 
 app.use(express.static('public'));
@@ -1204,11 +1208,77 @@ function buildG(room, startLog) {
   return G;
 }
 
+/* ═══════════════════════════════════════════
+   ACCOUNTS: password hashing + player pool
+═══════════════════════════════════════════ */
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  return `${salt}:${hash}`;
+}
+function verifyPassword(password, stored) {
+  const [salt, hash] = (stored || '').split(':');
+  if (!salt || !hash) return false;
+  const candidate = crypto.scryptSync(password, salt, 64);
+  const expected = Buffer.from(hash, 'hex');
+  return candidate.length === expected.length && crypto.timingSafeEqual(candidate, expected);
+}
+
+/* 帳號收藏庫（註冊初始6隻／編輯隊伍候補6隻／損壞自動修復6隻，共用同一套規則）
+   randomRoster(6,300,1) 的參數是使用者要求的平衡限制（血量>=300最多1隻），不是預設值，不要改掉 */
+function generatePlayerPool() {
+  return randomRoster(6, 300, 1).map(p => p.id);
+}
+
 function send(ws, msg) {
   if (ws?.readyState === 1) ws.send(JSON.stringify(msg));
 }
 function broadcast(room, msg) {
   send(room.p1, msg); send(room.p2, msg);
+}
+
+/* 這個星期的星期一（UTC日期，YYYY-MM-DD）——每週排行榜靠這個分桶，不用排程/cron */
+function mondayOfWeek(date) {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const day = d.getUTCDay(); // 0=Sun..6=Sat
+  d.setUTCDate(d.getUTCDate() + (day === 0 ? -6 : 1 - day));
+  return d.toISOString().slice(0, 10);
+}
+
+/* 只在有登入的那一側才寫 weekly_stats；平手/雙方都匿名/DB不可用 → 完全no-op。
+   非同步、不擋對戰結果broadcast——寫入失敗只記log，不影響這場對戰本身。 */
+async function recordWeeklyStats(room, winner) {
+  if (!pool || winner === 'draw') return;
+  const winnerUserId = winner === 'p1' ? room.p1UserId : room.p2UserId;
+  const loserRole    = winner === 'p1' ? 'p2' : 'p1';
+  const loserUserId  = loserRole === 'p1' ? room.p1UserId : room.p2UserId;
+  const weekStart = mondayOfWeek(new Date());
+  const tasks = [];
+  if (winnerUserId) {
+    tasks.push(pool.query(
+      `INSERT INTO weekly_stats (user_id, week_start_date, wins, losses) VALUES ($1, $2, 1, 0)
+       ON CONFLICT (user_id, week_start_date) DO UPDATE SET wins = weekly_stats.wins + 1`,
+      [winnerUserId, weekStart]
+    ));
+  }
+  if (loserUserId) {
+    tasks.push(pool.query(
+      `INSERT INTO weekly_stats (user_id, week_start_date, wins, losses) VALUES ($1, $2, 0, 1)
+       ON CONFLICT (user_id, week_start_date) DO UPDATE SET losses = weekly_stats.losses + 1`,
+      [loserUserId, weekStart]
+    ));
+  }
+  await Promise.all(tasks);
+}
+
+/* 集中處理全部11處game_over broadcast——統一設G.winner、broadcast、room.phase='done'，
+   並只在對應側有userId時才記weekly_stats。DB寫入失敗不阻擋/不影響對戰結果broadcast本身。 */
+function endGame(room, winner, log, extra = {}) {
+  const G = room.G;
+  G.winner = winner;
+  broadcast(room, { type: 'game_over', winner, state: G, log, ...extra });
+  room.phase = 'done';
+  recordWeeklyStats(room, winner).catch(e => console.error('weekly_stats upsert error:', e.message));
 }
 
 /* 隨機抽取寶可夢陣容，HP >= 300 的高血量寶可夢最多只能出現 1 隻 */
@@ -1228,16 +1298,266 @@ function randomRoster(n = 6, hpCap = 300, maxAtCap = 1) {
 }
 
 /* ═══════════════════════════════════════════
+   ACCOUNTS: REST routes
+═══════════════════════════════════════════ */
+async function requireAuth(req, res, next) {
+  if (!pool) return res.status(503).json({ error: 'no_db' });
+  const auth = req.headers.authorization || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  if (!token) return res.status(401).json({ error: 'unauthorized' });
+  try {
+    const { rows } = await pool.query(
+      'SELECT id, username, is_admin FROM users WHERE session_token = $1 AND disabled = false',
+      [token]
+    );
+    if (!rows.length) return res.status(401).json({ error: 'unauthorized' });
+    req.user = rows[0];
+    next();
+  } catch (e) {
+    console.error('requireAuth error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+}
+
+/* 疊在 requireAuth 外面多一層——GM身分是直接在DB把 users.is_admin 標成true，沒有註冊流程 */
+function requireAdmin(req, res, next) {
+  if (!req.user?.is_admin) return res.status(403).json({ error: 'forbidden' });
+  next();
+}
+
+/* 讀取帳號收藏庫；任一 id 在目前 POKEMON 名單裡找不到就視為損壞，重新生成並覆寫回DB */
+async function loadUserTeam(userId) {
+  const { rows } = await pool.query('SELECT pokemon_ids FROM teams WHERE user_id = $1', [userId]);
+  let ids = rows[0]?.pokemon_ids || [];
+  let mons = ids.map(id => POKEMON.find(p => p.id === id)).filter(Boolean);
+  if (mons.length !== 6) {
+    ids = generatePlayerPool();
+    mons = ids.map(id => POKEMON.find(p => p.id === id));
+    await pool.query(
+      `INSERT INTO teams (user_id, pokemon_ids) VALUES ($1, $2)
+       ON CONFLICT (user_id) DO UPDATE SET pokemon_ids = $2, updated_at = NOW()`,
+      [userId, ids]
+    );
+  }
+  return mons;
+}
+
+app.post('/api/register', async (req, res) => {
+  if (!pool) return res.status(503).json({ error: 'no_db' });
+  const { username, password } = req.body || {};
+  if (typeof username !== 'string' || !/^[A-Za-z0-9_]{3,20}$/.test(username)) {
+    return res.status(400).json({ error: 'invalid_username' });
+  }
+  if (typeof password !== 'string' || password.length < 8) {
+    return res.status(400).json({ error: 'invalid_password' });
+  }
+  try {
+    const passwordHash = hashPassword(password);
+    const token = crypto.randomBytes(32).toString('hex');
+    const { rows } = await pool.query(
+      'INSERT INTO users (username, password_hash, session_token) VALUES ($1, $2, $3) RETURNING id',
+      [username, passwordHash, token]
+    );
+    const pokemonIds = generatePlayerPool();
+    await pool.query('INSERT INTO teams (user_id, pokemon_ids) VALUES ($1, $2)', [rows[0].id, pokemonIds]);
+    res.status(201).json({ token, username });
+  } catch (e) {
+    if (e.code === '23505') return res.status(409).json({ error: 'username_taken' });
+    console.error('register error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+app.post('/api/login', async (req, res) => {
+  if (!pool) return res.status(503).json({ error: 'no_db' });
+  const { username, password } = req.body || {};
+  if (typeof username !== 'string' || typeof password !== 'string') {
+    return res.status(401).json({ error: 'invalid_credentials' });
+  }
+  try {
+    const { rows } = await pool.query(
+      'SELECT id, password_hash FROM users WHERE username = $1 AND disabled = false',
+      [username]
+    );
+    if (!rows.length || !verifyPassword(password, rows[0].password_hash)) {
+      return res.status(401).json({ error: 'invalid_credentials' });
+    }
+    const token = crypto.randomBytes(32).toString('hex');
+    await pool.query('UPDATE users SET session_token = $1 WHERE id = $2', [token, rows[0].id]);
+    res.json({ token, username });
+  } catch (e) {
+    console.error('login error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+app.post('/api/logout', requireAuth, async (req, res) => {
+  try {
+    await pool.query('UPDATE users SET session_token = NULL WHERE id = $1', [req.user.id]);
+    res.json({});
+  } catch (e) {
+    console.error('logout error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+app.get('/api/me', requireAuth, (req, res) => {
+  res.json({ username: req.user.username });
+});
+
+app.get('/api/team', requireAuth, async (req, res) => {
+  try {
+    const team = await loadUserTeam(req.user.id);
+    res.json({ team });
+  } catch (e) {
+    console.error('team error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 不需要登入就能看——純顯示用途；週次靠日期分桶，沒有排程/cron，"重置"是隱含的（新的一週第一場結束就自然開新的一列） */
+app.get('/api/leaderboard', async (req, res) => {
+  if (!pool) return res.status(503).json({ error: 'no_db' });
+  try {
+    const weekStart = mondayOfWeek(new Date());
+    const { rows } = await pool.query(
+      `SELECT u.username, ws.wins FROM weekly_stats ws
+       JOIN users u ON u.id = ws.user_id
+       WHERE ws.week_start_date = $1
+       ORDER BY ws.wins DESC LIMIT 50`,
+      [weekStart]
+    );
+    res.json({ weekStart, entries: rows });
+  } catch (e) {
+    console.error('leaderboard error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* ── GM 管理後台：都掛 requireAuth + requireAdmin 兩層 ── */
+app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const weekStart = mondayOfWeek(new Date());
+    const { rows } = await pool.query(
+      `SELECT u.id, u.username, u.created_at, u.disabled, u.is_admin,
+              COALESCE(ws.wins, 0) AS this_week_wins
+       FROM users u
+       LEFT JOIN weekly_stats ws ON ws.user_id = u.id AND ws.week_start_date = $1
+       ORDER BY u.id`,
+      [weekStart]
+    );
+    res.json({ users: rows.map(r => ({
+      id: r.id, username: r.username, createdAt: r.created_at,
+      disabled: r.disabled, isAdmin: r.is_admin, thisWeekWins: r.this_week_wins,
+    })) });
+  } catch (e) {
+    console.error('admin users error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 只是切換停用狀態，不刪資料——team/weekly_stats都保留，跟DELETE是唯一真的刪資料的端點分開 */
+app.post('/api/admin/users/:id/disable', requireAuth, requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) return res.status(400).json({ error: 'invalid_id' });
+  try {
+    await pool.query('UPDATE users SET disabled = $1 WHERE id = $2', [!!req.body?.disabled, id]);
+    res.json({});
+  } catch (e) {
+    console.error('admin disable error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 硬刪除，靠 teams/weekly_stats 的 ON DELETE CASCADE 一起清掉——這是唯一真的會讓資料消失的操作 */
+app.delete('/api/admin/users/:id', requireAuth, requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) return res.status(400).json({ error: 'invalid_id' });
+  try {
+    await pool.query('DELETE FROM users WHERE id = $1', [id]);
+    res.json({});
+  } catch (e) {
+    console.error('admin delete error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 沒有email，這是玩家忘記密碼時唯一的救濟手段——順便清掉舊session，逼玩家用新密碼重新登入 */
+app.post('/api/admin/users/:id/reset-password', requireAuth, requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  const { newPassword } = req.body || {};
+  if (!Number.isInteger(id)) return res.status(400).json({ error: 'invalid_id' });
+  if (typeof newPassword !== 'string' || newPassword.length < 8) return res.status(400).json({ error: 'invalid_password' });
+  try {
+    await pool.query('UPDATE users SET password_hash = $1, session_token = NULL WHERE id = $2', [hashPassword(newPassword), id]);
+    res.json({});
+  } catch (e) {
+    console.error('admin reset-password error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 直接覆寫（不是累加）某玩家某週的勝敗數字，用於修正bug或作弊——沒有自動填today的week，GM要自己選週次 */
+app.post('/api/admin/stats/:userId', requireAuth, requireAdmin, async (req, res) => {
+  const userId = Number(req.params.userId);
+  const { weekStartDate, wins, losses } = req.body || {};
+  if (!Number.isInteger(userId)) return res.status(400).json({ error: 'invalid_id' });
+  if (typeof weekStartDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(weekStartDate)) return res.status(400).json({ error: 'invalid_week' });
+  if (!Number.isInteger(wins) || wins < 0 || !Number.isInteger(losses) || losses < 0) return res.status(400).json({ error: 'invalid_stats' });
+  try {
+    await pool.query(
+      `INSERT INTO weekly_stats (user_id, week_start_date, wins, losses) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (user_id, week_start_date) DO UPDATE SET wins = $3, losses = $4`,
+      [userId, weekStartDate, wins, losses]
+    );
+    res.json({});
+  } catch (e) {
+    console.error('admin stats error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* ═══════════════════════════════════════════
    WEBSOCKET
 ═══════════════════════════════════════════ */
-wss.on('connection', ws => {
+wss.on('connection', (ws, req) => {
   ws.roomCode = null;
   ws.role     = null;
+  ws.userId   = null;
+  ws.username = null;
+
+  /* 帶token就驗證，驗證失敗/沒帶token/沒有pool一律當匿名放行，絕不拒絕連線。
+     驗證是非同步的，所以先把connection期間收到的訊息排隊，驗證完（不管成功失敗）再依序處理，
+     避免玩家連線後馬上動作時，因為token還沒驗完而漏接第一則訊息。 */
+  const msgQueue = [];
+  let authPending = false;
+  const token = new URL(req.url, 'http://localhost').searchParams.get('token');
+
+  function drainQueue() {
+    authPending = false;
+    while (msgQueue.length) {
+      const raw = msgQueue.shift();
+      let msg;
+      try { msg = JSON.parse(raw); } catch { continue; }
+      handleMessage(ws, msg).catch(e => console.error('WS handler error:', e));
+    }
+  }
+
+  if (token && pool) {
+    authPending = true;
+    pool.query('SELECT id, username FROM users WHERE session_token = $1 AND disabled = false', [token])
+      .then(({ rows }) => {
+        if (rows.length) { ws.userId = rows[0].id; ws.username = rows[0].username; }
+      })
+      .catch(e => console.error('WS token verify error:', e.message))
+      .finally(drainQueue);
+  }
 
   ws.on('message', raw => {
+    if (authPending) { msgQueue.push(raw); return; }
     let msg;
     try { msg = JSON.parse(raw); } catch { return; }
-    try { handleMessage(ws, msg); } catch(e) { console.error('WS handler error:', e); }
+    handleMessage(ws, msg).catch(e => console.error('WS handler error:', e));
   });
 
   ws.on('close', () => {
@@ -1249,14 +1569,28 @@ wss.on('connection', ws => {
   });
 });
 
-function handleMessage(ws, msg) {
+/* 已登入且DB可用 → 讀帳號持久收藏庫（含損壞自動修復）；匿名玩家/沒有pool/讀取失敗 → 原本的 randomRoster()，
+   這個fallback必須是今天原本的路徑，確保匿名玩家（以及帳號功能出狀況時）行為完全不變 */
+async function getRosterForConnection(ws) {
+  if (ws.userId && pool) {
+    try {
+      return await loadUserTeam(ws.userId);
+    } catch (e) {
+      console.error('loadUserTeam failed, falling back to randomRoster:', e.message);
+      return randomRoster();
+    }
+  }
+  return randomRoster();
+}
+
+async function handleMessage(ws, msg) {
     const { type } = msg;
 
     /* ── Lobby ── */
     if (type === 'create_room') {
       const code   = genCode();
-      const roster = randomRoster();
-      const room   = { code, p1: ws, p2: null, phase: 'waiting', p1Roster: roster, p2Roster: null, p1Team: null, p2Team: null, p1Ready: false, p2Ready: false, G: null, p1Rerolls: 0, p2Rerolls: 0, coinFlip: null };
+      const roster = await getRosterForConnection(ws);
+      const room   = { code, p1: ws, p2: null, phase: 'waiting', p1Roster: roster, p2Roster: null, p1Team: null, p2Team: null, p1Ready: false, p2Ready: false, G: null, p1Rerolls: 0, p2Rerolls: 0, p1TeamEdits: 0, p2TeamEdits: 0, p1EditCandidates: null, p2EditCandidates: null, coinFlip: null, p1UserId: ws.userId ?? null, p2UserId: null };
       rooms.set(code, room);
       ws.roomCode = code; ws.role = 'p1';
       send(ws, { type: 'room_created', code, role: 'p1', roster });
@@ -1270,7 +1604,8 @@ function handleMessage(ws, msg) {
       if (room.p2)   { send(ws, { type: 'error', message: '房間已滿' }); return; }
       room.p2       = ws;
       ws.roomCode   = code; ws.role = 'p2';
-      room.p2Roster = randomRoster();
+      room.p2Roster = await getRosterForConnection(ws);
+      room.p2UserId = ws.userId ?? null;
       room.phase    = 'selecting';
       send(ws,      { type: 'joined', role: 'p2', roster: room.p2Roster });
       send(room.p1, { type: 'opponent_joined' });
@@ -1307,6 +1642,55 @@ function handleMessage(ws, msg) {
       const newRoster = randomRoster();
       room[`${role}Roster`] = newRoster;
       send(ws, { type: 'roster_update', roster: newRoster, rerollsLeft: 3 - room[key] });
+      return;
+    }
+
+    /* 已登入玩家專用（取代匿名玩家的reroll）：生成6隻候補，玩家自選要換掉收藏庫裡的哪幾隻，
+       每場比賽前最多3次，跟reroll用一樣的次數模型（生成候補本身就算用掉1次，不管最後有沒有真的換） */
+    if (type === 'edit_team') {
+      if (!ws.userId || !pool) { send(ws, { type: 'error', message: '請先登入才能編輯隊伍' }); return; }
+      if (room.phase !== 'selecting' && room.phase !== 'waiting') { send(ws, { type: 'error', message: '目前階段無法編輯隊伍' }); return; }
+      const key = `${role}TeamEdits`;
+      if (room[key] >= 3) { send(ws, { type: 'error', message: '編輯隊伍次數已用完！' }); return; }
+      room[key]++;
+      const candidateIds = generatePlayerPool();
+      const candidates = candidateIds.map(id => POKEMON.find(p => p.id === id));
+      room[`${role}EditCandidates`] = candidates;
+      send(ws, { type: 'team_edit_candidates', candidates, editsLeft: 3 - room[key] });
+      return;
+    }
+
+    if (type === 'confirm_team_edit') {
+      if (!ws.userId || !pool) { send(ws, { type: 'error', message: '請先登入才能編輯隊伍' }); return; }
+      const candKey = `${role}EditCandidates`;
+      const candidates = room[candKey];
+      if (!candidates) { send(ws, { type: 'error', message: '請先點編輯隊伍生成候補' }); return; }
+      const swaps = Array.isArray(msg.swaps) ? msg.swaps : [];
+      const usedSlots = new Set(), usedCandidateIds = new Set();
+      for (const s of swaps) {
+        if (!s || typeof s.slotIdx !== 'number' || s.slotIdx < 0 || s.slotIdx > 5) { send(ws, { type: 'error', message: '無效的隊伍位置' }); return; }
+        if (!candidates.some(p => p.id === s.candidatePokemonId)) { send(ws, { type: 'error', message: '無效的候補寶可夢' }); return; }
+        if (usedSlots.has(s.slotIdx) || usedCandidateIds.has(s.candidatePokemonId)) { send(ws, { type: 'error', message: '每個位置/候補只能用一次' }); return; }
+        usedSlots.add(s.slotIdx); usedCandidateIds.add(s.candidatePokemonId);
+      }
+      const rosterKey = `${role}Roster`;
+      const roster = [...room[rosterKey]];
+      for (const s of swaps) {
+        roster[s.slotIdx] = candidates.find(p => p.id === s.candidatePokemonId);
+      }
+      room[rosterKey] = roster;
+      room[candKey] = null;
+      try {
+        await pool.query(
+          `INSERT INTO teams (user_id, pokemon_ids) VALUES ($1, $2)
+           ON CONFLICT (user_id) DO UPDATE SET pokemon_ids = $2, updated_at = NOW()`,
+          [ws.userId, roster.map(p => p.id)]
+        );
+      } catch (e) {
+        console.error('persist team edit error:', e.message);
+        /* DB沒寫成功，但房間內roster已經更新，這場對戰照樣繼續——不讓玩家卡在team-select畫面 */
+      }
+      send(ws, { type: 'team_edit_confirmed', roster, editsLeft: 3 - room[`${role}TeamEdits`] });
       return;
     }
 
@@ -1367,19 +1751,13 @@ function handleMessage(ws, msg) {
         const roleAlive = G[`${role}Deck`].filter(p => p.cur > 0).length;
         const opAlive   = G[`${op}Deck`].filter(p => p.cur > 0).length;
         if (roleAlive === 0 && opAlive === 0) {
-          G.winner = 'draw';
-          broadcast(room, { type: 'game_over', winner: 'draw', state: G, log });
-          room.phase = 'done'; return;
+          endGame(room, 'draw', log); return;
         }
         if (roleAlive === 0) {
-          G.winner = op;
-          broadcast(room, { type: 'game_over', winner: op, state: G, log });
-          room.phase = 'done'; return;
+          endGame(room, op, log); return;
         }
         if (opAlive === 0) {
-          G.winner = role;
-          broadcast(room, { type: 'game_over', winner: role, state: G, log });
-          room.phase = 'done'; return;
+          endGame(room, role, log); return;
         }
         G.pendingKOSwitch = role;
         G.pendingKOSwitchQueue = [op];
@@ -1451,9 +1829,7 @@ function handleMessage(ws, msg) {
         // deliberately-unaddressed quirk at the time).
         const alive = G[`${role}Deck`].filter(p => p.cur > 0).length;
         if (alive === 0) {
-          G.winner = op;
-          broadcast(room, { type: 'game_over', winner: op, state: G, log });
-          room.phase = 'done'; return;
+          endGame(room, op, log); return;
         }
         G.pendingKOSwitch = role;
         G.turn = op;
@@ -1470,9 +1846,7 @@ function handleMessage(ws, msg) {
         if (attacker.cur <= 0) {
           const alive = G[`${role}Deck`].filter(p => p.cur > 0).length;
           if (alive === 0) {
-            G.winner = op;
-            broadcast(room, { type: 'game_over', winner: op, state: G, log });
-            room.phase = 'done'; return;
+            endGame(room, op, log); return;
           }
           G.pendingKOSwitch = role;
           broadcast(room, { type: 'update', state: G, log, actor: role }); return;
@@ -1512,19 +1886,13 @@ function handleMessage(ws, msg) {
         const roleAlive = G[`${role}Deck`].filter(p => p.cur > 0).length;
         const opAlive    = G[`${op}Deck`].filter(p => p.cur > 0).length;
         if (roleAlive === 0 && opAlive === 0) {
-          G.winner = 'draw';
-          broadcast(room, { type: 'game_over', winner: 'draw', state: G, log });
-          room.phase = 'done'; return;
+          endGame(room, 'draw', log); return;
         }
         if (roleAlive === 0) {
-          G.winner = op;
-          broadcast(room, { type: 'game_over', winner: op, state: G, log });
-          room.phase = 'done'; return;
+          endGame(room, op, log); return;
         }
         if (opAlive === 0) {
-          G.winner = role;
-          broadcast(room, { type: 'game_over', winner: role, state: G, log, atkType: atk.type });
-          room.phase = 'done'; return;
+          endGame(room, role, log, { atkType: atk.type }); return;
         }
         // Both sides have reserves — both must pick a replacement, attacker's side first.
         // Attacker's turn concludes (their attack landed successfully) — turn passes to op,
@@ -1545,9 +1913,7 @@ function handleMessage(ws, msg) {
         //對方回合".
         const alive = G[`${role}Deck`].filter(p => p.cur > 0).length;
         if (alive === 0) {
-          G.winner = op;
-          broadcast(room, { type: 'game_over', winner: op, state: G, log });
-          room.phase = 'done'; return;
+          endGame(room, op, log); return;
         }
         G.pendingKOSwitch = role;
         G.turn = op;
@@ -1559,9 +1925,7 @@ function handleMessage(ws, msg) {
       if (defenderDied) {
         const opAlive = G[`${op}Deck`].filter(p => p.cur > 0).length;
         if (opAlive === 0) {
-          G.winner = role;
-          broadcast(room, { type: 'game_over', winner: role, state: G, log, atkType: atk.type });
-          room.phase = 'done'; return;
+          endGame(room, role, log, { atkType: atk.type }); return;
         }
         G.pendingKOSwitch = op;
         G.turn = op;
@@ -1591,9 +1955,7 @@ function handleMessage(ws, msg) {
       if (active.cur <= 0) {
         const alive = G[`${role}Deck`].filter(p => p.cur > 0).length;
         if (alive === 0) {
-          G.winner = op;
-          broadcast(room, { type: 'game_over', winner: op, state: G, log });
-          room.phase = 'done'; return;
+          endGame(room, op, log); return;
         }
         G.pendingKOSwitch = role;
         broadcast(room, { type: 'update', state: G, log, actor: role }); return;
@@ -1707,6 +2069,27 @@ async function initDB() {
   if (!pool) { console.log('No DB configured, running in-memory only'); return; }
   try {
     await pool.query(`CREATE TABLE IF NOT EXISTS rooms (code TEXT PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW())`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      username TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      session_token TEXT,
+      is_admin BOOLEAN NOT NULL DEFAULT false,
+      disabled BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS teams (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      pokemon_ids INTEGER[] NOT NULL,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS weekly_stats (
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      week_start_date DATE NOT NULL,
+      wins INTEGER NOT NULL DEFAULT 0,
+      losses INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (user_id, week_start_date)
+    )`);
     console.log('PostgreSQL connected');
   } catch (e) {
     console.warn('PostgreSQL not available, running without DB:', e.message);

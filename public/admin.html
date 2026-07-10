@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>寶可夢卡牌對戰 — 管理後台</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:      #07091a;
+    --surface: rgba(255,255,255,0.05);
+    --border:  rgba(255,255,255,0.10);
+    --text:    #e8eaf6;
+    --muted:   #7986cb;
+  }
+  body { font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; overflow-x:hidden; }
+  #stars { position:fixed; inset:0; z-index:0; pointer-events:none; }
+  .screen { position:relative; z-index:1; display:none; min-height:100vh; padding:2rem 1rem; }
+  .screen.active { display:flex; flex-direction:column; align-items:center; }
+  h1 { font-size:1.6rem; font-weight:900; background:linear-gradient(135deg,#90caf9,#6890f0); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; margin-bottom:0.4rem; }
+  .btn { padding:0.55rem 1.4rem; border:none; border-radius:999px; font-size:0.9rem; font-weight:700; cursor:pointer; transition:all 0.2s; }
+  .btn-primary { background:linear-gradient(135deg,#f8d030,#f05030); color:#fff; }
+  .btn-primary:hover:not(:disabled) { transform:translateY(-2px); }
+  .btn-secondary { background:rgba(255,255,255,0.07); color:var(--text); border:1px solid var(--border); }
+  .btn-secondary:hover { background:rgba(255,255,255,0.13); }
+  .btn-danger { background:rgba(239,83,80,0.15); color:#ef5350; border:1px solid rgba(239,83,80,0.4); }
+  .btn-danger:hover { background:rgba(239,83,80,0.3); }
+  .btn:disabled { opacity:0.4; cursor:not-allowed; }
+  input { padding:0.5rem 0.8rem; border-radius:8px; border:2px solid var(--border); background:rgba(255,255,255,0.07); color:var(--text); font-size:0.9rem; outline:none; }
+  input:focus { border-color:rgba(144,202,249,0.5); }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:1.5rem; width:100%; max-width:340px; }
+  .err { color:#ef5350; font-size:0.85rem; min-height:1.2em; margin-top:0.6rem; }
+  table { width:100%; max-width:960px; border-collapse:collapse; margin-top:1.2rem; }
+  th, td { padding:0.6rem 0.7rem; text-align:left; border-bottom:1px solid var(--border); font-size:0.85rem; }
+  th { color:var(--muted); font-weight:700; }
+  tr.disabled-row td { opacity:0.45; }
+  .badge { display:inline-block; padding:0.1rem 0.5rem; border-radius:999px; font-size:0.72rem; font-weight:700; }
+  .badge-admin { background:rgba(248,208,48,0.15); color:#f8d030; }
+  .badge-disabled { background:rgba(239,83,80,0.15); color:#ef5350; }
+  .row-actions { display:flex; gap:0.4rem; flex-wrap:wrap; }
+  .inline-panel { display:flex; gap:0.4rem; align-items:center; margin-top:0.4rem; flex-wrap:wrap; }
+  .inline-panel input { width:110px; }
+  .topbar { display:flex; justify-content:space-between; align-items:center; width:100%; max-width:960px; margin-bottom:1rem; }
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+
+<!-- ══ LOGIN ══ -->
+<div id="login-screen" class="screen active">
+  <div class="card" style="display:flex;flex-direction:column;align-items:center;gap:1rem;text-align:center">
+    <h1>管理後台</h1>
+    <p style="color:var(--muted);font-size:0.85rem">僅限管理員帳號登入</p>
+    <input id="login-username" placeholder="帳號" style="width:100%">
+    <input id="login-password" type="password" placeholder="密碼" onkeydown="if(event.key==='Enter')doLogin()" style="width:100%">
+    <button class="btn btn-primary" style="width:100%" onclick="doLogin()">登入</button>
+    <div id="login-err" class="err"></div>
+  </div>
+</div>
+
+<!-- ══ NO PERMISSION ══ -->
+<div id="noperm-screen" class="screen">
+  <div class="card" style="text-align:center">
+    <h1>沒有權限</h1>
+    <p style="color:var(--muted);font-size:0.9rem;margin-top:0.6rem">這個帳號不是管理員。</p>
+    <button class="btn btn-secondary" style="margin-top:1rem" onclick="doLogout()">登出</button>
+  </div>
+</div>
+
+<!-- ══ DASHBOARD ══ -->
+<div id="dash-screen" class="screen">
+  <div class="topbar">
+    <h1 style="margin:0">帳號管理</h1>
+    <div style="display:flex;gap:0.6rem;align-items:center">
+      <span style="color:var(--muted);font-size:0.85rem">管理員：<b id="dash-username" style="color:var(--text)"></b></span>
+      <button class="btn btn-secondary" onclick="loadUsers()">重新整理</button>
+      <button class="btn btn-secondary" onclick="doLogout()">登出</button>
+    </div>
+  </div>
+  <div id="dash-err" class="err"></div>
+  <table>
+    <thead>
+      <tr><th>ID</th><th>帳號</th><th>建立時間</th><th>本週勝場</th><th>狀態</th><th>操作</th></tr>
+    </thead>
+    <tbody id="users-tbody"></tbody>
+  </table>
+</div>
+
+<script>
+(function(){
+  const cvs = document.getElementById('stars');
+  const ctx = cvs.getContext('2d');
+  let stars = [];
+  function resize(){
+    cvs.width=innerWidth; cvs.height=innerHeight;
+    stars=Array.from({length:130},()=>({x:Math.random()*cvs.width,y:Math.random()*cvs.height,r:Math.random()*1.3+0.2,a:Math.random(),da:(Math.random()-0.5)*0.007}));
+  }
+  function draw(){
+    ctx.clearRect(0,0,cvs.width,cvs.height);
+    for(const s of stars){s.a+=s.da;if(s.a<=0.05||s.a>=1)s.da=-s.da;ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fillStyle=`rgba(255,255,255,${s.a.toFixed(2)})`;ctx.fill();}
+    requestAnimationFrame(draw);
+  }
+  resize(); draw(); addEventListener('resize',resize);
+})();
+
+let myToken = localStorage.getItem('adminToken') || null;
+let users = [];
+let pendingDeleteId = null; // 兩段式確認：第一次點「刪除」進入確認態，避免誤觸
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+async function api(path, opts = {}) {
+  const headers = Object.assign({}, opts.headers || {});
+  if (myToken) headers.Authorization = `Bearer ${myToken}`;
+  if (opts.body) headers['Content-Type'] = 'application/json';
+  const res = await fetch(path, Object.assign({}, opts, { headers }));
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data };
+}
+
+async function doLogin() {
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-err');
+  errEl.textContent = '';
+  const { ok, data } = await api('/api/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+  if (!ok) { errEl.textContent = data.error === 'no_db' ? '帳號功能目前無法使用' : '帳號或密碼錯誤'; return; }
+  myToken = data.token;
+  localStorage.setItem('adminToken', myToken);
+  await checkAdminAndEnter();
+}
+
+async function checkAdminAndEnter() {
+  if (!myToken) { showScreen('login-screen'); return; }
+  const me = await api('/api/me');
+  if (!me.ok) { myToken = null; localStorage.removeItem('adminToken'); showScreen('login-screen'); return; }
+  // /api/me doesn't return isAdmin today, so confirm admin status via the admin-only list endpoint itself
+  const usersRes = await api('/api/admin/users');
+  if (usersRes.status === 403) { showScreen('noperm-screen'); return; }
+  if (!usersRes.ok) { document.getElementById('login-err').textContent = '載入失敗，請稍後再試'; showScreen('login-screen'); return; }
+  document.getElementById('dash-username').textContent = me.data.username;
+  users = usersRes.data.users;
+  renderUsers();
+  showScreen('dash-screen');
+}
+
+function doLogout() {
+  myToken = null;
+  localStorage.removeItem('adminToken');
+  showScreen('login-screen');
+}
+
+async function loadUsers() {
+  const errEl = document.getElementById('dash-err');
+  errEl.textContent = '';
+  const { ok, status, data } = await api('/api/admin/users');
+  if (status === 403) { showScreen('noperm-screen'); return; }
+  if (!ok) { errEl.textContent = '載入失敗，請稍後再試'; return; }
+  users = data.users;
+  renderUsers();
+}
+
+function renderUsers() {
+  const tbody = document.getElementById('users-tbody');
+  tbody.innerHTML = '';
+  users.forEach(u => {
+    const tr = document.createElement('tr');
+    if (u.disabled) tr.className = 'disabled-row';
+    const created = u.createdAt ? new Date(u.createdAt).toLocaleDateString('zh-TW') : '—';
+    tr.innerHTML = `
+      <td>${u.id}</td>
+      <td>${u.username}</td>
+      <td>${created}</td>
+      <td>${u.thisWeekWins}</td>
+      <td>${u.isAdmin ? '<span class="badge badge-admin">管理員</span>' : ''} ${u.disabled ? '<span class="badge badge-disabled">已停用</span>' : ''}</td>
+      <td>
+        <div class="row-actions">
+          <button class="btn btn-secondary" onclick="toggleDisable(${u.id}, ${!u.disabled})">${u.disabled ? '啟用' : '停用'}</button>
+          <button class="btn btn-secondary" onclick="togglePanel('pw-${u.id}')">重設密碼</button>
+          <button class="btn btn-secondary" onclick="togglePanel('stats-${u.id}')">改勝敗</button>
+          <button class="btn btn-danger" onclick="confirmDelete(${u.id})">${pendingDeleteId === u.id ? '確定刪除？再按一次' : '刪除'}</button>
+        </div>
+        <div id="pw-${u.id}" class="inline-panel" style="display:none">
+          <input type="password" id="pw-input-${u.id}" placeholder="新密碼（至少8碼）">
+          <button class="btn btn-primary" onclick="resetPassword(${u.id})">確認</button>
+        </div>
+        <div id="stats-${u.id}" class="inline-panel" style="display:none">
+          <input type="date" id="stats-week-${u.id}" value="${defaultWeekStart()}">
+          <input type="number" id="stats-wins-${u.id}" placeholder="勝場" min="0" style="width:70px">
+          <input type="number" id="stats-losses-${u.id}" placeholder="敗場" min="0" style="width:70px">
+          <button class="btn btn-primary" onclick="updateStats(${u.id})">確認</button>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function defaultWeekStart() {
+  const d = new Date();
+  const day = d.getDay();
+  const diff = (day === 0 ? -6 : 1) - day;
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().slice(0, 10);
+}
+
+function togglePanel(id) {
+  const el = document.getElementById(id);
+  const isOpen = el.style.display !== 'none';
+  document.querySelectorAll('.inline-panel').forEach(p => p.style.display = 'none');
+  el.style.display = isOpen ? 'none' : 'flex';
+}
+
+async function toggleDisable(id, disabled) {
+  const errEl = document.getElementById('dash-err');
+  errEl.textContent = '';
+  const { ok } = await api(`/api/admin/users/${id}/disable`, { method: 'POST', body: JSON.stringify({ disabled }) });
+  if (!ok) { errEl.textContent = '操作失敗，請稍後再試'; return; }
+  loadUsers();
+}
+
+function confirmDelete(id) {
+  if (pendingDeleteId === id) {
+    doDelete(id);
+    return;
+  }
+  pendingDeleteId = id;
+  renderUsers();
+  setTimeout(() => { if (pendingDeleteId === id) { pendingDeleteId = null; renderUsers(); } }, 4000);
+}
+
+async function doDelete(id) {
+  pendingDeleteId = null;
+  const errEl = document.getElementById('dash-err');
+  errEl.textContent = '';
+  const { ok } = await api(`/api/admin/users/${id}`, { method: 'DELETE' });
+  if (!ok) { errEl.textContent = '刪除失敗，請稍後再試'; renderUsers(); return; }
+  loadUsers();
+}
+
+async function resetPassword(id) {
+  const input = document.getElementById(`pw-input-${id}`);
+  const newPassword = input.value;
+  const errEl = document.getElementById('dash-err');
+  errEl.textContent = '';
+  if (newPassword.length < 8) { errEl.textContent = '密碼至少需要8碼'; return; }
+  const { ok } = await api(`/api/admin/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword }) });
+  if (!ok) { errEl.textContent = '重設失敗，請稍後再試'; return; }
+  input.value = '';
+  togglePanel(`pw-${id}`);
+}
+
+async function updateStats(id) {
+  const weekStartDate = document.getElementById(`stats-week-${id}`).value;
+  const wins = Number(document.getElementById(`stats-wins-${id}`).value);
+  const losses = Number(document.getElementById(`stats-losses-${id}`).value);
+  const errEl = document.getElementById('dash-err');
+  errEl.textContent = '';
+  if (!weekStartDate || !Number.isInteger(wins) || wins < 0 || !Number.isInteger(losses) || losses < 0) {
+    errEl.textContent = '請確認週次/勝場/敗場都已正確填寫'; return;
+  }
+  const { ok } = await api(`/api/admin/stats/${id}`, { method: 'POST', body: JSON.stringify({ weekStartDate, wins, losses }) });
+  if (!ok) { errEl.textContent = '更新失敗，請稍後再試'; return; }
+  togglePanel(`stats-${id}`);
+  loadUsers();
+}
+
+checkAdminAndEnter();
+</script>
+</body>
+</html>
