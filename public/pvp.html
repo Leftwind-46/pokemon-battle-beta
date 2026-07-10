@@ -55,7 +55,7 @@
     #lobby-err { color:#ef5350; font-size:0.88rem; min-height:1.2em; }
 
     /* ══ TEAM SELECT ══ */
-    #team-select-screen { align-items:center; justify-content:center; padding:2rem 1rem 2.5rem; gap:1.5rem; text-align:center; }
+    #team-select-screen, #myteam-screen { align-items:center; justify-content:center; padding:2rem 1rem 2.5rem; gap:1.5rem; text-align:center; }
     #team-select-screen h2 { font-size:1.5rem; font-weight:900; background:linear-gradient(135deg,#90caf9,#6890f0); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
     .ts-subtitle { font-size:0.92rem; color:var(--muted); }
     .ts-waiting { font-size:0.88rem; color:var(--muted); animation:pulse 1.5s ease-in-out infinite; }
@@ -577,6 +577,7 @@
       </span>
       <span id="auth-status-loggedin" style="display:none;gap:0.5rem;align-items:center">
         已登入：<b id="auth-username-label"></b>
+        <button class="btn btn-secondary" onclick="openMyTeam()" style="font-size:0.82rem;padding:0.45rem 1.2rem">🎒 我的隊伍</button>
         <button class="btn btn-secondary" onclick="logout()" style="font-size:0.82rem;padding:0.45rem 1rem">登出</button>
       </span>
       <button class="btn btn-secondary" onclick="openLeaderboard()" style="font-size:0.82rem;padding:0.45rem 1.2rem">🏆 排行榜</button>
@@ -629,6 +630,15 @@
     <div id="lb-err" style="color:#ef5350;font-size:0.88rem;min-height:1.2em"></div>
     <button class="btn btn-secondary" onclick="showScreen('lobby-screen')" style="font-size:0.88rem;padding:0.55rem 1.5rem">← 返回大廳</button>
   </div>
+</div>
+
+<!-- ══ MY TEAM (唯讀預覽，登入後的持久6隻收藏庫；要換隻請在對戰前team-select畫面用「編輯隊伍」) ══ -->
+<div id="myteam-screen" class="screen">
+  <h2>我的隊伍</h2>
+  <div class="ts-subtitle">帳號的持久收藏庫（唯讀）——要更換寶可夢，請在對戰前的隊伍選擇畫面使用「編輯隊伍」</div>
+  <div class="sel-cards-row" id="myteam-cards-row"></div>
+  <div id="myteam-err" style="color:#ef5350;font-size:0.88rem;min-height:1.2em"></div>
+  <button class="btn btn-secondary" onclick="showScreen('lobby-screen')" style="font-size:0.88rem;padding:0.55rem 1.5rem">← 返回大廳</button>
 </div>
 
 <!-- ══ TEAM SELECT ══ -->
@@ -1378,6 +1388,47 @@ async function loadLeaderboard() {
     });
   } catch (e) {
     listEl.innerHTML = '';
+    errEl.textContent = '連線失敗，請稍後再試';
+  }
+}
+
+function openMyTeam() {
+  showScreen('myteam-screen');
+  loadMyTeam();
+}
+
+async function loadMyTeam() {
+  const row   = document.getElementById('myteam-cards-row');
+  const errEl = document.getElementById('myteam-err');
+  errEl.textContent = '';
+  row.innerHTML = '載入中…';
+  if (!myToken) { row.innerHTML = ''; errEl.textContent = '請先登入'; return; }
+  try {
+    const res  = await fetch('/api/team', { headers: { Authorization: `Bearer ${myToken}` } });
+    const data = await res.json();
+    if (!res.ok) {
+      row.innerHTML = '';
+      errEl.textContent = data.error === 'no_db' ? '帳號功能目前無法使用' : (data.error === 'unauthorized' ? '登入狀態已失效，請重新登入' : '載入失敗，請稍後再試');
+      return;
+    }
+    row.innerHTML = '';
+    data.team.forEach(p => {
+      const col = TYPE_COLOR[p.type] || '#888';
+      const el = document.createElement('div');
+      el.className = 'sel-card';
+      el.innerHTML = `
+        <div class="sel-strip" style="background:${col}"></div>
+        <img src="${spriteUrl(p.id)}" alt="${p.name}" onerror="this.onerror=null;this.src='${officialArtworkUrl(p.id)}'">
+        <div class="sel-name">${p.name}</div>
+        ${p.ability ? `<div class="ability-badge" title="${p.ability.desc}">✨ ${p.ability.name}</div>` : ''}
+        ${p.mega ? `<div class="mega-badge" title="可以 Mega 進化">💎 可 Mega 進化</div>` : ''}
+        <div class="sel-hp">HP ${p.hp}</div>
+        <div class="sel-moves">${p.attacks.map(a=>`<div class="sel-move"><span class="sel-move-badge" style="background:${TYPE_COLOR[a.type]||'#888'}">${TYPE_ZH[a.type]||a.type}</span><span>${a.name} ${a.dmg} · ⚡${a.cost}</span></div>`).join('')}</div>
+      `;
+      row.appendChild(el);
+    });
+  } catch (e) {
+    row.innerHTML = '';
     errEl.textContent = '連線失敗，請稍後再試';
   }
 }
