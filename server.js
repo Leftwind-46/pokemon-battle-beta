@@ -16,8 +16,12 @@ const pgUri = process.env.DATABASE_URL
       ? `postgresql://${process.env.POSTGRES_USERNAME||'postgres'}:${process.env.POSTGRES_PASSWORD}@${process.env.POSTGRES_HOST}:${process.env.POSTGRES_PORT||5432}/${process.env.POSTGRES_DB||'postgres'}`
       : null);
 
+// Local/throwaway Postgres (Homebrew, docker run postgres:16, etc.) doesn't speak SSL at all —
+// only force it for non-localhost hosts, so Zeabur's behavior is unchanged but `DATABASE_URL`
+// pointed at localhost for local testing (see pvp-networking skill) actually connects.
+const pgIsLocalHost = /^postgres(?:ql)?:\/\/[^/]*@?(localhost|127\.0\.0\.1)(?::|\/)/.test(pgUri || '');
 const pool = pgUri
-  ? new Pool({ connectionString: pgUri, ssl: { rejectUnauthorized: false } })
+  ? new Pool({ connectionString: pgUri, ssl: pgIsLocalHost ? false : { rejectUnauthorized: false } })
   : null;
 
 app.use(express.static('public'));
