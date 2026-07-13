@@ -1792,7 +1792,7 @@ const POKEMON = [
     {name:'龍之脈動', dmg:70, cost:11, type:'dragon'},
     {name:'暗影球', dmg:77, cost:13, type:'ghost'},
   ]},
-  { mega:{spriteId:10041, type:'water', type2:'dark', ability:{id:'mold-breaker', name:'破格', trigger:'onAttack', desc:'攻擊時無視對方的防禦型特性'}}, id:130, name:'暴鯉龍',     type:'water',    type2:'flying',  hp:260, tier:1, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊威力 −15'}, attacks:[
+  { mega:{spriteId:10041, type:'water', type2:'dark', ability:{id:'mold-breaker', name:'破格', trigger:'onAttack', desc:'攻擊時無視對方的防禦型特性'}}, id:130, name:'暴鯉龍',     type:'water',    type2:'flying',  hp:260, tier:1, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊傷害 ×0.5'}, attacks:[
     {name:'大浪', dmg:34, cost:1, type:'water'},
     {name:'龍息', dmg:38, cost:1, type:'dragon'},
     {name:'怒風', dmg:72, cost:12, type:'flying'},
@@ -1816,7 +1816,7 @@ const POKEMON = [
     {name:'電磁衝浪', dmg:68, cost:11, type:'electric', status:{effect:'paralysis', chance:0.2}},
     {name:'閃光炮', dmg:75, cost:13, type:'steel'},
   ]},
-  { id:28,  name:'穿山王',     type:'ground',   hp:240, tier:1, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊威力 -15'}, attacks:[
+  { id:28,  name:'穿山王',     type:'ground',   hp:240, tier:1, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊傷害 ×0.5'}, attacks:[
     {name:'十字切', dmg:30, cost:0, type:'normal'},
     {name:'地震', dmg:34, cost:1, type:'ground'},
     {name:'岩石碎裂', dmg:65, cost:10, type:'rock'},
@@ -1879,7 +1879,7 @@ const POKEMON = [
     {name:'地震', dmg:75, cost:13, type:'ground'},
     {name:'破壞光線', dmg:84, cost:15, type:'normal'},
   ]},
-  { id:59,  name:'風速狗',     type:'fire',     hp:260, tier:2, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊威力 −15'}, attacks:[
+  { id:59,  name:'風速狗',     type:'fire',     hp:260, tier:2, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊傷害 ×0.5'}, attacks:[
     {name:'夜斬', dmg:35, cost:1, type:'dark'},
     {name:'閃電犬牙', dmg:37, cost:1, type:'electric', status:{effect:'paralysis', chance:0.15}},
     {name:'衝撞', dmg:75, cost:13, type:'normal'},
@@ -1897,7 +1897,7 @@ const POKEMON = [
     {name:'地震', dmg:79, cost:14, type:'ground'},
     {name:'龍之隕星', dmg:89, cost:16, type:'dragon'},
   ]},
-  { id:210, name:'布魯皇',     type:'fairy',    hp:300, tier:2, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊威力 −15'}, attacks:[
+  { id:210, name:'布魯皇',     type:'fairy',    hp:300, tier:2, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊傷害 ×0.5'}, attacks:[
     {name:'仙女之力', dmg:35, cost:1, type:'fairy'},
     {name:'雷電', dmg:55, cost:6, type:'electric', status:{effect:'paralysis', chance:0.15}},
     {name:'咬碎', dmg:75, cost:13, type:'dark'},
@@ -2064,7 +2064,7 @@ const POKEMON = [
   ]},
   /* ── 新增：補足各屬性 ── */
   /* 一般 */
-  { id:128, name:'肯泰羅',       type:'normal',                    hp:240, tier:1, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊威力 −15'}, attacks:[
+  { id:128, name:'肯泰羅',       type:'normal',                    hp:240, tier:1, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊傷害 ×0.5'}, attacks:[
     {name:'橫衝直撞', dmg:35, cost:1, type:'normal', status:{effect:'confusion', chance:0.2}},
     {name:'岩石滑落', dmg:38, cost:1, type:'rock', status:{effect:'paralysis', chance:0.15}},
     {name:'地震', dmg:74, cost:12, type:'ground'},
@@ -2084,7 +2084,7 @@ const POKEMON = [
     {name:'葉刃', dmg:86, cost:15, type:'grass'},
   ]},
   /* 毒 */
-  { id:24,  name:'阿柏怪',       type:'poison',                    hp:200, tier:1, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊威力 −15'}, attacks:[
+  { id:24,  name:'阿柏怪',       type:'poison',                    hp:200, tier:1, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊傷害 ×0.5'}, attacks:[
     {name:'纏繞', dmg:30, cost:0, type:'normal', status:{effect:'sleep', chance:0.25}},
     {name:'毒牙', dmg:51, cost:4, type:'poison', status:{effect:'poison', chance:0.35}},
     {name:'甩尾', dmg:65, cost:10, type:'normal'},
@@ -2103,7 +2103,7 @@ const POKEMON = [
     {name:'近身戰', dmg:80, cost:14, type:'fighting'},
   ]},
   /* 地面 */
-  { id:553, name:'流氓鱷',       type:'ground',   type2:'dark',    hp:270, tier:2, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊威力 −15'}, attacks:[
+  { id:553, name:'流氓鱷',       type:'ground',   type2:'dark',    hp:270, tier:2, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊傷害 ×0.5'}, attacks:[
     {name:'岩石滑落', dmg:36, cost:1, type:'rock', status:{effect:'paralysis', chance:0.15}},
     {name:'咬碎', dmg:40, cost:2, type:'dark', status:{effect:'confusion', chance:0.2}},
     {name:'地震', dmg:78, cost:14, type:'ground'},
@@ -2116,7 +2116,7 @@ const POKEMON = [
     {name:'颶風', dmg:82, cost:14, type:'flying', status:{effect:'confusion', chance:0.25}},
     {name:'暴風', dmg:92, cost:16, type:'flying'},
   ]},
-  { mega:{spriteId:10308, type:'fighting', type2:'flying', ability:{id:'huge-power', name:'唱反調', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}}, id:398, name:'姆克鷹',       type:'normal',   type2:'flying',  hp:240, tier:1, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊威力 −15'}, attacks:[
+  { mega:{spriteId:10308, type:'fighting', type2:'flying', ability:{id:'huge-power', name:'唱反調', trigger:'onAttack', desc:'攻擊傷害固定 ×1.25'}}, id:398, name:'姆克鷹',       type:'normal',   type2:'flying',  hp:240, tier:1, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊傷害 ×0.5'}, attacks:[
     {name:'燕返', dmg:33, cost:0, type:'normal'},
     {name:'衝撞', dmg:37, cost:1, type:'normal'},
     {name:'空氣斬', dmg:71, cost:12, type:'flying', status:{effect:'confusion', chance:0.2}},
@@ -3284,6 +3284,7 @@ function showTeamSelectScreen() {
   G.selectedIndices = [];
   const screen = document.getElementById('team-select-screen');
   const tierNames = { 1:'第1關（弱）', 2:'第2關（中）', 3:'第3關（強）' };
+  let tsErr = '';
 
   function render() {
     screen.innerHTML = `
@@ -3291,17 +3292,24 @@ function showTeamSelectScreen() {
       <div class="team-select-subtitle">${tierNames[G.stage]} — 選出3隻寶可夢迎戰！</div>
       <div class="sel-cards-row" id="ts-cards-row"></div>
       <div style="font-size:0.88rem;color:var(--muted)">已選 <b style="color:#f8d030">${G.selectedIndices.length}</b> / 3</div>
+      <div style="font-size:0.82rem;color:#ef5350;min-height:1.2em">${tsErr}</div>
       <button class="btn btn-primary" id="ts-confirm-btn" ${G.selectedIndices.length < 3 ? 'disabled' : ''} onclick="confirmTeamSelect()">出戰！</button>
     `;
 
     const row = screen.querySelector('#ts-cards-row');
+    const hasHighHp = G.selectedIndices.some(i => G.playerRoster[i].hp >= 300);
     G.playerRoster.forEach((p, i) => {
       const isSelected = G.selectedIndices.includes(i);
       const card = renderSelCard(p, isSelected, () => {
+        tsErr = '';
         if (isSelected) {
           G.selectedIndices = G.selectedIndices.filter(x => x !== i);
         } else if (G.selectedIndices.length < 3) {
-          G.selectedIndices.push(i);
+          if (p.hp >= 300 && hasHighHp) {
+            tsErr = '每場最多只能選 1 隻血量 ≥300 的寶可夢出戰';
+          } else {
+            G.selectedIndices.push(i);
+          }
         }
         render();
       });

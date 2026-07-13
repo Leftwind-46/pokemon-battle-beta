@@ -632,6 +632,14 @@
   </div>
 </div>
 
+<!-- ══ SPECTATE WAIT（房間已滿但對戰還沒開打時，觀戰者先看到這個，battle_start 廣播到達後自動切換到戰鬥畫面） ══ -->
+<div id="spectate-wait-screen" class="screen">
+  <div class="lobby-center">
+    <div class="logo"><h1>👀 觀戰模式</h1><p>雙方玩家正在選隊，對戰開始後會自動進入戰鬥畫面…</p></div>
+    <button class="btn btn-secondary" onclick="backToLobby()" style="font-size:0.88rem;padding:0.55rem 1.5rem">← 返回大廳</button>
+  </div>
+</div>
+
 <!-- ══ MY TEAM (唯讀預覽，登入後的持久6隻收藏庫；要換隻請在對戰前team-select畫面用「編輯隊伍」) ══ -->
 <div id="myteam-screen" class="screen">
   <h2>我的隊伍</h2>
@@ -1228,6 +1236,9 @@ function showHitEffect(atkType, targetEl) {
 let ws       = null;
 let myRole   = null;   // 'p1' or 'p2'
 let myRoster = [];     // 5 Pokémon dealt by server
+// 觀戰者：myRole 固定當作 'p1' 供 applyServerState 判斷"player"/"cpu"顯示方向用，
+// 實際互動一律被 send() 擋下（見下方），UI 層另外在各按鈕加 isSpectator 判斷避免顯示成可操作
+let isSpectator = false;
 let tsSelected = [];   // selected indices in team-select screen
 let tsConfirmed = false;
 
@@ -1276,6 +1287,7 @@ function connect() {
 }
 
 function send(msg) {
+  if (isSpectator) return; // 觀戰者純唯讀，任何動作一律不送出（保底防線，UI 層也會擋）
   if (ws?.readyState === 1) ws.send(JSON.stringify(msg));
 }
 
@@ -1383,7 +1395,9 @@ async function loadLeaderboard() {
     data.entries.forEach((e, i) => {
       const row = document.createElement('div');
       row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:0.55rem 1rem;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid var(--border)';
-      row.innerHTML = `<span>#${i + 1} ${e.username}</span><span style="font-weight:700;color:#f8d030">${e.wins} 勝</span>`;
+      const played = e.wins + e.losses;
+      const rate = played > 0 ? Math.round(e.win_rate * 100) : 0;
+      row.innerHTML = `<span>#${i + 1} ${e.username}</span><span style="text-align:right"><span style="font-weight:700;color:#f8d030">${e.wins} 勝</span><span style="color:var(--muted);font-size:0.8rem;margin-left:0.5rem">勝率 ${rate}%（${played}場）</span></span>`;
       listEl.appendChild(row);
     });
   } catch (e) {
@@ -1458,6 +1472,22 @@ function handleMsg(msg) {
       showTeamSelect();
       break;
 
+    // 房間已滿（兩名玩家都在了）時，第三個人輸入同一組房間代碼會走這條路徑加入觀戰，唯讀
+    case 'spectate_joined':
+      isSpectator = true;
+      myRole = 'p1'; // 固定視角：p1 一律顯示在"player"側、p2 顯示在"cpu"側，觀戰者沒有自己的隊伍
+      if (msg.phase === 'battle' || msg.phase === 'done') {
+        applyServerState(msg.state);
+        showScreen('battle-screen');
+        document.getElementById('battle-log').innerHTML = '';
+        document.getElementById('chat-log').innerHTML = '';
+        log('👀 已加入觀戰', 'system');
+        renderBattle();
+      } else {
+        showScreen('spectate-wait-screen');
+      }
+      break;
+
     case 'opponent_joined':
       showTeamSelect();
       break;
@@ -1501,12 +1531,13 @@ function handleMsg(msg) {
       break;
 
     case 'battle_start':
+      if (!isSpectator && 'Notification' in window && Notification.permission === 'default') Notification.requestPermission();
       applyServerState(msg.state);
       showScreen('battle-screen');
       document.getElementById('battle-log').innerHTML = '';
       document.getElementById('chat-log').innerHTML = '';
       for (const entry of (msg.log || [])) log(entry.text, entry.cls);
-      showChatBtn();
+      if (!isSpectator) showChatBtn();
       showCoinFlip(msg.coinFlip);
       break;
 
@@ -1517,6 +1548,7 @@ function handleMsg(msg) {
       const prevCpuIdx    = G.cpuIdx,    prevCpuCur    = G.cpuDeck?.[prevCpuIdx]?.cur;
       for (const entry of (msg.log || [])) log(entry.text, entry.cls);
       applyServerState(msg.state);
+      notifyIfMyTurnStarted(wasMyTurn, !G.busy);
       const playerAnimate = G.playerIdx === prevPlayerIdx && G.playerDeck[G.playerIdx]?.cur !== prevPlayerCur;
       const cpuAnimate    = G.cpuIdx === prevCpuIdx && G.cpuDeck[G.cpuIdx]?.cur !== prevCpuCur;
       document.getElementById('player-hp-fill').classList.toggle('animated', playerAnimate);
@@ -1562,10 +1594,10 @@ function handleMsg(msg) {
         const evolvedSide = msg.actor === myRole ? 'player' : 'cpu';
         playMegaEvolveAnim(evolvedSide);
       }
-      // KO switch check
-      if (msg.state.pendingKOSwitch === myRole) showKOSwitch();
+      // KO switch check（觀戰者不用選替補，這個彈窗只給正在玩的那一方看）
+      if (!isSpectator && msg.state.pendingKOSwitch === myRole) showKOSwitch();
       // Discard check
-      const needsDiscard = myRole === 'p1' ? msg.state.p1NeedsDiscard : msg.state.p2NeedsDiscard;
+      const needsDiscard = !isSpectator && (myRole === 'p1' ? msg.state.p1NeedsDiscard : msg.state.p2NeedsDiscard);
       if (needsDiscard) showDiscardModal();
       break;
     }
@@ -1575,7 +1607,7 @@ function handleMsg(msg) {
       applyServerState(msg.state);
       const isDraw = msg.winner === 'draw';
       const winnerDeck = isDraw ? null : msg.state[`${msg.winner}Deck`];
-      setTimeout(() => showResult(msg.winner === myRole, isDraw, winnerDeck), 800);
+      setTimeout(() => showResult(!isSpectator && msg.winner === myRole, isDraw, winnerDeck, msg.winner), 800);
       break;
     }
 
@@ -1599,6 +1631,15 @@ function handleMsg(msg) {
       receiveChatMsg(msg);
       break;
   }
+}
+
+// 分頁在背景（沒有焦點/被切走）時，輪到自己的回合就跳系統通知；tag 讓重複通知互相取代不會疊加
+function notifyIfMyTurnStarted(wasMyTurn, isMyTurn) {
+  if (wasMyTurn || !isMyTurn) return;
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  if (document.hasFocus()) return;
+  const n = new Notification('輪到你了！', { body: '寶可夢對戰 - 該你出招了', tag: 'pvp-turn' });
+  n.onclick = () => { window.focus(); n.close(); };
 }
 
 /* ─────────────────────────────────────────
@@ -1655,7 +1696,7 @@ function joinRoom() {
 
 function backToLobby() {
   if (ws) { ws.onclose = null; ws.close(); ws = null; }
-  myRole = null; myRoster = []; tsSelected = []; tsConfirmed = false;
+  myRole = null; myRoster = []; tsSelected = []; tsConfirmed = false; isSpectator = false;
   document.getElementById('lobby-main').style.display    = '';
   document.getElementById('lobby-waiting').style.display = 'none';
   document.getElementById('rc-code').textContent = '----';
@@ -1717,10 +1758,16 @@ function renderTeamSelect() {
 
 function toggleTSCard(i) {
   if (tsConfirmed) return;
+  document.getElementById('ts-err').textContent = '';
   if (tsSelected.includes(i)) {
     tsSelected = tsSelected.filter(x => x !== i);
   } else if (tsSelected.length < 3) {
-    tsSelected.push(i);
+    const hasHighHp = tsSelected.some(j => myRoster[j].hp >= 300);
+    if (myRoster[i].hp >= 300 && hasHighHp) {
+      document.getElementById('ts-err').textContent = '每場最多只能選 1 隻血量 ≥300 的寶可夢出戰';
+    } else {
+      tsSelected.push(i);
+    }
   }
   renderTeamSelect();
 }
@@ -1822,14 +1869,15 @@ function pickEditSlot(i) {
 
 function showCoinFlip(firstTurn) {
   const overlay = document.getElementById('coin-overlay');
-  const isMe    = firstTurn === myRole;
-  document.getElementById('coin-result').textContent = isMe ? '🎉 你先攻！' : '對手先攻！';
-  document.getElementById('coin-sub').textContent    = isMe ? '硬幣正面朝上，你獲得先攻權！' : '硬幣反面朝上，對手先攻！';
+  const isMe    = !isSpectator && firstTurn === myRole;
+  const firstLabel = isSpectator ? (firstTurn === 'p1' ? 'P1' : 'P2') + ' 先攻！' : (isMe ? '🎉 你先攻！' : '對手先攻！');
+  document.getElementById('coin-result').textContent = firstLabel;
+  document.getElementById('coin-sub').textContent    = isSpectator ? '對戰開始！' : (isMe ? '硬幣正面朝上，你獲得先攻權！' : '硬幣反面朝上，對手先攻！');
   overlay.classList.add('open');
   setTimeout(() => {
     overlay.classList.remove('open');
     log('⚔️  對戰開始！', 'system');
-    log(isMe ? '🎉 你獲得先攻！' : '對手獲得先攻！', 'system');
+    log(isSpectator ? `${firstTurn === 'p1' ? 'P1' : 'P2'} 獲得先攻！` : (isMe ? '🎉 你獲得先攻！' : '對手獲得先攻！'), 'system');
     renderBattle();
   }, 2800);
 }
@@ -1848,8 +1896,9 @@ function renderBattle() {
   renderActions();
   renderHand();
   const tb = document.getElementById('turn-bar');
-  if (G.busy) { tb.textContent='等待對手行動…'; tb.className='my-turn opp-turn'; }
-  else        { tb.textContent='你的回合';       tb.className='my-turn'; }
+  if (isSpectator) { tb.textContent = G.busy ? 'P2 的回合' : 'P1 的回合'; tb.className = 'my-turn'; }
+  else if (G.busy) { tb.textContent='等待對手行動…'; tb.className='my-turn opp-turn'; }
+  else             { tb.textContent='你的回合';       tb.className='my-turn'; }
   const cpuCount = document.getElementById('cpu-hand-count');
   if (cpuCount) cpuCount.textContent = `手牌 ${G.cpuHand.length} 張`;
 }
@@ -1941,7 +1990,7 @@ function renderSide(side, poke, deck, activeIdx) {
     if (i === activeIdx) return;
     const div = document.createElement('div');
     const ko  = p.cur <= 0;
-    const switchable = side === 'player' && !ko && !G.busy && !G.switchedThisTurn;
+    const switchable = !isSpectator && side === 'player' && !ko && !G.busy && !G.switchedThisTurn;
     const freeSwitch = side === 'player' && G.playerFreeSwitch;
     div.className = `b-bench${ko ? ' ko' : ''}${switchable ? ' switchable' : ''}`;
     div.innerHTML = `<img src="${spriteUrl(p.id)}" alt="${p.name}" onerror="this.onerror=null;this.src='${officialArtworkUrl(p.id)}'"><span>${p.name}</span><span style="font-size:0.65rem;color:${p.cur/p.hp>0.5?'#4caf50':p.cur/p.hp>0.2?'#ff9800':'#ef5350'}">${Math.max(0,p.cur??p.hp)}</span>`;
@@ -1962,7 +2011,7 @@ function renderActions() {
     const eligible = p.mega && !p.megaEvolved && !G.playerMegaUsed;
     const canMega = eligible && (G.playerMegaEnergy ?? 0) >= 20;
     megaBtn.style.display = eligible ? '' : 'none';
-    megaBtn.disabled = G.busy || !canMega;
+    megaBtn.disabled = isSpectator || G.busy || !canMega;
   }
   p.attacks.forEach((a, i) => {
     const btn = document.getElementById(`btn-atk${i}`);
@@ -1971,7 +2020,7 @@ function renderActions() {
     const mult = effActive(a.type, cp?.type, cp?.type2);
     const cost = effectiveCost(a, cp);
     const affordable = (G.playerEnergy ?? 0) >= cost;
-    btn.disabled = G.busy || !affordable;
+    btn.disabled = isSpectator || G.busy || !affordable;
     btn.classList.toggle('unaffordable', !affordable);
     btn.style.borderLeftColor = col;
     document.getElementById(`atk-name${i}`).textContent = a.name;
@@ -1983,9 +2032,9 @@ function renderActions() {
     document.getElementById(`atk-dmg${i}`).textContent = `威力 ${a.dmg} · ⚡${cost}${statusHint}${stab}${effHint}`;
   });
   const standbyBtn = document.getElementById('btn-standby');
-  if (standbyBtn) standbyBtn.disabled = G.busy;
+  if (standbyBtn) standbyBtn.disabled = isSpectator || G.busy;
   const tradeBtn = document.getElementById('btn-trade');
-  if (tradeBtn) tradeBtn.disabled = G.busy || G.playerHand.length < 2;
+  if (tradeBtn) tradeBtn.disabled = isSpectator || G.busy || G.playerHand.length < 2;
   renderActiveStadium();
 }
 
@@ -2000,7 +2049,7 @@ function renderHand() {
   G.playerHand.forEach((card, i) => {
     const isSupp = card.cat === 'supporter';
     const noSwitcher = card.id === 'switcher' && G.cpuDeck.filter((p,j)=>j!==G.cpuIdx&&p.cur>0).length===0;
-    const disabled  = G.busy || (isSupp && G.playerSuppUsed) || noSwitcher;
+    const disabled  = isSpectator || G.busy || (isSupp && G.playerSuppUsed) || noSwitcher;
     const isStadium = card.cat === 'stadium';
     const badgeLabel = isSupp ? '支援者' : isStadium ? '競技場' : '道具';
     const el = document.createElement('div');
@@ -2214,7 +2263,7 @@ function discardCard(idx) {
 /* ─────────────────────────────────────────
    RESULT
 ───────────────────────────────────────── */
-function showResult(iWon, isDraw, winnerDeck) {
+function showResult(iWon, isDraw, winnerDeck, winnerRole) {
   showScreen('result-screen');
   const title = document.getElementById('result-title');
   const champWrap = document.getElementById('result-champion-wrap');
@@ -2224,9 +2273,15 @@ function showResult(iWon, isDraw, winnerDeck) {
     document.getElementById('result-sub').textContent = '雙方同歸於盡！';
     champWrap.classList.add('hidden');
   } else {
-    title.textContent = iWon ? '勝利！' : '敗北';
-    title.className   = iWon ? 'win'    : 'lose';
-    document.getElementById('result-sub').textContent = iWon ? '你擊敗了對手！' : '再接再厲！';
+    if (isSpectator) {
+      title.textContent = `${winnerRole === 'p1' ? 'P1' : 'P2'} 獲勝！`;
+      title.className   = 'win';
+      document.getElementById('result-sub').textContent = '對戰結束！';
+    } else {
+      title.textContent = iWon ? '勝利！' : '敗北';
+      title.className   = iWon ? 'win'    : 'lose';
+      document.getElementById('result-sub').textContent = iWon ? '你擊敗了對手！' : '再接再厲！';
+    }
     champWrap.classList.remove('hidden');
     const alivePool = winnerDeck.filter(p => p.cur > 0);
     const pool = alivePool.length ? alivePool : winnerDeck;
@@ -2247,7 +2302,10 @@ function showResult(iWon, isDraw, winnerDeck) {
 ───────────────────────────────────────── */
 // 壓迫感：對手在場時，己方招式消耗能量 +2（上限仍是 20，不會超過能量欄本身的上限）
 function effectiveCost(atk, opponentPoke) {
-  return opponentPoke?.ability?.id === 'pressure' ? Math.min(20, atk.cost + 2) : atk.cost;
+  let cost = opponentPoke?.ability?.id === 'pressure' ? Math.min(20, atk.cost + 2) : atk.cost;
+  // Ocean World: water-type moves cost half as much energy
+  if (G.activeStadium?.id === 'stadium-ocean' && atk.type === 'water') cost = Math.floor(cost / 2);
+  return cost;
 }
 
 function eff(atkType, defType, defType2) {
