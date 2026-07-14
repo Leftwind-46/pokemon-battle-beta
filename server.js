@@ -2014,6 +2014,7 @@ async function handleMessage(ws, msg) {
       }
 
       G[`${role}SuppUsed`] = false;
+      G[`${role}SwitchedThisTurn`] = false; // this turn is over — clear it so role can switch again on their *next* turn
       G.turn = op;
       G.round++;
       G[`${op}Buff`].reflect = false; // reflect expires if opponent never attacked (switched instead)
