@@ -548,9 +548,8 @@ function clonePoke(p) {
     megaEvolved: p.mega ? false : undefined };
 }
 
-// 壓迫感：對手在場時，己方招式消耗能量 +2（上限仍是 20，不會超過能量欄本身的上限）
 function effectiveCostSrv(atk, opponentPoke, G) {
-  let cost = opponentPoke?.ability?.id === 'pressure' ? Math.min(20, atk.cost + 2) : atk.cost;
+  let cost = atk.cost;
   if (G?.activeStadium?.id === 'stadium-ocean' && atk.type === 'water') cost = Math.floor(cost / 2);
   return cost;
 }
