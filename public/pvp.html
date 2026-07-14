@@ -1070,6 +1070,16 @@ const STATUS_INFO = {
   confusion:{label:'💫 混亂',  cls:'confusion'},
 };
 const STATUS_EFFECT_ZH = {poison:'中毒',burn:'燒傷',paralysis:'麻痺',sleep:'睡眠',freeze:'結凍',confusion:'混亂'};
+const SUPPORT_EFFECT_ZH = {
+  'brace': '任何血量下，下次不會被擊倒',
+  'sword-dance': '下次攻擊威力 ×1.5',
+  'thief': '隨機搶對方一張手牌',
+  'shadow-dance': '下次受擊 50% 機率完全閃避',
+  'debuff': '使對方陷入異常狀態',
+  'meditate': '下回合額外抽 2 張道具/競技場卡',
+  'trick': '下回合額外抽 1 張支援者卡',
+  'focus-energy': '下回合額外 +9 能量',
+};
 const EFF = {
   fire:    {grass:2,ice:2,steel:2,bug:2,water:0.5,fire:0.5,rock:0.5,dragon:0.5},
   water:   {fire:2,ground:2,rock:2,water:0.5,grass:0.5,dragon:0.5},
@@ -1437,7 +1447,7 @@ async function loadMyTeam() {
         ${p.ability ? `<div class="ability-badge" title="${p.ability.desc}">✨ ${p.ability.name}</div>` : ''}
         ${p.mega ? `<div class="mega-badge" title="可以 Mega 進化">💎 可 Mega 進化</div>` : ''}
         <div class="sel-hp">HP ${p.hp}</div>
-        <div class="sel-moves">${p.attacks.map(a=>`<div class="sel-move"><span class="sel-move-badge" style="background:${TYPE_COLOR[a.type]||'#888'}">${TYPE_ZH[a.type]||a.type}</span><span>${a.name} ${a.dmg} · ⚡${a.cost}</span></div>`).join('')}</div>
+        <div class="sel-moves">${p.attacks.map(a=>`<div class="sel-move"><span class="sel-move-badge" style="background:${TYPE_COLOR[a.type]||'#888'}">${TYPE_ZH[a.type]||a.type}</span><span>${a.name} ${a.support ? '輔助' : a.dmg} · ⚡${a.cost}</span></div>`).join('')}</div>
       `;
       row.appendChild(el);
     });
@@ -1744,7 +1754,7 @@ function renderTeamSelect() {
       ${displayMon.ability ? `<div class="ability-badge" title="${displayMon.ability.desc}">✨ ${displayMon.ability.name}</div>` : ''}
       ${displayMon.mega ? `<div class="mega-badge" title="可以 Mega 進化">💎 可 Mega 進化</div>` : ''}
       <div class="sel-hp">HP ${displayMon.hp}</div>
-      <div class="sel-moves">${displayMon.attacks.map(a=>`<div class="sel-move"><span class="sel-move-badge" style="background:${TYPE_COLOR[a.type]||'#888'}">${TYPE_ZH[a.type]||a.type}</span><span>${a.name} ${a.dmg} · ⚡${a.cost}</span></div>`).join('')}</div>
+      <div class="sel-moves">${displayMon.attacks.map(a=>`<div class="sel-move"><span class="sel-move-badge" style="background:${TYPE_COLOR[a.type]||'#888'}">${TYPE_ZH[a.type]||a.type}</span><span>${a.name} ${a.support ? '輔助' : a.dmg} · ⚡${a.cost}</span></div>`).join('')}</div>
     `;
     el.onclick = teamEditMode ? () => pickEditSlot(i) : () => toggleTSCard(i);
     row.appendChild(el);
@@ -1833,7 +1843,7 @@ function renderEditCandidates() {
       ${p.ability ? `<div class="ability-badge" title="${p.ability.desc}">✨ ${p.ability.name}</div>` : ''}
       ${p.mega ? `<div class="mega-badge" title="可以 Mega 進化">💎 可 Mega 進化</div>` : ''}
       <div class="sel-hp">HP ${p.hp}</div>
-      <div class="sel-moves">${p.attacks.map(a=>`<div class="sel-move"><span class="sel-move-badge" style="background:${TYPE_COLOR[a.type]||'#888'}">${TYPE_ZH[a.type]||a.type}</span><span>${a.name} ${a.dmg} · ⚡${a.cost}</span></div>`).join('')}</div>
+      <div class="sel-moves">${p.attacks.map(a=>`<div class="sel-move"><span class="sel-move-badge" style="background:${TYPE_COLOR[a.type]||'#888'}">${TYPE_ZH[a.type]||a.type}</span><span>${a.name} ${a.support ? '輔助' : a.dmg} · ⚡${a.cost}</span></div>`).join('')}</div>
     `;
     el.onclick = () => pickEditCandidate(j);
     row.appendChild(el);
@@ -2026,10 +2036,15 @@ function renderActions() {
     document.getElementById(`atk-name${i}`).textContent = a.name;
     document.getElementById(`atk-type${i}`).textContent = TYPE_ZH[a.type] || a.type;
     document.getElementById(`atk-type${i}`).style.background = col;
+    if (a.support) {
+      document.getElementById(`atk-dmg${i}`).textContent = `${SUPPORT_EFFECT_ZH[a.effect] || '輔助技能'} · ⚡${cost}`;
+      return;
+    }
     const stab = (a.type === p.type || (p.type2 && a.type === p.type2)) ? ' ★' : '';
     const statusHint = a.status ? ` · ${STATUS_EFFECT_ZH[a.status.effect]}${Math.round(a.status.chance*100)}%` : '';
     const effHint = mult>=4 ? ' ×4' : mult===2 ? ' ×2' : mult===0 ? ' ✕' : mult<1 ? ' ▽' : '';
-    document.getElementById(`atk-dmg${i}`).textContent = `威力 ${a.dmg} · ⚡${cost}${statusHint}${stab}${effHint}`;
+    const bonusHint = a.megaBoost ? ' · Mega能量×2' : a.bonusEnergy ? ` · 下回合+${a.bonusEnergy}能量` : a.selfHeal ? ' · 附帶回血' : '';
+    document.getElementById(`atk-dmg${i}`).textContent = `威力 ${a.dmg} · ⚡${cost}${statusHint}${stab}${effHint}${bonusHint}`;
   });
   const standbyBtn = document.getElementById('btn-standby');
   if (standbyBtn) standbyBtn.disabled = isSpectator || G.busy;
@@ -2494,7 +2509,7 @@ function showBenchPopup(e, poke, deckIdx, canSwitch, freeSwitch) {
     return `<div class="bp-move">
       <span class="type-badge" style="background:${TYPE_COLOR[a.type]||'#888'};font-size:0.6rem">${TYPE_ZH[a.type]||a.type}</span>
       <span class="bp-move-name">${a.name}${stab}</span>
-      <span class="bp-move-dmg">威力${a.dmg} · ⚡${a.cost}</span>
+      <span class="bp-move-dmg">${a.support ? '輔助' : '威力'+a.dmg} · ⚡${a.cost}</span>
     </div>`;
   }).join('');
 
