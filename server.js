@@ -1592,12 +1592,11 @@ async function handleMessage(ws, msg) {
         hand.splice(msg.handIdx, 1);
         G[`${role}SuppUsed`] = true; G[`${role}SuppStageUsed`]++;
         const oldName = mine.name;
-        const pct = mine.hp > 0 ? mine.cur / mine.hp : 1;
         Object.assign(mine, {
           id: target.id, name: target.name, type: target.type, type2: target.type2 ?? null,
           attacks: target.attacks.map(a => ({...a})), hp: target.hp, ability: target.ability ?? null,
         });
-        mine.cur = Math.max(1, Math.round(target.hp * pct));
+        mine.cur = target.hp; // 變身當下HP全滿，比照Mega進化的既有慣例——不再照原本血量百分比換算
         mine.status = null;
         const log = [{ text: `使用了瘋狂博士，${oldName} 變身成了 ${mine.name}！`, cls: 'special' }];
         triggerOnEnterSrv(mine, role, G, log, false);
