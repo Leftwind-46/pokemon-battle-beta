@@ -683,7 +683,7 @@
 
     <!-- CPU field -->
     <div class="field" id="cpu-field">
-      <div class="field-label">對手 &nbsp;<span id="cpu-hand-count" style="font-size:0.62rem;color:var(--muted);font-weight:400;letter-spacing:0"></span></div>
+      <div class="field-label">對手<span id="cpu-username-tag" style="font-size:0.62rem;color:#90caf9;font-weight:400;letter-spacing:0"></span> &nbsp;<span id="cpu-hand-count" style="font-size:0.62rem;color:var(--muted);font-weight:400;letter-spacing:0"></span></div>
       <div class="active-area">
         <div class="b-card" id="cpu-bcard" onclick="cpuCardClick(event)">
           <div class="type-strip" id="cpu-strip"></div>
@@ -708,7 +708,7 @@
 
     <!-- Player field -->
     <div class="field" id="player-field">
-      <div class="field-label">你的寶可夢 &nbsp;<span style="font-size:0.65rem;color:#90caf9;font-weight:400;letter-spacing:0">(點備戰欄可換場)</span></div>
+      <div class="field-label">你的寶可夢<span id="player-username-tag" style="font-size:0.62rem;color:#90caf9;font-weight:400;letter-spacing:0"></span> &nbsp;<span style="font-size:0.65rem;color:#90caf9;font-weight:400;letter-spacing:0">(點備戰欄可換場)</span></div>
       <div class="active-area">
         <div class="b-card" id="player-bcard" onclick="playerCardClick(event)">
           <div class="type-strip" id="player-strip"></div>
@@ -889,7 +889,6 @@
       <li>神秘之守／隔音／沙隱／迷人之軀／雪隱（寶石海星、哥德小姐、爆音怪、烈咬陸鯊、仙子伊布、雪妖女、凍原熊）— 25% 機率將受到的傷害減半</li>
       <li>背水之刃（蔥遊兵、貓老大、長毛狗、鍬農炮蟲）— HP 低於 50% 時，攻擊傷害 ×1.3</li>
       <li>同步（胡地、沙奈朵）— 陷入中毒／麻痺／燒傷時，會將該狀態傳染給攻擊者</li>
-      <li>魔法防守（皮皮）— 不會受到中毒／燒傷的傷害</li>
       <li>我行我素（呆殼獸）— 不會陷入混亂狀態</li>
       <li>壓迫感（鋼鎧鴉、黑夜魔靈、超夢、鳳王、洛奇亞、急凍鳥、閃電鳥、火焰鳥、帝牙盧卡、帕路奇亞、化石翼龍）— 上場時讓對方損失 3 點能量；且本寶可夢在場時，對方使用招式額外多消耗 2 點能量（上限仍是 20）</li>
       <li>有色眼鏡（遠古巨蜓）— 效果不佳的攻擊，威力恢復正常</li>
@@ -1257,6 +1256,7 @@ let tsConfirmed = false;
 let myToken    = localStorage.getItem('pvpToken') || null;
 let myUsername = localStorage.getItem('pvpUsername') || null;
 let authMode   = 'login'; // or 'register'
+let opponentUsername = null; // 對手的暱稱，只有對手有登入才會有值；匿名對手維持null
 
 // 編輯隊伍（登入玩家專用，取代匿名玩家的「重新生成」按鈕）
 let teamEditMode       = false;
@@ -1316,6 +1316,14 @@ function updateAuthUI() {
     anon.style.display = 'flex';
     li.style.display = 'none';
   }
+}
+
+// 對戰畫面上顯示雙方的登入暱稱（只有登入過的一方會有暱稱，匿名玩家該側留空）
+function updatePlayerLabels() {
+  const pTag = document.getElementById('player-username-tag');
+  const cTag = document.getElementById('cpu-username-tag');
+  if (pTag) pTag.textContent = myUsername ? `（${myUsername}）` : '';
+  if (cTag) cTag.textContent = opponentUsername ? `（${opponentUsername}）` : '';
 }
 
 async function refreshAuthFromServer() {
@@ -1480,6 +1488,8 @@ function handleMsg(msg) {
     case 'joined':
       myRole   = msg.role;
       myRoster = msg.roster;
+      opponentUsername = msg.opponentUsername || null;
+      updatePlayerLabels();
       showTeamSelect();
       break;
 
@@ -1500,6 +1510,8 @@ function handleMsg(msg) {
       break;
 
     case 'opponent_joined':
+      opponentUsername = msg.username || null;
+      updatePlayerLabels();
       showTeamSelect();
       break;
 
@@ -1544,6 +1556,7 @@ function handleMsg(msg) {
     case 'battle_start':
       if (!isSpectator && 'Notification' in window && Notification.permission === 'default') Notification.requestPermission();
       applyServerState(msg.state);
+      if (!isSpectator) updatePlayerLabels();
       showScreen('battle-screen');
       document.getElementById('battle-log').innerHTML = '';
       document.getElementById('chat-log').innerHTML = '';
@@ -1707,7 +1720,7 @@ function joinRoom() {
 
 function backToLobby() {
   if (ws) { ws.onclose = null; ws.close(); ws = null; }
-  myRole = null; myRoster = []; tsSelected = []; tsConfirmed = false; isSpectator = false;
+  myRole = null; myRoster = []; tsSelected = []; tsConfirmed = false; isSpectator = false; opponentUsername = null;
   document.getElementById('lobby-main').style.display    = '';
   document.getElementById('lobby-waiting').style.display = 'none';
   document.getElementById('rc-code').textContent = '----';

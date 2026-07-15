@@ -40,7 +40,6 @@ const POKEMON = [
   { mega:{spriteId:10076, type:'steel', type2:'psychic', ability:{id:'tough-claws', name:'硬爪', trigger:'onAttack', desc:'攻擊傷害 ×1.3'}}, id:376, name:'巨金怪',     type:'steel',    type2:'psychic', hp:260, tier:1, ability:{id:'solid-rock', name:'硬岩', trigger:'onDefend', desc:'受到剋制（×2以上）的攻擊傷害再減少 25%'}, attacks:[{name:'子彈拳',dmg:30,cost:3,type:'steel',megaBoost:true,bonusEnergy:6},{name:'劍舞',cost:4,type:'steel',support:true,effect:'sword-dance'},{name:'閃光炮',dmg:70,cost:8,type:'steel',megaBoost:true,bonusEnergy:6},{name:'隕石衝擊',dmg:113,cost:13,type:'rock',selfHeal:0.25}]},
   { mega:{spriteId:10059, type:'fighting', type2:'steel', ability:{id:'adaptability', name:'適應力', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×2（原本 ×1.5）'}}, id:448, name:'路卡利歐',   type:'fighting', type2:'steel',   hp:220, tier:1, ability:{id:'guts', name:'堅韌', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}, attacks:[{name:'擾亂精神',cost:1,type:'fighting',support:true,effect:'debuff',status:{effect:'confusion', chance:1}},{name:'金屬爪',dmg:32,cost:3,type:'steel',megaBoost:true,bonusEnergy:6},{name:'龍之脈動',dmg:66,cost:8,type:'dragon',megaBoost:true,bonusEnergy:6},{name:'暗影球',dmg:110,cost:14,type:'ghost',selfHeal:0.18}]},
   { mega:{spriteId:10041, type:'water', type2:'dark', ability:{id:'mold-breaker', name:'破格', trigger:'onAttack', desc:'攻擊時無視對方的防禦型特性'}}, id:130, name:'暴鯉龍',     type:'water',    type2:'flying',  hp:260, tier:1, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊傷害 ×0.5'}, attacks:[{name:'撐住',cost:5,type:'water',support:true,effect:'brace'},{name:'龍息',dmg:64,cost:8,type:'dragon',megaBoost:true,bonusEnergy:6},{name:'怒風',dmg:63,cost:8,type:'flying',megaBoost:true,bonusEnergy:6},{name:'咬碎',dmg:107,cost:13,type:'dark',status:{effect:'sleep', chance:0.2}}]},
-  { id:35,  name:'皮皮',       type:'fairy',    hp:220, tier:1, ability:{id:'magic-guard', name:'魔法防守', trigger:'onStatus', desc:'不會受到中毒／燒傷的傷害'}, attacks:[{name:'月亮力量',dmg:31,cost:3,type:'fairy',status:{effect:'confusion', chance:0.25},megaBoost:true,bonusEnergy:6},{name:'火焰拳',dmg:26,cost:3,type:'fire',megaBoost:true,bonusEnergy:6},{name:'集氣',cost:3,type:'fairy',support:true,effect:'focus-energy',bonusEnergy:9},{name:'元氣拳',dmg:109,cost:13,type:'normal',selfHeal:0.19}]},
   { id:87,  name:'白海獅',     type:'water',    type2:'ice',     hp:240, tier:1, ability:{id:'thick-fat', name:'厚脂肪', trigger:'onDefend', desc:'受到火／冰屬性攻擊傷害 ×0.6'}, attacks:[{name:'冷凍光線',dmg:11,cost:1,type:'ice',status:{effect:'freeze', chance:0.15},megaBoost:true,bonusEnergy:5},{name:'集氣',cost:3,type:'water',support:true,effect:'focus-energy',bonusEnergy:9},{name:'大浪',dmg:53,cost:6,type:'water',megaBoost:true,bonusEnergy:4},{name:'衝浪',dmg:93,cost:11,type:'water',status:{effect:'confusion', chance:0.25}}]},
   { id:82,  name:'三合一磁怪',   type:'electric', type2:'steel',   hp:210, tier:1, ability:{id:'static-trail', name:'電擊尾隨', trigger:'onAttack', desc:'攻擊命中時額外 15% 機率讓目標陷入麻痺'}, attacks:[{name:'電磁炮',dmg:24,cost:2,type:'electric',status:{effect:'paralysis', chance:0.3},megaBoost:true,bonusEnergy:6},{name:'集氣',cost:3,type:'electric',support:true,effect:'focus-energy',bonusEnergy:9},{name:'電磁衝浪',dmg:60,cost:8,type:'electric',status:{effect:'paralysis', chance:0.2},megaBoost:true,bonusEnergy:6},{name:'閃光炮',dmg:101,cost:12,type:'steel',selfHeal:0.18}]},
   { id:28,  name:'穿山王',     type:'ground',   hp:240, tier:1, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊傷害 ×0.5'}, attacks:[{name:'灼熱',cost:1,type:'ground',support:true,effect:'debuff',status:{effect:'burn', chance:1}},{name:'地震',dmg:53,cost:6,type:'ground',megaBoost:true,bonusEnergy:4},{name:'岩石碎裂',dmg:50,cost:6,type:'rock',megaBoost:true,bonusEnergy:4},{name:'岩石滑落',dmg:90,cost:11,type:'rock',status:{effect:'sleep', chance:0.2}}]},
@@ -1449,7 +1448,7 @@ async function handleMessage(ws, msg) {
     if (type === 'create_room') {
       const code   = genCode();
       const roster = await getRosterForConnection(ws);
-      const room   = { code, p1: ws, p2: null, phase: 'waiting', p1Roster: roster, p2Roster: null, p1Team: null, p2Team: null, p1Ready: false, p2Ready: false, G: null, p1Rerolls: 0, p2Rerolls: 0, p1TeamEdits: 0, p2TeamEdits: 0, p1EditCandidates: null, p2EditCandidates: null, coinFlip: null, p1UserId: ws.userId ?? null, p2UserId: null, spectators: [] };
+      const room   = { code, p1: ws, p2: null, phase: 'waiting', p1Roster: roster, p2Roster: null, p1Team: null, p2Team: null, p1Ready: false, p2Ready: false, G: null, p1Rerolls: 0, p2Rerolls: 0, p1TeamEdits: 0, p2TeamEdits: 0, p1EditCandidates: null, p2EditCandidates: null, coinFlip: null, p1UserId: ws.userId ?? null, p2UserId: null, p1Username: ws.username ?? null, p2Username: null, spectators: [] };
       rooms.set(code, room);
       ws.roomCode = code; ws.role = 'p1';
       send(ws, { type: 'room_created', code, role: 'p1', roster });
@@ -1472,9 +1471,10 @@ async function handleMessage(ws, msg) {
       ws.roomCode   = code; ws.role = 'p2';
       room.p2Roster = await getRosterForConnection(ws);
       room.p2UserId = ws.userId ?? null;
+      room.p2Username = ws.username ?? null;
       room.phase    = 'selecting';
-      send(ws,      { type: 'joined', role: 'p2', roster: room.p2Roster });
-      send(room.p1, { type: 'opponent_joined' });
+      send(ws,      { type: 'joined', role: 'p2', roster: room.p2Roster, opponentUsername: room.p1Username });
+      send(room.p1, { type: 'opponent_joined', username: room.p2Username });
       return;
     }
 
