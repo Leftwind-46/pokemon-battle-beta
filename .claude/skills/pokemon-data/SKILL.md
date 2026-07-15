@@ -119,16 +119,16 @@ Within a tier, where a specific mon lands in its range is interpolated from its 
 
 Exact per-mon value within the band is `id`-derived (`dmgLo + (id*7) % range`, `costLo + (id*3) % range`) purely for reproducible variety, not a balance signal — don't read meaning into why one mon's medium move is a couple points higher than another's. Applied via targeted regex text-surgery keyed on `id:${N},` as a block anchor (not full-array re-serialization) so every other field in each Pokémon's entry stayed byte-identical — **if you do this kind of "some entries, not all, mutate one field" batch edit again, verify each replacement's *old* value matches what you expect before writing the *new* one** (a first pass here silently failed to update `cost` because the capturing regex didn't include the trailing comma, so the `.replace()` calls for `cost:` never matched — caught by spot-checking Venusaur's output afterward, not by the script itself, since it reported "applied" even for the silently-failed cost half).
 
-**⚠️ Superseded 2026-07-14 — the table above no longer reflects the live data.** Everything in this section (the tier1-3 weak/medium/strong bands, the "2 weak + 2 strong (+ medium)" moveset shape) describes the system that was live from 2026-07-02 to 2026-07-14, kept here only as history in case you're reading an old commit or log message that references it. It was fully replaced by a brand-new 4-cost-tier system tied to HP rather than a mon's own prior move power — see battle-logic skill's "Moveset overhaul: cost-tier system + 8 support moves" section for the complete mechanics writeup (new move fields `megaBoost`/`bonusEnergy`/`selfHeal`/`support`+`effect`, the `Braced`/`CoinShield`/`BonusEnergyNextTurn`/etc. G-flags, all 8 support moves). The facts worth knowing from a pure data-lookup angle:
+**⚠️ Superseded 2026-07-14, then superseded again 2026-07-15 — the table above no longer reflects the live data, and neither does the 4-tier table this paragraph originally documented.** Everything above (the tier1-3 weak/medium/strong bands, the "2 weak + 2 strong (+ medium)" moveset shape) describes the system live from 2026-07-02 to 2026-07-14, kept only as history. See battle-logic skill's "Moveset overhaul: cost-tier system + 8 support moves" (2026-07-14) and "Second moveset rebalance pass" (2026-07-15) sections for the full mechanics writeup — the move-level fields (`megaBoost`/`bonusEnergy`/`selfHeal`/`support`+`effect`) and G-flags (`Braced`/`CoinShield`/`BonusEnergyNextTurn`/etc.) from the first pass are unchanged, only the numeric tiers/HP table/support costs were revised the next day. **Current (2026-07-15) table**:
 
-| HP bucket | tier1 (cost 0-3, dmg 10-20) | tier2 (cost 4-8, dmg 70-80) | tier3 (cost 9-15, dmg 90-120) | tier4 (cost 16-20, dmg 120-150) |
-|---|---|---|---|---|
-| ≤230 | 2 | 1 | 1 | 0 |
-| 231-270 | 1 | 2 | 1 | 0 |
-| 271-310 | 1 | 1 | 1 | 1 |
-| >310 | 0 | 1 | 1 | 2 |
+| HP bucket | t1 (cost 0-5, dmg 10-40) | t2 (cost 6-10, dmg 50-75) | t3 (cost 11-15, dmg 90-120) |
+|---|---|---|---|
+| ≤230 | 2 | 1 | 1 |
+| 231-270 | 1 | 2 | 1 |
+| 271-310 | 1 | 1 | 2 |
+| >310 | 0 | 1 | 3 |
 
-— minus whichever one slot got overwritten by a support move (every Pokémon has exactly one, chosen independent of tier). Move **names/types were preserved** from before this rewrite (only dmg/cost/attached-effect fields changed on the 3 surviving damage moves; the 4th slot's name/type/dmg/cost were fully replaced by the support move). If you add a new Pokémon by hand now, use this table (keyed on its HP) instead of the old one above, and remember one of its 4 moves needs to become a support move too (pick one of the 8 from battle-logic skill) — a hand-added Pokémon following only the old table would look inconsistent with the other 152.
+t1 and t2 both carry `megaBoost:true` **and** `bonusEnergy` together now (not split one-effect-per-tier like the 07-14 version) — `bonusEnergy` (4-8) is derived from the move's own cost position within its tier, not HP percentile. t3 still carries `status` XOR `selfHeal`, same as before. **Pokémon with HP > 280 get zero support moves** (all 4 slots stay damage moves) — this is new; previously every Pokémon got exactly one regardless of HP. For the ~94/153 that do get one, support-move costs also changed: 影舞 5→2, 施加負面效果 3→1 (撐住/劍舞/小偷/冥想/詭計/集氣 unchanged), and every support move now also grants a universal +5 bonus energy next turn on top of its own effect (集氣 → 14 total, not 9). If you add a new Pokémon by hand now, use *this* table (not the 07-14 one above it) and skip the support-move step entirely if its HP is over 280.
 
 ## Mega Evolution moveset transformation (2026-07-08)
 

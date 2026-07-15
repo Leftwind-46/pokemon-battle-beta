@@ -194,3 +194,36 @@ All 153 Pokémon's movesets were regenerated from scratch by a one-shot Node scr
 **CPU AI**: `cpuAttack()`'s `affordable` move filter now also excludes `atk.support` moves entirely (`!cpu.attacks[i].support && ...`) — support moves need situational judgment ("should I brace now, or attack?") that doesn't fit the existing greedy damage-maximizing CPU logic, so CPU simply never uses any of the 8, same "complex-decision cards default to CPU-unused" precedent as 搏命/瘋狂博士. This is single-player only; PvP has no CPU AI to guard.
 
 **Verification approach**: single-player mechanics were verified via direct `javascript_tool` injection (constructing synthetic Pokémon/attacks and calling `doAttack`/`executeSupportMove`/`drawAfterTurn` directly) — note that rapid-fire sequential calls without awaiting each one's internal `setTimeout` chains to fully resolve will cause state bleed between "iterations" that looks like a bug but isn't (observed firsthand: a selfHeal test showed the wrong healed value once because a previous test's queued animation callback fired mid-assertion — reloading the page between isolated tests avoids this). PvP mechanics were verified two ways: (1) extracting the actual `doAttack`/`executeSupportMoveSrv`/`drawForRole` source out of `server.js` via the same regex-extract-and-eval technique `scripts/verify.js` already uses for `POKEMON`/`TRAINERS`, then asserting exact outputs against hand-crafted Pokémon/moves (18 assertions, all passing against the real shipped code — remember to give the attacker and move *different* elemental types in tests that check exact damage numbers, or STAB silently multiplies your expected value by 1.5 and the test fails for the wrong reason); (2) one full real 2-tab WS-driven match confirming 劍舞's buff survives an intervening opponent turn and multiplies correctly into the next real attack's server-computed damage (12 base × 1.5 sword-dance × 1.5 STAB = 27, exactly matching).
+
+## Second moveset rebalance pass (2026-07-15) — tier ranges/HP table changed, mechanics didn't
+
+One day after the 2026-07-14 overhaul above, the user asked for a full re-rebalance with a new rule set — same underlying mechanics (`megaBoost`/`bonusEnergy`/`selfHeal`/`support`+`effect` fields, the `Braced`/`CoinShield`/`BonusEnergyNextTurn`/etc. G-flags, all 8 support move names) but **different numeric tiers, a different HP-bucket table, new support-move costs, and one brand-new rule** — regenerated with a second one-shot script, this time explicitly instructed by the user not to ask clarifying questions and to commit+push autonomously once done.
+
+**New tier table (3 tiers now, not 4 — the old 16-20 cost tier4 was removed)**:
+
+| Tier | Cost | Dmg | Extra effect |
+|---|---|---|---|
+| t1 | 0-5 | 10-40 | `megaBoost:true` **and** `bonusEnergy` (4-8) — both together now, not split across two tiers like before |
+| t2 | 6-10 | 50-75 | `megaBoost:true` **and** `bonusEnergy` (4-8) — same as t1, just pricier |
+| t3 | 11-15 | 90-120 | `status` XOR `selfHeal` (unchanged from before) |
+
+**`bonusEnergy` is now derived from the move's own cost position within its tier, not from the Pokémon's HP percentile** — per the user's explicit "依據消耗" (based on cost) wording this time. `dmg`/`cost` themselves are still HP-percentile-driven exactly as before; only `bonusEnergy` changed its interpolation basis, computed as a second, independent lerp: `costPct = (cost - tierCostLo) / (tierCostHi - tierCostLo); bonusEnergy = lerp(bonusEnergyRange, costPct)`.
+
+**New HP→tier-count table** (still 4 buckets, boundaries unchanged, only the counts per bucket changed since there are 3 tiers instead of 4 now):
+
+| HP bucket | t1 | t2 | t3 |
+|---|---|---|---|
+| ≤230 | 2 | 1 | 1 |
+| 231-270 | 1 | 2 | 1 |
+| 271-310 | 1 | 1 | 2 |
+| >310 | 0 | 1 | 3 |
+
+**New rule: Pokémon with HP > 280 get zero support moves** (all 4 slots are damage moves) — previously every single Pokémon got exactly one. 280 sits inside the 271-310 tier-bucket but is a completely independent threshold with no relationship to the bucket boundaries — don't assume they need to line up. Roughly 94/153 Pokémon kept a support move, 59 lost it entirely.
+
+**New support-move costs** (down from before): 撐住 5 (unchanged), 劍舞 4 (unchanged), 小偷 5 (unchanged), 影舞 5→**2**, 施加負面效果 3→**1**, 冥想/詭計/集氣 3 (unchanged).
+
+**New rule: every support move grants a universal +5 bonus energy next turn, on top of whatever its own specific effect already does** — implemented as one extra line at the very end of `executeSupportMove`/`executeSupportMoveSrv` (after the `switch` block, unconditional): `G[side+'BonusEnergyNextTurn'] = (G[side+'BonusEnergyNextTurn']||0) + 5`. This **stacks additively** with 集氣's own `bonusEnergy:9`, so 集氣 now grants **+14** total, not +9 — `SUPPORT_EFFECT_ZH`'s display strings were updated accordingly in both engines (every entry now says "+下回合能量+5" except focus-energy, which just says the pre-combined "+14" directly rather than "+9（+下回合能量+5）" for readability). **If you add a 9th support move later, remember this universal +5 applies automatically since it's added after the switch, not per-case — you don't need to add it to the new case yourself, but you do need to know it's already there so you don't double-add it.**
+
+**Regeneration methodology difference from the first pass**: rather than building on top of the already-rebalanced (2026-07-14) data — which would have compounded data loss, since that data already has one move slot per Pokémon overwritten with a support-move name/type instead of a real elemental attack name — the script pulled genuine pre-rebalance move flavor (names/types/original status chances) from git history (`git show <commit-before-2026-07-14>:server.js`), and re-applied it against the *current* HP/ability/type/mega fields (which reflect all the individual per-mon tweaks made since, e.g. the Xerneas HP fix). **If you ever need to regenerate movesets a third time, do the same** — reach back to the last commit with genuine hand-authored move flavor rather than the most recent rebalance's output, or you'll be re-randomizing on top of already-lossy data and the "preserve original move names" property silently degrades a little further with each pass.
+
+Verified the same two ways as the first pass: a semantic Node validator asserting the new tier ranges/HP-bucket counts/support-cost table/>280-cutoff hold across all 153 entries, plus extracting `executeSupportMoveSrv`/`drawForRole` from the real `server.js` to assert the universal +5 stacks correctly with each of the 8 effects (9 assertions, all passing) and that `drawForRole` applies the combined total correctly. One live single-player browser check confirmed a HP-≤280 Pokémon's 集氣 move showing "+14" in the UI and setting `G.playerBonusEnergyNextTurn = 14` after actually being cast.

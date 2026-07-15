@@ -1070,15 +1070,16 @@ const STATUS_INFO = {
   confusion:{label:'💫 混亂',  cls:'confusion'},
 };
 const STATUS_EFFECT_ZH = {poison:'中毒',burn:'燒傷',paralysis:'麻痺',sleep:'睡眠',freeze:'結凍',confusion:'混亂'};
+// 每種輔助技能都額外附帶「下回合能量+5」（集氣本身已有+9，兩者疊加成+14）
 const SUPPORT_EFFECT_ZH = {
-  'brace': '任何血量下，下次不會被擊倒',
-  'sword-dance': '下次攻擊威力 ×1.5',
-  'thief': '隨機搶對方一張手牌',
-  'shadow-dance': '下次受擊 50% 機率完全閃避',
-  'debuff': '使對方陷入異常狀態',
-  'meditate': '下回合額外抽 2 張道具/競技場卡',
-  'trick': '下回合額外抽 1 張支援者卡',
-  'focus-energy': '下回合額外 +9 能量',
+  'brace': '任何血量下，下次不會被擊倒（+下回合能量+5）',
+  'sword-dance': '下次攻擊威力 ×1.5（+下回合能量+5）',
+  'thief': '隨機搶對方一張手牌（+下回合能量+5）',
+  'shadow-dance': '下次受擊 50% 機率完全閃避（+下回合能量+5）',
+  'debuff': '使對方陷入異常狀態（+下回合能量+5）',
+  'meditate': '下回合額外抽 2 張道具/競技場卡（+下回合能量+5）',
+  'trick': '下回合額外抽 1 張支援者卡（+下回合能量+5）',
+  'focus-energy': '下回合額外 +14 能量',
 };
 const EFF = {
   fire:    {grass:2,ice:2,steel:2,bug:2,water:0.5,fire:0.5,rock:0.5,dragon:0.5},
