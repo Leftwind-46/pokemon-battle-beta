@@ -1446,7 +1446,7 @@
           <li>撤退背心 — 下次換場不會結束回合</li>
           <li>混亂藥（超能力屬性） — 讓對手上場寶可夢陷入混亂</li>
           <li>絕對零度（冰屬性） — 讓對手上場寶可夢陷入結凍</li>
-          <li>能量補丁（小／中／大） — 回復 2／3／4 點能量</li>
+          <li>能量補丁 — 回復 4 點能量</li>
           <li>手牌破壞 — 讓對方隨機棄掉 1 張手牌</li>
           <li>能量剝奪 — 讓對方損失 6 點能量</li>
           <li>一擲千金 — 30% 機率下次攻擊傷害 ×4；70% 機率自身損失 40% 最大HP</li>
@@ -2180,8 +2180,6 @@ const TRAINERS = [
   {id:'retreat-vest', name:'撤退背心', cat:'item',      desc:'下次換場不會結束回合'},
   {id:'confuse-potion', name:'混亂藥', cat:'item',      type:'psychic', desc:'讓對手上場寶可夢陷入混亂'},
   {id:'absolute-zero', name:'絕對零度', cat:'item',     type:'ice',     desc:'讓對手上場寶可夢陷入結凍'},
-  {id:'energy-patch-s', name:'能量補丁（小）', cat:'item', desc:'回復 2 點能量'},
-  {id:'energy-patch-m', name:'能量補丁（中）', cat:'item', desc:'回復 3 點能量'},
   {id:'energy-patch-l', name:'能量補丁（大）', cat:'item', desc:'回復 4 點能量'},
   {id:'hand-wreck', name:'手牌破壞',   cat:'item',      desc:'讓對方隨機棄掉 1 張手牌'},
   {id:'energy-drain', name:'能量剝奪', cat:'item',      desc:'讓對方損失 6 點能量'},
@@ -3450,10 +3448,8 @@ function applyTrainer(card, side, chosenType) {
       buff.doubleStrike = true;
       log(`${pron}使用了【${card.name}】，下次攻擊將分兩段結算！`, tag);
       break;
-    case 'energy-patch-s':
-    case 'energy-patch-m':
     case 'energy-patch-l': {
-      const gain = { 'energy-patch-s':2, 'energy-patch-m':3, 'energy-patch-l':4 }[card.id];
+      const gain = 4;
       const key = side === 'player' ? 'playerEnergy' : 'cpuEnergy';
       const actualGain = Math.min(20 - G[key], gain);
       G[key] = Math.min(20, G[key] + gain);

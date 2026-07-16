@@ -238,8 +238,6 @@ const TRAINERS = [
   {id:'retreat-vest', name:'撤退背心', cat:'item',      desc:'下次換場不會結束回合'},
   {id:'confuse-potion', name:'混亂藥', cat:'item',      type:'psychic', desc:'讓對手上場寶可夢陷入混亂'},
   {id:'absolute-zero', name:'絕對零度', cat:'item',     type:'ice',     desc:'讓對手上場寶可夢陷入結凍'},
-  {id:'energy-patch-s', name:'能量補丁（小）', cat:'item', desc:'回復 2 點能量'},
-  {id:'energy-patch-m', name:'能量補丁（中）', cat:'item', desc:'回復 3 點能量'},
   {id:'energy-patch-l', name:'能量補丁（大）', cat:'item', desc:'回復 4 點能量'},
   {id:'hand-wreck', name:'手牌破壞',   cat:'item',      desc:'讓對方隨機棄掉 1 張手牌'},
   {id:'energy-drain', name:'能量剝奪', cat:'item',      desc:'讓對方損失 6 點能量'},
@@ -1105,10 +1103,8 @@ function applyTrainer(card, role, G, log, chosenType) {
       buff.doubleStrike = true;
       log.push({ text: `使用了連擊，下次攻擊將分兩段結算！`, cls: 'system' });
       break;
-    case 'energy-patch-s':
-    case 'energy-patch-m':
     case 'energy-patch-l': {
-      const gain = { 'energy-patch-s':2, 'energy-patch-m':3, 'energy-patch-l':4 }[card.id];
+      const gain = 4;
       const actualGain = Math.min(20 - G[`${role}Energy`], gain);
       G[`${role}Energy`] = Math.min(20, G[`${role}Energy`] + gain);
       log.push({ text: `${card.name}回復了 ${actualGain} 點能量！（現在 ${G[`${role}Energy`]}/20）`, cls: 'system' });
