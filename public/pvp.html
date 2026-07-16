@@ -396,7 +396,8 @@
     .anim-flash   { animation:flashHit 0.3s ease 3; }
     .anim-ko      { animation:koFade   0.6s ease forwards; }
     .anim-slidein { animation:slideIn  0.4s ease; }
-    .anim-reflect-setup { animation:reflectSetup 0.5s ease 3; }
+    /* 反彈鏡：持續閃爍直到效果被消耗或本回合結束失效為止，不是設置當下才播放一次 */
+    .anim-reflect-active { animation:reflectSetup 0.7s ease infinite; }
 
     /* === Pokémon sprite life animations === */
     @keyframes sprite-float {
@@ -1711,7 +1712,6 @@ function handleMsg(msg) {
       // Only tween the HP bar when the *same* active Pokémon lost/gained HP — switches/KO-switches snap instantly
       const prevPlayerIdx = G.playerIdx, prevPlayerCur = G.playerDeck?.[prevPlayerIdx]?.cur;
       const prevCpuIdx    = G.cpuIdx,    prevCpuCur    = G.cpuDeck?.[prevCpuIdx]?.cur;
-      const prevPlayerReflect = G.playerBuff?.reflect, prevCpuReflect = G.cpuBuff?.reflect;
       for (const entry of (msg.log || [])) log(entry.text, entry.cls);
       applyServerState(msg.state);
       notifyIfMyTurnStarted(wasMyTurn, !G.busy);
@@ -1724,19 +1724,7 @@ function handleMsg(msg) {
       document.getElementById('cpu-hp-fill').classList.toggle('animated', cpuAnimate);
       const playerSwitched = prevPlayerIdx !== undefined && G.playerIdx !== prevPlayerIdx;
       const cpuSwitched    = prevCpuIdx !== undefined && G.cpuIdx !== prevCpuIdx;
-      const playerReflectJustSet = !prevPlayerReflect && G.playerBuff?.reflect;
-      const cpuReflectJustSet    = !prevCpuReflect && G.cpuBuff?.reflect;
-      renderBattle();
-      if (playerReflectJustSet) {
-        const rc = document.getElementById('player-bcard');
-        rc.classList.add('anim-reflect-setup');
-        rc.addEventListener('animationend', () => rc.classList.remove('anim-reflect-setup'), { once: true });
-      }
-      if (cpuReflectJustSet) {
-        const rc = document.getElementById('cpu-bcard');
-        rc.classList.add('anim-reflect-setup');
-        rc.addEventListener('animationend', () => rc.classList.remove('anim-reflect-setup'), { once: true });
-      }
+      renderBattle(); // 反彈鏡閃爍動畫由renderSide()依即時的buf.reflect狀態自動開關
       if (playerSwitched) {
         const pc = document.getElementById('player-bcard');
         pc.classList.add('anim-slidein');
@@ -2171,6 +2159,11 @@ function renderSide(side, poke, deck, activeIdx) {
   const bcard = document.getElementById(`${side}-bcard`);
   if (cur <= 0) { if (!bcard.querySelector('.ko-overlay')) { const o=document.createElement('div'); o.className='ko-overlay'; o.textContent='KO'; bcard.appendChild(o); } }
   else { const o=bcard.querySelector('.ko-overlay'); if(o) o.remove(); }
+  // 反彈鏡持續閃爍到效果結束（消耗掉或本回合結束沒用到而失效）——雙方都要顯示，不只玩家
+  {
+    const sideBuff = side === 'player' ? G.playerBuff : G.cpuBuff;
+    bcard.classList.toggle('anim-reflect-active', !!sideBuff?.reflect);
+  }
   if (side === 'player') {
     const tags = document.getElementById('player-buff-tags');
     const b = G.playerBuff;

@@ -577,7 +577,8 @@
     .anim-flash   { animation: flashHit 0.3s ease 3; }
     .anim-ko      { animation: koFade   0.6s ease forwards; }
     .anim-slidein { animation: slideIn  0.4s ease; }
-    .anim-reflect-setup { animation: reflectSetup 0.5s ease 3; }
+    /* 反彈鏡：持續閃爍直到效果被消耗或本回合結束失效為止，不是設置當下才播放一次 */
+    .anim-reflect-active { animation: reflectSetup 0.7s ease infinite; }
 
     /* === Mega Evolution full-screen cutscene === */
     #mega-cutscene-modal {
@@ -3022,6 +3023,13 @@ function renderSide(side, poke, deck, activeIdx) {
     tags.innerHTML = parts.join('');
   }
 
+  // 反彈鏡持續閃爍到效果結束（消耗掉或本回合結束沒用到而失效）——雙方都要顯示，不只玩家
+  {
+    const sideBuff = side === 'player' ? G.playerBuff : G.cpuBuff;
+    const sideCard = document.getElementById(`${side}-bcard`);
+    if (sideCard) sideCard.classList.toggle('anim-reflect-active', !!sideBuff?.reflect);
+  }
+
   // CPU hand count
   if (side === 'cpu') {
     document.getElementById('cpu-hand-count').textContent = `手牌 ${G.cpuHand.length} 張`;
@@ -3293,9 +3301,7 @@ function applyTrainer(card, side, chosenType) {
     case 'reflect': {
       buff.reflect = true;
       log(`${pron}使用了【${card.name}】！下次對手攻擊將被反彈！`, tag);
-      const rCard = document.getElementById(`${side}-bcard`);
-      rCard.classList.add('anim-reflect-setup');
-      rCard.addEventListener('animationend', () => rCard.classList.remove('anim-reflect-setup'), { once: true });
+      // 閃爍動畫由renderSide()依buf.reflect即時狀態自動開關，這裡不用手動加/移除class
       break;
     }
     case 'type-orb': {
