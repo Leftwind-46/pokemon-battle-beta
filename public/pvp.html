@@ -564,6 +564,8 @@
 <body>
 <canvas id="stars"></canvas>
 
+<button id="sfx-mute-btn" onclick="toggleSfxMuted()" title="靜音音效/音樂" style="position:fixed;top:0.8rem;right:0.8rem;z-index:150;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.16);border-radius:999px;width:2.3rem;height:2.3rem;font-size:1.05rem;cursor:pointer;color:#e8eaf6">🔊</button>
+
 <!-- ══ LOBBY ══ -->
 <div id="lobby-screen" class="screen active">
   <div class="lobby-center">
@@ -1056,6 +1058,109 @@
   }
   resize(); draw(); addEventListener('resize',resize);
 })();
+
+/* ─────────────────────────────────────────
+   8-BIT 音效系統（Web Audio API 即時合成，不使用任何外部音檔——
+   任天堂的寶可夢原聲有版權，不能下載真實遊戲音檔進repo）
+───────────────────────────────────────── */
+let audioCtx = null;
+function ensureAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+let sfxMuted = localStorage.getItem('sfxMuted') === '1';
+function updateSfxMuteBtn() {
+  const btn = document.getElementById('sfx-mute-btn');
+  if (btn) btn.textContent = sfxMuted ? '🔇' : '🔊';
+}
+function toggleSfxMuted() {
+  sfxMuted = !sfxMuted;
+  localStorage.setItem('sfxMuted', sfxMuted ? '1' : '0');
+  updateSfxMuteBtn();
+  if (sfxMuted) {
+    if (bgmTimer) { clearTimeout(bgmTimer); bgmTimer = null; }
+  } else if (bgmWanted && !bgmTimer) {
+    startBgmLoop();
+  }
+}
+updateSfxMuteBtn();
+
+function playTone(freq, dur, { type = 'square', vol = 0.15, delay = 0, ctx } = {}) {
+  const ac = ctx || ensureAudioCtx();
+  const osc  = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  osc.connect(gain);
+  gain.connect(ac.destination);
+  const t0 = ac.currentTime + delay;
+  gain.gain.setValueAtTime(vol, t0);
+  gain.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+  osc.start(t0);
+  osc.stop(t0 + dur + 0.02);
+}
+
+function playSfx(name) {
+  if (sfxMuted) return;
+  const ac = ensureAudioCtx();
+  switch (name) {
+    case 'click':
+      playTone(880, 0.05, { ctx: ac, vol: 0.08 });
+      break;
+    case 'attack-hit':
+      playTone(180, 0.12, { ctx: ac, vol: 0.18 });
+      playTone(120, 0.15, { ctx: ac, vol: 0.12, delay: 0.03 });
+      break;
+    case 'faint':
+      [440, 370, 294, 220].forEach((f, i) => playTone(f, 0.18, { ctx: ac, vol: 0.14, delay: i * 0.1 }));
+      break;
+    case 'victory':
+      [523, 659, 784, 1047].forEach((f, i) => playTone(f, 0.16, { ctx: ac, vol: 0.15, delay: i * 0.12 }));
+      break;
+    case 'defeat':
+      [330, 294, 262, 220].forEach((f, i) => playTone(f, 0.3, { ctx: ac, vol: 0.13, delay: i * 0.18 }));
+      break;
+    case 'mega-evolve':
+      for (let i = 0; i < 8; i++) playTone(300 + i * 90, 0.1, { ctx: ac, vol: 0.1, delay: i * 0.05 });
+      break;
+    case 'status':
+      playTone(150, 0.08, { ctx: ac, type: 'sawtooth', vol: 0.12 });
+      playTone(140, 0.08, { ctx: ac, type: 'sawtooth', vol: 0.1, delay: 0.09 });
+      break;
+    case 'heal':
+      [392, 494, 587].forEach((f, i) => playTone(f, 0.14, { ctx: ac, vol: 0.13, delay: i * 0.09 }));
+      break;
+    case 'draw-card':
+      playTone(660, 0.04, { ctx: ac, vol: 0.06 });
+      break;
+  }
+}
+
+const BGM_NOTES = [392,440,523,587,523,440,392,330,392,440,523,659,587,523,440,392];
+let bgmWanted = false;
+let bgmTimer  = null;
+function startBgmLoop() {
+  const ac = ensureAudioCtx();
+  let i = 0;
+  const noteDur = 0.35;
+  const step = () => {
+    if (!bgmWanted || sfxMuted) { bgmTimer = null; return; }
+    playTone(BGM_NOTES[i % BGM_NOTES.length], noteDur * 0.9, { ctx: ac, vol: 0.045, type: 'triangle' });
+    i++;
+    bgmTimer = setTimeout(step, noteDur * 1000);
+  };
+  step();
+}
+function playBgm() {
+  bgmWanted = true;
+  if (sfxMuted || bgmTimer) return;
+  startBgmLoop();
+}
+function stopBgm() {
+  bgmWanted = false;
+  if (bgmTimer) { clearTimeout(bgmTimer); bgmTimer = null; }
+}
 
 /* ─────────────────────────────────────────
    DISPLAY CONSTANTS
@@ -1574,6 +1679,7 @@ function handleMsg(msg) {
       break;
 
     case 'battle_start':
+      playBgm();
       if (!isSpectator && 'Notification' in window && Notification.permission === 'default') Notification.requestPermission();
       applyServerState(msg.state);
       if (!isSpectator) updatePlayerLabels();
@@ -1596,6 +1702,9 @@ function handleMsg(msg) {
       notifyIfMyTurnStarted(wasMyTurn, !G.busy);
       const playerAnimate = G.playerIdx === prevPlayerIdx && G.playerDeck[G.playerIdx]?.cur !== prevPlayerCur;
       const cpuAnimate    = G.cpuIdx === prevCpuIdx && G.cpuDeck[G.cpuIdx]?.cur !== prevCpuCur;
+      // 同一隻寶可夢（idx沒變）從有血變成0血 → 剛陣亡，播放倒下音效（換上場另外由anim-slidein的分支處理）
+      if (prevPlayerCur > 0 && G.playerIdx === prevPlayerIdx && G.playerDeck[G.playerIdx]?.cur <= 0) playSfx('faint');
+      if (prevCpuCur > 0 && G.cpuIdx === prevCpuIdx && G.cpuDeck[G.cpuIdx]?.cur <= 0) playSfx('faint');
       document.getElementById('player-hp-fill').classList.toggle('animated', playerAnimate);
       document.getElementById('cpu-hp-fill').classList.toggle('animated', cpuAnimate);
       const playerSwitched = prevPlayerIdx !== undefined && G.playerIdx !== prevPlayerIdx;
@@ -1646,10 +1755,12 @@ function handleMsg(msg) {
           }, { once: true });
         }
         if (defCard) showHitEffect(msg.atkType, defCard);
+        playSfx('attack-hit');
       }
       if (msg.megaEvolved) {
         const evolvedSide = msg.actor === myRole ? 'player' : 'cpu';
         playMegaEvolveAnim(evolvedSide);
+        playSfx('mega-evolve');
       }
       // KO switch check（觀戰者不用選替補，這個彈窗只給正在玩的那一方看）
       if (!isSpectator && msg.state.pendingKOSwitch === myRole) showKOSwitch();
@@ -1662,9 +1773,12 @@ function handleMsg(msg) {
     case 'game_over': {
       for (const entry of (msg.log || [])) log(entry.text, entry.cls);
       applyServerState(msg.state);
+      stopBgm();
       const isDraw = msg.winner === 'draw';
+      const iWon = !isSpectator && msg.winner === myRole;
+      if (!isSpectator) playSfx(isDraw ? 'faint' : (iWon ? 'victory' : 'defeat'));
       const winnerDeck = isDraw ? null : msg.state[`${msg.winner}Deck`];
-      setTimeout(() => showResult(!isSpectator && msg.winner === myRole, isDraw, winnerDeck, msg.winner), 800);
+      setTimeout(() => showResult(iWon, isDraw, winnerDeck, msg.winner), 800);
       break;
     }
 
@@ -1850,6 +1964,7 @@ function rerollRoster() {
 
 function confirmTeam() {
   if (tsSelected.length !== 3 || tsConfirmed || teamEditMode) return;
+  playSfx('click');
   tsConfirmed = true;
   document.getElementById('ts-confirm-btn').disabled = true;
   document.getElementById('ts-reroll-btn').disabled  = true;
@@ -2145,6 +2260,7 @@ function playerAttack(idx) {
   if (G.busy || G.playerNeedsDiscard) return;
   const atk = P()?.attacks[idx];
   if (atk && (G.playerEnergy ?? 0) < effectiveCost(atk, CP())) return; // not enough energy
+  playSfx('click');
   G.busy = true;
   renderBattle();
   send({ type: 'attack', idx });
@@ -2163,6 +2279,7 @@ function playerSwitch(deckIdx) {
   if (G.busy || G.playerNeedsDiscard) return;
   if (G.playerFreeSwitch) { // 撤退背心：免確認，不鎖定回合
     hideBenchPopup();
+    playSfx('click');
     send({ type: 'switch', deckIdx });
     return;
   }
@@ -2181,6 +2298,7 @@ function confirmPlayerSwitch() {
   document.getElementById('switch-confirm-modal').classList.remove('open');
   if (deckIdx === null || G.busy || G.playerNeedsDiscard) return;
   _pendingSwitchDeckIdx = null;
+  playSfx('click');
 
   G.busy = true; // switching ends the turn — locked until opponent acts
   renderBattle();

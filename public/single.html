@@ -1326,6 +1326,8 @@
 
 <canvas id="stars"></canvas>
 
+<button id="sfx-mute-btn" onclick="toggleSfxMuted()" title="靜音音效/音樂" style="position:fixed;top:0.8rem;right:0.8rem;z-index:150;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.16);border-radius:999px;width:2.3rem;height:2.3rem;font-size:1.05rem;cursor:pointer;color:#e8eaf6">🔊</button>
+
 <!-- ══ START ══ -->
 <div id="start-screen" class="screen active">
   <div class="pokeball" style="margin-bottom:0.5rem"></div>
@@ -1759,6 +1761,111 @@
   draw();
   addEventListener('resize', resize);
 })();
+
+/* ─────────────────────────────────────────
+   8-BIT 音效系統（Web Audio API 即時合成，不使用任何外部音檔——
+   任天堂的寶可夢原聲有版權，不能下載真實遊戲音檔進repo）
+───────────────────────────────────────── */
+let audioCtx = null;
+function ensureAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+let sfxMuted = localStorage.getItem('sfxMuted') === '1';
+function updateSfxMuteBtn() {
+  const btn = document.getElementById('sfx-mute-btn');
+  if (btn) btn.textContent = sfxMuted ? '🔇' : '🔊';
+}
+function toggleSfxMuted() {
+  sfxMuted = !sfxMuted;
+  localStorage.setItem('sfxMuted', sfxMuted ? '1' : '0');
+  updateSfxMuteBtn();
+  if (sfxMuted) {
+    if (bgmTimer) { clearTimeout(bgmTimer); bgmTimer = null; }
+  } else if (bgmWanted && !bgmTimer) {
+    startBgmLoop();
+  }
+}
+updateSfxMuteBtn();
+
+// 底層音色產生器：一個方波/三角波音符，音量做指數衰減避免喀嚓聲
+function playTone(freq, dur, { type = 'square', vol = 0.15, delay = 0, ctx } = {}) {
+  const ac = ctx || ensureAudioCtx();
+  const osc  = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  osc.connect(gain);
+  gain.connect(ac.destination);
+  const t0 = ac.currentTime + delay;
+  gain.gain.setValueAtTime(vol, t0);
+  gain.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+  osc.start(t0);
+  osc.stop(t0 + dur + 0.02);
+}
+
+function playSfx(name) {
+  if (sfxMuted) return;
+  const ac = ensureAudioCtx();
+  switch (name) {
+    case 'click':
+      playTone(880, 0.05, { ctx: ac, vol: 0.08 });
+      break;
+    case 'attack-hit':
+      playTone(180, 0.12, { ctx: ac, vol: 0.18 });
+      playTone(120, 0.15, { ctx: ac, vol: 0.12, delay: 0.03 });
+      break;
+    case 'faint':
+      [440, 370, 294, 220].forEach((f, i) => playTone(f, 0.18, { ctx: ac, vol: 0.14, delay: i * 0.1 }));
+      break;
+    case 'victory':
+      [523, 659, 784, 1047].forEach((f, i) => playTone(f, 0.16, { ctx: ac, vol: 0.15, delay: i * 0.12 }));
+      break;
+    case 'defeat':
+      [330, 294, 262, 220].forEach((f, i) => playTone(f, 0.3, { ctx: ac, vol: 0.13, delay: i * 0.18 }));
+      break;
+    case 'mega-evolve':
+      for (let i = 0; i < 8; i++) playTone(300 + i * 90, 0.1, { ctx: ac, vol: 0.1, delay: i * 0.05 });
+      break;
+    case 'status':
+      playTone(150, 0.08, { ctx: ac, type: 'sawtooth', vol: 0.12 });
+      playTone(140, 0.08, { ctx: ac, type: 'sawtooth', vol: 0.1, delay: 0.09 });
+      break;
+    case 'heal':
+      [392, 494, 587].forEach((f, i) => playTone(f, 0.14, { ctx: ac, vol: 0.13, delay: i * 0.09 }));
+      break;
+    case 'draw-card':
+      playTone(660, 0.04, { ctx: ac, vol: 0.06 });
+      break;
+  }
+}
+
+// 背景音樂：五聲音階循環旋律，用setTimeout排下一輪音符達成無縫循環
+const BGM_NOTES = [392,440,523,587,523,440,392,330,392,440,523,659,587,523,440,392];
+let bgmWanted = false; // 概念上「這個畫面應該要有BGM」，跟靜音是分開的兩個狀態
+let bgmTimer  = null;  // 實際在跑的setTimeout排程
+function startBgmLoop() {
+  const ac = ensureAudioCtx();
+  let i = 0;
+  const noteDur = 0.35;
+  const step = () => {
+    if (!bgmWanted || sfxMuted) { bgmTimer = null; return; }
+    playTone(BGM_NOTES[i % BGM_NOTES.length], noteDur * 0.9, { ctx: ac, vol: 0.045, type: 'triangle' });
+    i++;
+    bgmTimer = setTimeout(step, noteDur * 1000);
+  };
+  step();
+}
+function playBgm() {
+  bgmWanted = true;
+  if (sfxMuted || bgmTimer) return;
+  startBgmLoop();
+}
+function stopBgm() {
+  bgmWanted = false;
+  if (bgmTimer) { clearTimeout(bgmTimer); bgmTimer = null; }
+}
 
 /* ─────────────────────────────────────────
    DATA
@@ -2584,11 +2691,14 @@ function showTeamSelectScreen() {
 
 function confirmTeamSelect() {
   if (G.selectedIndices.length < 3) return;
+  playSfx('click');
   G.playerDeck = G.selectedIndices.map(i => G.playerRoster[i]);
   startBattle();
 }
 
 function showPickScreen() {
+  stopBgm();
+  playSfx('victory');
   const screen = document.getElementById('pick-screen');
   const tierNames = { 1:'第1關', 2:'第2關', 3:'第3關' };
   const nextTier  = { 1:'中等', 2:'強力', 3:'' };
@@ -2620,6 +2730,8 @@ function pickEnemy(idx) {
 }
 
 function showFinalVictory() {
+  stopBgm();
+  playSfx('victory');
   showScreen('result-screen');
   const title = document.getElementById('result-title');
   const sub   = document.getElementById('result-sub');
@@ -2663,6 +2775,7 @@ function startRandomBattle() {
 }
 
 function startBattle() {
+  playBgm();
   G.playerIdx      = 0;
   G.cpuIdx         = 0;
   G.round          = 0;
@@ -3028,6 +3141,7 @@ function applyTrainer(card, side, chosenType) {
       const gain = Math.min(active.hp - active.cur, healAmt);
       active.cur = Math.min(active.hp, active.cur + healAmt);
       log(`${pron}使用了【${card.name}】，${active.name} 回復了 ${gain} HP！（現在 ${active.cur}/${active.hp}）`, tag);
+      if (gain > 0) playSfx('heal');
       updateHp(side, active);
       break;
     }
@@ -3050,6 +3164,7 @@ function applyTrainer(card, side, chosenType) {
       if (fainted) {
         fainted.cur = 80;
         log(`${pron}使用了【${card.name}】，${fainted.name} 復活了！（HP 80/${fainted.hp}）`, tag);
+        playSfx('heal');
       } else {
         log(`${pron}使用了【${card.name}】，但沒有倒下的寶可夢。`, 'system');
       }
@@ -3059,6 +3174,7 @@ function applyTrainer(card, side, chosenType) {
       active.cur = active.hp;
       active.status = null;
       log(`${pron}使用了【${card.name}】，${active.name} 完全回復！（HP ${active.hp}/${active.hp}）`, tag);
+      playSfx('heal');
       updateHp(side, active);
       break;
     case 'antidote': {
@@ -3408,6 +3524,7 @@ function applyMegaEvolution(poke, side) {
   G[side === 'player' ? 'playerMegaUsed' : 'cpuMegaUsed'] = true; // 雙方共用一條槽，整場只能用一次
   const label = side === 'player' ? '你的' : '對手的';
   log(`${label}${poke.name} Mega 進化了！HP 全滿，異常狀態解除！`, 'special');
+  playSfx('mega-evolve');
   triggerOnEnter(poke, side, false); // lets an ability like 複製(trace) fire immediately on evolving
   playMegaEvolveAnim(side, poke);
 }
@@ -3428,6 +3545,7 @@ function megaEvolve() {
 function playerAttack(atkIdx) {
   if (G.busy) return;
   if (G.playerEnergy < effectiveCost(P().attacks[atkIdx], CP())) return; // not enough energy
+  playSfx('click');
   G.freeSwitch = false;
   G.busy = true;
   renderBattle();
@@ -3495,6 +3613,7 @@ function confirmPlayerSwitch() {
 }
 
 function executeSwitch(deckIdx) {
+  playSfx('click');
   const usedFreeSwitch = G.freeSwitch;
   G.freeSwitch = false;
   G.switchedThisTurn = true;
@@ -3874,6 +3993,7 @@ function tryInflictStatus(atk, target, targetSide, attacker) {
   const label = targetSide === 'player' ? '你的' : '對手的';
   const effectVerb = { poison:'中毒', burn:'燒傷', paralysis:'麻痺', sleep:'進入睡眠', freeze:'結凍', confusion:'陷入混亂' };
   log(`${label}${target.name} ${effectVerb[effect]}了！`, 'special');
+  playSfx('status');
   if (['poison','burn','paralysis'].includes(effect) && target.ability?.id === 'sync-status' && attacker && !attacker.status && attacker.cur > 0) {
     attacker.status = { type: effect, turnsLeft: 999 };
     const aLabel = targetSide === 'player' ? '對手的' : '你的';
@@ -4066,6 +4186,7 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
 
     if (coinShieldProc) log(`${dLabel}${defender.name} 的影舞擲出硬幣正面，完全閃避了攻擊！`, 'special');
     if (abyssDodgeProc) log(`${dLabel}${defender.name} 的深淵支配發動，完全閃避了攻擊！`, 'special');
+    if (dmg > 0) playSfx('attack-hit');
     defender.cur = Math.max(0, defender.cur - dmg);
     if (!moldBreaker && defender.ability?.id === 'sturdy' && wasFullHp && defender.cur <= 0) {
       defender.cur = 1;
@@ -4186,6 +4307,7 @@ function executeSupportMove(attacker, defender, atk, aSide, dSide, onDone) {
       const actualHeal = Math.min(heal, attacker.hp - attacker.cur);
       attacker.cur = Math.min(attacker.hp, attacker.cur + heal);
       log(`${aLabel}${attacker.name} 使用了羽棲，立即回復了 ${actualHeal} HP！`, 'special');
+      if (actualHeal > 0) playSfx('heal');
       updateHp(aSide, attacker);
       break;
     }
@@ -4469,6 +4591,7 @@ function handleKO(side, onNext) {
 
   log(`${label}${fainted.name} 倒下了！`, 'special');
   triggerOnLeave(fainted, side);
+  playSfx('faint');
 
   const card = document.getElementById(`${side}-bcard`);
   const overlay = document.createElement('div');
@@ -4540,6 +4663,8 @@ function showResult(winner) {
   }
 
   // Player lost — show defeat screen
+  stopBgm();
+  playSfx('defeat');
   showScreen('result-screen');
   const title = document.getElementById('result-title');
   const sub   = document.getElementById('result-sub');

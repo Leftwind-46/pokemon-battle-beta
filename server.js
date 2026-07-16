@@ -274,6 +274,18 @@ const TRAINERS = [
 
 const STATUS_ZH = {poison:'中毒',burn:'燒傷',paralysis:'麻痺',sleep:'睡眠',freeze:'結凍',confusion:'混亂'};
 
+/* 電子雞可選寵物白名單——限定第一/二代御三家初形態＋皮卡丘，共7選1。獨立於戰鬥用的POKEMON陣列，
+   不需要招式/特性資料 */
+const PET_SPECIES = [
+  { id: 1,   name: '妙蛙種子', type: 'grass' },
+  { id: 4,   name: '小火龍',   type: 'fire' },
+  { id: 7,   name: '傑尼龜',   type: 'water' },
+  { id: 152, name: '菊草葉',   type: 'grass' },
+  { id: 155, name: '火球鼠',   type: 'fire' },
+  { id: 158, name: '小鱷魚',   type: 'water' },
+  { id: 25,  name: '皮卡丘',   type: 'electric' },
+];
+
 /* ═══════════════════════════════════════════
    GAME LOGIC  (synchronous server-side)
 ═══════════════════════════════════════════ */
@@ -1348,6 +1360,57 @@ app.get('/api/team', requireAuth, async (req, res) => {
   }
 });
 
+/* ═══ 寶可夢電子雞：選一次寵物之後只讀/更新好感度，不能重選（MVP範圍） ═══ */
+app.get('/api/pet', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT species_id, happiness FROM pets WHERE user_id = $1', [req.user.id]);
+    if (!rows.length) return res.json({ pet: null });
+    res.json({ pet: { speciesId: rows[0].species_id, happiness: rows[0].happiness } });
+  } catch (e) {
+    console.error('pet fetch error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+app.post('/api/pet/choose', requireAuth, async (req, res) => {
+  const speciesId = Number(req.body?.speciesId);
+  if (!PET_SPECIES.some(s => s.id === speciesId)) {
+    return res.status(400).json({ error: 'invalid_species' });
+  }
+  try {
+    const { rows } = await pool.query('SELECT species_id FROM pets WHERE user_id = $1', [req.user.id]);
+    if (rows.length) return res.status(409).json({ error: 'already_chosen' });
+    await pool.query('INSERT INTO pets (user_id, species_id) VALUES ($1, $2)', [req.user.id, speciesId]);
+    res.status(201).json({ pet: { speciesId, happiness: 50 } });
+  } catch (e) {
+    console.error('pet choose error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+const PET_REACTIONS = ['開心地叫了一聲！', '搖了搖尾巴！', '眼睛閃閃發亮！', '蹭了蹭你！', '開心地跳了起來！'];
+const PET_INTERACT_COOLDOWN_MS = 3000; // 防止洗好感度，冷卻期間重複點擊不加分
+app.post('/api/pet/interact', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT species_id, happiness, last_interaction_at FROM pets WHERE user_id = $1', [req.user.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'no_pet' });
+    const pet = rows[0];
+    const lastAt = pet.last_interaction_at ? new Date(pet.last_interaction_at).getTime() : 0;
+    if (Date.now() - lastAt < PET_INTERACT_COOLDOWN_MS) {
+      return res.json({ happiness: pet.happiness, reaction: null, cooldown: true });
+    }
+    const happiness = Math.min(100, pet.happiness + 1);
+    await pool.query('UPDATE pets SET happiness = $1, last_interaction_at = NOW() WHERE user_id = $2', [happiness, req.user.id]);
+    const reaction = PET_REACTIONS[Math.floor(Math.random() * PET_REACTIONS.length)];
+    res.json({ happiness, reaction, cooldown: false });
+  } catch (e) {
+    console.error('pet interact error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
 /* 不需要登入就能看——純顯示用途；週次靠日期分桶，沒有排程/cron，"重置"是隱含的（新的一週第一場結束就自然開新的一列） */
 app.get('/api/leaderboard', async (req, res) => {
   if (!pool) return res.status(503).json({ error: 'no_db' });
@@ -2067,6 +2130,13 @@ async function initDB() {
       wins INTEGER NOT NULL DEFAULT 0,
       losses INTEGER NOT NULL DEFAULT 0,
       PRIMARY KEY (user_id, week_start_date)
+    )`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS pets (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      species_id INTEGER NOT NULL,
+      happiness INTEGER NOT NULL DEFAULT 50,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      last_interaction_at TIMESTAMPTZ
     )`);
     console.log('PostgreSQL connected');
   } catch (e) {
