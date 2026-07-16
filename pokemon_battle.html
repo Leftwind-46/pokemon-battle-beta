@@ -1422,12 +1422,13 @@
         <li><b>🔥 燒傷</b>：損失 1/16 最大 HP（同樣是行動後才扣），且攻擊力降低 30%。</li>
         <li><b>⚡ 麻痺</b>：每回合 50% 機率完全無法行動。</li>
         <li><b>💤 睡眠</b>：無法行動 2–3 回合後自然醒來；回合數每回合都會減少，待機也算一回合。</li>
-        <li><b>❄ 結凍</b>：無法行動；冰凍 2 回合後自動解凍，或被火系招式命中立即解凍；回合數每回合都會減少，待機也算一回合。</li>
+        <li><b>❄ 結凍</b>：無法行動；冰凍 2 回合後自動解凍，或被火系招式命中立即解凍，自己使出火屬性招式也能立即解凍；回合數每回合都會減少，待機也算一回合。</li>
         <li><b>💫 混亂</b>：嘗試攻擊時 50% 機率攻擊自己（60 傷害），持續 2–4 回合；換場可解除；回合數每回合都會減少，待機也算一回合（但待機不會觸發混亂自傷）。</li>
         <li>每隻寶可夢同一時間只能有一種異常狀態。使用<b>萬能藥</b>或<b>治療師</b>可解除。</li>
       </ul>
 
       <h3>訓練師牌</h3>
+      <p style="font-size:0.82rem;color:var(--muted);margin-bottom:0.5rem">部分道具卡／競技場卡有屬性標示，只有場上寶可夢符合該屬性（雙屬性則兩者皆可）時才會抽到；沒有標示屬性的是通用卡，任何時候都抽得到。</p>
       <ul>
         <li><b>道具牌</b>（綠框）每回合可使用多張。開局後每回合只會抽到道具牌：</li>
         <ul>
@@ -1436,14 +1437,14 @@
           <li>防禦強化 — 下次承受傷害 −40</li>
           <li>能量強化 — 下次攻擊傷害 ×2，但自身損失 50 HP</li>
           <li>萬能藥 — 解除上場寶可夢的所有異常狀態</li>
-          <li>火焰彈 — 讓對手上場寶可夢陷入燒傷</li>
-          <li>瓦斯攻擊 — 讓對手上場寶可夢陷入中毒</li>
+          <li>火焰彈（火屬性） — 讓對手上場寶可夢陷入燒傷</li>
+          <li>瓦斯攻擊（毒屬性） — 讓對手上場寶可夢陷入中毒</li>
           <li>交換器 — 強制讓對手上場寶可夢與隨機備戰寶可夢互換</li>
           <li>反彈鏡 — 下次對手攻擊傷害全數反彈回自身</li>
           <li>屬性轉換 — 選擇一個屬性，本回合攻擊視為該屬性（享有屬性加成）</li>
           <li>撤退背心 — 下次換場不會結束回合</li>
-          <li>混亂藥 — 讓對手上場寶可夢陷入混亂</li>
-          <li>絕對零度 — 讓對手上場寶可夢陷入結凍</li>
+          <li>混亂藥（超能力屬性） — 讓對手上場寶可夢陷入混亂</li>
+          <li>絕對零度（冰屬性） — 讓對手上場寶可夢陷入結凍</li>
           <li>能量補丁（小／中／大） — 回復 2／3／4 點能量</li>
           <li>手牌破壞 — 讓對方隨機棄掉 1 張手牌</li>
           <li>能量剝奪 — 讓對方損失 6 點能量</li>
@@ -1452,14 +1453,24 @@
           <li>連擊 — 下次攻擊傷害 ×1.4，異常狀態機率額外判定一次</li>
           <li>掠奪 — 隨機搶奪對手一張手牌</li>
           <li>通訊封印 — 下回合對手不能使用支援者卡</li>
+          <li>電擊誘餌（電屬性） — 讓對手上場寶可夢陷入麻痺</li>
+          <li>詛咒波動（幽靈屬性） — 讓對方損失 8 點能量，自身回復 20 HP</li>
+          <li>鋼鐵裝甲（鋼屬性） — 下次受到傷害減少 70</li>
+          <li>夜襲（惡屬性） — 隨機搶奪對手 2 張手牌</li>
+          <li>順風（飛行屬性） — 下次攻擊若為飛行屬性，傷害 ×1.2</li>
+          <li>妖精之光（妖精屬性） — 解除上場寶可夢異常狀態並回復 40 HP</li>
+          <li>群聚針刺（蟲屬性） — 讓對手陷入中毒，並損失 3 點能量</li>
+          <li>潮汐回復（水屬性） — 回復上場寶可夢 30% 最大HP</li>
+          <li>龍之波動（龍屬性） — 下次攻擊若為龍屬性，傷害 ×1.6</li>
+          <li>捨身猛擊（格鬥屬性） — 下次攻擊威力 ×1.2，但自身 HP ×0.8</li>
         </ul>
         <li><b>支援者牌</b>（藍框）每回合限用 1 張，沒有場次上限。僅開局手牌中會出現：</li>
         <ul>
-          <li>復活藥 — 復活備戰欄第一隻倒下的寶可夢（回復 80 HP）</li>
+          <li>復活藥 — 復活備戰欄第一隻倒下的寶可夢（回復 80 HP，每場限用一次）</li>
           <li>治療師 — 上場寶可夢完全回復 HP 並解除異常狀態</li>
-          <li>全力出擊 — 下次攻擊傷害 ×3</li>
+          <li>全力出擊 — 下次攻擊傷害 ×2，但下回合無法回復能量</li>
           <li>搏命 — 我方與對方上場寶可夢同歸於盡，雙方各自選下一隻上場</li>
-          <li>瘋狂博士 — 選我方一隻寶可夢，變身成對方一隻陣亡的寶可夢（變身後HP全滿）</li>
+          <li>瘋狂博士 — 選我方一隻寶可夢，變身成我方或對方一隻陣亡的寶可夢（回復變身後 50% HP）</li>
           <li>啦啦隊 — 將能量補滿到 20</li>
         </ul>
         <li><b>競技場牌</b>（橘框）效果持續整場，放置新競技場會取代舊的：</li>
@@ -1468,16 +1479,18 @@
           <li>地熱溫泉 — 每回合結束，雙方上場寶可夢各回復 15 HP</li>
           <li>逆轉鬥技場 — HP 低於 50% 時，攻擊威力 +30</li>
           <li>反轉世界 — 場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×2）</li>
-          <li>龍之谷 — 龍屬性寶可夢對妖精、冰系招式最多×1效果</li>
-          <li>邪惡森林 — 草系寶可夢不受屬性克制；草系招式改以毒屬性計算效果</li>
+          <li>龍之谷（龍屬性） — 龍屬性寶可夢對妖精、冰系招式最多×1效果；龍屬性攻擊不會被減免或無效</li>
+          <li>邪惡森林（草屬性） — 原本克制草屬性的寶可夢（火／冰／飛行／毒／蟲），全部變成弱草屬性（草屬性攻擊 ×2）</li>
           <li>Mega 稜鏡塔 — 雙方每個自己的回合開始時，獲得 10 點 Mega 能量</li>
           <li>尖峰陷阱 — 寶可夢上場時，受到最大HP 15% 的傷害（雙方對等）</li>
-          <li>劇毒領域 — 寶可夢上場時，陷入中毒（雙方對等）</li>
-          <li>羅馬鬥技場 — 格鬥屬性招式傷害 ×1.5；格鬥屬性攻擊不再被幽靈屬性完全免疫</li>
-          <li>魔幻空間 — 超能力屬性寶可夢受到的傷害 ×0.9；弱點消失（不受超效傷害影響）</li>
-          <li>熔岩火山 — 火屬性招式傷害 ×1.1；水屬性招式傷害 ×0.5</li>
-          <li>海洋世界 — 水屬性招式消耗能量減半；電屬性招式傷害 ×1.5</li>
-          <li>莊嚴神社 — 一般屬性招式一律視為剋制對手（效果拉滿 ×2）</li>
+          <li>劇毒領域（毒屬性） — 寶可夢上場時，陷入中毒（雙方對等）</li>
+          <li>羅馬鬥技場（格鬥屬性） — 格鬥屬性招式傷害 ×1.5；格鬥屬性攻擊不再被幽靈屬性完全免疫</li>
+          <li>魔幻空間（超能力屬性） — 超能力屬性寶可夢受到的傷害 ×0.9；弱點消失（不受超效傷害影響）</li>
+          <li>熔岩火山（火屬性） — 火屬性招式傷害 ×1.1；水屬性招式傷害 ×0.5</li>
+          <li>海洋世界（水屬性） — 水屬性招式消耗能量減半；電屬性招式傷害 ×1.5</li>
+          <li>莊嚴神社（一般屬性） — 一般屬性招式一律視為剋制對手（效果拉滿 ×2）</li>
+          <li>沙塵暴（地面屬性） — 非地面／岩石／鋼屬性寶可夢，每回合結束損失最大HP的6%</li>
+          <li>岩石地帶（岩石屬性） — 岩石／地面／鋼屬性寶可夢，受到的攻擊傷害 ×0.85</li>
         </ul>
       </ul>
 
@@ -2106,22 +2119,23 @@ function eff(atkType, defType, defType2) {
   return m1 * m2;
 }
 
+const GRASS_COUNTER_TYPES = ['fire', 'ice', 'flying', 'poison', 'bug']; // 原本克制草屬性的攻擊方屬性
 function effActive(atkType, defType, defType2) {
-  // Evil Forest: grass attacks treated as poison for effectiveness
-  const eAtk = (G.activeStadium?.id === 'stadium-evil-forest' && atkType === 'grass') ? 'poison' : atkType;
+  const eAtk = atkType;
   let m = eff(eAtk, defType, defType2);
   if (G.activeStadium?.id === 'stadium-invert') {
     if (m === 0) m = 2;
     else if (m !== 1) m = 1 / m;
   }
-  // Dragon Valley: dragon-type immune to fairy/ice super effectiveness
+  // Dragon Valley: dragon-type immune to fairy/ice super effectiveness；龍屬性攻擊不會被減免或無效
   if (G.activeStadium?.id === 'stadium-dragon-valley') {
     if ((defType === 'dragon' || defType2 === 'dragon') &&
         (eAtk === 'fairy' || eAtk === 'ice') && m > 1) m = 1;
+    if (eAtk === 'dragon' && m < 1) m = 1;
   }
-  // Evil Forest: grass-type Pokémon not affected by type disadvantages
-  if (G.activeStadium?.id === 'stadium-evil-forest') {
-    if ((defType === 'grass' || defType2 === 'grass') && m > 1) m = 1;
+  // Evil Forest: 原本克制草屬性的寶可夢（火／冰／飛行／毒／蟲），全部變成弱草屬性
+  if (G.activeStadium?.id === 'stadium-evil-forest' && eAtk === 'grass') {
+    if (GRASS_COUNTER_TYPES.includes(defType) || GRASS_COUNTER_TYPES.includes(defType2)) m = 2;
   }
   // Roman Colosseum: fighting-type attacks are no longer immune against ghost-type (treated as neutral)
   if (G.activeStadium?.id === 'stadium-colosseum') {
@@ -2148,8 +2162,8 @@ const TRAINERS = [
   {id:'x-def',      name:'防禦強化',   cat:'item',      desc:'下次受傷害減少 40'},
   {id:'energize',   name:'能量強化',   cat:'item',      desc:'下次攻擊傷害 ×2，但自身損失 50 HP'},
   {id:'antidote',   name:'萬能藥',     cat:'item',      desc:'解除上場寶可夢的異常狀態'},
-  {id:'fire-bomb',  name:'火焰彈',     cat:'item',      desc:'讓對手上場寶可夢陷入燒傷'},
-  {id:'gas-attack', name:'瓦斯攻擊',   cat:'item',      desc:'讓對手上場寶可夢陷入中毒'},
+  {id:'fire-bomb',  name:'火焰彈',     cat:'item',      type:'fire',   desc:'讓對手上場寶可夢陷入燒傷'},
+  {id:'gas-attack', name:'瓦斯攻擊',   cat:'item',      type:'poison', desc:'讓對手上場寶可夢陷入中毒'},
   {id:'switcher',   name:'交換器',     cat:'item',      desc:'讓對手上場寶可夢與備戰寶可夢隨機互換'},
   {id:'reflect',    name:'反彈鏡',     cat:'item',      desc:'下次對手攻擊傷害反彈回自身'},
   // 屬性轉換 listed 6× — it replaced 13 separate single-type orb cards, so without extra
@@ -2163,8 +2177,8 @@ const TRAINERS = [
   {id:'type-orb',   name:'屬性轉換',   cat:'item',      desc:'選擇一個屬性，本回合攻擊視為該屬性（可享有屬性加成）'},
   {id:'type-orb',   name:'屬性轉換',   cat:'item',      desc:'選擇一個屬性，本回合攻擊視為該屬性（可享有屬性加成）'},
   {id:'retreat-vest', name:'撤退背心', cat:'item',      desc:'下次換場不會結束回合'},
-  {id:'confuse-potion', name:'混亂藥', cat:'item',      desc:'讓對手上場寶可夢陷入混亂'},
-  {id:'absolute-zero', name:'絕對零度', cat:'item',     desc:'讓對手上場寶可夢陷入結凍'},
+  {id:'confuse-potion', name:'混亂藥', cat:'item',      type:'psychic', desc:'讓對手上場寶可夢陷入混亂'},
+  {id:'absolute-zero', name:'絕對零度', cat:'item',     type:'ice',     desc:'讓對手上場寶可夢陷入結凍'},
   {id:'energy-patch-s', name:'能量補丁（小）', cat:'item', desc:'回復 2 點能量'},
   {id:'energy-patch-m', name:'能量補丁（中）', cat:'item', desc:'回復 3 點能量'},
   {id:'energy-patch-l', name:'能量補丁（大）', cat:'item', desc:'回復 4 點能量'},
@@ -2175,32 +2189,52 @@ const TRAINERS = [
   {id:'double-strike', name:'連擊',     cat:'item',    desc:'下次攻擊傷害 ×1.4，異常狀態機率額外判定一次'},
   {id:'plunder',    name:'掠奪',       cat:'item',      desc:'隨機搶奪對手一張手牌'},
   {id:'comm-seal',  name:'通訊封印',   cat:'item',      desc:'下回合對手不能使用支援者卡'},
+  // ── 道具牌：屬性分類卡（依場上寶可夢屬性抽取，優先補之前完全沒有主題卡的屬性）──
+  {id:'paralyze-trap', name:'電擊誘餌', cat:'item', type:'electric', desc:'讓對手上場寶可夢陷入麻痺'},
+  {id:'curse-drain',   name:'詛咒波動', cat:'item', type:'ghost',    desc:'讓對方損失 8 點能量，自身回復 20 HP'},
+  {id:'iron-guard',    name:'鋼鐵裝甲', cat:'item', type:'steel',   desc:'下次受到傷害減少 70'},
+  {id:'night-raid',    name:'夜襲',     cat:'item', type:'dark',    desc:'隨機搶奪對手 2 張手牌'},
+  {id:'tailwind',      name:'順風',     cat:'item', type:'flying',  desc:'下次攻擊若為飛行屬性，傷害 ×1.2'},
+  {id:'fairy-wind',    name:'妖精之光', cat:'item', type:'fairy',   desc:'解除上場寶可夢異常狀態並回復 40 HP'},
+  {id:'swarm-sting',   name:'群聚針刺', cat:'item', type:'bug',     desc:'讓對手陷入中毒，並損失 3 點能量'},
+  {id:'tidal-heal',    name:'潮汐回復', cat:'item', type:'water',   desc:'回復上場寶可夢 30% 最大HP'},
+  {id:'dragon-pulse',  name:'龍之波動', cat:'item', type:'dragon',  desc:'下次攻擊若為龍屬性，傷害 ×1.6'},
+  {id:'focus-punch',   name:'捨身猛擊', cat:'item', type:'fighting',desc:'下次攻擊威力 ×1.2，但自身 HP ×0.8'},
   // ── 支援者牌 ──
-  {id:'revive',     name:'復活藥',     cat:'supporter', desc:'復活備戰欄第一隻倒下的寶可夢（回復 80 HP）'},
+  {id:'revive',     name:'復活藥',     cat:'supporter', desc:'復活備戰欄第一隻倒下的寶可夢（回復 80 HP，每場限用一次）'},
   {id:'nurse',      name:'治療師',     cat:'supporter', desc:'上場寶可夢完全回復 HP 並解除異常狀態'},
-  {id:'all-out',    name:'全力出擊',   cat:'supporter', desc:'下次攻擊傷害 ×3'},
+  {id:'all-out',    name:'全力出擊',   cat:'supporter', desc:'下次攻擊傷害 ×2，但下回合無法回復能量'},
   {id:'sacrifice',      name:'搏命',       cat:'supporter', desc:'我方與對方上場寶可夢同歸於盡'},
-  {id:'mad-scientist',  name:'瘋狂博士',   cat:'supporter', desc:'選我方一隻寶可夢，變身成對方一隻陣亡的寶可夢'},
+  {id:'mad-scientist',  name:'瘋狂博士',   cat:'supporter', desc:'選我方一隻寶可夢，變身成我方或對方一隻陣亡的寶可夢（回復變身後 50% HP）'},
   {id:'cheerleader',    name:'啦啦隊',     cat:'supporter', desc:'將能量補滿到 20'},
   // ── 競技場牌 ──
   {id:'stadium-training',      name:'訓練場',     cat:'stadium', desc:'場上所有技能威力 +20（雙方）'},
   {id:'stadium-spring',        name:'地熱溫泉',   cat:'stadium', desc:'每回合結束，雙方上場寶可夢各回復 15 HP'},
   {id:'stadium-reversal',      name:'逆轉鬥技場', cat:'stadium', desc:'HP 低於 50% 時，攻擊威力 +30'},
   {id:'stadium-invert',        name:'反轉世界',   cat:'stadium', desc:'場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×2）'},
-  {id:'stadium-dragon-valley', name:'龍之谷',     cat:'stadium', desc:'龍屬性寶可夢對妖精、冰系招式不受克制（效果最多×1）'},
-  {id:'stadium-evil-forest',   name:'邪惡森林',   cat:'stadium', desc:'草系寶可夢不受屬性克制；草系招式傷害改以毒屬性計算'},
+  {id:'stadium-dragon-valley', name:'龍之谷',     cat:'stadium', type:'dragon', desc:'龍屬性寶可夢對妖精、冰系招式不受克制（效果最多×1）；龍屬性攻擊不會被減免或無效'},
+  {id:'stadium-evil-forest',   name:'邪惡森林',   cat:'stadium', type:'grass',  desc:'原本克制草屬性的寶可夢（火／冰／飛行／毒／蟲），全部變成弱草屬性（草屬性攻擊 ×2）'},
   {id:'stadium-mega-prism',    name:'Mega 稜鏡塔', cat:'stadium', desc:'雙方每個自己的回合開始時，獲得 10 點 Mega 能量'},
   {id:'stadium-spikes',        name:'尖峰陷阱',   cat:'stadium', desc:'寶可夢上場時，受到最大HP 15% 的傷害（雙方對等）'},
-  {id:'stadium-toxic-field',   name:'劇毒領域',   cat:'stadium', desc:'寶可夢上場時，陷入中毒（雙方對等）'},
-  {id:'stadium-colosseum',     name:'羅馬鬥技場', cat:'stadium', desc:'格鬥屬性招式傷害 ×1.5；格鬥屬性攻擊不再被幽靈屬性完全免疫'},
-  {id:'stadium-mystic-space',  name:'魔幻空間',   cat:'stadium', desc:'超能力屬性寶可夢受到的傷害 ×0.9；弱點消失（不受超效傷害影響）'},
-  {id:'stadium-lava',          name:'熔岩火山',   cat:'stadium', desc:'火屬性招式傷害 ×1.1；水屬性招式傷害 ×0.5'},
-  {id:'stadium-ocean',         name:'海洋世界',   cat:'stadium', desc:'水屬性招式消耗能量減半；電屬性招式傷害 ×1.5'},
-  {id:'stadium-shrine',        name:'莊嚴神社',   cat:'stadium', desc:'一般屬性招式一律視為剋制對手（效果拉滿 ×2）'},
+  {id:'stadium-toxic-field',   name:'劇毒領域',   cat:'stadium', type:'poison', desc:'寶可夢上場時，陷入中毒（雙方對等）'},
+  {id:'stadium-colosseum',     name:'羅馬鬥技場', cat:'stadium', type:'fighting', desc:'格鬥屬性招式傷害 ×1.5；格鬥屬性攻擊不再被幽靈屬性完全免疫'},
+  {id:'stadium-mystic-space',  name:'魔幻空間',   cat:'stadium', type:'psychic', desc:'超能力屬性寶可夢受到的傷害 ×0.9；弱點消失（不受超效傷害影響）'},
+  {id:'stadium-lava',          name:'熔岩火山',   cat:'stadium', type:'fire',   desc:'火屬性招式傷害 ×1.1；水屬性招式傷害 ×0.5'},
+  {id:'stadium-ocean',         name:'海洋世界',   cat:'stadium', type:'water',  desc:'水屬性招式消耗能量減半；電屬性招式傷害 ×1.5'},
+  {id:'stadium-shrine',        name:'莊嚴神社',   cat:'stadium', type:'normal', desc:'一般屬性招式一律視為剋制對手（效果拉滿 ×2）'},
+  // ── 競技場牌：屬性分類新卡 ──
+  {id:'stadium-sandstorm',   name:'沙塵暴',   cat:'stadium', type:'ground', desc:'非地面／岩石／鋼屬性寶可夢，每回合結束損失最大HP的6%'},
+  {id:'stadium-rock-field',  name:'岩石地帶', cat:'stadium', type:'rock',   desc:'岩石／地面／鋼屬性寶可夢，受到的攻擊傷害 ×0.85'},
 ];
 
 function dealHand(n) {
   return [...TRAINERS].sort(() => Math.random() - 0.5).slice(0, n);
+}
+
+// 依場上寶可夢屬性過濾抽卡池：沒有type欄位的卡（通用卡）永遠都在池子裡，
+// 有type欄位的卡只有在符合當前寶可夢的其中一個屬性時才會出現在池子裡（雙屬性=聯集）
+function getDrawPool(type1, type2) {
+  return TRAINERS.filter(c => c.cat !== 'supporter' && (!c.type || c.type === type1 || c.type === type2));
 }
 
 // Internal PokeAPI form ids confirmed to have no sprite at all in the regular folder
@@ -3054,7 +3088,11 @@ function renderHand() {
   const area = document.getElementById('hand-area');
   area.innerHTML = '';
   const lbl = document.getElementById('hand-count-label');
-  if (lbl) lbl.textContent = `手牌 ${G.playerHand.length}`;
+  if (lbl) {
+    const p = P();
+    const typeNames = [p.type, p.type2].filter(Boolean).map(t => TYPE_ZH[t] || t).join('／');
+    lbl.textContent = `手牌 ${G.playerHand.length}（抽卡屬性：${typeNames}）`;
+  }
   if (!G.playerHand.length) {
     area.innerHTML = '<span style="font-size:0.75rem;color:var(--muted)">無手牌</span>';
     return;
@@ -3160,9 +3198,11 @@ function applyTrainer(card, side, chosenType) {
       updateHp(side, active);
       break;
     case 'revive': {
+      if (G[`${side}ReviveUsed`]) { log(`${pron}的復活藥每場只能使用一次，已經用過了！`, 'system'); break; }
       const fainted = deck.find(p => p.cur <= 0);
       if (fainted) {
         fainted.cur = 80;
+        G[`${side}ReviveUsed`] = true;
         log(`${pron}使用了【${card.name}】，${fainted.name} 復活了！（HP 80/${fainted.hp}）`, tag);
         playSfx('heal');
       } else {
@@ -3188,8 +3228,9 @@ function applyTrainer(card, side, chosenType) {
       break;
     }
     case 'all-out':
-      buff.atkMult = Math.max(buff.atkMult, 3);
-      log(`${pron}使用了【${card.name}】，下次攻擊傷害 ×3！`, tag);
+      buff.atkMult = Math.max(buff.atkMult, 2);
+      G[`${side}EnergyBlockedNextTurn`] = true;
+      log(`${pron}使用了【${card.name}】，下次攻擊傷害 ×2！但下回合無法回復能量！`, tag);
       break;
     case 'fire-bomb':
       if (!opActive.status) {
@@ -3294,6 +3335,85 @@ function applyTrainer(card, side, chosenType) {
       log(`${pron}使用了【${card.name}】，對方下回合無法使用支援者卡！`, tag);
       break;
     }
+    case 'paralyze-trap':
+      if (!opActive.status) {
+        opActive.status = { type: 'paralysis', turnsLeft: 999 };
+        log(`${pron}使用了【${card.name}】，讓${opActive.name} 陷入麻痺！`, tag);
+      } else {
+        log(`${pron}使用了【${card.name}】，但${opActive.name} 已有異常狀態！`, 'system');
+      }
+      break;
+    case 'curse-drain': {
+      const opEnergyKey = opSide === 'player' ? 'playerEnergy' : 'cpuEnergy';
+      const before = G[opEnergyKey];
+      G[opEnergyKey] = Math.max(0, G[opEnergyKey] - 8);
+      const heal = Math.min(20, active.hp - active.cur);
+      active.cur = Math.min(active.hp, active.cur + 20);
+      log(`${pron}使用了【${card.name}】，對方損失了 ${before - G[opEnergyKey]} 點能量，${active.name} 回復了 ${heal} HP！`, tag);
+      updateHp(side, active);
+      break;
+    }
+    case 'iron-guard':
+      buff.shield += 70;
+      log(`${pron}使用了【${card.name}】，下次承受傷害 -70！`, tag);
+      break;
+    case 'night-raid': {
+      const opHand = opSide === 'player' ? G.playerHand : G.cpuHand;
+      const myHand = side === 'player' ? G.playerHand : G.cpuHand;
+      const stolenNames = [];
+      for (let i = 0; i < 2 && opHand.length; i++) {
+        const idx2 = Math.floor(Math.random() * opHand.length);
+        const stolen = opHand.splice(idx2, 1)[0];
+        myHand.push(stolen);
+        stolenNames.push(stolen.name);
+      }
+      if (stolenNames.length) log(`${pron}使用了【${card.name}】，搶走了對方的【${stolenNames.join('、')}】！`, tag);
+      else log(`${pron}使用了【${card.name}】，但對方沒有手牌可以搶。`, 'system');
+      if (side === 'player' && G.playerHand.length > 10) showDiscardModal(() => {});
+      break;
+    }
+    case 'tailwind':
+      buff.typeBoost = { type: 'flying', mult: 1.2 };
+      log(`${pron}使用了【${card.name}】，下次攻擊若為飛行屬性，傷害 ×1.2！`, tag);
+      break;
+    case 'fairy-wind': {
+      active.status = null;
+      const gain = Math.min(40, active.hp - active.cur);
+      active.cur = Math.min(active.hp, active.cur + 40);
+      log(`${pron}使用了【${card.name}】，${active.name} 解除異常狀態並回復了 ${gain} HP！`, tag);
+      updateHp(side, active);
+      break;
+    }
+    case 'swarm-sting': {
+      const opEnergyKey = opSide === 'player' ? 'playerEnergy' : 'cpuEnergy';
+      const before = G[opEnergyKey];
+      G[opEnergyKey] = Math.max(0, G[opEnergyKey] - 3);
+      if (!opActive.status) {
+        opActive.status = { type: 'poison', turnsLeft: 999 };
+        log(`${pron}使用了【${card.name}】，讓${opActive.name} 陷入中毒，並損失了 ${before - G[opEnergyKey]} 點能量！`, tag);
+      } else {
+        log(`${pron}使用了【${card.name}】，${opActive.name} 已有異常狀態，只損失了 ${before - G[opEnergyKey]} 點能量！`, 'system');
+      }
+      break;
+    }
+    case 'tidal-heal': {
+      const heal = Math.round(active.hp * 0.3);
+      const actualHeal = Math.min(heal, active.hp - active.cur);
+      active.cur = Math.min(active.hp, active.cur + heal);
+      log(`${pron}使用了【${card.name}】，${active.name} 回復了 ${actualHeal} HP！`, tag);
+      updateHp(side, active);
+      break;
+    }
+    case 'dragon-pulse':
+      buff.typeBoost = { type: 'dragon', mult: 1.6 };
+      log(`${pron}使用了【${card.name}】，下次攻擊若為龍屬性，傷害 ×1.6！`, tag);
+      break;
+    case 'focus-punch':
+      buff.atkMult = Math.max(buff.atkMult, 1.2);
+      active.cur = Math.max(1, Math.round(active.cur * 0.8));
+      log(`${pron}使用了【${card.name}】，下次攻擊威力 ×1.2！但 ${active.name} 損失了 20% 目前 HP！`, tag);
+      updateHp(side, active);
+      break;
     case 'energy-drain': {
       const opEnergyKey = opSide === 'player' ? 'playerEnergy' : 'cpuEnergy';
       const before = G[opEnergyKey];
@@ -3355,7 +3475,9 @@ function applyTrainer(card, side, chosenType) {
     case 'stadium-mystic-space':
     case 'stadium-lava':
     case 'stadium-ocean':
-    case 'stadium-shrine': {
+    case 'stadium-shrine':
+    case 'stadium-sandstorm':
+    case 'stadium-rock-field': {
       const oldStadium = G.activeStadium;
       G.activeStadium = card;
       if (oldStadium) log(`🏟 新競技場【${card.name}】取代了【${oldStadium.name}】！`, 'special');
@@ -3456,7 +3578,7 @@ function transformPokemon(mine, target) {
     // 變身後的身分是target，Mega資料也要一併換成target自己的（否則Mega進化會套用變身前的舊species資料，變成不倫不類的混合體）
     mega: target.mega ? {...target.mega} : undefined, megaEvolved: target.mega ? false : undefined,
   });
-  mine.cur = target.hp; // 變身當下HP全滿，比照Mega進化的既有慣例——不再照原本血量百分比換算
+  mine.cur = Math.round(target.hp * 0.5); // 變身當下只回復50% HP（原本是全滿，使用者覺得太強而調整）
   mine.status = null;
 }
 
@@ -3585,7 +3707,8 @@ function playerAttack(atkIdx) {
       }
     },
     () => { G.cpuBuff.reflect = false; G.cpuBraced = false; G.cpuCoinShield = false; tickAndHandoff(); }, // reflect/撐住/影舞 all expire — player never attacked (status skip); still ticks poison/burn before handoff
-    () => handleKO('player', () => { G.cpuBuff.reflect = false; G.cpuBraced = false; G.cpuCoinShield = false; setTimeout(cpuAttack, 700); }) // confusion self-hit already killed it this turn — no separate poison/burn tick needed
+    () => handleKO('player', () => { G.cpuBuff.reflect = false; G.cpuBraced = false; G.cpuCoinShield = false; setTimeout(cpuAttack, 700); }), // confusion self-hit already killed it this turn — no separate poison/burn tick needed
+    P().attacks[atkIdx]?.type
   );
 }
 
@@ -3742,12 +3865,17 @@ function cpuUseTrainers() {
 function cpuAttack() {
   // CPU draws at start of its own turn
   G.cpuUsedItemThisTurn = false; // 龍捲雲系特性「機械之心」的旗標，每回合開始重置
-  const itemsOnly = TRAINERS.filter(c => c.cat !== 'supporter');
+  const itemsOnly = getDrawPool(CP().type, CP().type2);
   const cpuN = 2;
   for (let i = 0; i < cpuN && G.cpuHand.length < 10; i++) {
     G.cpuHand.push(itemsOnly[Math.floor(Math.random() * itemsOnly.length)]);
   }
-  G.cpuEnergy = Math.min(20, G.cpuEnergy + 3);
+  // 全力出擊：上回合使用時「下回合無法回復能量」的代價，這裡直接跳過能量回復並清掉旗標
+  if (G.cpuEnergyBlockedNextTurn) {
+    G.cpuEnergyBlockedNextTurn = false;
+  } else {
+    G.cpuEnergy = Math.min(20, G.cpuEnergy + 3);
+  }
   if (G.cpuBonusEnergyNextTurn) {
     G.cpuEnergy = Math.min(20, G.cpuEnergy + G.cpuBonusEnergyNextTurn);
     log(`對手上回合的招式效果發動，額外獲得了 ${G.cpuBonusEnergyNextTurn} 點能量！`, 'special');
@@ -3814,14 +3942,15 @@ function cpuAttack() {
       });
     },
     tickAndEndTurn, // skip (sleep/paralysis/freeze) — still ticks poison/burn before ending the turn
-    () => handleKO('cpu', endTurn) // confusion self-hit already killed it this turn — no separate poison/burn tick needed
+    () => handleKO('cpu', endTurn), // confusion self-hit already killed it this turn — no separate poison/burn tick needed
+    CP().attacks[atkIdx]?.type
   );
 }
 
 /* ─────────────────────────────────────────
    STATUS EFFECT HELPERS
 ───────────────────────────────────────── */
-function handleAttackerStatus(poke, side, onProceed, onSkip, onKO) {
+function handleAttackerStatus(poke, side, onProceed, onSkip, onKO, atkType) {
   const st = poke.status;
   if (!st) { onProceed(); return; }
   const label = side === 'player' ? '你的' : '對手的';
@@ -3853,6 +3982,13 @@ function handleAttackerStatus(poke, side, onProceed, onSkip, onKO) {
   }
 
   if (st.type === 'freeze') {
+    if (atkType === 'fire') {
+      poke.status = null;
+      log(`${label}${poke.name} 使出火屬性招式，解凍了！`, 'special');
+      renderBattle();
+      setTimeout(onProceed, 400);
+      return;
+    }
     st.turnsLeft--;
     if (st.turnsLeft <= 0) {
       poke.status = null;
@@ -4017,7 +4153,7 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   if (dBuff.reflect) {
     dBuff.reflect = false;
     const dmg = Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus) * aBuff.atkMult * burnMult));
-    aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; aBuff.doubleStrike = false; dBuff.shield = 0;
+    aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; aBuff.doubleStrike = false; aBuff.typeBoost = null; dBuff.shield = 0;
     log(`${dLabel}${defender.name} 的反彈鏡將攻擊反射回去！`, 'special');
     const aCard = document.getElementById(`${aSide}-bcard`);
     aCard.classList.add('anim-flash');
@@ -4116,15 +4252,20 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   const lavaMult = G.activeStadium?.id === 'stadium-lava' ? (atkType === 'fire' ? 1.1 : atkType === 'water' ? 0.5 : 1) : 1;
   // Ocean World: electric-type moves ×1.5 (water-type cost reduction handled in effectiveCost)
   const oceanMult = (G.activeStadium?.id === 'stadium-ocean' && atkType === 'electric') ? 1.5 : 1;
-  const stadiumMult = colosseumMult * mysticSpaceMult * lavaMult * oceanMult;
+  // 岩石地帶：岩石／地面／鋼屬性寶可夢，受到的攻擊傷害×0.85
+  const rockFieldMult = (G.activeStadium?.id === 'stadium-rock-field' &&
+    (['rock','ground','steel'].includes(defender.type) || ['rock','ground','steel'].includes(defender.type2))) ? 0.85 : 1;
+  const stadiumMult = colosseumMult * mysticSpaceMult * lavaMult * oceanMult * rockFieldMult;
+  // 龍之波動／順風：只在下次攻擊剛好符合指定屬性時才加成，不論有沒有命中屬性都會被這次攻擊消耗掉
+  const typeBoostMult = (aBuff.typeBoost && atkType === aBuff.typeBoost.type) ? aBuff.typeBoost.mult : 1;
   // 烈空坐系特性「威壓氣場」：對手的攻擊力提升效果（atkMult超過1的部分）減半，只影響防守方是這隻寶可夢的情況
   const effectiveAtkMult = defender.ability?.id === 'weaken-buffs' ? (1 + Math.max(0, aBuff.atkMult - 1) * 0.5) : aBuff.atkMult;
   // 烏賊王「顛倒之心」：對手的防禦加成（shield）對它反而變成傷害加成
   const shieldTerm = defender.ability?.id === 'shield-invert' ? -dBuff.shield : dBuff.shield;
   let dmg = mult === 0 ? 0
-    : Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumBonus + reversalBonus) * effectiveAtkMult * burnMult * mult * stabMult * switchGuardMult * abilityDmgMult * defAbilityMult * megaBoostMult * stadiumMult) - shieldTerm);
+    : Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumBonus + reversalBonus) * effectiveAtkMult * burnMult * mult * stabMult * switchGuardMult * abilityDmgMult * defAbilityMult * megaBoostMult * stadiumMult * typeBoostMult) - shieldTerm);
   const wasDoubleStrike = aBuff.doubleStrike; // captured before reset — 連擊 rolls the move's own status chance a second time
-  aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; aBuff.doubleStrike = false; dBuff.shield = 0;
+  aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; aBuff.doubleStrike = false; aBuff.typeBoost = null; dBuff.shield = 0;
   // 影舞：下一次受到攻擊擲硬幣，正面完全免傷——一次性旗標，這次攻擊到來就消耗掉（不論正反面）。true-damage系特性無視此效果。
   let coinShieldProc = false;
   if (!moldBreaker && G[`${dSide}CoinShield`]) {
@@ -4326,7 +4467,7 @@ function triggerTrapStadium(poke, side) {
   const label = side === 'player' ? '你的' : '對手的';
   if (G.activeStadium?.id === 'stadium-spikes') {
     const dmg = Math.max(1, Math.round(poke.hp * 0.15));
-    poke.cur = Math.max(1, poke.cur - dmg); // never KOs on entry, matches other card/mechanic self-damage floors
+    poke.cur = Math.max(0, poke.cur - dmg); // 扣血效果應該能讓寶可夢陣亡，不該保留1HP
     log(`${label}${poke.name} 受到了尖峰陷阱的傷害！（-${dmg} HP，剩 ${poke.cur}/${poke.hp}）`, 'special');
     updateHp(side, poke);
   }
@@ -4755,8 +4896,25 @@ function drawAfterTurn(onDone) {
       }
     });
   }
+  // Sandstorm stadium: non-ground/rock/steel actives lose 6% max HP each turn
+  if (G.activeStadium?.id === 'stadium-sandstorm') {
+    [{ poke:P(), side:'player' }, { poke:CP(), side:'cpu' }].forEach(({poke, side}) => {
+      const immune = ['ground','rock','steel'].includes(poke.type) || ['ground','rock','steel'].includes(poke.type2);
+      if (poke.cur > 0 && !immune) {
+        const dmg = Math.max(1, Math.round(poke.hp * 0.06));
+        poke.cur = Math.max(0, poke.cur - dmg);
+        log(`【沙塵暴】${poke.name} 受到了傷害！（-${dmg} HP）`, 'special');
+        updateHp(side, poke);
+      }
+    });
+  }
   // Player gains energy at start of their own turn
-  G.playerEnergy = Math.min(20, G.playerEnergy + 3);
+  // 全力出擊：上回合使用時「下回合無法回復能量」的代價，這裡直接跳過能量回復並清掉旗標
+  if (G.playerEnergyBlockedNextTurn) {
+    G.playerEnergyBlockedNextTurn = false;
+  } else {
+    G.playerEnergy = Math.min(20, G.playerEnergy + 3);
+  }
   // 集氣／消耗4-15的攻擊招式：上回合使用時承諾的「下回合額外能量」，這裡兌現後歸零（promote-then-consume）
   if (G.playerBonusEnergyNextTurn) {
     G.playerEnergy = Math.min(20, G.playerEnergy + G.playerBonusEnergyNextTurn);
@@ -4767,8 +4925,8 @@ function drawAfterTurn(onDone) {
     G.playerMegaEnergy = Math.min(20, G.playerMegaEnergy + 10);
     log('【Mega 稜鏡塔】你獲得了 10 點 Mega 能量！', 'special');
   }
-  // Player draws at start of their own turn; items-only pool
-  const itemsOnly = TRAINERS.filter(c => c.cat !== 'supporter');
+  // Player draws at start of their own turn; items-only pool, filtered by 場上寶可夢的屬性
+  const itemsOnly = getDrawPool(P().type, P().type2);
   const n = 2;
   const newCards = [];
   for (let i = 0; i < n; i++) {
@@ -4790,7 +4948,7 @@ function drawAfterTurn(onDone) {
   G.playerHand.push(...newCards);
   log(`你抽到了：${newCards.map(c => c.name).join('、')}`, 'system');
 
-  if (G.playerHand.length <= 5) {
+  if (G.playerHand.length <= 10) {
     onDone();
   } else {
     showDiscardModal(onDone);
