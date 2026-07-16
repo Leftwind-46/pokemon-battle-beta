@@ -654,7 +654,7 @@
 <!-- ══ TEAM SELECT ══ -->
 <div id="team-select-screen" class="screen">
   <h2>選擇出戰隊伍</h2>
-  <div class="ts-subtitle">從你的 6 隻寶可夢中選出 3 隻（<span id="ts-count">0</span>/3）</div>
+  <div class="ts-subtitle">請從下方三個血量區間各選 1 隻出戰（<span id="ts-count">0</span>/3）</div>
   <div class="sel-cards-row" id="ts-cards-row"></div>
   <div id="ts-edit-section" style="display:none;width:100%;max-width:900px">
     <div class="ts-subtitle">選一隻候補寶可夢，再點上方要換掉的現役成員（可配對多組）</div>
@@ -796,7 +796,7 @@
     <h3>對戰規則</h3>
     <ul>
       <li>建立房間後，將代碼分享給對手，對手輸入代碼加入。</li>
-      <li>雙方各從隨機 6 隻寶可夢中選出 3 隻出戰（可重新生成最多 3 次；HP 300 以上的高血量寶可夢每次最多只會出現 1 隻）。</li>
+      <li>雙方各從隨機 6 隻寶可夢中選出 3 隻出戰，且必須從三個血量區間（200-249／250-309／310+，候補保證各區間都有 2 隻）各選 1 隻（可重新生成最多 3 次）。</li>
       <li>擲硬幣決定先後攻，先擊倒對手全部 3 隻寶可夢者獲勝。</li>
       <li>雙方輪流行動；每回合限換場一次，換場會直接結束本回合，新上場的寶可夢該回合受到的傷害減少 20%（使用撤退背心後的換場不會結束回合）。</li>
       <li><b>💤 待機</b>：跳過攻擊，抽 1 張支援者牌進入手牌。</li>
@@ -1073,6 +1073,13 @@ const TYPE_ZH = {
   normal:'一般',dark:'惡',ground:'地面',flying:'飛行',rock:'岩石',fairy:'妖精',
   poison:'毒',bug:'蟲',
 };
+// 血量三區間：200-249／250-309／310+，跟 server.js 的 hpBand() 邏輯一致——選隊要從三區間各選1隻
+function hpBand(hp) {
+  if (hp < 250) return 0;
+  if (hp < 310) return 1;
+  return 2;
+}
+const HP_BAND_LABELS = ['🪶 輕量級 200-249', '⚖️ 中量級 250-309', '🛡️ 重量級 310+'];
 const STATUS_INFO = {
   poison:   {label:'☠ 中毒',  cls:'poison'},
   burn:     {label:'🔥 燒傷',  cls:'burn'},
@@ -1779,26 +1786,35 @@ function showTeamSelect() {
 function renderTeamSelect() {
   const row = document.getElementById('ts-cards-row');
   row.innerHTML = '';
-  myRoster.forEach((p, i) => {
-    const pairIdx    = teamEditMode ? teamEditPairs.findIndex(s => s.slotIdx === i) : -1;
-    const displayMon = pairIdx !== -1 ? teamEditCandidates[teamEditPairs[pairIdx].candidateIdx] : p;
-    const changed    = pairIdx !== -1;
-    const col        = TYPE_COLOR[displayMon.type] || '#888';
-    const selected   = !teamEditMode && tsSelected.includes(i);
-    const el = document.createElement('div');
-    el.className = `sel-card${selected ? ' sel-selected' : ''}${changed ? ' hi-new' : ''}`;
-    el.innerHTML = `
-      <div class="sel-strip" style="background:${col}"></div>
-      <img src="${spriteUrl(displayMon.id)}" alt="${displayMon.name}" onerror="this.onerror=null;this.src='${officialArtworkUrl(displayMon.id)}'">
-      <div class="sel-name">${displayMon.name}${changed ? ' 🔄' : ''}</div>
-      ${displayMon.ability ? `<div class="ability-badge" title="${displayMon.ability.desc}">✨ ${displayMon.ability.name}</div>` : ''}
-      ${displayMon.mega ? `<div class="mega-badge" title="可以 Mega 進化">💎 可 Mega 進化</div>` : ''}
-      <div class="sel-hp">HP ${displayMon.hp}</div>
-      <div class="sel-moves">${displayMon.attacks.map(a=>`<div class="sel-move"><span class="sel-move-badge" style="background:${TYPE_COLOR[a.type]||'#888'}">${TYPE_ZH[a.type]||a.type}</span><span>${a.name} ${a.support ? '輔助' : a.dmg} · ⚡${a.cost}</span></div>`).join('')}</div>
-    `;
-    el.onclick = teamEditMode ? () => pickEditSlot(i) : () => toggleTSCard(i);
-    row.appendChild(el);
-  });
+  // 依血量區間分組顯示（200-249／250-309／310+），玩家一眼就知道每個區間該選誰，不會湊不出合法組合
+  for (let b = 0; b < 3; b++) {
+    const inBand = myRoster.map((p, i) => ({ p, i })).filter(({ p }) => hpBand(p.hp) === b);
+    if (!inBand.length) continue;
+    const label = document.createElement('div');
+    label.style.cssText = 'width:100%;text-align:center;color:var(--muted);font-size:0.8rem;font-weight:700;margin-top:0.4rem';
+    label.textContent = HP_BAND_LABELS[b];
+    row.appendChild(label);
+    inBand.forEach(({ p, i }) => {
+      const pairIdx    = teamEditMode ? teamEditPairs.findIndex(s => s.slotIdx === i) : -1;
+      const displayMon = pairIdx !== -1 ? teamEditCandidates[teamEditPairs[pairIdx].candidateIdx] : p;
+      const changed    = pairIdx !== -1;
+      const col        = TYPE_COLOR[displayMon.type] || '#888';
+      const selected   = !teamEditMode && tsSelected.includes(i);
+      const el = document.createElement('div');
+      el.className = `sel-card${selected ? ' sel-selected' : ''}${changed ? ' hi-new' : ''}`;
+      el.innerHTML = `
+        <div class="sel-strip" style="background:${col}"></div>
+        <img src="${spriteUrl(displayMon.id)}" alt="${displayMon.name}" onerror="this.onerror=null;this.src='${officialArtworkUrl(displayMon.id)}'">
+        <div class="sel-name">${displayMon.name}${changed ? ' 🔄' : ''}</div>
+        ${displayMon.ability ? `<div class="ability-badge" title="${displayMon.ability.desc}">✨ ${displayMon.ability.name}</div>` : ''}
+        ${displayMon.mega ? `<div class="mega-badge" title="可以 Mega 進化">💎 可 Mega 進化</div>` : ''}
+        <div class="sel-hp">HP ${displayMon.hp}</div>
+        <div class="sel-moves">${displayMon.attacks.map(a=>`<div class="sel-move"><span class="sel-move-badge" style="background:${TYPE_COLOR[a.type]||'#888'}">${TYPE_ZH[a.type]||a.type}</span><span>${a.name} ${a.support ? '輔助' : a.dmg} · ⚡${a.cost}</span></div>`).join('')}</div>
+      `;
+      el.onclick = teamEditMode ? () => pickEditSlot(i) : () => toggleTSCard(i);
+      row.appendChild(el);
+    });
+  }
   document.getElementById('ts-count').textContent = tsSelected.length;
   document.getElementById('ts-confirm-btn').disabled = tsSelected.length !== 3 || tsConfirmed || teamEditMode;
 
@@ -1812,9 +1828,10 @@ function toggleTSCard(i) {
   if (tsSelected.includes(i)) {
     tsSelected = tsSelected.filter(x => x !== i);
   } else if (tsSelected.length < 3) {
-    const hasHighHp = tsSelected.some(j => myRoster[j].hp >= 300);
-    if (myRoster[i].hp >= 300 && hasHighHp) {
-      document.getElementById('ts-err').textContent = '每場最多只能選 1 隻血量 ≥300 的寶可夢出戰';
+    const band = hpBand(myRoster[i].hp);
+    const bandTaken = tsSelected.some(j => hpBand(myRoster[j].hp) === band);
+    if (bandTaken) {
+      document.getElementById('ts-err').textContent = `每個血量區間只能選 1 隻——${HP_BAND_LABELS[band]} 已經選過了`;
     } else {
       tsSelected.push(i);
     }

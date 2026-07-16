@@ -1150,9 +1150,9 @@ function verifyPassword(password, stored) {
 }
 
 /* 帳號收藏庫（註冊初始6隻／編輯隊伍候補6隻／損壞自動修復6隻，共用同一套規則）
-   randomRoster(6,300,1) 的參數是使用者要求的平衡限制（血量>=300最多1隻），不是預設值，不要改掉 */
+   randomRoster() 現在保證血量三區間（200-249/250-309/310+）各2隻，取代舊的「>=300最多1隻」規則 */
 function generatePlayerPool() {
-  return randomRoster(6, 300, 1).map(p => p.id);
+  return randomRoster().map(p => p.id);
 }
 
 function send(ws, msg) {
@@ -1207,20 +1207,27 @@ function endGame(room, winner, log, extra = {}) {
   recordWeeklyStats(room, winner).catch(e => console.error('weekly_stats upsert error:', e.message));
 }
 
-/* 隨機抽取寶可夢陣容，HP >= 300 的高血量寶可夢最多只能出現 1 隻 */
-function randomRoster(n = 6, hpCap = 300, maxAtCap = 1) {
-  const shuffled = [...POKEMON].sort(() => Math.random() - 0.5);
+/* 血量三區間：200-249／250-309／310+，PvP選隊要求玩家從三個區間各選1隻出戰 */
+function hpBand(hp) {
+  if (hp < 250) return 0;
+  if (hp < 310) return 1;
+  return 2;
+}
+
+/* 隨機抽取寶可夢陣容——三個血量區間各自獨立洗牌後平均分配（n=6時每區間保證剛好2隻），
+   確保候補一定涵蓋三個區間，玩家才不會湊不出「三區間各選1隻」的合法出戰組合 */
+function randomRoster(n = 6) {
+  const bands = [[], [], []];
+  for (const p of POKEMON) bands[hpBand(p.hp)].push(p);
+  bands.forEach(b => b.sort(() => Math.random() - 0.5));
+  const perBand = Math.floor(n / 3);
+  const remainder = n - perBand * 3;
   const result = [];
-  let capCount = 0;
-  for (const p of shuffled) {
-    if (result.length >= n) break;
-    if (p.hp >= hpCap) {
-      if (capCount >= maxAtCap) continue;
-      capCount++;
-    }
-    result.push(p);
+  for (let b = 0; b < 3; b++) {
+    const count = perBand + (b < remainder ? 1 : 0);
+    result.push(...bands[b].slice(0, count));
   }
-  return result;
+  return result.sort(() => Math.random() - 0.5);
 }
 
 /* ═══════════════════════════════════════════
@@ -1563,7 +1570,7 @@ async function handleMessage(ws, msg) {
       const roster   = role === 'p1' ? room.p1Roster : room.p2Roster;
       const selected = (msg.indices || []).map(i => roster[i]).filter(Boolean);
       if (selected.length !== 3) { send(ws, { type: 'error', message: '請選擇 3 隻寶可夢' }); return; }
-      if (selected.filter(p => p.hp >= 300).length > 1) { send(ws, { type: 'error', message: '每場最多只能選 1 隻血量 ≥300 的寶可夢出戰' }); return; }
+      if (new Set(selected.map(p => hpBand(p.hp))).size !== 3) { send(ws, { type: 'error', message: '請從三個血量區間（200-249／250-309／310+）各選 1 隻出戰' }); return; }
       if (role === 'p1') { room.p1Team = selected; room.p1Ready = true; }
       else               { room.p2Team = selected; room.p2Ready = true; }
       const op = role === 'p1' ? 'p2' : 'p1';
@@ -1620,6 +1627,11 @@ async function handleMessage(ws, msg) {
       const roster = [...room[rosterKey]];
       for (const s of swaps) {
         roster[s.slotIdx] = candidates.find(p => p.id === s.candidatePokemonId);
+      }
+      // 換完之後6隻收藏庫必須仍涵蓋三個血量區間，否則玩家會卡在選隊畫面湊不出合法出戰組合
+      if (new Set(roster.map(p => hpBand(p.hp))).size !== 3) {
+        send(ws, { type: 'error', message: '此編輯會讓收藏庫湊不出三個血量區間，請調整換入的候補' });
+        return;
       }
       room[rosterKey] = roster;
       room[candKey] = null;
