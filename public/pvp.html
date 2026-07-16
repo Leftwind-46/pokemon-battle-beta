@@ -391,10 +391,12 @@
     @keyframes flashHit { 0%,100%{filter:brightness(1)} 50%{filter:brightness(3.5) saturate(0)} }
     @keyframes koFade { to{transform:scale(0.65) rotate(-12deg);opacity:0.15} }
     @keyframes slideIn { from{transform:translateY(20px);opacity:0} to{transform:none;opacity:1} }
+    @keyframes reflectSetup { 0%,100%{box-shadow:0 0 0 rgba(100,181,246,0)} 50%{box-shadow:0 0 22px 6px rgba(100,181,246,0.9)} }
     .anim-shake   { animation:shake    0.4s ease; }
     .anim-flash   { animation:flashHit 0.3s ease 3; }
     .anim-ko      { animation:koFade   0.6s ease forwards; }
     .anim-slidein { animation:slideIn  0.4s ease; }
+    .anim-reflect-setup { animation:reflectSetup 0.5s ease 3; }
 
     /* === Pokémon sprite life animations === */
     @keyframes sprite-float {
@@ -798,7 +800,7 @@
       <li>擲硬幣決定先後攻，先擊倒對手全部 3 隻寶可夢者獲勝。</li>
       <li>雙方輪流行動；每回合限換場一次，換場會直接結束本回合，新上場的寶可夢該回合受到的傷害減少 20%（使用撤退背心後的換場不會結束回合）。</li>
       <li><b>💤 待機</b>：跳過攻擊，抽 1 張支援者牌進入手牌。</li>
-      <li>每次攻擊後雙方各隨機抽 1–2 張<b>道具牌</b>，手牌上限 5 張。</li>
+      <li>每次攻擊後雙方各抽 2 張<b>道具牌</b>，手牌上限 10 張。</li>
       <li>己方 HP 歸零後，立即選擇下一隻上場（不消耗回合）。</li>
     </ul>
     <h3>⚡ 能量系統</h3>
@@ -837,7 +839,7 @@
     </ul>
     <h3>訓練師牌</h3>
     <ul>
-      <li><b>道具牌</b>（綠框）每回合可用多張，每回合開始時補抽 1–2 張：</li>
+      <li><b>道具牌</b>（綠框）每回合可用多張，每回合開始時補抽 2 張：</li>
       <ul>
         <li>傷藥（小／中／大／特大）— 回復 60／80／100／120 HP ／ 攻擊強化 — 下次 +40 傷害 ／ 防禦強化 — 下次受傷 -40</li>
         <li>能量強化 — 下次攻擊 ×2，但自損 50 HP</li>
@@ -1088,7 +1090,7 @@ const SUPPORT_EFFECT_ZH = {
   'shadow-dance': '下次受擊 50% 機率完全閃避（+下回合能量+5）',
   'debuff': '使對方陷入異常狀態（+下回合能量+5）',
   'meditate': '下回合額外抽 2 張道具/競技場卡（+下回合能量+5）',
-  'trick': '下回合額外抽 1 張支援者卡（+下回合能量+5）',
+  'trick': '下回合額外抽 1 張支援者卡，下次攻擊傷害 ×1.1（+下回合能量+5）',
   'focus-energy': '下回合額外 +14 能量',
 };
 const EFF = {
@@ -1581,6 +1583,7 @@ function handleMsg(msg) {
       // Only tween the HP bar when the *same* active Pokémon lost/gained HP — switches/KO-switches snap instantly
       const prevPlayerIdx = G.playerIdx, prevPlayerCur = G.playerDeck?.[prevPlayerIdx]?.cur;
       const prevCpuIdx    = G.cpuIdx,    prevCpuCur    = G.cpuDeck?.[prevCpuIdx]?.cur;
+      const prevPlayerReflect = G.playerBuff?.reflect, prevCpuReflect = G.cpuBuff?.reflect;
       for (const entry of (msg.log || [])) log(entry.text, entry.cls);
       applyServerState(msg.state);
       notifyIfMyTurnStarted(wasMyTurn, !G.busy);
@@ -1590,7 +1593,19 @@ function handleMsg(msg) {
       document.getElementById('cpu-hp-fill').classList.toggle('animated', cpuAnimate);
       const playerSwitched = prevPlayerIdx !== undefined && G.playerIdx !== prevPlayerIdx;
       const cpuSwitched    = prevCpuIdx !== undefined && G.cpuIdx !== prevCpuIdx;
+      const playerReflectJustSet = !prevPlayerReflect && G.playerBuff?.reflect;
+      const cpuReflectJustSet    = !prevCpuReflect && G.cpuBuff?.reflect;
       renderBattle();
+      if (playerReflectJustSet) {
+        const rc = document.getElementById('player-bcard');
+        rc.classList.add('anim-reflect-setup');
+        rc.addEventListener('animationend', () => rc.classList.remove('anim-reflect-setup'), { once: true });
+      }
+      if (cpuReflectJustSet) {
+        const rc = document.getElementById('cpu-bcard');
+        rc.classList.add('anim-reflect-setup');
+        rc.addEventListener('animationend', () => rc.classList.remove('anim-reflect-setup'), { once: true });
+      }
       if (playerSwitched) {
         const pc = document.getElementById('player-bcard');
         pc.classList.add('anim-slidein');
@@ -2013,10 +2028,12 @@ function renderSide(side, poke, deck, activeIdx) {
     const tags = document.getElementById('player-buff-tags');
     const b = G.playerBuff;
     const parts = [];
-    if (b.atkBonus > 0) parts.push(`<span class="buff-tag atk">ATK+${b.atkBonus}</span>`);
-    if (b.atkMult  > 1) parts.push(`<span class="buff-tag mult">×${b.atkMult}</span>`);
-    if (b.atkMult  < 1) parts.push(`<span class="buff-tag debuff">×${b.atkMult}</span>`);
-    if (b.shield   > 0) parts.push(`<span class="buff-tag def">DEF+${b.shield}</span>`);
+    if (b.atkBonus > 0) parts.push(`<span class="buff-tag atk" title="下次攻擊威力 +${b.atkBonus}——不限本回合，無論幾回合後才攻擊都持續有效">ATK+${b.atkBonus}</span>`);
+    if (b.atkMult  > 1) parts.push(`<span class="buff-tag mult" title="下次攻擊傷害 ×${b.atkMult}——不限本回合，無論幾回合後才攻擊都持續有效">×${b.atkMult}</span>`);
+    if (b.atkMult  < 1) parts.push(`<span class="buff-tag debuff" title="下次攻擊傷害 ×${b.atkMult}（已被削弱）——不限本回合，無論幾回合後才攻擊都持續有效">×${b.atkMult}</span>`);
+    if (b.shield   > 0) parts.push(`<span class="buff-tag def" title="下次受到攻擊時傷害 -${b.shield}——不限本回合，無論幾回合後才受擊都持續有效">DEF+${b.shield}</span>`);
+    if (b.typeOverride) parts.push(`<span class="buff-tag atk" title="本回合攻擊視為${TYPE_ZH[b.typeOverride]||b.typeOverride}屬性——僅限本回合，這回合結束前沒有攻擊的話效果會消失">⏳${TYPE_ZH[b.typeOverride]||b.typeOverride}寶珠</span>`);
+    if (b.reflect)       parts.push(`<span class="buff-tag def" title="下次受到攻擊時傷害全數反彈——僅限本回合，這回合結束前沒有被攻擊的話效果會消失">⏳反彈鏡</span>`);
     tags.innerHTML = parts.join('');
   }
   const benchEl = document.getElementById(`${side}-bench`);

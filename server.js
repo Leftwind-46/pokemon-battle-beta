@@ -40,10 +40,10 @@ const POKEMON = [
   { mega:{spriteId:10076, type:'steel', type2:'psychic', ability:{id:'tough-claws', name:'硬爪', trigger:'onAttack', desc:'攻擊傷害 ×1.3'}}, id:376, name:'巨金怪',     type:'steel',    type2:'psychic', hp:260, tier:1, ability:{id:'solid-rock', name:'硬岩', trigger:'onDefend', desc:'受到剋制（×2以上）的攻擊傷害再減少 25%'}, attacks:[{name:'子彈拳',dmg:30,cost:3,type:'steel',megaBoost:true,bonusEnergy:6},{name:'劍舞',cost:4,type:'steel',support:true,effect:'sword-dance'},{name:'閃光炮',dmg:70,cost:8,type:'steel',megaBoost:true,bonusEnergy:6},{name:'隕石衝擊',dmg:113,cost:13,type:'rock',selfHeal:0.25}]},
   { mega:{spriteId:10059, type:'fighting', type2:'steel', ability:{id:'adaptability', name:'適應力', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×2（原本 ×1.5）'}}, id:448, name:'路卡利歐',   type:'fighting', type2:'steel',   hp:220, tier:1, ability:{id:'guts', name:'堅韌', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 ×1.3'}, attacks:[{name:'擾亂精神',cost:1,type:'fighting',support:true,effect:'debuff',status:{effect:'confusion', chance:1}},{name:'金屬爪',dmg:32,cost:3,type:'steel',megaBoost:true,bonusEnergy:6},{name:'龍之脈動',dmg:66,cost:8,type:'dragon',megaBoost:true,bonusEnergy:6},{name:'暗影球',dmg:110,cost:14,type:'ghost',selfHeal:0.18}]},
   { mega:{spriteId:10041, type:'water', type2:'dark', ability:{id:'mold-breaker', name:'破格', trigger:'onAttack', desc:'攻擊時無視對方的防禦型特性'}}, id:130, name:'暴鯉龍',     type:'water',    type2:'flying',  hp:260, tier:1, ability:{id:'no-weakness-dodge', name:'深淵支配', trigger:'onDefend', desc:'不會受到超效傷害；10% 機率完全閃避攻擊'}, attacks:[{name:'羽棲',cost:8,type:'flying',support:true,effect:'roost'},{name:'龍息',dmg:64,cost:8,type:'water',megaBoost:true,bonusEnergy:6},{name:'怒風',dmg:63,cost:8,type:'flying',megaBoost:true,bonusEnergy:6},{name:'咬碎',dmg:107,cost:13,type:'dark',status:{effect:'sleep', chance:0.2}}]},
-  { id:87,  name:'白海獅',     type:'water',    type2:'ice',     hp:240, tier:1, ability:{id:'legacy-boost', name:'指揮', trigger:'onLeave', desc:'陣亡或被換下場時，下一隻上場的我方寶可夢首次攻擊：能量消耗×0.5、傷害×1.1'}, attacks:[{name:'冷凍光線',dmg:21,cost:1,type:'ice',status:{effect:'freeze', chance:0.15},megaBoost:true,bonusEnergy:5},{name:'集氣',cost:3,type:'water',support:true,effect:'focus-energy',bonusEnergy:9},{name:'大浪',dmg:53,cost:6,type:'water',megaBoost:true,bonusEnergy:4},{name:'衝浪',dmg:93,cost:11,type:'water',status:{effect:'confusion', chance:0.25}}]},
+  { id:87,  name:'白海獅',     type:'water',    type2:'ice',     hp:240, tier:1, ability:{id:'legacy-boost', name:'指揮', trigger:'onLeave', desc:'陣亡或被換下場時，下一隻上場的我方寶可夢首次攻擊：能量消耗×0.5、傷害×1.1'}, attacks:[{name:'冷凍光線',dmg:21,cost:3,type:'ice',status:{effect:'freeze', chance:0.15},megaBoost:true,bonusEnergy:5},{name:'集氣',cost:3,type:'water',support:true,effect:'focus-energy',bonusEnergy:9},{name:'大浪',dmg:53,cost:6,type:'water',megaBoost:true,bonusEnergy:4},{name:'衝浪',dmg:93,cost:11,type:'water',status:{effect:'confusion', chance:0.25}}]},
   { id:82,  name:'三合一磁怪',   type:'electric', type2:'steel',   hp:210, tier:1, ability:{id:'item-synergy', name:'機械之心', trigger:'onAttack', desc:'本回合使用過道具卡時，攻擊傷害 ×1.25'}, attacks:[{name:'電磁炮',dmg:24,cost:2,type:'electric',status:{effect:'paralysis', chance:0.3},megaBoost:true,bonusEnergy:6},{name:'集氣',cost:3,type:'electric',support:true,effect:'focus-energy',bonusEnergy:9},{name:'電磁衝浪',dmg:60,cost:8,type:'electric',status:{effect:'paralysis', chance:0.2},megaBoost:true,bonusEnergy:6},{name:'閃光炮',dmg:101,cost:12,type:'steel',selfHeal:0.18}]},
   { id:28,  name:'穿山王',     type:'ground',   hp:240, tier:1, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊傷害 ×0.5'}, attacks:[{name:'灼熱',cost:1,type:'ground',support:true,effect:'debuff',status:{effect:'burn', chance:1}},{name:'地震',dmg:53,cost:6,type:'ground',megaBoost:true,bonusEnergy:4},{name:'岩石碎裂',dmg:50,cost:6,type:'rock',megaBoost:true,bonusEnergy:4},{name:'岩石滑落',dmg:90,cost:11,type:'rock',status:{effect:'sleep', chance:0.2}}]},
-  { mega:{spriteId:10071, type:'water', type2:'psychic', ability:{id:'sturdy', name:'硬殼盔甲', trigger:'onDefend', desc:'HP 全滿時，受到會直接擊倒的攻擊會保留 1 HP'}}, id:80,  name:'呆殼獸',     type:'water',    type2:'psychic', hp:260, tier:1, ability:{id:'own-tempo', name:'我行我素', trigger:'onDefend', desc:'不會陷入混亂狀態'}, attacks:[{name:'衝浪',dmg:23,cost:2,type:'water',megaBoost:true,bonusEnergy:6},{name:'精神強擊',dmg:58,cost:7,type:'psychic',status:{effect:'confusion', chance:0.2},megaBoost:true,bonusEnergy:5},{name:'冰凍吐息',cost:1,type:'water',support:true,effect:'debuff',status:{effect:'freeze', chance:1}},{name:'念力',dmg:99,cost:13,type:'psychic',status:{effect:'confusion', chance:0.25}}]},
+  { mega:{spriteId:10071, type:'water', type2:'psychic', ability:{id:'sturdy', name:'硬殼盔甲', trigger:'onDefend', desc:'HP 全滿時，受到會直接擊倒的攻擊會保留 1 HP'}}, id:80,  name:'呆殼獸',     type:'water',    type2:'psychic', hp:260, tier:1, ability:{id:'own-tempo', name:'我行我素', trigger:'onDefend', desc:'不會陷入混亂狀態'}, attacks:[{name:'衝浪',dmg:23,cost:2,type:'water',megaBoost:true,bonusEnergy:6},{name:'精神強擊',dmg:58,cost:7,type:'psychic',status:{effect:'confusion', chance:0.2},megaBoost:true,bonusEnergy:5},{name:'冰凍吐息',cost:3,type:'water',support:true,effect:'debuff',status:{effect:'freeze', chance:1}},{name:'念力',dmg:99,cost:13,type:'psychic',status:{effect:'confusion', chance:0.25}}]},
   { id:823, name:'鋼鎧鴉',     type:'steel',    type2:'flying',  hp:250, tier:1, ability:{id:'pressure', name:'壓迫感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[{name:'鐵翼',dmg:27,cost:1,type:'steel',megaBoost:true,bonusEnergy:5},{name:'鋼鐵身壓',dmg:54,cost:7,type:'steel',megaBoost:true,bonusEnergy:5},{name:'羽棲',cost:8,type:'flying',support:true,effect:'roost'},{name:'颶風飛翔',dmg:92,cost:12,type:'flying',selfHeal:0.28}]},
   { mega:{spriteId:10283, type:'water', type2:'dragon', ability:{id:'adaptability', name:'龍化', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×2（原本 ×1.5）'}}, id:160, name:'大力鱷',     type:'water',    hp:260, tier:1, ability:{id:'blaze-boost', name:'激流', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[{name:'冥想',cost:3,type:'water',support:true,effect:'meditate'},{name:'冰凍拳',dmg:61,cost:8,type:'ice',status:{effect:'freeze', chance:0.1},megaBoost:true,bonusEnergy:6},{name:'衝浪',dmg:57,cost:7,type:'water',megaBoost:true,bonusEnergy:5},{name:'水砲',dmg:102,cost:12,type:'water',status:{effect:'paralysis', chance:0.2}}]},
   { mega:{spriteId:10294, type:'water', type2:'dark', ability:{id:'adaptability', name:'變幻自如', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×2（原本 ×1.5）'}}, id:658, name:'甲賀忍蛙',       type:'water',    type2:'dark',    hp:220, tier:1, ability:{id:'rough-skin', name:'粗糙皮膚', trigger:'onDefend', desc:'受到攻擊傷害時，反彈攻擊者 1/8 最大HP 傷害'}, attacks:[{name:'水手裏劍',dmg:26,cost:3,type:'water',megaBoost:true,bonusEnergy:6},{name:'夜斬',dmg:32,cost:3,type:'dark',megaBoost:true,bonusEnergy:6},{name:'暗影球',dmg:69,cost:9,type:'ghost',megaBoost:true,bonusEnergy:7},{name:'電磁波',cost:1,type:'water',support:true,effect:'debuff',status:{effect:'paralysis', chance:1}}]},
@@ -169,7 +169,7 @@ const POKEMON = [
   { mega:{spriteId:10287, type:'ground', type2:'steel', ability:{id:'tough-claws', name:'貫穿之鑽', trigger:'onAttack', desc:'攻擊傷害 ×1.3'}}, id:530, name:'龍頭地鼠', type:'ground', type2:'steel', hp:300, tier:2, ability:{id:'blaze-boost', name:'沙之力', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[{name:'金屬爪',dmg:37,cost:4,type:'steel',megaBoost:true,bonusEnergy:7},{name:'泥巴射擊',dmg:72,cost:9,type:'ground',megaBoost:true,bonusEnergy:7},{name:'地震',dmg:114,cost:14,type:'ground',selfHeal:0.18},{name:'鑽鑿',dmg:117,cost:14,type:'steel',status:{effect:'freeze', chance:0.15}}]},
   { mega:{spriteId:10288, type:'bug', type2:'poison', ability:{id:'sturdy', name:'硬殼盔甲', trigger:'onDefend', desc:'HP 全滿時，受到會直接擊倒的攻擊會保留 1 HP'}}, id:545, name:'蜈蚣王', type:'bug', type2:'poison', hp:260, tier:2, ability:{id:'poison-point', name:'毒刺', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者中毒'}, attacks:[{name:'連續啃咬',dmg:23,cost:1,type:'bug',megaBoost:true,bonusEnergy:5},{name:'小偷',cost:5,type:'bug',support:true,effect:'thief'},{name:'百萬針',dmg:61,cost:8,type:'bug',megaBoost:true,bonusEnergy:6},{name:'污泥炸彈',dmg:101,cost:13,type:'poison',status:{effect:'freeze', chance:0.15}}]},
   { mega:{spriteId:10289, type:'dark', type2:'fighting', ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊傷害 ×0.5'}}, id:560, name:'頭巾混混', type:'dark', type2:'fighting', hp:240, tier:1, ability:{id:'status-immune-once', name:'淬鍊之心', trigger:'onStatus', desc:'首次被施加異常狀態時解除並免疫，之後攻擊傷害永久 ×1.2'}, attacks:[{name:'小偷',cost:5,type:'dark',support:true,effect:'thief'},{name:'惡意彈珠',dmg:53,cost:7,type:'dark',megaBoost:true,bonusEnergy:5},{name:'近身戰',dmg:51,cost:7,type:'fighting',megaBoost:true,bonusEnergy:5},{name:'暗黑爆破',dmg:95,cost:11,type:'dark',status:{effect:'freeze', chance:0.15}}]},
-  { mega:{spriteId:10290, type:'electric', type2:null, ability:{id:'motor-drive', name:'電鰻升格', trigger:'onDefend', desc:'受到電屬性攻擊時完全免疫，並回復 3 點能量'}}, id:604, name:'麻麻鰻魚王', type:'electric', hp:270, tier:2, ability:{id:'motor-drive', name:'飄浮', trigger:'onDefend', desc:'受到電屬性攻擊時完全免疫，並回復 3 點能量'}, attacks:[{name:'咬碎',dmg:39,cost:4,type:'dark',megaBoost:true,bonusEnergy:7},{name:'電擊',dmg:75,cost:10,type:'electric',megaBoost:true,bonusEnergy:8},{name:'十萬伏特',dmg:71,cost:10,type:'electric',megaBoost:true,bonusEnergy:8},{name:'冰凍吐息',cost:1,type:'electric',support:true,effect:'debuff',status:{effect:'freeze', chance:1}}]},
+  { mega:{spriteId:10290, type:'electric', type2:null, ability:{id:'motor-drive', name:'電鰻升格', trigger:'onDefend', desc:'受到電屬性攻擊時完全免疫，並回復 3 點能量'}}, id:604, name:'麻麻鰻魚王', type:'electric', hp:270, tier:2, ability:{id:'motor-drive', name:'飄浮', trigger:'onDefend', desc:'受到電屬性攻擊時完全免疫，並回復 3 點能量'}, attacks:[{name:'咬碎',dmg:39,cost:4,type:'dark',megaBoost:true,bonusEnergy:7},{name:'電擊',dmg:75,cost:10,type:'electric',megaBoost:true,bonusEnergy:8},{name:'十萬伏特',dmg:71,cost:10,type:'electric',megaBoost:true,bonusEnergy:8},{name:'冰凍吐息',cost:3,type:'electric',support:true,effect:'debuff',status:{effect:'freeze', chance:1}}]},
   { mega:{spriteId:10292, type:'grass', type2:'fighting', ability:{id:'solid-rock', name:'防彈', trigger:'onDefend', desc:'受到剋制（×2以上）的攻擊傷害再減少 25%'}}, id:652, name:'布里卡隆', type:'grass', type2:'fighting', hp:300, tier:2, ability:{id:'blaze-boost', name:'茂盛', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[{name:'藤鞭',dmg:23,cost:2,type:'grass',megaBoost:true,bonusEnergy:6},{name:'空手劈',dmg:63,cost:8,type:'fighting',megaBoost:true,bonusEnergy:6},{name:'葉刃',dmg:104,cost:12,type:'grass',selfHeal:0.19},{name:'近身戰',dmg:104,cost:13,type:'fighting',selfHeal:0.16}]},
   { mega:{spriteId:10293, type:'fire', type2:'psychic', ability:{id:'motor-drive', name:'飄浮', trigger:'onDefend', desc:'受到電屬性攻擊時完全免疫，並回復 3 點能量'}}, id:655, name:'妖火紅狐', type:'fire', type2:'psychic', hp:260, tier:2, ability:{id:'blaze-boost', name:'猛火', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}, attacks:[{name:'火花',dmg:30,cost:3,type:'fire',megaBoost:true,bonusEnergy:6},{name:'念力',dmg:68,cost:8,type:'psychic',megaBoost:true,bonusEnergy:6},{name:'影舞',cost:2,type:'fire',support:true,effect:'shadow-dance'},{name:'未來預知',dmg:106,cost:14,type:'psychic',status:{effect:'confusion', chance:0.25}}]},
   { mega:{spriteId:10295, type:'fire', type2:'normal', ability:{id:'blaze-boost', name:'火鬃', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.5'}}, id:668, name:'火炎獅', type:'fire', type2:'normal', hp:270, tier:2, ability:{id:'pressure', name:'緊張感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[{name:'拍打',dmg:40,cost:5,type:'normal',megaBoost:true,bonusEnergy:8},{name:'撐住',cost:5,type:'fire',support:true,effect:'brace'},{name:'大字爆炎',dmg:75,cost:10,type:'fire',megaBoost:true,bonusEnergy:8},{name:'高周波音',dmg:120,cost:15,type:'normal',selfHeal:0.24}]},
@@ -646,7 +646,7 @@ function executeSupportMoveSrv(attacker, defender, atk, role, op, G, log) {
         const stolen = opHand.splice(idx, 1)[0];
         myHand.push(stolen);
         log.push({ text: `${attacker.name} 搶走了對方的【${stolen.name}】！`, cls: 'special' });
-        G[`${role}NeedsDiscard`] = myHand.length > 5;
+        G[`${role}NeedsDiscard`] = myHand.length > 10;
       } else {
         log.push({ text: `對方沒有手牌可以搶。`, cls: 'system' });
       }
@@ -683,10 +683,13 @@ function executeSupportMoveSrv(attacker, defender, atk, role, op, G, log) {
       G[`${role}BonusItemDrawsNextTurn`] = (G[`${role}BonusItemDrawsNextTurn`] || 0) + 2;
       log.push({ text: `${attacker.name} 開始冥想，下回合將額外抽 2 張道具／競技場卡！`, cls: 'special' });
       break;
-    case 'trick':
+    case 'trick': {
       G[`${role}BonusSupporterDrawNextTurn`] = true;
-      log.push({ text: `${attacker.name} 使出了詭計，下回合將額外抽 1 張支援者卡！`, cls: 'special' });
+      const aBuff = G[`${role}Buff`];
+      aBuff.atkMult = Math.max(aBuff.atkMult, 1.1);
+      log.push({ text: `${attacker.name} 使出了詭計，下回合將額外抽 1 張支援者卡，下次攻擊傷害 ×1.1！`, cls: 'special' });
       break;
+    }
     case 'focus-energy':
       G[`${role}BonusEnergyNextTurn`] = (G[`${role}BonusEnergyNextTurn`] || 0) + (atk.bonusEnergy || 9);
       log.push({ text: `${attacker.name} 集中精神，下回合將額外獲得 ${atk.bonusEnergy || 9} 點能量！`, cls: 'special' });
@@ -941,7 +944,7 @@ function applyTrainer(card, role, G, log, chosenType) {
         const stolen = opHand.splice(pIdx, 1)[0];
         myHand.push(stolen);
         log.push({ text: `使用了掠奪，搶走了對方的【${stolen.name}】！`, cls: 'system' });
-        G[`${role}NeedsDiscard`] = myHand.length > 5;
+        G[`${role}NeedsDiscard`] = myHand.length > 10;
       } else {
         log.push({ text: `使用了掠奪，但對方沒有手牌可以搶。`, cls: 'system' });
       }
@@ -1043,7 +1046,7 @@ function drawForRole(G, role) {
     G[`${role}MegaEnergy`] = Math.min(20, (G[`${role}MegaEnergy`] || 0) + 10);
   }
   const itemsOnly = TRAINERS.filter(c => c.cat !== 'supporter');
-  const n = Math.floor(Math.random() * 2) + 1;
+  const n = 2;
   for (let i = 0; i < n; i++) {
     G[`${role}Hand`].push(itemsOnly[Math.floor(Math.random() * itemsOnly.length)]);
   }
@@ -1060,7 +1063,7 @@ function drawForRole(G, role) {
     G[`${role}Hand`].push(supporters[Math.floor(Math.random() * supporters.length)]);
     G[`${role}BonusSupporterDrawNextTurn`] = false;
   }
-  G[`${role}NeedsDiscard`] = G[`${role}Hand`].length > 5;
+  G[`${role}NeedsDiscard`] = G[`${role}Hand`].length > 10;
 }
 
 // Draws 1-2 cards for each player (kept for backward compatibility).
@@ -1077,11 +1080,11 @@ function drawForBoth(G) {
   const itemsOnly = TRAINERS.filter(c => c.cat !== 'supporter');
   for (const role of ['p1', 'p2']) {
     const drawPool = itemsOnly;
-    const n = Math.floor(Math.random() * 2) + 1;
+    const n = 2;
     for (let i = 0; i < n; i++) {
       G[`${role}Hand`].push(drawPool[Math.floor(Math.random() * drawPool.length)]);
     }
-    G[`${role}NeedsDiscard`] = G[`${role}Hand`].length > 5;
+    G[`${role}NeedsDiscard`] = G[`${role}Hand`].length > 10;
   }
 }
 
@@ -1725,7 +1728,7 @@ async function handleMessage(ws, msg) {
       const hand = G[`${role}Hand`];
       if (msg.handIdx < 0 || msg.handIdx >= hand.length) return;
       hand.splice(msg.handIdx, 1);
-      G[`${role}NeedsDiscard`] = hand.length > 5;
+      G[`${role}NeedsDiscard`] = hand.length > 10;
       broadcast(room, { type: 'update', state: G, log: [], actor: role });
       return;
     }
@@ -1906,7 +1909,7 @@ async function handleMessage(ws, msg) {
       const supporters = TRAINERS.filter(c => c.cat === 'supporter');
       const card = supporters[Math.floor(Math.random() * supporters.length)];
       G[`${role}Hand`].push(card);
-      G[`${role}NeedsDiscard`] = G[`${role}Hand`].length > 5;
+      G[`${role}NeedsDiscard`] = G[`${role}Hand`].length > 10;
       log.push({ text: `選擇待機，${role === 'p1' ? 'P1' : 'P2'} 抽到【${card.name}】！`, cls: 'system' });
 
       if (active.cur <= 0) {
@@ -2004,7 +2007,7 @@ async function handleMessage(ws, msg) {
       if (cardType === 'energy') {
         const gain = Math.min(20 - G[`${role}Energy`], 5);
         G[`${role}Energy`] = Math.min(20, G[`${role}Energy`] + 5);
-        G[`${role}NeedsDiscard`] = hand.length > 5;
+        G[`${role}NeedsDiscard`] = hand.length > 10;
         const log = [{ text: `棄牌換能量！回復了 ${gain} 點能量！（現在 ${G[`${role}Energy`]}/20）`, cls: 'system' }];
         broadcast(room, { type: 'update', state: G, log, actor: role }); return;
       }
@@ -2012,7 +2015,7 @@ async function handleMessage(ws, msg) {
       const pool = TRAINERS.filter(c => c.cat === cardType);
       const newCard = pool[Math.floor(Math.random() * pool.length)];
       hand.push(newCard);
-      G[`${role}NeedsDiscard`] = hand.length > 5;
+      G[`${role}NeedsDiscard`] = hand.length > 10;
       const log = [{ text: `棄牌換卡！【${newCard.name}】到手！`, cls: 'system' }];
       broadcast(room, { type: 'update', state: G, log, actor: role }); return;
     }
