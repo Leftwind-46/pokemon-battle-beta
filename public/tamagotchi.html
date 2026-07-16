@@ -95,6 +95,13 @@ const PET_SPECIES = [
   { id: 25,  name: '皮卡丘',   type: 'electric' },
 ];
 const TYPE_COLOR = { grass:'#78c850', fire:'#f05030', water:'#6890f0', electric:'#f8d030' };
+// 依寶可夢屬性給待機畫面不同的情境背景（純CSS漸層，維持專案「不外抓圖片素材」的既有風格）
+const TYPE_BG = {
+  grass:    'radial-gradient(ellipse at 50% 100%, rgba(76,175,80,0.28), transparent 70%), linear-gradient(180deg,#0d1f12 0%,#123018 55%,#0a1a0e 100%)',
+  fire:     'radial-gradient(ellipse at 50% 100%, rgba(255,87,34,0.3), transparent 70%), linear-gradient(180deg,#2a0e08 0%,#3d1408 55%,#1a0704 100%)',
+  water:    'radial-gradient(ellipse at 50% 100%, rgba(33,150,243,0.3), transparent 70%), linear-gradient(180deg,#061a2e 0%,#0a2740 55%,#041420 100%)',
+  electric: 'radial-gradient(ellipse at 50% 100%, rgba(255,213,0,0.24), transparent 70%), linear-gradient(180deg,#241f04 0%,#332b06 55%,#171304 100%)',
+};
 function animatedSpriteUrl(id) {
   return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${id}.gif`;
 }
@@ -173,6 +180,7 @@ function startStage() {
 
   const stage = document.getElementById('pet-stage');
   stage.innerHTML = '';
+  stage.style.background = (species && TYPE_BG[species.type]) || '';
   const img = document.createElement('img');
   img.id = 'pet-sprite';
   img.src = animatedSpriteUrl(pet.speciesId);
