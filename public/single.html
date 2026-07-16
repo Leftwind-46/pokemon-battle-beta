@@ -4439,11 +4439,13 @@ function executeSupportMove(attacker, defender, atk, aSide, dSide, onDone) {
       G[`${aSide}BonusItemDrawsNextTurn`] = (G[`${aSide}BonusItemDrawsNextTurn`] || 0) + 2;
       log(`${aLabel}${attacker.name} 開始冥想，下回合將額外抽 2 張道具／競技場卡！`, 'special');
       break;
-    case 'trick':
+    case 'trick': {
       G[`${aSide}BonusSupporterDrawNextTurn`] = true;
+      const aBuff = aSide === 'player' ? G.playerBuff : G.cpuBuff;
       aBuff.atkMult = Math.max(aBuff.atkMult, 1.1);
       log(`${aLabel}${attacker.name} 使出了詭計，下回合將額外抽 1 張支援者卡，下次攻擊傷害 ×1.1！`, 'special');
       break;
+    }
     case 'focus-energy':
       G[`${aSide}BonusEnergyNextTurn`] = (G[`${aSide}BonusEnergyNextTurn`] || 0) + (atk.bonusEnergy || 9);
       log(`${aLabel}${attacker.name} 集中精神，下回合將額外獲得 ${atk.bonusEnergy || 9} 點能量！`, 'special');
