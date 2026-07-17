@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>寶可夢電子雞</title>
+<title>我的寶可夢</title>
 <style>
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
   :root{--bg:#07091a;--border:rgba(255,255,255,0.10);--text:#e8eaf6;--muted:#7986cb}
@@ -27,6 +27,8 @@
   .species-card img{width:72px;height:72px;image-rendering:pixelated}
   .species-card .sp-name{font-size:0.85rem;font-weight:700;margin-top:0.3rem}
   .sp-strip{height:4px;border-radius:2px;margin-bottom:0.5rem}
+  .species-card.custom-entry{display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .species-card.custom-entry .custom-icon{font-size:2.2rem;margin-bottom:0.3rem}
 
   /* ── pet stage ── */
   #stage-screen{display:none;flex-direction:column;align-items:center;gap:1rem;width:100%;max-width:700px}
@@ -44,7 +46,7 @@
 <body>
 <canvas id="stars"></canvas>
 <div class="wrap">
-  <h1>寶可夢電子雞</h1>
+  <h1>我的寶可夢</h1>
 
   <div id="gate-screen">
     <p style="color:var(--muted)">這個玩法需要先登入帳號才能使用。</p>
@@ -53,9 +55,9 @@
   </div>
 
   <div id="pick-screen">
-    <p style="color:var(--muted)">選一隻寶可夢陪伴你（選定後無法更換）</p>
+    <p id="pick-subtitle" style="color:var(--muted)">選一隻寶可夢陪伴你（選定後無法更換）</p>
     <div class="pick-grid" id="pick-grid"></div>
-    <a class="back" href="/">← 返回主選單</a>
+    <a class="back" href="/" id="pick-back-link">← 返回主選單</a>
   </div>
 
   <div id="stage-screen">
@@ -83,7 +85,8 @@
 })();
 
 /* ─────────────────────────────────────────
-   DATA — 跟 server.js 的 PET_SPECIES 保持一致（7選1：第一/二代御三家初形態＋皮卡丘）
+   DATA — 跟 server.js 的 PET_SPECIES 保持一致：御三家初形態＋皮卡丘為主要選項，
+   另外「客製化寶可夢」(custom:true) 提供幾隻御三家以外的選擇
 ───────────────────────────────────────── */
 const PET_SPECIES = [
   { id: 1,   name: '妙蛙種子', type: 'grass' },
@@ -91,16 +94,24 @@ const PET_SPECIES = [
   { id: 7,   name: '傑尼龜',   type: 'water' },
   { id: 152, name: '菊草葉',   type: 'grass' },
   { id: 155, name: '火球鼠',   type: 'fire' },
-  { id: 158, name: '小鱷魚',   type: 'water' },
+  { id: 158, name: '小鋸鱷',   type: 'water' },
   { id: 25,  name: '皮卡丘',   type: 'electric' },
+  { id: 722, name: '木木梟',   type: 'grass' },
+  { id: 906, name: '新葉喵',   type: 'grass' },
+  { id: 909, name: '呆火鱷',   type: 'fire' },
+  { id: 92,  name: '鬼斯',     type: 'ghost',  custom: true },
+  { id: 132, name: '百變怪',   type: 'normal', custom: true },
+  { id: 133, name: '伊布',     type: 'normal', custom: true },
 ];
-const TYPE_COLOR = { grass:'#78c850', fire:'#f05030', water:'#6890f0', electric:'#f8d030' };
+const TYPE_COLOR = { grass:'#78c850', fire:'#f05030', water:'#6890f0', electric:'#f8d030', ghost:'#705898', normal:'#a8a878' };
 // 依寶可夢屬性給待機畫面不同的情境背景（純CSS漸層，維持專案「不外抓圖片素材」的既有風格）
 const TYPE_BG = {
   grass:    'radial-gradient(ellipse at 50% 100%, rgba(76,175,80,0.28), transparent 70%), linear-gradient(180deg,#0d1f12 0%,#123018 55%,#0a1a0e 100%)',
   fire:     'radial-gradient(ellipse at 50% 100%, rgba(255,87,34,0.3), transparent 70%), linear-gradient(180deg,#2a0e08 0%,#3d1408 55%,#1a0704 100%)',
   water:    'radial-gradient(ellipse at 50% 100%, rgba(33,150,243,0.3), transparent 70%), linear-gradient(180deg,#061a2e 0%,#0a2740 55%,#041420 100%)',
   electric: 'radial-gradient(ellipse at 50% 100%, rgba(255,213,0,0.24), transparent 70%), linear-gradient(180deg,#241f04 0%,#332b06 55%,#171304 100%)',
+  ghost:    'radial-gradient(ellipse at 50% 100%, rgba(112,88,152,0.32), transparent 70%), linear-gradient(180deg,#150c22 0%,#1c1030 55%,#0c0715 100%)',
+  normal:   'radial-gradient(ellipse at 50% 100%, rgba(168,168,120,0.22), transparent 70%), linear-gradient(180deg,#1c1c16 0%,#26261c 55%,#131310 100%)',
 };
 function animatedSpriteUrl(id) {
   return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${id}.gif`;
@@ -136,21 +147,47 @@ async function init() {
   }
 }
 
+function renderSpeciesCard(sp) {
+  const col = TYPE_COLOR[sp.type] || '#888';
+  const el = document.createElement('div');
+  el.className = 'species-card';
+  el.innerHTML = `
+    <div class="sp-strip" style="background:${col}"></div>
+    <img src="${animatedSpriteUrl(sp.id)}" alt="${sp.name}" onerror="this.onerror=null;this.src='${spriteUrl(sp.id)}'">
+    <div class="sp-name">${sp.name}</div>
+  `;
+  el.onclick = () => choosePet(sp.id);
+  return el;
+}
+
 function showPicker() {
   const grid = document.getElementById('pick-grid');
   grid.innerHTML = '';
-  PET_SPECIES.forEach(sp => {
-    const col = TYPE_COLOR[sp.type] || '#888';
-    const el = document.createElement('div');
-    el.className = 'species-card';
-    el.innerHTML = `
-      <div class="sp-strip" style="background:${col}"></div>
-      <img src="${animatedSpriteUrl(sp.id)}" alt="${sp.name}" onerror="this.onerror=null;this.src='${spriteUrl(sp.id)}'">
-      <div class="sp-name">${sp.name}</div>
-    `;
-    el.onclick = () => choosePet(sp.id);
-    grid.appendChild(el);
-  });
+  document.getElementById('pick-subtitle').textContent = '選一隻寶可夢陪伴你（選定後無法更換）';
+  document.getElementById('pick-back-link').textContent = '← 返回主選單';
+  document.getElementById('pick-back-link').onclick = null;
+  document.getElementById('pick-back-link').href = '/';
+  PET_SPECIES.filter(sp => !sp.custom).forEach(sp => grid.appendChild(renderSpeciesCard(sp)));
+
+  // 客製化寶可夢：點了之後顯示御三家以外的選項
+  const customEl = document.createElement('div');
+  customEl.className = 'species-card custom-entry';
+  customEl.innerHTML = `<div class="custom-icon">✨</div><div class="sp-name">客製化寶可夢</div>`;
+  customEl.onclick = showCustomPicker;
+  grid.appendChild(customEl);
+
+  showScreen('pick-screen');
+}
+
+function showCustomPicker() {
+  const grid = document.getElementById('pick-grid');
+  grid.innerHTML = '';
+  document.getElementById('pick-subtitle').textContent = '客製化寶可夢（御三家以外的選擇）';
+  const backLink = document.getElementById('pick-back-link');
+  backLink.textContent = '← 返回選擇畫面';
+  backLink.href = 'javascript:void(0)';
+  backLink.onclick = (e) => { e.preventDefault(); showPicker(); };
+  PET_SPECIES.filter(sp => sp.custom).forEach(sp => grid.appendChild(renderSpeciesCard(sp)));
   showScreen('pick-screen');
 }
 
