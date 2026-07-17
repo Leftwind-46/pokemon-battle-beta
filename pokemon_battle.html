@@ -4511,6 +4511,14 @@ function executeSupportMove(attacker, defender, atk, aSide, dSide, onDone) {
   const dLabel = dSide === 'player' ? '你的' : '對手的';
   log(`${aLabel}${attacker.name} 使用了【${atk.name}】！`, aSide);
 
+  // 輔助技能不會真的打到對方，比照「待機／換場／因異常狀態被跳過」既有的清除規則——
+  // 對方的反彈鏡／撐住／影舞這類「等下一次受到攻擊才觸發」的一次性效果，這回合沒被打到就該失效，
+  // 不能一路殘留到未來某次真的被攻擊到才觸發（原本只有switch/skip/standby會清，用支援技能漏了）
+  const dBuff = dSide === 'player' ? G.playerBuff : G.cpuBuff;
+  dBuff.reflect = false;
+  G[`${dSide}Braced`] = false;
+  G[`${dSide}CoinShield`] = false;
+
   switch (atk.effect) {
     case 'brace':
       G[`${aSide}Braced`] = true;

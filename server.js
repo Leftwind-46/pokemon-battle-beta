@@ -706,6 +706,12 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
 // executeSupportMove 邏輯一致（role/op 對應那邊的 aSide/dSide）。
 function executeSupportMoveSrv(attacker, defender, atk, role, op, G, log) {
   log.push({ text: `${attacker.name} 使用了 ${atk.name}！`, cls: 'attack' });
+
+  // 輔助技能不會真的打到對方，比照switch/skip/standby既有的清除規則——對方的反彈鏡／撐住／
+  // 影舞這類「等下一次受到攻擊才觸發」的一次性效果，這回合沒被打到就該失效（原本只有那幾個
+  // call site會清，用支援技能漏了，跟pokemon_battle.html的executeSupportMove同一個bug）
+  G[`${op}Buff`].reflect = false; G[`${op}Braced`] = false; G[`${op}CoinShield`] = false;
+
   switch (atk.effect) {
     case 'brace':
       G[`${role}Braced`] = true;
