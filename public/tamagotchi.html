@@ -35,20 +35,55 @@
   .happiness-bar{width:100%;max-width:340px;display:flex;align-items:center;gap:0.6rem}
   .happiness-track{flex:1;height:14px;border-radius:999px;background:rgba(255,255,255,0.1);overflow:hidden}
   .happiness-fill{height:100%;background:linear-gradient(90deg,#f8d030,#f05030);transition:width 0.4s ease}
-  #pet-stage{position:relative;width:100%;height:52vh;min-height:280px;border-radius:20px;border:2px solid var(--border);background:radial-gradient(ellipse at 50% 100%,rgba(121,134,203,0.12),transparent 70%);overflow:hidden}
-  #pet-sprite{position:absolute;width:96px;height:96px;image-rendering:pixelated;cursor:pointer;transition:left 1.8s ease-in-out, top 1.8s ease-in-out;filter:drop-shadow(0 6px 8px rgba(0,0,0,0.4))}
+  #pet-stage{position:relative;width:100%;height:52vh;min-height:280px;border-radius:20px;border:2px solid var(--border);background:#141024;overflow:hidden}
+  #pet-sprite{position:absolute;z-index:4;width:96px;height:96px;image-rendering:pixelated;cursor:pointer;transition:left 1.8s ease-in-out, top 1.8s ease-in-out;filter:drop-shadow(0 6px 8px rgba(0,0,0,0.4))}
+
+  /* ── 寶可夢空間：依屬性設計成一個小房間（純CSS/SVG繪製，不外抓素材）──
+     結構統一：牆面(62%) + 地板(38%，帶透視感的水平木紋/磁磚) + 一個屬性主題的角落擺設 */
+  .room-wall{position:absolute;inset:0 0 38% 0;z-index:0}
+  .room-floor{position:absolute;left:0;right:0;bottom:0;height:40%;z-index:0;box-shadow:0 -3px 10px rgba(0,0,0,0.35) inset}
+  .room-floor::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(180deg,rgba(0,0,0,0.14) 0,rgba(0,0,0,0.14) 2px,transparent 2px,transparent 22px)}
+  .room-decor{position:absolute;left:0;right:0;bottom:0;height:100%;z-index:1;pointer-events:none;background-repeat:no-repeat;background-position:bottom left;background-size:auto 44%}
+
+  .room-grass .room-wall{background:linear-gradient(180deg,#0d1f12 0%,#1a3a20 100%)}
+  .room-grass .room-floor{background:#4a3624}
+  .room-fire .room-wall{background:linear-gradient(180deg,#2a0e08 0%,#4a1c10 100%)}
+  .room-fire .room-floor{background:#3a3a3e}
+  .room-water .room-wall{background:linear-gradient(180deg,#061a2e 0%,#0e3856 100%)}
+  .room-water .room-floor{background:#1c4f66}
+  .room-electric .room-wall{background:linear-gradient(180deg,#241f04 0%,#463c0a 100%)}
+  .room-electric .room-floor{background:#1c1a26}
+  .room-ghost .room-wall{background:linear-gradient(180deg,#150c22 0%,#241238 100%)}
+  .room-ghost .room-floor{background:#241a30}
+  .room-normal .room-wall{background:linear-gradient(180deg,#241f16 0%,#3c3122 100%)}
+  .room-normal .room-floor{background:#4a3624}
+
+  /* 電系房間的地板改成電路格線紋路，其餘屬性用共用的木紋/磁磚 */
+  .room-electric .room-floor::before{background:
+    repeating-linear-gradient(180deg,rgba(248,208,48,0.16) 0,rgba(248,208,48,0.16) 1px,transparent 1px,transparent 24px),
+    repeating-linear-gradient(90deg,rgba(248,208,48,0.1) 0,rgba(248,208,48,0.1) 1px,transparent 1px,transparent 24px)}
+  .room-water .room-floor::before{background:
+    repeating-linear-gradient(180deg,rgba(255,255,255,0.12) 0,rgba(255,255,255,0.12) 1px,transparent 1px,transparent 20px),
+    repeating-linear-gradient(90deg,rgba(255,255,255,0.1) 0,rgba(255,255,255,0.1) 1px,transparent 1px,transparent 20px)}
   .reaction-pop{position:absolute;font-size:1.3rem;font-weight:800;color:#f8d030;pointer-events:none;animation:reactionFloat 1.1s ease forwards;text-shadow:0 2px 6px rgba(0,0,0,0.6)}
   @keyframes reactionFloat{0%{transform:translateY(0);opacity:0}15%{opacity:1}100%{transform:translateY(-50px);opacity:0}}
   #pet-name-label{font-size:1rem;font-weight:700}
   #pet-reaction-text{font-size:0.82rem;color:var(--muted);min-height:1.2em}
 
-  /* ── 徽章展示位 ── */
-  .pet-header{width:100%;display:flex;align-items:center;justify-content:center;gap:0.8rem;position:relative}
-  #badge-slot{position:absolute;right:0;top:50%;transform:translateY(-50%);width:52px;height:52px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform 0.15s}
-  #badge-slot:hover{transform:translateY(-50%) scale(1.08)}
-  #badge-slot img{width:100%;height:100%;border-radius:50%;object-fit:cover;box-shadow:0 0 12px rgba(248,208,48,0.55),0 0 0 2px rgba(248,208,48,0.7)}
-  #badge-slot.empty{border:2px dashed rgba(255,255,255,0.22);color:var(--muted);font-size:1.3rem;cursor:default}
-  #badge-slot.empty:hover{transform:translateY(-50%)}
+  /* ── 徽章展示位（放在寶可夢空間右上角，像掛在房間牆上的獎盃架）── */
+  #badge-slot{position:absolute;right:14px;top:14px;z-index:5;width:84px;height:84px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform 0.15s}
+  #badge-slot:hover{transform:scale(1.08)}
+  #badge-slot img{width:100%;height:100%;border-radius:50%;object-fit:cover;box-shadow:0 0 18px rgba(248,208,48,0.6),0 0 0 3px rgba(248,208,48,0.75)}
+  #badge-slot.empty{border:2px dashed rgba(255,255,255,0.28);background:rgba(0,0,0,0.2);color:var(--muted);font-size:1.6rem;cursor:default}
+  #badge-slot.empty:hover{transform:none}
+
+  /* ── 徽章放大檢視 ── */
+  #badge-modal{display:none;position:fixed;inset:0;z-index:700;align-items:center;justify-content:center;background:rgba(4,2,12,0.82);backdrop-filter:blur(2px)}
+  #badge-modal.open{display:flex}
+  .badge-modal-inner{display:flex;flex-direction:column;align-items:center;gap:0.9rem;padding:1rem}
+  .badge-modal-inner img{width:min(320px,70vw);height:min(320px,70vw);border-radius:50%;object-fit:cover;box-shadow:0 0 40px rgba(248,208,48,0.65),0 0 0 4px rgba(248,208,48,0.8);cursor:pointer}
+  .badge-modal-name{font-size:1.1rem;font-weight:800;color:#f8d030}
+  .badge-modal-close{font-size:0.82rem;color:var(--muted);cursor:pointer;text-decoration:underline}
 
   /* ── 煙火點擊特效（純CSS粒子，沿用專案不外抓素材的風格）── */
   .firework-particle{position:fixed;width:6px;height:6px;border-radius:50%;pointer-events:none;z-index:500;animation:fireworkBurst 0.8s ease-out forwards}
@@ -86,10 +121,7 @@
   </div>
 
   <div id="stage-screen">
-    <div class="pet-header">
-      <div id="pet-name-label"></div>
-      <div id="badge-slot"></div>
-    </div>
+    <div id="pet-name-label"></div>
     <div class="happiness-bar">
       <span style="font-size:0.85rem;color:var(--muted)">好感度</span>
       <div class="happiness-track"><div class="happiness-fill" id="happiness-fill"></div></div>
@@ -106,6 +138,13 @@
   </div>
 </div>
 <div id="toast"></div>
+<div id="badge-modal" onclick="closeBadgeModal()">
+  <div class="badge-modal-inner" onclick="event.stopPropagation()">
+    <img id="badge-modal-img" src="" alt="" onclick="triggerFirework(event.clientX, event.clientY)">
+    <div class="badge-modal-name" id="badge-modal-name"></div>
+    <div class="badge-modal-close" onclick="closeBadgeModal()">關閉</div>
+  </div>
+</div>
 
 <script>
 /* ─────────────────────────────────────────
@@ -123,38 +162,115 @@
    另外「客製化寶可夢」(custom:true) 提供幾隻御三家以外的選擇
 ───────────────────────────────────────── */
 const PET_SPECIES = [
-  { id: 1,   name: '妙蛙種子', type: 'grass',    slug: 'bulbasaur' },
-  { id: 4,   name: '小火龍',   type: 'fire',     slug: 'charmander' },
-  { id: 7,   name: '傑尼龜',   type: 'water',    slug: 'squirtle' },
-  { id: 152, name: '菊草葉',   type: 'grass',    slug: 'chikorita' },
-  { id: 155, name: '火球鼠',   type: 'fire',     slug: 'cyndaquil' },
-  { id: 158, name: '小鋸鱷',   type: 'water',    slug: 'totodile' },
-  { id: 25,  name: '皮卡丘',   type: 'electric', slug: 'pikachu' },
-  { id: 722, name: '木木梟',   type: 'grass',    slug: 'rowlet' },
-  { id: 906, name: '新葉喵',   type: 'grass',    slug: 'sprigatito' },
-  { id: 909, name: '呆火鱷',   type: 'fire',     slug: 'fuecoco' },
-  { id: 92,  name: '鬼斯',     type: 'ghost',  custom: true, slug: 'gastly' },
-  { id: 132, name: '百變怪',   type: 'normal', custom: true, slug: 'ditto' },
-  { id: 133, name: '伊布',     type: 'normal', custom: true, slug: 'eevee' },
+  { id: 1,   name: '妙蛙種子', type: 'grass' },
+  { id: 4,   name: '小火龍',   type: 'fire' },
+  { id: 7,   name: '傑尼龜',   type: 'water' },
+  { id: 152, name: '菊草葉',   type: 'grass' },
+  { id: 155, name: '火球鼠',   type: 'fire' },
+  { id: 158, name: '小鋸鱷',   type: 'water' },
+  { id: 25,  name: '皮卡丘',   type: 'electric' },
+  { id: 722, name: '木木梟',   type: 'grass',    newGen: true, slug: 'rowlet' },
+  { id: 906, name: '新葉喵',   type: 'grass',    newGen: true, slug: 'sprigatito' },
+  { id: 909, name: '呆火鱷',   type: 'fire',     newGen: true, slug: 'fuecoco' },
+  { id: 92,  name: '鬼斯',     type: 'ghost',  custom: true },
+  { id: 132, name: '百變怪',   type: 'normal', custom: true },
+  { id: 133, name: '伊布',     type: 'normal', custom: true },
 ];
 const TYPE_COLOR = { grass:'#78c850', fire:'#f05030', water:'#6890f0', electric:'#f8d030', ghost:'#705898', normal:'#a8a878' };
-// 依寶可夢屬性給待機畫面不同的情境背景（純CSS漸層，維持專案「不外抓圖片素材」的既有風格）
-const TYPE_BG = {
-  grass:    'radial-gradient(ellipse at 50% 100%, rgba(76,175,80,0.28), transparent 70%), linear-gradient(180deg,#0d1f12 0%,#123018 55%,#0a1a0e 100%)',
-  fire:     'radial-gradient(ellipse at 50% 100%, rgba(255,87,34,0.3), transparent 70%), linear-gradient(180deg,#2a0e08 0%,#3d1408 55%,#1a0704 100%)',
-  water:    'radial-gradient(ellipse at 50% 100%, rgba(33,150,243,0.3), transparent 70%), linear-gradient(180deg,#061a2e 0%,#0a2740 55%,#041420 100%)',
-  electric: 'radial-gradient(ellipse at 50% 100%, rgba(255,213,0,0.24), transparent 70%), linear-gradient(180deg,#241f04 0%,#332b06 55%,#171304 100%)',
-  ghost:    'radial-gradient(ellipse at 50% 100%, rgba(112,88,152,0.32), transparent 70%), linear-gradient(180deg,#150c22 0%,#1c1030 55%,#0c0715 100%)',
-  normal:   'radial-gradient(ellipse at 50% 100%, rgba(168,168,120,0.22), transparent 70%), linear-gradient(180deg,#1c1c16 0%,#26261c 55%,#131310 100%)',
+
+// 寶可夢空間依屬性設計成一個小房間的角落擺設（純手繪SVG，不外抓圖片素材——
+// 找過itch.io/OpenGameArt都沒有現成、授權乾淨、六種屬性齊全的單張房間背景圖，
+// 改用自己畫的簡單剪影：草=盆栽、火=壁爐、水=魚缸、電=電路板+閃電、幽靈=蜘蛛網+月窗、一般=書櫃+地毯）
+const ROOM_DECOR_SVG = {
+  grass: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140">
+    <rect x="30" y="100" width="60" height="34" rx="4" fill="#6d4c33"/>
+    <rect x="36" y="94" width="48" height="10" fill="#8a6642"/>
+    <ellipse cx="60" cy="70" rx="20" ry="26" fill="#4caf50"/>
+    <ellipse cx="34" cy="62" rx="16" ry="20" fill="#5cb860"/>
+    <ellipse cx="86" cy="60" rx="17" ry="22" fill="#3f9142"/>
+    <ellipse cx="60" cy="40" rx="14" ry="18" fill="#66bb6a"/>
+  </svg>`,
+  fire: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140">
+    <rect x="20" y="30" width="80" height="104" fill="#2b2b2e" rx="6"/>
+    <rect x="30" y="40" width="60" height="84" fill="#141024" rx="4"/>
+    <path d="M60 60 C40 80 45 100 60 112 C75 100 80 80 60 60 Z" fill="#ff9800">
+      <animate attributeName="opacity" values="1;0.6;1" dur="1.2s" repeatCount="indefinite"/>
+    </path>
+    <path d="M60 78 C50 90 53 100 60 106 C67 100 70 90 60 78 Z" fill="#ffeb3b">
+      <animate attributeName="opacity" values="0.8;1;0.8" dur="0.9s" repeatCount="indefinite"/>
+    </path>
+  </svg>`,
+  water: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 140">
+    <rect x="10" y="20" width="100" height="100" rx="8" fill="#0a3550" stroke="#6890f0" stroke-width="3"/>
+    <rect x="14" y="24" width="92" height="92" rx="6" fill="#1a5a80" opacity="0.7"/>
+    <circle cx="40" cy="100" r="5" fill="#bbdefb" opacity="0.7">
+      <animate attributeName="cy" values="100;30;100" dur="4s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0;0.8;0" dur="4s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="65" cy="105" r="3.5" fill="#bbdefb" opacity="0.6">
+      <animate attributeName="cy" values="105;20;105" dur="3.2s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0;0.7;0" dur="3.2s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="85" cy="102" r="4.5" fill="#bbdefb" opacity="0.7">
+      <animate attributeName="cy" values="102;25;102" dur="3.8s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0;0.75;0" dur="3.8s" repeatCount="indefinite"/>
+    </circle>
+  </svg>`,
+  electric: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 140">
+    <rect x="14" y="60" width="70" height="60" rx="6" fill="#2a2410"/>
+    <circle cx="30" cy="76" r="5" fill="#f8d030"><animate attributeName="opacity" values="1;0.3;1" dur="1s" repeatCount="indefinite"/></circle>
+    <circle cx="48" cy="76" r="5" fill="#6890f0"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.3s" repeatCount="indefinite"/></circle>
+    <circle cx="66" cy="76" r="5" fill="#f05030"><animate attributeName="opacity" values="1;0.4;1" dur="0.8s" repeatCount="indefinite"/></circle>
+    <path d="M100 30 L80 75 L98 75 L88 118 L118 65 L98 65 Z" fill="#f8d030">
+      <animate attributeName="opacity" values="1;0.55;1" dur="0.6s" repeatCount="indefinite"/>
+    </path>
+  </svg>`,
+  ghost: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 140">
+    <circle cx="30" cy="30" r="34" fill="none" stroke="#8a7aa8" stroke-width="2"/>
+    <path d="M30 -4 L30 30 M-4 30 L30 30 M6 6 L30 30 M54 6 L30 30 M6 54 L30 30 M54 54 L30 30" stroke="#8a7aa8" stroke-width="1.4" opacity="0.7"/>
+    <path d="M4 30 A26 26 0 0 1 30 4" fill="none" stroke="#8a7aa8" stroke-width="1" opacity="0.5"/>
+    <path d="M10 30 A20 20 0 0 1 30 10" fill="none" stroke="#8a7aa8" stroke-width="1" opacity="0.5"/>
+    <ellipse cx="105" cy="55" rx="26" ry="24" fill="#e8dfc0" opacity="0.85"/>
+    <ellipse cx="115" cy="48" rx="20" ry="19" fill="#241238" opacity="0.5"/>
+  </svg>`,
+  normal: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 140">
+    <rect x="10" y="20" width="46" height="94" fill="#5c4632"/>
+    <rect x="14" y="26" width="38" height="8" fill="#a1887f"/>
+    <rect x="14" y="40" width="38" height="8" fill="#8d6e63"/>
+    <rect x="14" y="54" width="38" height="8" fill="#bcaaa4"/>
+    <rect x="14" y="68" width="38" height="8" fill="#795548"/>
+    <ellipse cx="110" cy="118" rx="44" ry="14" fill="#a8352e"/>
+    <ellipse cx="110" cy="118" rx="32" ry="9" fill="#c9483f"/>
+  </svg>`,
 };
-// Pokemon Showdown 的動態/靜態小圖同時涵蓋新舊世代（PokeAPI 的 Gen5 黑白動圖只收錄到第五世代，
-// 木木梟/新葉喵/呆火鱷這些較新的寶可夢會 fallback 成風格完全不同的現代靜態圖，很不協調——
-// Showdown 的 ani 素材集對新世代寶可夢也有沿用同一套 Gen5 像素風格的粉絲重製動圖，風格統一）
-function animatedSpriteUrl(slug) {
-  return `https://play.pokemonshowdown.com/sprites/ani/${slug}.gif`;
+function renderRoomDecor(stage, type) {
+  const wall = document.createElement('div');
+  wall.className = 'room-wall';
+  const floor = document.createElement('div');
+  floor.className = 'room-floor';
+  const decor = document.createElement('div');
+  decor.className = 'room-decor';
+  const svg = ROOM_DECOR_SVG[type];
+  if (svg) decor.style.backgroundImage = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+  stage.appendChild(wall);
+  stage.appendChild(floor);
+  stage.appendChild(decor);
 }
-function spriteUrl(slug) {
-  return `https://play.pokemonshowdown.com/sprites/gen5/${slug}.png`;
+// PokeAPI 的 Gen5 黑白動圖是最正宗的原始像素點陣風格，但只收錄到第五世代——
+// 木木梟/新葉喵/呆火鱷這些較新的寶可夢沒有這組圖，只有這 3 隻才需要 fallback 到
+// Pokemon Showdown 的動態圖（Showdown 對新世代寶可夢有粉絲重製、風格相近的動圖）。
+// 舊的 10 隻一律維持原本的 PokeAPI 圖源，不要因為想統一而改動已經正確的部分。
+function spriteUrls(sp) {
+  if (sp.newGen) {
+    return {
+      animated: `https://play.pokemonshowdown.com/sprites/ani/${sp.slug}.gif`,
+      static:   `https://play.pokemonshowdown.com/sprites/gen5/${sp.slug}.png`,
+    };
+  }
+  return {
+    animated: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${sp.id}.gif`,
+    static:   `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${sp.id}.png`,
+  };
 }
 
 /* ─────────────────────────────────────────
@@ -188,11 +304,12 @@ async function init() {
 
 function renderSpeciesCard(sp) {
   const col = TYPE_COLOR[sp.type] || '#888';
+  const urls = spriteUrls(sp);
   const el = document.createElement('div');
   el.className = 'species-card';
   el.innerHTML = `
     <div class="sp-strip" style="background:${col}"></div>
-    <img src="${animatedSpriteUrl(sp.slug)}" alt="${sp.name}" onerror="this.onerror=null;this.src='${spriteUrl(sp.slug)}'">
+    <img src="${urls.animated}" alt="${sp.name}" onerror="this.onerror=null;this.src='${urls.static}'">
     <div class="sp-name">${sp.name}</div>
   `;
   el.onclick = () => choosePet(sp.id);
@@ -253,15 +370,22 @@ function startStage() {
   const species = PET_SPECIES.find(s => s.id === pet.speciesId);
   document.getElementById('pet-name-label').textContent = species ? species.name : '寶可夢';
   updateHappinessUI(pet.happiness);
-  renderBadgeSlot();
 
   const stage = document.getElementById('pet-stage');
   stage.innerHTML = '';
-  stage.style.background = (species && TYPE_BG[species.type]) || '';
+  stage.className = species ? `room-${species.type}` : '';
+  renderRoomDecor(stage, species ? species.type : null);
+
+  const badgeSlot = document.createElement('div');
+  badgeSlot.id = 'badge-slot';
+  stage.appendChild(badgeSlot);
+  renderBadgeSlot();
+
+  const spUrls = spriteUrls(species || { id: pet.speciesId });
   const img = document.createElement('img');
   img.id = 'pet-sprite';
-  img.src = animatedSpriteUrl(species ? species.slug : pet.speciesId);
-  img.onerror = () => { img.onerror = null; img.src = spriteUrl(species ? species.slug : pet.speciesId); };
+  img.src = spUrls.animated;
+  img.onerror = () => { img.onerror = null; img.src = spUrls.static; };
   img.onclick = interactPet;
   stage.appendChild(img);
 
@@ -308,17 +432,30 @@ function updateHappinessUI(happiness) {
 ───────────────────────────────────────── */
 function renderBadgeSlot() {
   const slot = document.getElementById('badge-slot');
+  if (!slot) return;
   if (badge) {
     slot.className = '';
-    slot.title = badge.name;
+    slot.title = `${badge.name}（點擊放大）`;
     slot.innerHTML = `<img src="${badge.image}" alt="${badge.name}">`;
-    slot.onclick = (e) => triggerFirework(e.clientX, e.clientY);
+    slot.onclick = () => openBadgeModal();
   } else {
     slot.className = 'empty';
     slot.title = '尚未獲得徽章';
     slot.innerHTML = '🔒';
     slot.onclick = null;
   }
+}
+
+function openBadgeModal() {
+  if (!badge) return;
+  document.getElementById('badge-modal-img').src = badge.image;
+  document.getElementById('badge-modal-img').alt = badge.name;
+  document.getElementById('badge-modal-name').textContent = badge.name;
+  document.getElementById('badge-modal').classList.add('open');
+}
+
+function closeBadgeModal() {
+  document.getElementById('badge-modal').classList.remove('open');
 }
 
 function triggerFirework(cx, cy) {
