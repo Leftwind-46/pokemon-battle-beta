@@ -311,6 +311,22 @@ const BADGES = {
   'weekly-participant': { name: '週排行榜參與徽章', image: '/badges/weekly-participant-01.png' },
 };
 
+/* 商城道具——跟屬性無關的通用房間裝飾，買了永久持有（不是消耗品），純資料registry，
+   新增道具不需要碰前端邏輯（跟BADGES同一套設計）。 */
+const SHOP_ITEMS = {
+  'lamp-warm':     { name: '暖色檯燈', price: 30, icon: '🪔' },
+  'rug-round':     { name: '圓形地毯', price: 25, icon: '🟤' },
+  'plant-pot':     { name: '觀葉植物', price: 20, icon: '🪴' },
+  'picture-frame': { name: '掛畫',     price: 35, icon: '🖼️' },
+  'toy-ball':      { name: '玩具球',   price: 15, icon: '⚽' },
+};
+const DECOR_SLOTS = ['slot-wall', 'slot-floor-mid', 'slot-floor-right'];
+// 每天依好感度核發金幣的公式，抓保守值，之後可依實際商城價格調整
+const DAILY_COIN_CAP = 20;
+function dailyCoinsForHappiness(happiness) {
+  return Math.min(DAILY_COIN_CAP, Math.round(happiness / 4));
+}
+
 /* ═══════════════════════════════════════════
    GAME LOGIC  (synchronous server-side)
 ═══════════════════════════════════════════ */
@@ -1506,14 +1522,91 @@ app.get('/api/team', requireAuth, async (req, res) => {
 /* ═══ 我的寶可夢：選一次寵物之後只讀/更新好感度，不能重選（MVP範圍） ═══ */
 app.get('/api/pet', requireAuth, async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT species_id, happiness FROM pets WHERE user_id = $1', [req.user.id]);
+    const { rows } = await pool.query('SELECT species_id, happiness, coins FROM pets WHERE user_id = $1', [req.user.id]);
     const { rows: userRows } = await pool.query('SELECT badge_id FROM users WHERE id = $1', [req.user.id]);
     const badgeId = userRows[0]?.badge_id;
     const badge = badgeId && BADGES[badgeId] ? { id: badgeId, ...BADGES[badgeId] } : null;
     if (!rows.length) return res.json({ pet: null, badge });
-    res.json({ pet: { speciesId: rows[0].species_id, happiness: rows[0].happiness }, badge });
+    const { rows: decorRows } = await pool.query('SELECT item_id, slot FROM pet_decorations WHERE user_id = $1', [req.user.id]);
+    const decorations = decorRows.map(r => ({ itemId: r.item_id, slot: r.slot }));
+    res.json({ pet: { speciesId: rows[0].species_id, happiness: rows[0].happiness, coins: rows[0].coins }, badge, decorations });
   } catch (e) {
     console.error('pet fetch error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 每天依好感度核發一次金幣——沒有排程/cron，靠last_coin_grant_date欄位lazy判斷（跟weekly_stats
+   的week_start_date分桶同一套手法），玩家進畫面時前端主動呼叫這個端點，不是背景排程推播。
+   「今天有沒有領過」的比對整個交給Postgres的CURRENT_DATE做，不要把DATE欄位讀回JS再轉字串比較——
+   node-postgres會把DATE用「本地時區午夜」解析成JS Date物件，之後.toISOString()轉回UTC字串時，
+   在UTC+的時區（例如UTC+8）會整個位移成前一天，導致「今天領過」的判斷永遠比對不上、可以無限次
+   領取金幣（用curl連續呼叫兩次實測抓到這個bug，兩次都回傳granted:true）。 */
+app.post('/api/pet/claim-daily-coins', requireAuth, async (req, res) => {
+  try {
+    const { rows: hrows } = await pool.query('SELECT happiness FROM pets WHERE user_id = $1', [req.user.id]);
+    if (!hrows.length) return res.status(404).json({ error: 'no_pet' });
+    const gained = dailyCoinsForHappiness(hrows[0].happiness);
+    const { rows, rowCount } = await pool.query(
+      `UPDATE pets SET coins = coins + $1, last_coin_grant_date = CURRENT_DATE
+       WHERE user_id = $2 AND (last_coin_grant_date IS NULL OR last_coin_grant_date < CURRENT_DATE)
+       RETURNING coins`,
+      [gained, req.user.id]
+    );
+    if (rowCount === 0) {
+      const { rows: crows } = await pool.query('SELECT coins FROM pets WHERE user_id = $1', [req.user.id]);
+      return res.json({ coins: crows[0].coins, granted: false });
+    }
+    res.json({ coins: rows[0].coins, granted: true, gained });
+  } catch (e) {
+    console.error('pet claim-daily-coins error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 不需要登入就能看——純顯示用途，跟BADGES一樣是純資料registry */
+app.get('/api/shop', (req, res) => {
+  res.json({ items: SHOP_ITEMS });
+});
+
+app.post('/api/pet/buy', requireAuth, async (req, res) => {
+  const itemId = req.body?.itemId;
+  if (!SHOP_ITEMS[itemId]) return res.status(400).json({ error: 'invalid_item' });
+  try {
+    const { rows } = await pool.query('SELECT coins FROM pets WHERE user_id = $1', [req.user.id]);
+    if (!rows.length) return res.status(404).json({ error: 'no_pet' });
+    const { rows: ownedRows } = await pool.query(
+      'SELECT 1 FROM pet_decorations WHERE user_id = $1 AND item_id = $2', [req.user.id, itemId]
+    );
+    if (ownedRows.length) return res.status(409).json({ error: 'already_owned' });
+    const price = SHOP_ITEMS[itemId].price;
+    if (rows[0].coins < price) return res.status(400).json({ error: 'not_enough_coins' });
+    const coins = rows[0].coins - price;
+    await pool.query('UPDATE pets SET coins = $1 WHERE user_id = $2', [coins, req.user.id]);
+    await pool.query('INSERT INTO pet_decorations (user_id, item_id) VALUES ($1, $2)', [req.user.id, itemId]);
+    res.status(201).json({ coins });
+  } catch (e) {
+    console.error('pet buy error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* slot為null代表收回道具欄；同一插槽同時只能有一件，先把佔用該插槽的其他道具清空再指定給這件 */
+app.post('/api/pet/place', requireAuth, async (req, res) => {
+  const { itemId, slot } = req.body || {};
+  if (slot !== null && !DECOR_SLOTS.includes(slot)) return res.status(400).json({ error: 'invalid_slot' });
+  try {
+    const { rows } = await pool.query(
+      'SELECT 1 FROM pet_decorations WHERE user_id = $1 AND item_id = $2', [req.user.id, itemId]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'not_owned' });
+    if (slot !== null) {
+      await pool.query('UPDATE pet_decorations SET slot = NULL WHERE user_id = $1 AND slot = $2', [req.user.id, slot]);
+    }
+    await pool.query('UPDATE pet_decorations SET slot = $1 WHERE user_id = $2 AND item_id = $3', [slot, req.user.id, itemId]);
+    res.json({});
+  } catch (e) {
+    console.error('pet place error:', e.message);
     res.status(503).json({ error: 'db_error' });
   }
 });
@@ -2301,7 +2394,19 @@ async function initDB() {
       species_id INTEGER NOT NULL,
       happiness INTEGER NOT NULL DEFAULT 50,
       created_at TIMESTAMPTZ DEFAULT NOW(),
-      last_interaction_at TIMESTAMPTZ
+      last_interaction_at TIMESTAMPTZ,
+      coins INTEGER NOT NULL DEFAULT 0,
+      last_coin_grant_date DATE
+    )`);
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS coins INTEGER NOT NULL DEFAULT 0`);
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS last_coin_grant_date DATE`);
+    // 商城道具——買了就永久持有（不是消耗品），slot=NULL代表放在道具欄裡還沒擺進房間
+    await pool.query(`CREATE TABLE IF NOT EXISTS pet_decorations (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      item_id TEXT NOT NULL,
+      slot TEXT,
+      acquired_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (user_id, item_id)
     )`);
     console.log('PostgreSQL connected');
   } catch (e) {

@@ -101,6 +101,35 @@
   /* ── 敬請期待 toast ── */
   #toast{position:fixed;left:50%;bottom:2rem;transform:translateX(-50%) translateY(20px);background:rgba(20,20,35,0.95);border:1px solid var(--border);border-radius:999px;padding:0.6rem 1.4rem;font-size:0.85rem;color:var(--text);z-index:600;opacity:0;pointer-events:none;transition:all 0.25s ease}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* ── 金幣顯示 ── */
+  #coin-display{display:flex;align-items:center;gap:0.35rem;font-size:0.85rem;font-weight:700;color:#f8d030}
+
+  /* ── 房間裝飾插槽（固定擺放點，買來的道具擺這裡）── */
+  .decor-slot{position:absolute;z-index:3;width:52px;height:52px;border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.7rem;transition:transform 0.15s;background:rgba(0,0,0,0.15)}
+  .decor-slot:hover{transform:scale(1.08)}
+  .decor-slot.empty{border:2px dashed rgba(255,255,255,0.25);color:rgba(255,255,255,0.3);font-size:1.3rem}
+  #slot-wall{top:14px;left:14px}
+  #slot-floor-mid{bottom:14px;left:55%;transform:translateX(-50%)}
+  #slot-floor-mid:hover{transform:translateX(-50%) scale(1.08)}
+  #slot-floor-right{bottom:14px;right:14px}
+
+  /* ── 商城 / 插槽選擇 彈窗（跟徽章放大彈窗同一套fixed置中樣式）── */
+  .modal-overlay{display:none;position:fixed;inset:0;z-index:700;align-items:center;justify-content:center;background:rgba(4,2,12,0.82);backdrop-filter:blur(2px)}
+  .modal-overlay.open{display:flex}
+  .modal-box{display:flex;flex-direction:column;gap:0.9rem;padding:1.3rem;background:var(--bg);border:1px solid var(--border);border-radius:18px;width:min(360px,88vw);max-height:80vh;overflow-y:auto}
+  .modal-box h2{font-size:1.05rem}
+  .modal-close{align-self:center;font-size:0.82rem;color:var(--muted);cursor:pointer;text-decoration:underline}
+  .shop-item{display:flex;align-items:center;gap:0.7rem;padding:0.6rem 0.7rem;border:1px solid var(--border);border-radius:12px}
+  .shop-item .icon{font-size:1.6rem}
+  .shop-item .info{flex:1}
+  .shop-item .name{font-weight:700;font-size:0.9rem}
+  .shop-item .price{font-size:0.78rem;color:#f8d030}
+  .shop-item button{padding:0.4rem 0.9rem;border-radius:999px;border:none;font-size:0.8rem;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#f8d030,#f05030);color:#1a1a2e}
+  .shop-item button:disabled{background:rgba(255,255,255,0.1);color:var(--muted);cursor:not-allowed}
+  .slot-pick-item{display:flex;align-items:center;gap:0.7rem;padding:0.6rem 0.7rem;border:1px solid var(--border);border-radius:12px;cursor:pointer}
+  .slot-pick-item:hover{background:rgba(255,255,255,0.06)}
+  .slot-pick-item .icon{font-size:1.6rem}
 </style>
 </head>
 <body>
@@ -126,12 +155,13 @@
       <span style="font-size:0.85rem;color:var(--muted)">好感度</span>
       <div class="happiness-track"><div class="happiness-fill" id="happiness-fill"></div></div>
       <span id="happiness-text" style="font-size:0.85rem;font-weight:700">0/100</span>
+      <div id="coin-display">🪙 <span id="coin-text">0</span></div>
     </div>
     <div id="pet-stage"></div>
     <div id="pet-reaction-text"></div>
     <div class="pet-actions">
       <div class="pet-action-btn" onclick="showComingSoon('餵食')"><span class="icon">🍖</span>餵食</div>
-      <div class="pet-action-btn" onclick="showComingSoon('道具')"><span class="icon">🎒</span>道具</div>
+      <div class="pet-action-btn" onclick="openShopModal()"><span class="icon">🎒</span>道具</div>
       <div class="pet-action-btn" onclick="showComingSoon('拜訪朋友')"><span class="icon">🚪</span>拜訪朋友</div>
     </div>
     <a class="back" href="/">← 返回主選單</a>
@@ -143,6 +173,20 @@
     <img id="badge-modal-img" src="" alt="" onclick="triggerFirework(event.clientX, event.clientY)">
     <div class="badge-modal-name" id="badge-modal-name"></div>
     <div class="badge-modal-close" onclick="closeBadgeModal()">關閉</div>
+  </div>
+</div>
+<div id="shop-modal" class="modal-overlay" onclick="closeShopModal()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <h2>🎒 商城</h2>
+    <div id="shop-list"></div>
+    <div class="modal-close" onclick="closeShopModal()">關閉</div>
+  </div>
+</div>
+<div id="slot-modal" class="modal-overlay" onclick="closeSlotModal()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <h2>選擇擺放的道具</h2>
+    <div id="slot-pick-list"></div>
+    <div class="modal-close" onclick="closeSlotModal()">關閉</div>
   </div>
 </div>
 
@@ -277,8 +321,11 @@ function spriteUrls(sp) {
    AUTH + PET STATE
 ───────────────────────────────────────── */
 let myToken = localStorage.getItem('pvpToken') || null;
-let pet = null; // { speciesId, happiness } | null
+let pet = null; // { speciesId, happiness, coins } | null
 let badge = null; // { id, name, image } | null —— 目前只能由GM後台手動指定，還沒有自動判定機制
+let decorations = []; // [{ itemId, slot }] —— slot為null代表在道具欄裡還沒擺放
+let shopItems = null; // 從 /api/shop 抓一次快取起來，跟BADGES一樣是純資料registry
+const DECOR_SLOTS = ['slot-wall', 'slot-floor-mid', 'slot-floor-right'];
 
 function showScreen(id) {
   ['gate-screen','pick-screen','stage-screen'].forEach(s => {
@@ -296,7 +343,9 @@ async function init() {
     const data = await petRes.json();
     pet = data.pet;
     badge = data.badge || null;
-    if (pet) startStage(); else showPicker();
+    decorations = data.decorations || [];
+    await ensureShopItems(); // 先抓好道具資料，房間插槽才能正確顯示已擺放道具的圖示
+    if (pet) { startStage(); claimDailyCoins(); } else showPicker();
   } catch (e) {
     showScreen('gate-screen');
   }
@@ -370,6 +419,7 @@ function startStage() {
   const species = PET_SPECIES.find(s => s.id === pet.speciesId);
   document.getElementById('pet-name-label').textContent = species ? species.name : '寶可夢';
   updateHappinessUI(pet.happiness);
+  updateCoinsUI(pet.coins || 0);
 
   const stage = document.getElementById('pet-stage');
   stage.innerHTML = '';
@@ -380,6 +430,8 @@ function startStage() {
   badgeSlot.id = 'badge-slot';
   stage.appendChild(badgeSlot);
   renderBadgeSlot();
+
+  renderDecorSlots(stage);
 
   const spUrls = spriteUrls(species || { id: pet.speciesId });
   const img = document.createElement('img');
@@ -424,6 +476,170 @@ function walkToRandomSpot() {
 function updateHappinessUI(happiness) {
   document.getElementById('happiness-fill').style.width = happiness + '%';
   document.getElementById('happiness-text').textContent = `${happiness}/100`;
+}
+
+function updateCoinsUI(coins) {
+  pet.coins = coins;
+  document.getElementById('coin-text').textContent = coins;
+}
+
+/* ─────────────────────────────────────────
+   每日金幣——沒有背景排程，進畫面時主動呼叫一次，伺服器用日期欄位lazy判斷今天有沒有領過
+───────────────────────────────────────── */
+async function claimDailyCoins() {
+  try {
+    const res = await fetch('/api/pet/claim-daily-coins', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${myToken}` },
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    updateCoinsUI(data.coins);
+    if (data.granted) showToast(`🪙 今日獲得 ${data.gained} 枚金幣！`);
+  } catch (e) { /* 網路暫時失敗，明天再試一次即可，不影響其他功能 */ }
+}
+
+/* ─────────────────────────────────────────
+   房間裝飾插槽——固定3個擺放點，點擊開啟「選擇道具」彈窗
+───────────────────────────────────────── */
+function renderDecorSlots(stage) {
+  DECOR_SLOTS.forEach(slot => {
+    const el = document.createElement('div');
+    el.id = slot;
+    el.className = 'decor-slot';
+    el.onclick = () => openSlotModal(slot);
+    stage.appendChild(el);
+  });
+  updateDecorSlotsUI();
+}
+
+function updateDecorSlotsUI() {
+  DECOR_SLOTS.forEach(slot => {
+    const el = document.getElementById(slot);
+    if (!el) return;
+    const placed = decorations.find(d => d.slot === slot);
+    if (placed && shopItems && shopItems[placed.itemId]) {
+      el.className = 'decor-slot';
+      el.textContent = shopItems[placed.itemId].icon;
+      el.title = shopItems[placed.itemId].name;
+    } else {
+      el.className = 'decor-slot empty';
+      el.textContent = '＋';
+      el.title = '點擊擺放道具';
+    }
+  });
+}
+
+/* ─────────────────────────────────────────
+   商城——道具買了永久持有（不是消耗品），可以自由更換擺放位置
+───────────────────────────────────────── */
+async function ensureShopItems() {
+  if (shopItems) return;
+  try {
+    const res = await fetch('/api/shop');
+    const data = await res.json();
+    shopItems = data.items || {};
+  } catch (e) { shopItems = {}; }
+}
+
+async function openShopModal() {
+  await ensureShopItems();
+  renderShopList();
+  document.getElementById('shop-modal').classList.add('open');
+}
+
+function closeShopModal() {
+  document.getElementById('shop-modal').classList.remove('open');
+}
+
+function renderShopList() {
+  const list = document.getElementById('shop-list');
+  list.innerHTML = Object.entries(shopItems).map(([itemId, item]) => {
+    const owned = decorations.some(d => d.itemId === itemId);
+    const affordable = (pet.coins || 0) >= item.price;
+    return `
+      <div class="shop-item">
+        <span class="icon">${item.icon}</span>
+        <div class="info">
+          <div class="name">${item.name}</div>
+          <div class="price">🪙 ${item.price}</div>
+        </div>
+        <button ${owned || !affordable ? 'disabled' : ''} onclick="buyItem('${itemId}')">${owned ? '已擁有' : '購買'}</button>
+      </div>
+    `;
+  }).join('');
+}
+
+async function buyItem(itemId) {
+  try {
+    const res = await fetch('/api/pet/buy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${myToken}` },
+      body: JSON.stringify({ itemId }),
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    updateCoinsUI(data.coins);
+    decorations.push({ itemId, slot: null });
+    renderShopList();
+  } catch (e) { /* 網路失敗，維持原狀讓玩家再試一次 */ }
+}
+
+/* ─────────────────────────────────────────
+   插槽選擇彈窗——列出已購買但還沒擺放的道具；若這個插槽已經有東西，額外提供「收回」選項
+───────────────────────────────────────── */
+let activeSlot = null;
+async function openSlotModal(slot) {
+  await ensureShopItems();
+  activeSlot = slot;
+  renderSlotPickList();
+  document.getElementById('slot-modal').classList.add('open');
+}
+
+function closeSlotModal() {
+  document.getElementById('slot-modal').classList.remove('open');
+  activeSlot = null;
+}
+
+function renderSlotPickList() {
+  const list = document.getElementById('slot-pick-list');
+  const current = decorations.find(d => d.slot === activeSlot);
+  const available = decorations.filter(d => d.slot === null);
+  let html = '';
+  if (current && shopItems[current.itemId]) {
+    html += `<div class="slot-pick-item" onclick="placeItem('${current.itemId}', null)">
+      <span class="icon">${shopItems[current.itemId].icon}</span>
+      <div class="info"><div class="name">收回「${shopItems[current.itemId].name}」</div></div>
+    </div>`;
+  }
+  if (!available.length) {
+    html += `<p style="color:var(--muted);font-size:0.82rem">道具欄目前沒有可擺放的道具，先去商城買一些吧！</p>`;
+  } else {
+    html += available.map(d => {
+      const item = shopItems[d.itemId];
+      if (!item) return '';
+      return `<div class="slot-pick-item" onclick="placeItem('${d.itemId}', '${activeSlot}')">
+        <span class="icon">${item.icon}</span>
+        <div class="info"><div class="name">${item.name}</div></div>
+      </div>`;
+    }).join('');
+  }
+  list.innerHTML = html;
+}
+
+async function placeItem(itemId, slot) {
+  try {
+    const res = await fetch('/api/pet/place', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${myToken}` },
+      body: JSON.stringify({ itemId, slot }),
+    });
+    if (!res.ok) return;
+    const entry = decorations.find(d => d.itemId === itemId);
+    if (entry) entry.slot = slot;
+    updateDecorSlotsUI();
+    closeSlotModal();
+  } catch (e) { /* 網路失敗，維持原狀讓玩家再試一次 */ }
 }
 
 /* ─────────────────────────────────────────
@@ -481,8 +697,12 @@ function triggerFirework(cx, cy) {
 ───────────────────────────────────────── */
 let toastTimer = null;
 function showComingSoon(label) {
+  showToast(`「${label}」功能尚未開放，敬請期待！`);
+}
+
+function showToast(message) {
   const toast = document.getElementById('toast');
-  toast.textContent = `「${label}」功能尚未開放，敬請期待！`;
+  toast.textContent = message;
   toast.classList.add('show');
   if (toastTimer) clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toast.classList.remove('show'), 2000);
