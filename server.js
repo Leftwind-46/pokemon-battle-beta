@@ -304,10 +304,11 @@ const PET_SPECIES = [
   { id: 133, name: '伊布',     type: 'normal', custom: true },
 ];
 
-/* 徽章登記表——目前只有週排行榜冠軍這一種，GM後台手動指定給玩家（還沒有自動判定/結算機制）。
+/* 徽章登記表——GM後台手動指定給玩家（還沒有自動判定/結算機制）。
    圖檔放在 public/badges/，用id當檔名前綴方便之後新增別種徽章。 */
 const BADGES = {
-  'weekly-champion': { name: '週排行榜冠軍', image: '/badges/weekly-champion-01.png' },
+  'weekly-champion':    { name: '週排行榜冠軍',   image: '/badges/weekly-champion-01.png' },
+  'weekly-participant': { name: '週排行榜參與徽章', image: '/badges/weekly-participant-01.png' },
 };
 
 /* ═══════════════════════════════════════════
