@@ -80,7 +80,7 @@
   <div id="dash-err" class="err"></div>
   <table>
     <thead>
-      <tr><th>ID</th><th>帳號</th><th>建立時間</th><th>本週勝場</th><th>狀態</th><th>操作</th></tr>
+      <tr><th>ID</th><th>帳號</th><th>建立時間</th><th>本週勝場</th><th>狀態</th><th>徽章</th><th>操作</th></tr>
     </thead>
     <tbody id="users-tbody"></tbody>
   </table>
@@ -105,6 +105,7 @@
 
 let myToken = localStorage.getItem('adminToken') || null;
 let users = [];
+let badges = {}; // { id: {name, image} } —— GM後台可指定的徽章清單，來自/api/admin/users回傳
 let pendingDeleteId = null; // 兩段式確認：第一次點「刪除」進入確認態，避免誤觸
 
 function showScreen(id) {
@@ -143,6 +144,7 @@ async function checkAdminAndEnter() {
   if (!usersRes.ok) { document.getElementById('login-err').textContent = '載入失敗，請稍後再試'; showScreen('login-screen'); return; }
   document.getElementById('dash-username').textContent = me.data.username;
   users = usersRes.data.users;
+  badges = usersRes.data.badges || {};
   renderUsers();
   showScreen('dash-screen');
 }
@@ -160,6 +162,7 @@ async function loadUsers() {
   if (status === 403) { showScreen('noperm-screen'); return; }
   if (!ok) { errEl.textContent = '載入失敗，請稍後再試'; return; }
   users = data.users;
+  badges = data.badges || {};
   renderUsers();
 }
 
@@ -176,11 +179,13 @@ function renderUsers() {
       <td>${created}</td>
       <td>${u.thisWeekWins}</td>
       <td>${u.isAdmin ? '<span class="badge badge-admin">管理員</span>' : ''} ${u.disabled ? '<span class="badge badge-disabled">已停用</span>' : ''}</td>
+      <td>${u.badgeId && badges[u.badgeId] ? `<span class="badge" style="background:rgba(144,202,249,0.15);color:#90caf9">${badges[u.badgeId].name}</span>` : '<span style="color:var(--muted)">無</span>'}</td>
       <td>
         <div class="row-actions">
           <button class="btn btn-secondary" onclick="toggleDisable(${u.id}, ${!u.disabled})">${u.disabled ? '啟用' : '停用'}</button>
           <button class="btn btn-secondary" onclick="togglePanel('pw-${u.id}')">重設密碼</button>
           <button class="btn btn-secondary" onclick="togglePanel('stats-${u.id}')">改勝敗</button>
+          <button class="btn btn-secondary" onclick="togglePanel('badge-${u.id}')">設定徽章</button>
           <button class="btn btn-danger" onclick="confirmDelete(${u.id})">${pendingDeleteId === u.id ? '確定刪除？再按一次' : '刪除'}</button>
         </div>
         <div id="pw-${u.id}" class="inline-panel" style="display:none">
@@ -192,6 +197,13 @@ function renderUsers() {
           <input type="number" id="stats-wins-${u.id}" placeholder="勝場" min="0" style="width:70px">
           <input type="number" id="stats-losses-${u.id}" placeholder="敗場" min="0" style="width:70px">
           <button class="btn btn-primary" onclick="updateStats(${u.id})">確認</button>
+        </div>
+        <div id="badge-${u.id}" class="inline-panel" style="display:none">
+          <select id="badge-select-${u.id}">
+            <option value="">（無徽章）</option>
+            ${Object.entries(badges).map(([bid, b]) => `<option value="${bid}" ${u.badgeId === bid ? 'selected' : ''}>${b.name}</option>`).join('')}
+          </select>
+          <button class="btn btn-primary" onclick="setBadge(${u.id})">確認</button>
         </div>
       </td>
     `;
@@ -251,6 +263,16 @@ async function resetPassword(id) {
   if (!ok) { errEl.textContent = '重設失敗，請稍後再試'; return; }
   input.value = '';
   togglePanel(`pw-${id}`);
+}
+
+async function setBadge(id) {
+  const badgeId = document.getElementById(`badge-select-${id}`).value || null;
+  const errEl = document.getElementById('dash-err');
+  errEl.textContent = '';
+  const { ok } = await api(`/api/admin/users/${id}/badge`, { method: 'POST', body: JSON.stringify({ badgeId }) });
+  if (!ok) { errEl.textContent = '設定徽章失敗，請稍後再試'; return; }
+  togglePanel(`badge-${id}`);
+  loadUsers();
 }
 
 async function updateStats(id) {

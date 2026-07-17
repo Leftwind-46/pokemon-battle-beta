@@ -304,6 +304,12 @@ const PET_SPECIES = [
   { id: 133, name: '伊布',     type: 'normal', custom: true },
 ];
 
+/* 徽章登記表——目前只有週排行榜冠軍這一種，GM後台手動指定給玩家（還沒有自動判定/結算機制）。
+   圖檔放在 public/badges/，用id當檔名前綴方便之後新增別種徽章。 */
+const BADGES = {
+  'weekly-champion': { name: '週排行榜冠軍', image: '/badges/weekly-champion-01.png' },
+};
+
 /* ═══════════════════════════════════════════
    GAME LOGIC  (synchronous server-side)
 ═══════════════════════════════════════════ */
@@ -1500,8 +1506,11 @@ app.get('/api/team', requireAuth, async (req, res) => {
 app.get('/api/pet', requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT species_id, happiness FROM pets WHERE user_id = $1', [req.user.id]);
-    if (!rows.length) return res.json({ pet: null });
-    res.json({ pet: { speciesId: rows[0].species_id, happiness: rows[0].happiness } });
+    const { rows: userRows } = await pool.query('SELECT badge_id FROM users WHERE id = $1', [req.user.id]);
+    const badgeId = userRows[0]?.badge_id;
+    const badge = badgeId && BADGES[badgeId] ? { id: badgeId, ...BADGES[badgeId] } : null;
+    if (!rows.length) return res.json({ pet: null, badge });
+    res.json({ pet: { speciesId: rows[0].species_id, happiness: rows[0].happiness }, badge });
   } catch (e) {
     console.error('pet fetch error:', e.message);
     res.status(503).json({ error: 'db_error' });
@@ -1574,7 +1583,7 @@ app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
   try {
     const weekStart = mondayOfWeek(new Date());
     const { rows } = await pool.query(
-      `SELECT u.id, u.username, u.created_at, u.disabled, u.is_admin,
+      `SELECT u.id, u.username, u.created_at, u.disabled, u.is_admin, u.badge_id,
               COALESCE(ws.wins, 0) AS this_week_wins
        FROM users u
        LEFT JOIN weekly_stats ws ON ws.user_id = u.id AND ws.week_start_date = $1
@@ -1584,7 +1593,8 @@ app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
     res.json({ users: rows.map(r => ({
       id: r.id, username: r.username, createdAt: r.created_at,
       disabled: r.disabled, isAdmin: r.is_admin, thisWeekWins: r.this_week_wins,
-    })) });
+      badgeId: r.badge_id,
+    })), badges: BADGES });
   } catch (e) {
     console.error('admin users error:', e.message);
     res.status(503).json({ error: 'db_error' });
@@ -1600,6 +1610,21 @@ app.post('/api/admin/users/:id/disable', requireAuth, requireAdmin, async (req, 
     res.json({});
   } catch (e) {
     console.error('admin disable error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 手動指定/移除玩家的徽章——目前沒有「每週自動判定冠軍」的排程機制，GM每週手動幫排行榜第一名點一下 */
+app.post('/api/admin/users/:id/badge', requireAuth, requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) return res.status(400).json({ error: 'invalid_id' });
+  const badgeId = req.body?.badgeId || null;
+  if (badgeId !== null && !BADGES[badgeId]) return res.status(400).json({ error: 'invalid_badge' });
+  try {
+    await pool.query('UPDATE users SET badge_id = $1 WHERE id = $2', [badgeId, id]);
+    res.json({});
+  } catch (e) {
+    console.error('admin badge error:', e.message);
     res.status(503).json({ error: 'db_error' });
   }
 });
@@ -2253,8 +2278,11 @@ async function initDB() {
       session_token TEXT,
       is_admin BOOLEAN NOT NULL DEFAULT false,
       disabled BOOLEAN NOT NULL DEFAULT false,
-      created_at TIMESTAMPTZ DEFAULT NOW()
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      badge_id TEXT
     )`);
+    // 舊資料庫（表已存在）不會補上新欄位，CREATE TABLE IF NOT EXISTS 對既有表是no-op——用ADD COLUMN IF NOT EXISTS補齊
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS badge_id TEXT`);
     await pool.query(`CREATE TABLE IF NOT EXISTS teams (
       user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
       pokemon_ids INTEGER[] NOT NULL,

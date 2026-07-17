@@ -265,7 +265,7 @@
       #log-drawer-close.open {
         display: block !important;
         position: fixed !important;
-        top: 0.6rem !important; right: 0.6rem !important;
+        top: 0.6rem !important; right: 3.4rem !important;
         z-index: 93 !important;
       }
 
@@ -287,7 +287,7 @@
       #hand-panel.open #hand-panel-close {
         display: block !important;
         position: fixed !important;
-        top: 0.6rem !important; right: 0.6rem !important;
+        top: 0.6rem !important; right: 3.4rem !important;
         z-index: 93 !important;
       }
 
@@ -540,14 +540,35 @@
     .atk-name { font-weight: 700; font-size: 0.9rem; }
     .atk-meta { display: flex; align-items: center; gap: 0.45rem; margin-top: 0.25rem; }
     .atk-type-badge {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.22rem;
       padding: 0.05rem 0.42rem;
       border-radius: 999px;
       font-size: 0.62rem;
       font-weight: 700;
       color: #fff;
+      cursor: pointer;
     }
+    .atk-type-badge::after { content: 'ⓘ'; font-size: 0.68rem; opacity: 0.85; }
+    .atk-type-badge:hover { filter: brightness(1.2); }
     .atk-dmg  { font-size: 0.77rem; color: var(--muted); }
+
+    /* ── Move info popup（點擊招式屬性徽章顯示完整說明）── */
+    .move-info-popup {
+      position: fixed;
+      z-index: 61;
+      background: #0f1228;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 12px;
+      padding: 0.75rem 0.9rem;
+      width: 230px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.65);
+      font-size: 0.8rem;
+    }
+    .mip-name { font-weight: 700; font-size: 0.88rem; margin-bottom: 0.4rem; }
+    .mip-row { color: var(--muted); margin-top: 0.2rem; line-height: 1.5; }
+    .mip-row b { color: var(--text); }
 
     /* ── Animations ── */
     @keyframes shake {
@@ -2548,6 +2569,46 @@ function hideBenchPopup() {
   _pendingSwitchIdx = null;
 }
 
+// 招式詳情彈窗——手機小螢幕上招式按鈕原本擠了威力/能量/異常狀態/STAB/相剋/加成一大串文字，
+// 使用者反應太雜，改成按鈕只留「威力・能量」，其餘細節點屬性徽章才顯示
+function showMoveInfo(anchorEl, a, p, cp, cost) {
+  const popup = document.getElementById('move-info-popup');
+  const rows = [];
+  if (a.support) {
+    rows.push(`<div class="mip-row">${SUPPORT_EFFECT_ZH[a.effect] || '輔助技能'}</div>`);
+  } else {
+    if (a.status) rows.push(`<div class="mip-row">異常狀態：<b>${STATUS_EFFECT_ZH[a.status.effect]} ${Math.round(a.status.chance*100)}%</b></div>`);
+    const isOwnType = a.type === p.type || (p.type2 && a.type === p.type2);
+    if (isOwnType) rows.push(`<div class="mip-row">★ STAB 屬性加成</div>`);
+    const mult = effActive(a.type, cp?.type, cp?.type2);
+    const effText = mult >= 1.6 ? '超超級有效 ×' + mult : mult >= 1.2 ? '超級有效 ×' + mult : mult === 0 ? '完全無效' : mult < 1 ? '效果不佳 ×' + mult : '';
+    if (effText) rows.push(`<div class="mip-row">相剋：<b>${effText}</b></div>`);
+    if (a.megaBoost) rows.push(`<div class="mip-row">Mega 能量 ×2</div>`);
+    else if (a.bonusEnergy) rows.push(`<div class="mip-row">下回合 +${a.bonusEnergy} 能量</div>`);
+    else if (a.selfHeal) rows.push(`<div class="mip-row">附帶回復自身 HP</div>`);
+  }
+  popup.innerHTML = `
+    <div class="mip-name">${a.name}</div>
+    <div class="mip-row">${a.support ? '輔助技能' : `威力 ${a.dmg}`} · ⚡${cost}</div>
+    ${rows.join('')}
+  `;
+  popup.style.display = 'block';
+  const rect = anchorEl.getBoundingClientRect();
+  const pw = 230, ph = popup.offsetHeight || 100;
+  let left = rect.left + rect.width / 2 - pw / 2;
+  let top  = rect.top - ph - 10;
+  if (top < 8) top = rect.bottom + 10;
+  if (left < 8) left = 8;
+  if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+  if (top + ph > window.innerHeight - 8) top = Math.max(8, window.innerHeight - ph - 8);
+  popup.style.left = left + 'px';
+  popup.style.top  = top  + 'px';
+}
+
+function hideMoveInfoPopup() {
+  document.getElementById('move-info-popup').style.display = 'none';
+}
+
 function playerCardClick(e) {
   e.stopPropagation();
   if (!G.playerDeck || !G.playerDeck.length) return;
@@ -3076,18 +3137,16 @@ function renderActions() {
     btn.classList.toggle('unaffordable', !affordable);
     btn.style.borderLeftColor = col;
     document.getElementById(`atk-name${i}`).textContent      = a.name;
-    document.getElementById(`atk-type${i}`).textContent      = TYPE_ZH[a.type] || a.type;
-    document.getElementById(`atk-type${i}`).style.background = col;
+    const typeEl = document.getElementById(`atk-type${i}`);
+    typeEl.textContent      = TYPE_ZH[a.type] || a.type;
+    typeEl.style.background = col;
+    typeEl.title = '點擊查看招式詳情';
+    typeEl.onclick = (e) => { e.stopPropagation(); showMoveInfo(e.currentTarget, a, p, cp, cost); };
     if (a.support) {
-      document.getElementById(`atk-dmg${i}`).textContent = `${SUPPORT_EFFECT_ZH[a.effect] || '輔助技能'} · ⚡${cost}`;
+      document.getElementById(`atk-dmg${i}`).textContent = `⚡${cost}`;
       return;
     }
-    const stab = (a.type === p.type || (p.type2 && a.type === p.type2)) ? ' ★STAB' : '';
-    const statusHint = a.status ? ` · ${STATUS_EFFECT_ZH[a.status.effect]}${Math.round(a.status.chance*100)}%` : '';
-    const mult = effActive(a.type, cp?.type, cp?.type2);
-    const effHint = mult >= 1.6 ? ' ×1.6' : mult >= 1.2 ? ' ×1.2' : mult === 0 ? ' ✕' : mult < 1 ? ' ▽' : '';
-    const bonusHint = a.megaBoost ? ' · Mega能量×2' : a.bonusEnergy ? ` · 下回合+${a.bonusEnergy}能量` : a.selfHeal ? ' · 附帶回血' : '';
-    document.getElementById(`atk-dmg${i}`).textContent = `威力 ${a.dmg} · ⚡${cost}${statusHint}${stab}${effHint}${bonusHint}`;
+    document.getElementById(`atk-dmg${i}`).textContent = `威力 ${a.dmg} · ⚡${cost}`;
   });
   const standbyBtn = document.getElementById('btn-standby');
   if (standbyBtn) standbyBtn.disabled = G.busy;
@@ -4875,6 +4934,7 @@ function resetGame() {
 }
 
 document.addEventListener('click', hideBenchPopup);
+document.addEventListener('click', hideMoveInfoPopup);
 
 /* ─────────────────────────────────────────
    WARNING MODAL
@@ -5220,6 +5280,8 @@ function renderDex() {
 </div>
 
 <!-- Bench info popup -->
+<div id="move-info-popup" class="move-info-popup" style="display:none" onclick="event.stopPropagation()"></div>
+
 <div id="bench-popup" class="bench-popup" style="display:none" onclick="event.stopPropagation()">
   <div class="bp-header">
     <img id="bp-sprite" src="" alt="">

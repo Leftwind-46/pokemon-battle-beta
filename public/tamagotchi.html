@@ -41,6 +41,31 @@
   @keyframes reactionFloat{0%{transform:translateY(0);opacity:0}15%{opacity:1}100%{transform:translateY(-50px);opacity:0}}
   #pet-name-label{font-size:1rem;font-weight:700}
   #pet-reaction-text{font-size:0.82rem;color:var(--muted);min-height:1.2em}
+
+  /* ── 徽章展示位 ── */
+  .pet-header{width:100%;display:flex;align-items:center;justify-content:center;gap:0.8rem;position:relative}
+  #badge-slot{position:absolute;right:0;top:50%;transform:translateY(-50%);width:52px;height:52px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform 0.15s}
+  #badge-slot:hover{transform:translateY(-50%) scale(1.08)}
+  #badge-slot img{width:100%;height:100%;border-radius:50%;object-fit:cover;box-shadow:0 0 12px rgba(248,208,48,0.55),0 0 0 2px rgba(248,208,48,0.7)}
+  #badge-slot.empty{border:2px dashed rgba(255,255,255,0.22);color:var(--muted);font-size:1.3rem;cursor:default}
+  #badge-slot.empty:hover{transform:translateY(-50%)}
+
+  /* ── 煙火點擊特效（純CSS粒子，沿用專案不外抓素材的風格）── */
+  .firework-particle{position:fixed;width:6px;height:6px;border-radius:50%;pointer-events:none;z-index:500;animation:fireworkBurst 0.8s ease-out forwards}
+  @keyframes fireworkBurst{
+    0%{transform:translate(0,0) scale(1);opacity:1}
+    100%{transform:translate(var(--fx),var(--fy)) scale(0.2);opacity:0}
+  }
+
+  /* ── 互動按鈕列（餵食/道具/拜訪朋友，先建UI日後再實裝）── */
+  .pet-actions{display:flex;gap:0.7rem;flex-wrap:wrap;justify-content:center}
+  .pet-action-btn{display:flex;flex-direction:column;align-items:center;gap:0.25rem;padding:0.6rem 1.1rem;border-radius:14px;border:2px solid var(--border);background:rgba(255,255,255,0.05);color:var(--text);font-size:0.78rem;font-weight:700;cursor:pointer;transition:all 0.15s}
+  .pet-action-btn:hover{background:rgba(255,255,255,0.1);transform:translateY(-2px)}
+  .pet-action-btn .icon{font-size:1.4rem}
+
+  /* ── 敬請期待 toast ── */
+  #toast{position:fixed;left:50%;bottom:2rem;transform:translateX(-50%) translateY(20px);background:rgba(20,20,35,0.95);border:1px solid var(--border);border-radius:999px;padding:0.6rem 1.4rem;font-size:0.85rem;color:var(--text);z-index:600;opacity:0;pointer-events:none;transition:all 0.25s ease}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
@@ -61,7 +86,10 @@
   </div>
 
   <div id="stage-screen">
-    <div id="pet-name-label"></div>
+    <div class="pet-header">
+      <div id="pet-name-label"></div>
+      <div id="badge-slot"></div>
+    </div>
     <div class="happiness-bar">
       <span style="font-size:0.85rem;color:var(--muted)">好感度</span>
       <div class="happiness-track"><div class="happiness-fill" id="happiness-fill"></div></div>
@@ -69,9 +97,15 @@
     </div>
     <div id="pet-stage"></div>
     <div id="pet-reaction-text"></div>
+    <div class="pet-actions">
+      <div class="pet-action-btn" onclick="showComingSoon('餵食')"><span class="icon">🍖</span>餵食</div>
+      <div class="pet-action-btn" onclick="showComingSoon('道具')"><span class="icon">🎒</span>道具</div>
+      <div class="pet-action-btn" onclick="showComingSoon('拜訪朋友')"><span class="icon">🚪</span>拜訪朋友</div>
+    </div>
     <a class="back" href="/">← 返回主選單</a>
   </div>
 </div>
+<div id="toast"></div>
 
 <script>
 /* ─────────────────────────────────────────
@@ -89,19 +123,19 @@
    另外「客製化寶可夢」(custom:true) 提供幾隻御三家以外的選擇
 ───────────────────────────────────────── */
 const PET_SPECIES = [
-  { id: 1,   name: '妙蛙種子', type: 'grass' },
-  { id: 4,   name: '小火龍',   type: 'fire' },
-  { id: 7,   name: '傑尼龜',   type: 'water' },
-  { id: 152, name: '菊草葉',   type: 'grass' },
-  { id: 155, name: '火球鼠',   type: 'fire' },
-  { id: 158, name: '小鋸鱷',   type: 'water' },
-  { id: 25,  name: '皮卡丘',   type: 'electric' },
-  { id: 722, name: '木木梟',   type: 'grass' },
-  { id: 906, name: '新葉喵',   type: 'grass' },
-  { id: 909, name: '呆火鱷',   type: 'fire' },
-  { id: 92,  name: '鬼斯',     type: 'ghost',  custom: true },
-  { id: 132, name: '百變怪',   type: 'normal', custom: true },
-  { id: 133, name: '伊布',     type: 'normal', custom: true },
+  { id: 1,   name: '妙蛙種子', type: 'grass',    slug: 'bulbasaur' },
+  { id: 4,   name: '小火龍',   type: 'fire',     slug: 'charmander' },
+  { id: 7,   name: '傑尼龜',   type: 'water',    slug: 'squirtle' },
+  { id: 152, name: '菊草葉',   type: 'grass',    slug: 'chikorita' },
+  { id: 155, name: '火球鼠',   type: 'fire',     slug: 'cyndaquil' },
+  { id: 158, name: '小鋸鱷',   type: 'water',    slug: 'totodile' },
+  { id: 25,  name: '皮卡丘',   type: 'electric', slug: 'pikachu' },
+  { id: 722, name: '木木梟',   type: 'grass',    slug: 'rowlet' },
+  { id: 906, name: '新葉喵',   type: 'grass',    slug: 'sprigatito' },
+  { id: 909, name: '呆火鱷',   type: 'fire',     slug: 'fuecoco' },
+  { id: 92,  name: '鬼斯',     type: 'ghost',  custom: true, slug: 'gastly' },
+  { id: 132, name: '百變怪',   type: 'normal', custom: true, slug: 'ditto' },
+  { id: 133, name: '伊布',     type: 'normal', custom: true, slug: 'eevee' },
 ];
 const TYPE_COLOR = { grass:'#78c850', fire:'#f05030', water:'#6890f0', electric:'#f8d030', ghost:'#705898', normal:'#a8a878' };
 // 依寶可夢屬性給待機畫面不同的情境背景（純CSS漸層，維持專案「不外抓圖片素材」的既有風格）
@@ -113,11 +147,14 @@ const TYPE_BG = {
   ghost:    'radial-gradient(ellipse at 50% 100%, rgba(112,88,152,0.32), transparent 70%), linear-gradient(180deg,#150c22 0%,#1c1030 55%,#0c0715 100%)',
   normal:   'radial-gradient(ellipse at 50% 100%, rgba(168,168,120,0.22), transparent 70%), linear-gradient(180deg,#1c1c16 0%,#26261c 55%,#131310 100%)',
 };
-function animatedSpriteUrl(id) {
-  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${id}.gif`;
+// Pokemon Showdown 的動態/靜態小圖同時涵蓋新舊世代（PokeAPI 的 Gen5 黑白動圖只收錄到第五世代，
+// 木木梟/新葉喵/呆火鱷這些較新的寶可夢會 fallback 成風格完全不同的現代靜態圖，很不協調——
+// Showdown 的 ani 素材集對新世代寶可夢也有沿用同一套 Gen5 像素風格的粉絲重製動圖，風格統一）
+function animatedSpriteUrl(slug) {
+  return `https://play.pokemonshowdown.com/sprites/ani/${slug}.gif`;
 }
-function spriteUrl(id) {
-  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
+function spriteUrl(slug) {
+  return `https://play.pokemonshowdown.com/sprites/gen5/${slug}.png`;
 }
 
 /* ─────────────────────────────────────────
@@ -125,6 +162,7 @@ function spriteUrl(id) {
 ───────────────────────────────────────── */
 let myToken = localStorage.getItem('pvpToken') || null;
 let pet = null; // { speciesId, happiness } | null
+let badge = null; // { id, name, image } | null —— 目前只能由GM後台手動指定，還沒有自動判定機制
 
 function showScreen(id) {
   ['gate-screen','pick-screen','stage-screen'].forEach(s => {
@@ -141,6 +179,7 @@ async function init() {
     if (!petRes.ok) { showScreen('gate-screen'); return; }
     const data = await petRes.json();
     pet = data.pet;
+    badge = data.badge || null;
     if (pet) startStage(); else showPicker();
   } catch (e) {
     showScreen('gate-screen');
@@ -153,7 +192,7 @@ function renderSpeciesCard(sp) {
   el.className = 'species-card';
   el.innerHTML = `
     <div class="sp-strip" style="background:${col}"></div>
-    <img src="${animatedSpriteUrl(sp.id)}" alt="${sp.name}" onerror="this.onerror=null;this.src='${spriteUrl(sp.id)}'">
+    <img src="${animatedSpriteUrl(sp.slug)}" alt="${sp.name}" onerror="this.onerror=null;this.src='${spriteUrl(sp.slug)}'">
     <div class="sp-name">${sp.name}</div>
   `;
   el.onclick = () => choosePet(sp.id);
@@ -214,14 +253,15 @@ function startStage() {
   const species = PET_SPECIES.find(s => s.id === pet.speciesId);
   document.getElementById('pet-name-label').textContent = species ? species.name : '寶可夢';
   updateHappinessUI(pet.happiness);
+  renderBadgeSlot();
 
   const stage = document.getElementById('pet-stage');
   stage.innerHTML = '';
   stage.style.background = (species && TYPE_BG[species.type]) || '';
   const img = document.createElement('img');
   img.id = 'pet-sprite';
-  img.src = animatedSpriteUrl(pet.speciesId);
-  img.onerror = () => { img.onerror = null; img.src = spriteUrl(pet.speciesId); };
+  img.src = animatedSpriteUrl(species ? species.slug : pet.speciesId);
+  img.onerror = () => { img.onerror = null; img.src = spriteUrl(species ? species.slug : pet.speciesId); };
   img.onclick = interactPet;
   stage.appendChild(img);
 
@@ -260,6 +300,55 @@ function walkToRandomSpot() {
 function updateHappinessUI(happiness) {
   document.getElementById('happiness-fill').style.width = happiness + '%';
   document.getElementById('happiness-text').textContent = `${happiness}/100`;
+}
+
+/* ─────────────────────────────────────────
+   徽章展示位——目前徽章只能由GM後台手動指定（週排行榜還沒有自動結算機制），
+   有徽章就顯示圖片+可點擊放煙火，沒有就顯示空位鎖頭圖示
+───────────────────────────────────────── */
+function renderBadgeSlot() {
+  const slot = document.getElementById('badge-slot');
+  if (badge) {
+    slot.className = '';
+    slot.title = badge.name;
+    slot.innerHTML = `<img src="${badge.image}" alt="${badge.name}">`;
+    slot.onclick = (e) => triggerFirework(e.clientX, e.clientY);
+  } else {
+    slot.className = 'empty';
+    slot.title = '尚未獲得徽章';
+    slot.innerHTML = '🔒';
+    slot.onclick = null;
+  }
+}
+
+function triggerFirework(cx, cy) {
+  const colors = ['#f8d030', '#f05030', '#6890f0', '#78c850', '#e040fb', '#ffffff'];
+  const count = 24;
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 * i) / count + Math.random() * 0.3;
+    const dist = 60 + Math.random() * 70;
+    const p = document.createElement('div');
+    p.className = 'firework-particle';
+    p.style.left = cx + 'px';
+    p.style.top = cy + 'px';
+    p.style.background = colors[Math.floor(Math.random() * colors.length)];
+    p.style.setProperty('--fx', Math.cos(angle) * dist + 'px');
+    p.style.setProperty('--fy', Math.sin(angle) * dist + 'px');
+    document.body.appendChild(p);
+    p.addEventListener('animationend', () => p.remove(), { once: true });
+  }
+}
+
+/* ─────────────────────────────────────────
+   餵食/道具/拜訪朋友——先建按鈕，日後再實裝功能
+───────────────────────────────────────── */
+let toastTimer = null;
+function showComingSoon(label) {
+  const toast = document.getElementById('toast');
+  toast.textContent = `「${label}」功能尚未開放，敬請期待！`;
+  toast.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 2000);
 }
 
 let interacting = false;
