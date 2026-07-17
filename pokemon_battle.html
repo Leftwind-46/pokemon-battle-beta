@@ -291,11 +291,55 @@
         z-index: 93 !important;
       }
 
-      /* Tighter spacing on mobile */
-      .field { padding: 0.65rem 0.75rem; }
-      #action-area { gap: 0.3rem; }
-      .btn-atk { padding: 0.5rem 0.6rem; }
-      .atk-name { font-size: 0.82rem; }
+      /* Tighter spacing on mobile — goal: the whole battle screen fits one viewport,
+         no vertical scrolling needed to see both fields + action buttons at once. */
+      .battle-main { gap: 0.4rem; }
+      .field { padding: 0.45rem 0.55rem; }
+      .field-label { font-size: 0.62rem; margin-bottom: 0.3rem; }
+      .active-area { gap: 0.5rem; }
+      .hp-wrap { min-width: 0; } /* flex:1 child still defaults to content-based min-width otherwise */
+      .b-card { padding: 0.35rem 0.4rem; min-width: 88px; flex-shrink: 0; }
+      .b-card img { width: 50px; height: 50px; margin-top: 0.1rem; }
+      .b-card .b-name { font-size: 0.72rem; margin-top: 0.1rem; }
+      .hp-meta, .energy-meta, .mega-meta { font-size: 0.62rem; margin-top: 0.2rem; margin-bottom: 0.15rem; }
+      .hp-track { height: 7px; }
+      .energy-track, .mega-track { height: 6px; }
+      .bench-row { gap: 0.3rem; margin-top: 0.35rem; }
+      .b-bench { padding: 0.15rem 0.4rem; font-size: 0.66rem; }
+      .b-bench img { width: 18px; height: 18px; }
+
+      /* Attack buttons: collapse the stacked name/meta layout into one compact row
+         (name … type-badge · 威力/⚡) instead of two lines — this single change accounts
+         for most of the vertical space savings, since 6 buttons × 2 lines was the single
+         biggest contributor to needing a scroll on small phones. */
+      /* Single column instead of 2: a 2-up grid only gives each button ~half the screen
+         width, which isn't enough room for both the move name and its 威力/⚡ stats on one
+         line — the name would collapse to 0 width rather than merely truncating. Going to
+         4 stacked rows instead of 2 costs some height, but there's plenty of headroom (the
+         whole redesign leaves the bottom third of the screen empty), and a readable full-width
+         row beats an unreadable half-width one. */
+      #action-area { grid-template-columns: 1fr; gap: 0.28rem; margin-top: 0.35rem; }
+      /* btn-standby/btn-trade carry an inline style="grid-column:span 2" (written for the
+         desktop 2-column grid) — spanning 2 columns of a grid that only has 1 explicit
+         column forces the grid to fabricate an implicit 2nd column anyway, silently undoing
+         the single-column layout above. Only !important can beat an inline style. */
+      #btn-standby, #btn-trade, .btn-mega { grid-column: 1 !important; }
+      .btn-atk {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0.32rem 0.5rem; gap: 0.35rem;
+        min-width: 0; /* grid/flex items default to min-width:auto (content-based), which
+          would otherwise force this button — and its ancestors up to #battle-screen —
+          wider than the viewport instead of letting the name truncate */
+      }
+      .atk-name { font-size: 0.72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
+      .atk-meta { margin-top: 0; flex-shrink: 0; gap: 0.28rem; }
+      .atk-dmg { font-size: 0.62rem; white-space: nowrap; }
+      .atk-type-badge { font-size: 0.52rem; padding: 0.02rem 0.32rem; }
+      /* Mega/待機/棄2換1 buttons only had a one-line label to begin with, but their subtitle
+         span is long free-text ("跳過攻擊，抽 1 張支援者牌" etc.) that won't fit on one line at
+         this size — hide it on mobile, same "simplify now, detail already available via the
+         standard confirmation flow when tapped" reasoning as the move-info popup above. */
+      #btn-mega .atk-meta span, #btn-standby .atk-meta span, #btn-trade .atk-meta span { display: none; }
 
       /* Battle card: hide the text-heavy "secondary" info (ability description, buff tags) —
          reported by the user as too much crammed onto a small screen, forcing constant
