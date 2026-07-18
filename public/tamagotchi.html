@@ -280,6 +280,18 @@ const PET_ANIM = {
   132: { Idle:[24,32,2], Sleep:[32,16,2], Attack:[64,72,10] },
   133: { Eat:[24,32,4], Sleep:[32,24,2], Attack:[64,72,11] },
 };
+/* 每隻寶可夢的動作動畫顯示縮放比例——見 .claude/skills/pet-sprite-calibration/SKILL.md
+   的完整校正方法。核心原則：待機圖用的是「動態GIF」（不是靜態PNG！）拉伸塞進96×96的
+   CSS box，這張動態圖幾乎填滿整個96×96（PokeAPI的GIF原生解析度很小，內容幾乎不留白）；
+   而PMDCollab的Eat/Sleep/Attack是完全不同的美術來源，用PMDCollab自己的Idle frame原生
+   尺寸(不是裁切後的內容尺寸)去反推「要放大幾倍，這隻寶可夢的動作動畫看起來才會跟待機時
+   差不多大」——同一隻寶可夢的Eat/Sleep/Attack共用同一個scale值（PMDCollab同一套rig裡
+   角色本身的緊繪比例是一致的，差別只在動作需要多少額外的畫布空間，不代表角色本身變大/變小）。 */
+const PET_ANIM_SCALE = {
+  1: 2.25, 4: 2.25, 7: 2.81, 152: 1.88, 155: 2.81, 158: 1.88,
+  25: 1.61, 722: 2.81, 906: 1.88, 909: 2.81, 92: 1.61, 132: 2.81, 133: 2.81,
+};
+const ANIM_SCALE_CAP = 130; // 保底上限，避免部分寶可夢的Attack動作frame本身較大，算出來的顯示尺寸誇張到蓋住整個房間
 const PET_ANIM_BASE_URL = 'https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite';
 const TRANSPARENT_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 
@@ -295,26 +307,28 @@ const WEARABLE_SVG = {
   </svg>` },
 };
 
-/* 每隻寶可夢的眼睛中心錨點——在96×96原生sprite座標系下，對照每隻的靜態圖放大8倍+畫格線
-   逐一讀出雙眼（或唯一可見眼）的實際像素座標算出來的，不是用比例公式估的（跟舊版的通用
-   offset table不同，這次使用者明確反映眼鏡跟眼睛沒對齊，所以重新逐隻校正過)。
-   走位時#pet-sprite本身是96×96沒有縮放，這裡的座標可以直接當成「離#pet-sprite左上角幾px」
-   使用；唯讀的拜訪朋友畫面sprite縮小成72×72且置中顯示，需要另外按比例換算（見setupVisitSprite）。
+/* 每隻寶可夢的眼睛中心錨點——重要：一定要對照「動態GIF」（img.src預設載入的那張，PokeAPI
+   Gen5黑白動圖/Showdown動圖），不能對照靜態PNG！兩者是完全不同尺寸、不同姿勢的兩張圖
+   （例如皮卡丘動圖原生只有50×46，靜態圖是96×96，兩者內容佈局天差地遠）——上一版錨點就是
+   誤用靜態圖校正的，這是眼鏡對不準的根本原因，不是座標估得不夠準。正確做法：把動圖第一幀
+   直接resize(96,96)（模擬CSS width:96px;height:96px對非96×96原生圖做的事），在這張「跟
+   遊戲畫面實際顯示完全一致」的圖上讀座標。完整方法寫在
+   .claude/skills/pet-sprite-calibration/SKILL.md，之後要重新校正或新增寶可夢先看那份。
    面向左走（scaleX(-1)鏡像）時眼睛位置也會左右鏡像，見syncWearPositions()的mirroredAx計算。 */
 const WEAR_ANCHORS = {
-  1:   { 'wear-face': [37, 44] },
-  4:   { 'wear-face': [40, 38] },
-  7:   { 'wear-face': [42, 40] },
-  152: { 'wear-face': [40, 46] },
-  155: { 'wear-face': [38, 42] },
-  158: { 'wear-face': [43, 33] },
-  25:  { 'wear-face': [44, 43] },
-  722: { 'wear-face': [45, 42] },
-  906: { 'wear-face': [42, 44] },
-  909: { 'wear-face': [43, 41] },
-  92:  { 'wear-face': [47, 44] },
-  132: { 'wear-face': [47, 41] },
-  133: { 'wear-face': [43, 42] },
+  1:   { 'wear-face': [23, 53] },
+  4:   { 'wear-face': [25, 20] },
+  7:   { 'wear-face': [36, 26] },
+  152: { 'wear-face': [21, 57] },
+  155: { 'wear-face': [26, 42] },
+  158: { 'wear-face': [37, 44] },
+  25:  { 'wear-face': [37, 30] },
+  722: { 'wear-face': [34, 32] },
+  906: { 'wear-face': [40, 44] },
+  909: { 'wear-face': [38, 37] },
+  92:  { 'wear-face': [42, 35] },
+  132: { 'wear-face': [40, 38] },
+  133: { 'wear-face': [30, 45] },
 };
 
 // 寶可夢空間依屬性設計成一個小房間的角落擺設（純手繪SVG，不外抓圖片素材——
@@ -977,15 +991,21 @@ async function feedPet() {
    動作動畫播放引擎——暫時把#pet-sprite的src蓋成透明像素，改用background-image
    播放PMDCollab的sprite sheet；不逐幀還原AnimData.xml裡每幀不同的Duration，
    改用「張數×固定時長」搭配CSS steps()均勻播完，對這麼小的圖示肉眼看不出差異。
-   PMDCollab每個動作的原生frame尺寸差異很大（例如皮卡丘Sleep只有32×40，站立時卻是
-   96×96的CSS box），直接用原生尺寸顯示會讓睡覺時圖案突然縮水一大圈——改用
-   transform:scale()把最長邊統一縮放到ANIM_DISPLAY_TARGET，視覺大小才會跟平常站立時接近。
-   transform:scale()是在background-position/steps()算完「之後」才套用的整體縮放，
-   不會影響frame切割的數學，不用連帶改--strip-w等原生像素座標。 */
+   縮放大小用PET_ANIM_SCALE（每隻寶可夢一個校正值，見該常數上方註解跟
+   .claude/skills/pet-sprite-calibration/SKILL.md），套上限ANIM_SCALE_CAP避免部分
+   frame本身較大的動作被放得太誇張。transform:scale()是在background-position/steps()
+   算完frame切割「之後」才套用的整體縮放，不用連帶改--strip-w等原生像素座標。
+
+   圖片預載（重要）：sprite sheet是從PMDCollab即時抓的，網路較慢時如果直接把img.src蓋成
+   透明像素、同時background-image還沒載完，中間會有一段空窗期畫面上完全看不到寶可夢
+   （回報過的「餵食畫面沒出來、寶可夢不見」就是這個——舊版TRANSPARENT_PIXEL其實是不小心
+   做成不透明白色，那個bug意外把這段空窗期的「消失」蓋成「變白」，兩個bug疊在一起導致
+   一直沒發現真正的空窗期問題；透明像素修好之後，空窗期就真的看不到寶可夢了）。
+   修法：background-image用一個獨立的Image()物件預先載入，確定onload後才真的把src換成
+   透明像素、開始播放動畫；載入失敗就直接放棄這次動畫、維持原本待機圖不受影響。 */
 let animTimer = null;
 let sleeping = false;
 let currentAnimScale = 1;
-const ANIM_DISPLAY_TARGET = 72;
 function playPetAnim(speciesId, animName, loop) {
   const table = PET_ANIM[speciesId];
   if (!table) return;
@@ -996,37 +1016,47 @@ function playPetAnim(speciesId, animName, loop) {
   if (!img) return;
   const [w, h, n] = meta;
   const dex = String(speciesId).padStart(4, '0');
-  if (animTimer) { clearTimeout(animTimer); animTimer = null; }
-  sleeping = (animName === 'Sleep' && !!loop);
-  if (sleeping) {
-    // 睡覺時停在房間正中央、暫停走位計時器，直到下次互動（resetIdleTimer裡的stopPetAnim）才恢復閒晃
-    if (walkTimer) { clearTimeout(walkTimer); walkTimer = null; }
-    const stage = document.getElementById('pet-stage');
-    if (stage) {
-      img.style.left = (stage.clientWidth / 2 - w / 2) + 'px';
-      img.style.top = (stage.clientHeight / 2 - h / 2) + 'px';
-      facingLeft = false;
+  const url = `${PET_ANIM_BASE_URL}/${dex}/${useName}-Anim.png`;
+
+  const preload = new Image();
+  preload.onload = () => reveal();
+  preload.onerror = () => { /* 載入失敗，放棄這次動畫，維持原本待機圖 */ };
+  preload.src = url;
+
+  function reveal() {
+    if (animTimer) { clearTimeout(animTimer); animTimer = null; }
+    sleeping = (animName === 'Sleep' && !!loop);
+    if (sleeping) {
+      // 睡覺時停在房間正中央、暫停走位計時器，直到下次互動（resetIdleTimer裡的stopPetAnim）才恢復閒晃
+      if (walkTimer) { clearTimeout(walkTimer); walkTimer = null; }
+      const stage = document.getElementById('pet-stage');
+      if (stage) {
+        img.style.left = (stage.clientWidth / 2 - w / 2) + 'px';
+        img.style.top = (stage.clientHeight / 2 - h / 2) + 'px';
+        facingLeft = false;
+      }
     }
+    // 動畫播放期間穿搭疊圖暫時隱藏——WEAR_ANCHORS是對照待機動圖校正的，換成PMDCollab
+    // 完全不同來源/姿勢的動作sprite後那組座標不適用，硬套只會讓眼鏡飄在錯的地方
+    WEARABLE_SLOTS.forEach(slot => {
+      const el = document.getElementById(slot);
+      if (el) el.style.display = 'none';
+    });
+    const rawScale = PET_ANIM_SCALE[speciesId] || 2;
+    currentAnimScale = Math.min(rawScale, ANIM_SCALE_CAP / Math.max(w, h));
+    img.classList.add('pet-anim-playing');
+    img.style.backgroundImage = `url("${url}")`;
+    img.style.width = w + 'px';
+    img.style.height = h + 'px';
+    img.style.setProperty('--frames', n);
+    img.style.setProperty('--strip-w', (w * n) + 'px');
+    img.src = TRANSPARENT_PIXEL;
+    applySpriteTransform();
+    const duration = n * 120;
+    img.style.animationDuration = duration + 'ms';
+    img.style.animationIterationCount = loop ? 'infinite' : '1';
+    if (!loop) animTimer = setTimeout(stopPetAnim, duration);
   }
-  // 動畫播放期間穿搭疊圖暫時隱藏——WEAR_ANCHORS是對照站立姿勢的PokeAPI靜態圖校正的，
-  // 換成PMDCollab完全不同來源/姿勢的動作sprite後那組座標不適用，硬套只會讓眼鏡飄在錯的地方
-  WEARABLE_SLOTS.forEach(slot => {
-    const el = document.getElementById(slot);
-    if (el) el.style.display = 'none';
-  });
-  currentAnimScale = ANIM_DISPLAY_TARGET / Math.max(w, h);
-  img.classList.add('pet-anim-playing');
-  img.style.backgroundImage = `url("${PET_ANIM_BASE_URL}/${dex}/${useName}-Anim.png")`;
-  img.style.width = w + 'px';
-  img.style.height = h + 'px';
-  img.style.setProperty('--frames', n);
-  img.style.setProperty('--strip-w', (w * n) + 'px');
-  img.src = TRANSPARENT_PIXEL;
-  applySpriteTransform();
-  const duration = n * 120;
-  img.style.animationDuration = duration + 'ms';
-  img.style.animationIterationCount = loop ? 'infinite' : '1';
-  if (!loop) animTimer = setTimeout(stopPetAnim, duration);
 }
 
 function stopPetAnim() {
