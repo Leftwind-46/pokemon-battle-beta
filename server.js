@@ -319,13 +319,12 @@ const SHOP_ITEMS = {
   'plant-pot':     { name: '觀葉植物', price: 20, icon: '🪴', category: 'decor' },
   'picture-frame': { name: '掛畫',     price: 35, icon: '🖼️', category: 'decor' },
   'toy-ball':      { name: '玩具球',   price: 15, icon: '⚽', category: 'decor' },
-  'hat-red':       { name: '紅色帽子',   price: 25, icon: '🧢', category: 'wearable', slot: 'wear-head' },
+  /* 穿搭類暫時只留眼鏡——帽子/蝴蝶結/圍巾需要頭部/脖子錨點才能對齊，眼睛位置比較好抓，
+     先把這個做準才擴充其他部位（2026-07-18，使用者要求先縮小範圍）。 */
   'glasses-round': { name: '圓框眼鏡',   price: 20, icon: '👓', category: 'wearable', slot: 'wear-face' },
-  'bow-pink':      { name: '粉紅蝴蝶結', price: 20, icon: '🎀', category: 'wearable', slot: 'wear-head' },
-  'scarf-blue':    { name: '藍色圍巾',   price: 25, icon: '🧣', category: 'wearable', slot: 'wear-neck' },
 };
 const DECOR_SLOTS = ['slot-wall', 'slot-floor-mid', 'slot-floor-right'];
-const WEARABLE_SLOTS = ['wear-head', 'wear-face', 'wear-neck'];
+const WEARABLE_SLOTS = ['wear-face'];
 // 每天依好感度核發金幣的公式，抓保守值，之後可依實際商城價格調整
 const DAILY_COIN_CAP = 20;
 function dailyCoinsForHappiness(happiness) {
