@@ -45,11 +45,9 @@
   @keyframes pet-anim-strip{from{background-position:0 0}to{background-position:calc(-1 * var(--strip-w)) 0}}
 
   /* ── 寶可夢穿搭疊圖層：純emoji疊圖，不做逐寶可夢像素對位（先求有）── */
-  .wear-layer{position:absolute;z-index:5;font-size:1.3rem;pointer-events:none;display:none;transition:left 1.8s ease-in-out, top 1.8s ease-in-out}
-  .wear-layer-static{position:absolute;z-index:5;font-size:1.2rem;pointer-events:none}
-  .wear-layer-static.wear-head{left:50%;top:calc(50% - 46px);transform:translateX(-50%)}
-  .wear-layer-static.wear-face{left:50%;top:calc(50% - 14px);transform:translateX(-50%)}
-  .wear-layer-static.wear-neck{left:50%;top:calc(50% + 16px);transform:translateX(-50%)}
+  /* 位置由JS依species-specific錨點表算好直接寫inline left/top，這裡只負責繪圖層屬性 */
+  .wear-layer{position:absolute;z-index:5;pointer-events:none;display:none;background-repeat:no-repeat;background-size:contain;transform:translate(-50%,-50%);transition:left 1.8s ease-in-out, top 1.8s ease-in-out}
+  .wear-layer-static{position:absolute;z-index:5;pointer-events:none;background-repeat:no-repeat;background-size:contain;transform:translate(-50%,-50%)}
 
   /* ── 寶可夢空間：依屬性設計成一個小房間（純CSS/SVG繪製，不外抓素材）──
      結構統一：牆面(62%) + 地板(38%，帶透視感的水平木紋/磁磚) + 一個屬性主題的角落擺設 */
@@ -150,8 +148,10 @@
   .visit-input-row{display:flex;gap:0.5rem}
   .visit-input-row input{flex:1;padding:0.5rem 0.7rem;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,0.05);color:var(--text);font-size:0.85rem}
   .visit-go-btn{padding:0.5rem 1rem;border-radius:999px;border:none;font-size:0.82rem;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#f8d030,#f05030);color:#1a1a2e}
-  .mini-stage{position:relative;width:100%;height:200px;border-radius:14px;border:2px solid var(--border);background:#141024;overflow:hidden;margin:0.4rem 0}
-  .visit-pet-sprite{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:72px;height:72px;image-rendering:pixelated;z-index:4;filter:drop-shadow(0 6px 8px rgba(0,0,0,0.4))}
+  .mini-stage{position:relative;width:100%;height:300px;border-radius:14px;border:2px solid var(--border);background:#141024;overflow:hidden;margin:0.4rem 0}
+  /* 拜訪朋友：兩隻寶可夢一起顯示在同一個房間——left/top由JS各自獨立控制走位，transform只負責置中在該座標上 */
+  .visit-pet-sprite{position:absolute;transform:translate(-50%,-50%);width:72px;height:72px;image-rendering:pixelated;z-index:4;filter:drop-shadow(0 6px 8px rgba(0,0,0,0.4));transition:left 1.8s ease-in-out, top 1.8s ease-in-out}
+  .visit-pet-label{position:absolute;transform:translate(-50%,0);font-size:0.68rem;color:var(--muted);white-space:nowrap;z-index:4;text-shadow:0 1px 3px rgba(0,0,0,0.8);transition:left 1.8s ease-in-out, top 1.8s ease-in-out}
   .visit-badge{position:absolute;right:10px;top:10px;width:44px;height:44px;border-radius:50%;object-fit:cover;box-shadow:0 0 12px rgba(248,208,48,0.6),0 0 0 2px rgba(248,208,48,0.75);z-index:5}
 </style>
 </head>
@@ -281,7 +281,51 @@ const PET_ANIM = {
   133: { Eat:[24,32,4], Sleep:[32,24,2], Attack:[64,72,11] },
 };
 const PET_ANIM_BASE_URL = 'https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite';
-const TRANSPARENT_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+const TRANSPARENT_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+
+/* 寶可夢穿搭——手繪SVG（跟ROOM_DECOR_SVG同一套「不外抓素材」慣例），比emoji更能貼合寶可夢輪廓。
+   w/h是繪製尺寸(px)，svg本身用transform:translate(-50%,-50%)置中在錨點上。 */
+const WEARABLE_SVG = {
+  'hat-red': { w: 26, h: 16, svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 26 16">
+    <path d="M3 14 Q3 2 13 2 Q23 2 23 14 Z" fill="#e74c3c"/>
+    <ellipse cx="13" cy="14" rx="12" ry="2" fill="#c0392b"/>
+    <rect x="10" y="0" width="4" height="3" rx="1" fill="#e74c3c"/>
+  </svg>` },
+  'glasses-round': { w: 24, h: 12, svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 12">
+    <circle cx="6" cy="6" r="5" fill="rgba(255,255,255,0.15)" stroke="#333" stroke-width="1.6"/>
+    <circle cx="18" cy="6" r="5" fill="rgba(255,255,255,0.15)" stroke="#333" stroke-width="1.6"/>
+    <line x1="11" y1="6" x2="13" y2="6" stroke="#333" stroke-width="1.6"/>
+  </svg>` },
+  'bow-pink': { w: 20, h: 14, svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 14">
+    <path d="M10 7 L2 2 L2 12 Z" fill="#f48fb1"/>
+    <path d="M10 7 L18 2 L18 12 Z" fill="#f48fb1"/>
+    <circle cx="10" cy="7" r="2.6" fill="#e91e8c"/>
+  </svg>` },
+  'scarf-blue': { w: 26, h: 15, svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 26 15">
+    <rect x="1" y="1" width="24" height="6" rx="3" fill="#3f72c9"/>
+    <path d="M7 7 L5 14 L11 14 L12 7 Z" fill="#2f5aa8"/>
+  </svg>` },
+};
+
+/* 每隻寶可夢的頭/臉/脖子錨點——在96×96原生sprite座標系下人工比對13隻的靜態圖標出來的，
+   讓穿搭SVG疊圖能貼著各自的輪廓（而不是13隻共用同一組通用偏移量）。走位時# pet-sprite本身
+   是96×96沒有縮放，所以這裡的座標可以直接當成「離#pet-sprite左上角幾px」使用；唯讀的拜訪
+   朋友畫面sprite縮小成72×72且置中顯示，需要另外按比例換算（見renderReadOnlyDecor）。 */
+const WEAR_ANCHORS = {
+  1:   { 'wear-head': [38, 33], 'wear-face': [40, 43], 'wear-neck': [42, 55] },
+  4:   { 'wear-head': [45, 32], 'wear-face': [45, 41], 'wear-neck': [46, 53] },
+  7:   { 'wear-head': [48, 31], 'wear-face': [48, 40], 'wear-neck': [48, 52] },
+  152: { 'wear-head': [45, 38], 'wear-face': [42, 50], 'wear-neck': [48, 60] },
+  155: { 'wear-head': [38, 32], 'wear-face': [38, 44], 'wear-neck': [42, 52] },
+  158: { 'wear-head': [42, 33], 'wear-face': [42, 42], 'wear-neck': [44, 54] },
+  25:  { 'wear-head': [50, 26], 'wear-face': [50, 40], 'wear-neck': [50, 55] },
+  722: { 'wear-head': [48, 33], 'wear-face': [48, 42], 'wear-neck': [48, 58] },
+  906: { 'wear-head': [45, 36], 'wear-face': [42, 48], 'wear-neck': [46, 58] },
+  909: { 'wear-head': [48, 29], 'wear-face': [48, 42], 'wear-neck': [48, 56] },
+  92:  { 'wear-head': [48, 26], 'wear-face': [48, 48], 'wear-neck': [48, 65] },
+  132: { 'wear-head': [48, 35], 'wear-face': [48, 42], 'wear-neck': [48, 55] },
+  133: { 'wear-head': [47, 23], 'wear-face': [47, 38], 'wear-neck': [48, 52] },
+};
 
 // 寶可夢空間依屬性設計成一個小房間的角落擺設（純手繪SVG，不外抓圖片素材——
 // 找過itch.io/OpenGameArt都沒有現成、授權乾淨、六種屬性齊全的單張房間背景圖，
@@ -625,12 +669,15 @@ function updateWearLayersUI() {
     const el = document.getElementById(slot);
     if (!el) return;
     const placed = decorations.find(d => d.slot === slot);
-    if (placed && shopItems && shopItems[placed.itemId]) {
-      el.textContent = shopItems[placed.itemId].icon;
-      el.title = shopItems[placed.itemId].name;
+    const wear = placed && WEARABLE_SVG[placed.itemId];
+    if (placed && wear) {
+      el.style.backgroundImage = `url("data:image/svg+xml,${encodeURIComponent(wear.svg)}")`;
+      el.style.width = wear.w + 'px';
+      el.style.height = wear.h + 'px';
+      el.title = shopItems[placed.itemId] ? shopItems[placed.itemId].name : '';
       el.style.display = 'block';
     } else {
-      el.textContent = '';
+      el.style.backgroundImage = '';
       el.style.display = 'none';
     }
   });
@@ -638,17 +685,17 @@ function updateWearLayersUI() {
 
 function syncWearPositions() {
   const img = document.getElementById('pet-sprite');
-  if (!img) return;
+  if (!img || !pet) return;
   const x = parseFloat(img.style.left) || 0;
   const y = parseFloat(img.style.top) || 0;
-  const w = img.offsetWidth || 96;
-  const offsets = { 'wear-head': 6, 'wear-face': 36, 'wear-neck': 64 };
+  const anchors = WEAR_ANCHORS[pet.speciesId];
+  if (!anchors) return;
   WEARABLE_SLOTS.forEach(slot => {
     const el = document.getElementById(slot);
     if (!el) return;
-    el.style.left = (x + w / 2) + 'px';
-    el.style.top = (y + offsets[slot]) + 'px';
-    el.style.transform = 'translateX(-50%)';
+    const [ax, ay] = anchors[slot];
+    el.style.left = (x + ax) + 'px';
+    el.style.top = (y + ay) + 'px';
   });
 }
 
@@ -980,10 +1027,19 @@ function resetIdleTimer() {
 }
 
 /* ─────────────────────────────────────────
-   拜訪朋友——唯讀查詢，重用renderRoomDecor房間渲染邏輯，不用另外複製一套畫面
+   拜訪朋友——唯讀查詢，重用renderRoomDecor房間渲染邏輯，不用另外複製一套畫面。
+   兩隻寶可夢（自己的+朋友的）一起顯示在朋友的房間裡、各自獨立閒晃，純視覺上的「在一起」，
+   不是真的即時連線同步（雙方各自瀏覽器獨立算自己的走位，沒有WebSocket）。
 ───────────────────────────────────────── */
+let visitWalkTimers = [];
+function clearVisitWalkTimers() {
+  visitWalkTimers.forEach(t => clearTimeout(t));
+  visitWalkTimers = [];
+}
+
 function openVisitModal() {
   resetIdleTimer();
+  clearVisitWalkTimers();
   document.getElementById('visit-username-input').value = '';
   document.getElementById('visit-result').style.display = 'none';
   document.getElementById('visit-result').innerHTML = '';
@@ -992,6 +1048,7 @@ function openVisitModal() {
 }
 
 function closeVisitModal() {
+  clearVisitWalkTimers();
   document.getElementById('visit-modal').classList.remove('open');
 }
 
@@ -1017,22 +1074,25 @@ async function visitFriend() {
   }
 }
 
+const VISIT_GREETINGS = ['熱情地打了招呼！', '好奇地互相打量著對方！', '一起玩了起來！', '開心地繞著彼此轉圈！'];
+
 function renderVisitResult(data) {
   document.getElementById('visit-search').style.display = 'none';
   const resultEl = document.getElementById('visit-result');
   resultEl.style.display = 'block';
   resultEl.innerHTML = '';
+  clearVisitWalkTimers();
 
   const header = document.createElement('div');
   header.style.cssText = 'display:flex;justify-content:space-between;align-items:center';
-  header.innerHTML = `<span style="font-weight:700">${data.username}</span><span style="font-size:0.82rem;color:var(--muted)">好感度 ${data.pet.happiness}/100</span>`;
+  header.innerHTML = `<span style="font-weight:700">${data.username} 的空間</span><span style="font-size:0.82rem;color:var(--muted)">好感度 ${data.pet.happiness}/100</span>`;
   resultEl.appendChild(header);
 
-  const species = PET_SPECIES.find(s => s.id === data.pet.speciesId);
+  const friendSpecies = PET_SPECIES.find(s => s.id === data.pet.speciesId);
   const stage = document.createElement('div');
-  stage.className = 'mini-stage' + (species ? ` room-${species.type}` : '');
+  stage.className = 'mini-stage' + (friendSpecies ? ` room-${friendSpecies.type}` : '');
   resultEl.appendChild(stage);
-  renderRoomDecor(stage, species ? species.type : null);
+  renderRoomDecor(stage, friendSpecies ? friendSpecies.type : null);
   renderReadOnlyDecor(stage, data.decorations || []);
 
   if (data.badge) {
@@ -1044,12 +1104,20 @@ function renderVisitResult(data) {
     stage.appendChild(b);
   }
 
-  const spUrls = spriteUrls(species || { id: data.pet.speciesId });
-  const img = document.createElement('img');
-  img.className = 'visit-pet-sprite';
-  img.src = spUrls.static;
-  img.onerror = () => { img.onerror = null; img.src = spUrls.animated; };
-  stage.appendChild(img);
+  // 兩隻寶可夢一起顯示在朋友的房間裡：朋友的寶可夢（唯讀，穿著朋友幫牠買的穿搭）+ 自己的寶可夢
+  // （帶自己的穿搭一起「過去」），各自獨立閒晃，純視覺上的「在一起」的感覺
+  const friendSprite = setupVisitSprite(stage, data.pet.speciesId, data.decorations, `${data.username} 的${friendSpecies ? friendSpecies.name : '寶可夢'}`, 'visit-friend');
+  friendSprite.placeAt(0.28, 0.55);
+  if (pet) {
+    const mySpecies = PET_SPECIES.find(s => s.id === pet.speciesId);
+    const mySprite = setupVisitSprite(stage, pet.speciesId, decorations, `你的${mySpecies ? mySpecies.name : '寶可夢'}`, 'visit-mine');
+    mySprite.placeAt(0.72, 0.55);
+  }
+
+  const greetEl = document.createElement('p');
+  greetEl.style.cssText = 'font-size:0.8rem;color:var(--muted);text-align:center;min-height:1.2em';
+  greetEl.textContent = pet ? `兩隻寶可夢${VISIT_GREETINGS[Math.floor(Math.random() * VISIT_GREETINGS.length)]}` : '';
+  resultEl.appendChild(greetEl);
 
   const backBtn = document.createElement('div');
   backBtn.className = 'modal-close';
@@ -1059,22 +1127,95 @@ function renderVisitResult(data) {
   resultEl.appendChild(backBtn);
 }
 
+/* 唯讀房間插槽（房間裝飾），穿搭改由setupVisitSprite掛在寶可夢本體上處理，這裡只剩房間3插槽 */
 function renderReadOnlyDecor(stage, decs) {
   decs.forEach(d => {
-    if (!shopItems || !shopItems[d.itemId]) return;
+    if (!shopItems || !shopItems[d.itemId] || !DECOR_SLOTS.includes(d.slot)) return;
     const item = shopItems[d.itemId];
     const el = document.createElement('div');
-    if (DECOR_SLOTS.includes(d.slot)) {
-      el.className = 'decor-slot ' + d.slot;
-    } else if (WEARABLE_SLOTS.includes(d.slot)) {
-      el.className = 'wear-layer-static ' + d.slot;
-    } else {
-      return;
-    }
+    el.className = 'decor-slot ' + d.slot;
     el.textContent = item.icon;
     el.title = item.name;
     stage.appendChild(el);
   });
+}
+
+/* 拜訪畫面專用的寶可夢渲染——刻意跟主畫面的#pet-sprite/renderWearLayers分開一套獨立實作
+   （id用idPrefix區分，不會跟主畫面或另一隻拜訪用寶可夢衝突），因為這裡一次要放兩隻、
+   沒有點擊互動、也不需要跟server同步，直接複用會需要把主畫面那套改成參數化，風險更高。 */
+function setupVisitSprite(stage, speciesId, decs, label, idPrefix) {
+  const species = PET_SPECIES.find(s => s.id === speciesId);
+  const spUrls = spriteUrls(species || { id: speciesId });
+  const scale = 72 / 96; // 拜訪畫面sprite縮小成72×72顯示，WEAR_ANCHORS是96×96原生座標，等比例換算
+
+  const img = document.createElement('img');
+  img.className = 'visit-pet-sprite';
+  img.id = idPrefix + '-sprite';
+  img.src = spUrls.static;
+  img.onerror = () => { img.onerror = null; img.src = spUrls.animated; };
+  stage.appendChild(img);
+
+  const labelEl = document.createElement('div');
+  labelEl.className = 'visit-pet-label';
+  labelEl.textContent = label;
+  stage.appendChild(labelEl);
+
+  const wearEls = {};
+  WEARABLE_SLOTS.forEach(slot => {
+    const el = document.createElement('div');
+    el.className = 'wear-layer-static';
+    stage.appendChild(el);
+    wearEls[slot] = el;
+  });
+  (decs || []).forEach(d => {
+    if (!wearEls[d.slot] || !shopItems || !shopItems[d.itemId]) return;
+    const wear = WEARABLE_SVG[d.itemId];
+    if (!wear) return;
+    wearEls[d.slot].style.backgroundImage = `url("data:image/svg+xml,${encodeURIComponent(wear.svg)}")`;
+    wearEls[d.slot].style.width = (wear.w * scale) + 'px';
+    wearEls[d.slot].style.height = (wear.h * scale) + 'px';
+    wearEls[d.slot].style.display = 'block';
+  });
+
+  function syncWear() {
+    const anchors = WEAR_ANCHORS[speciesId];
+    if (!anchors) return;
+    const x = parseFloat(img.style.left) || 0;
+    const y = parseFloat(img.style.top) || 0;
+    WEARABLE_SLOTS.forEach(slot => {
+      const [ax, ay] = anchors[slot];
+      wearEls[slot].style.left = (x + ax * scale) + 'px';
+      wearEls[slot].style.top = (y + ay * scale) + 'px';
+    });
+  }
+
+  function placeAt(fracX, fracY) {
+    const x = stage.clientWidth * fracX, y = stage.clientHeight * fracY;
+    img.style.left = x + 'px'; img.style.top = y + 'px';
+    labelEl.style.left = x + 'px'; labelEl.style.top = (y + 30) + 'px';
+    syncWear();
+    scheduleWalk();
+  }
+
+  function walk() {
+    const stageW = stage.clientWidth, stageH = stage.clientHeight;
+    const margin = 40;
+    const newX = margin + Math.random() * Math.max(1, stageW - margin * 2);
+    const newY = stageH * 0.35 + Math.random() * (stageH * 0.5);
+    const curX = parseFloat(img.style.left) || 0;
+    img.style.transform = `translate(-50%,-50%) scaleX(${newX < curX ? -1 : 1})`;
+    img.style.left = newX + 'px'; img.style.top = newY + 'px';
+    labelEl.style.left = newX + 'px'; labelEl.style.top = (newY + 30) + 'px';
+    syncWear();
+    scheduleWalk();
+  }
+
+  function scheduleWalk() {
+    const t = setTimeout(walk, 2200 + Math.random() * 2000);
+    visitWalkTimers.push(t);
+  }
+
+  return { placeAt };
 }
 
 init();
