@@ -35,8 +35,21 @@
   .happiness-bar{width:100%;max-width:340px;display:flex;align-items:center;gap:0.6rem}
   .happiness-track{flex:1;height:14px;border-radius:999px;background:rgba(255,255,255,0.1);overflow:hidden}
   .happiness-fill{height:100%;background:linear-gradient(90deg,#f8d030,#f05030);transition:width 0.4s ease}
+  .hunger-fill{background:linear-gradient(90deg,#8bc34a,#4e9a2a)}
   #pet-stage{position:relative;width:100%;height:52vh;min-height:280px;border-radius:20px;border:2px solid var(--border);background:#141024;overflow:hidden}
   #pet-sprite{position:absolute;z-index:4;width:96px;height:96px;image-rendering:pixelated;cursor:pointer;transition:left 1.8s ease-in-out, top 1.8s ease-in-out;filter:drop-shadow(0 6px 8px rgba(0,0,0,0.4))}
+
+  /* ── 動作動畫（吃東西/睡覺/使用招式）：暫時把#pet-sprite的src蓋成透明像素，
+     改用background-image播放PMDCollab的sprite sheet，播完（或loop被打斷）再換回原本的靜態圖 ── */
+  .pet-anim-playing{background-repeat:no-repeat;image-rendering:pixelated;animation-name:pet-anim-strip;animation-timing-function:steps(var(--frames))}
+  @keyframes pet-anim-strip{from{background-position:0 0}to{background-position:calc(-1 * var(--strip-w)) 0}}
+
+  /* ── 寶可夢穿搭疊圖層：純emoji疊圖，不做逐寶可夢像素對位（先求有）── */
+  .wear-layer{position:absolute;z-index:5;font-size:1.3rem;pointer-events:none;display:none;transition:left 1.8s ease-in-out, top 1.8s ease-in-out}
+  .wear-layer-static{position:absolute;z-index:5;font-size:1.2rem;pointer-events:none}
+  .wear-layer-static.wear-head{left:50%;top:calc(50% - 46px);transform:translateX(-50%)}
+  .wear-layer-static.wear-face{left:50%;top:calc(50% - 14px);transform:translateX(-50%)}
+  .wear-layer-static.wear-neck{left:50%;top:calc(50% + 16px);transform:translateX(-50%)}
 
   /* ── 寶可夢空間：依屬性設計成一個小房間（純CSS/SVG繪製，不外抓素材）──
      結構統一：牆面(62%) + 地板(38%，帶透視感的水平木紋/磁磚) + 一個屬性主題的角落擺設 */
@@ -109,10 +122,10 @@
   .decor-slot{position:absolute;z-index:3;width:52px;height:52px;border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.7rem;transition:transform 0.15s;background:rgba(0,0,0,0.15)}
   .decor-slot:hover{transform:scale(1.08)}
   .decor-slot.empty{border:2px dashed rgba(255,255,255,0.25);color:rgba(255,255,255,0.3);font-size:1.3rem}
-  #slot-wall{top:14px;left:14px}
-  #slot-floor-mid{bottom:14px;left:55%;transform:translateX(-50%)}
-  #slot-floor-mid:hover{transform:translateX(-50%) scale(1.08)}
-  #slot-floor-right{bottom:14px;right:14px}
+  .slot-wall{top:14px;left:14px}
+  .slot-floor-mid{bottom:14px;left:55%;transform:translateX(-50%)}
+  .slot-floor-mid:hover{transform:translateX(-50%) scale(1.08)}
+  .slot-floor-right{bottom:14px;right:14px}
 
   /* ── 商城 / 插槽選擇 彈窗（跟徽章放大彈窗同一套fixed置中樣式）── */
   .modal-overlay{display:none;position:fixed;inset:0;z-index:700;align-items:center;justify-content:center;background:rgba(4,2,12,0.82);backdrop-filter:blur(2px)}
@@ -130,6 +143,16 @@
   .slot-pick-item{display:flex;align-items:center;gap:0.7rem;padding:0.6rem 0.7rem;border:1px solid var(--border);border-radius:12px;cursor:pointer}
   .slot-pick-item:hover{background:rgba(255,255,255,0.06)}
   .slot-pick-item .icon{font-size:1.6rem}
+  .shop-group-title{font-size:0.85rem;color:var(--muted);margin-top:0.5rem}
+  .shop-group-title:first-child{margin-top:0}
+
+  /* ── 拜訪朋友：唯讀小房間畫面（重用 room-wall/room-floor/room-decor 渲染邏輯）── */
+  .visit-input-row{display:flex;gap:0.5rem}
+  .visit-input-row input{flex:1;padding:0.5rem 0.7rem;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,0.05);color:var(--text);font-size:0.85rem}
+  .visit-go-btn{padding:0.5rem 1rem;border-radius:999px;border:none;font-size:0.82rem;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#f8d030,#f05030);color:#1a1a2e}
+  .mini-stage{position:relative;width:100%;height:200px;border-radius:14px;border:2px solid var(--border);background:#141024;overflow:hidden;margin:0.4rem 0}
+  .visit-pet-sprite{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:72px;height:72px;image-rendering:pixelated;z-index:4;filter:drop-shadow(0 6px 8px rgba(0,0,0,0.4))}
+  .visit-badge{position:absolute;right:10px;top:10px;width:44px;height:44px;border-radius:50%;object-fit:cover;box-shadow:0 0 12px rgba(248,208,48,0.6),0 0 0 2px rgba(248,208,48,0.75);z-index:5}
 </style>
 </head>
 <body>
@@ -157,13 +180,19 @@
       <span id="happiness-text" style="font-size:0.85rem;font-weight:700">0/100</span>
       <div id="coin-display">🪙 <span id="coin-text">0</span></div>
     </div>
+    <div class="happiness-bar">
+      <span style="font-size:0.85rem;color:var(--muted)">飢餓值</span>
+      <div class="happiness-track"><div class="happiness-fill hunger-fill" id="hunger-fill"></div></div>
+      <span id="hunger-text" style="font-size:0.85rem;font-weight:700">0/100</span>
+    </div>
     <div id="pet-stage"></div>
     <div id="pet-reaction-text"></div>
     <div class="pet-actions">
-      <div class="pet-action-btn" onclick="showComingSoon('餵食')"><span class="icon">🍖</span>餵食</div>
+      <div class="pet-action-btn" onclick="feedPet()"><span class="icon">🍖</span>餵食</div>
       <div class="pet-action-btn" onclick="openShopModal()"><span class="icon">🎒</span>道具</div>
-      <div class="pet-action-btn" onclick="showComingSoon('拜訪朋友')"><span class="icon">🚪</span>拜訪朋友</div>
+      <div class="pet-action-btn" onclick="openVisitModal()"><span class="icon">🚪</span>拜訪朋友</div>
     </div>
+    <p style="font-size:0.68rem;color:var(--muted);text-align:center">動作素材來源：<a href="https://github.com/PMDCollab/SpriteCollab" target="_blank" rel="noopener" style="color:var(--muted)">PMDCollab/SpriteCollab</a>（CC BY-NC）</p>
     <a class="back" href="/">← 返回主選單</a>
   </div>
 </div>
@@ -187,6 +216,17 @@
     <h2>選擇擺放的道具</h2>
     <div id="slot-pick-list"></div>
     <div class="modal-close" onclick="closeSlotModal()">關閉</div>
+  </div>
+</div>
+<div id="visit-modal" class="modal-overlay" onclick="closeVisitModal()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <h2>🚪 拜訪朋友</h2>
+    <div id="visit-search" class="visit-input-row">
+      <input id="visit-username-input" type="text" placeholder="輸入玩家帳號">
+      <button class="visit-go-btn" onclick="visitFriend()">查看</button>
+    </div>
+    <div id="visit-result" style="display:none"></div>
+    <div class="modal-close" onclick="closeVisitModal()">關閉</div>
   </div>
 </div>
 
@@ -221,6 +261,27 @@ const PET_SPECIES = [
   { id: 133, name: '伊布',     type: 'normal', custom: true },
 ];
 const TYPE_COLOR = { grass:'#78c850', fire:'#f05030', water:'#6890f0', electric:'#f8d030', ghost:'#705898', normal:'#a8a878' };
+
+/* 動作動畫素材：PMDCollab/SpriteCollab（CC BY-NC，已在畫面上標註來源）。
+   每隻寶可夢的 Eat/Sleep/Attack sprite sheet 尺寸[寬,高,張數]，從 AnimData.xml 解析確認。
+   132(百變怪)/92(鬼斯) 沒有嘴巴，沒有Eat-Anim，改放Idle讓playPetAnim() fallback用。 */
+const PET_ANIM = {
+  1:   { Eat:[24,32,4], Sleep:[24,24,2], Attack:[64,72,11] },
+  4:   { Eat:[24,32,4], Sleep:[32,24,2], Attack:[64,64,11] },
+  7:   { Eat:[24,32,4], Sleep:[24,24,2], Attack:[64,72,10] },
+  152: { Eat:[24,32,4], Sleep:[24,32,2], Attack:[64,72,10] },
+  155: { Eat:[24,32,4], Sleep:[24,24,2], Attack:[64,72,10] },
+  158: { Eat:[24,32,4], Sleep:[24,32,2], Attack:[64,80,10] },
+  25:  { Eat:[24,48,4], Sleep:[32,40,2], Attack:[80,80,10] },
+  722: { Eat:[32,32,4], Sleep:[24,24,2], Attack:[64,64,14] },
+  906: { Eat:[24,24,4], Sleep:[24,24,2], Attack:[72,80,10] },
+  909: { Eat:[24,32,4], Sleep:[24,24,2], Attack:[64,72,14] },
+  92:  { Idle:[48,56,6], Sleep:[24,56,8], Attack:[64,80,13] },
+  132: { Idle:[24,32,2], Sleep:[32,16,2], Attack:[64,72,10] },
+  133: { Eat:[24,32,4], Sleep:[32,24,2], Attack:[64,72,11] },
+};
+const PET_ANIM_BASE_URL = 'https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite';
+const TRANSPARENT_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
 
 // 寶可夢空間依屬性設計成一個小房間的角落擺設（純手繪SVG，不外抓圖片素材——
 // 找過itch.io/OpenGameArt都沒有現成、授權乾淨、六種屬性齊全的單張房間背景圖，
@@ -321,11 +382,12 @@ function spriteUrls(sp) {
    AUTH + PET STATE
 ───────────────────────────────────────── */
 let myToken = localStorage.getItem('pvpToken') || null;
-let pet = null; // { speciesId, happiness, coins } | null
+let pet = null; // { speciesId, happiness, coins, hunger } | null
 let badge = null; // { id, name, image } | null —— 目前只能由GM後台手動指定，還沒有自動判定機制
 let decorations = []; // [{ itemId, slot }] —— slot為null代表在道具欄裡還沒擺放
 let shopItems = null; // 從 /api/shop 抓一次快取起來，跟BADGES一樣是純資料registry
 const DECOR_SLOTS = ['slot-wall', 'slot-floor-mid', 'slot-floor-right'];
+const WEARABLE_SLOTS = ['wear-head', 'wear-face', 'wear-neck'];
 
 function showScreen(id) {
   ['gate-screen','pick-screen','stage-screen'].forEach(s => {
@@ -414,12 +476,14 @@ async function choosePet(speciesId) {
    PET STAGE — 待機閒晃動畫 + 點擊互動
 ───────────────────────────────────────── */
 let walkTimer = null;
+let currentSpUrls = null;
 function startStage() {
   showScreen('stage-screen');
   const species = PET_SPECIES.find(s => s.id === pet.speciesId);
   document.getElementById('pet-name-label').textContent = species ? species.name : '寶可夢';
   updateHappinessUI(pet.happiness);
   updateCoinsUI(pet.coins || 0);
+  updateHungerUI(pet.hunger != null ? pet.hunger : 100);
 
   const stage = document.getElementById('pet-stage');
   stage.innerHTML = '';
@@ -434,6 +498,7 @@ function startStage() {
   renderDecorSlots(stage);
 
   const spUrls = spriteUrls(species || { id: pet.speciesId });
+  currentSpUrls = spUrls;
   const img = document.createElement('img');
   img.id = 'pet-sprite';
   img.src = spUrls.animated;
@@ -446,8 +511,11 @@ function startStage() {
   img.style.left = (stageW / 2 - 48) + 'px';
   img.style.top  = (stageH / 2 - 48) + 'px';
 
+  renderWearLayers(stage);
+
   if (walkTimer) clearInterval(walkTimer);
   scheduleWalk();
+  resetIdleTimer();
 }
 
 function scheduleWalk() {
@@ -471,11 +539,18 @@ function walkToRandomSpot() {
   else if (newX > curX) img.style.transform = 'scaleX(1)';
   img.style.left = newX + 'px';
   img.style.top  = newY + 'px';
+  syncWearPositions();
 }
 
 function updateHappinessUI(happiness) {
   document.getElementById('happiness-fill').style.width = happiness + '%';
   document.getElementById('happiness-text').textContent = `${happiness}/100`;
+}
+
+function updateHungerUI(hunger) {
+  pet.hunger = hunger;
+  document.getElementById('hunger-fill').style.width = hunger + '%';
+  document.getElementById('hunger-text').textContent = `${hunger}/100`;
 }
 
 function updateCoinsUI(coins) {
@@ -506,7 +581,7 @@ function renderDecorSlots(stage) {
   DECOR_SLOTS.forEach(slot => {
     const el = document.createElement('div');
     el.id = slot;
-    el.className = 'decor-slot';
+    el.className = 'decor-slot ' + slot;
     el.onclick = () => openSlotModal(slot);
     stage.appendChild(el);
   });
@@ -519,14 +594,61 @@ function updateDecorSlotsUI() {
     if (!el) return;
     const placed = decorations.find(d => d.slot === slot);
     if (placed && shopItems && shopItems[placed.itemId]) {
-      el.className = 'decor-slot';
+      el.className = 'decor-slot ' + slot;
       el.textContent = shopItems[placed.itemId].icon;
       el.title = shopItems[placed.itemId].name;
     } else {
-      el.className = 'decor-slot empty';
+      el.className = 'decor-slot empty ' + slot;
       el.textContent = '＋';
       el.title = '點擊擺放道具';
     }
+  });
+}
+
+/* ─────────────────────────────────────────
+   寶可夢穿搭疊圖層——固定3個身體部位，pointer-events:none（不是可點擊的插槽，
+   透過商城彈窗裡的「穿上/收下」按鈕切換，見 toggleWear()）
+───────────────────────────────────────── */
+function renderWearLayers(stage) {
+  WEARABLE_SLOTS.forEach(slot => {
+    const el = document.createElement('div');
+    el.id = slot;
+    el.className = 'wear-layer';
+    stage.appendChild(el);
+  });
+  updateWearLayersUI();
+  syncWearPositions();
+}
+
+function updateWearLayersUI() {
+  WEARABLE_SLOTS.forEach(slot => {
+    const el = document.getElementById(slot);
+    if (!el) return;
+    const placed = decorations.find(d => d.slot === slot);
+    if (placed && shopItems && shopItems[placed.itemId]) {
+      el.textContent = shopItems[placed.itemId].icon;
+      el.title = shopItems[placed.itemId].name;
+      el.style.display = 'block';
+    } else {
+      el.textContent = '';
+      el.style.display = 'none';
+    }
+  });
+}
+
+function syncWearPositions() {
+  const img = document.getElementById('pet-sprite');
+  if (!img) return;
+  const x = parseFloat(img.style.left) || 0;
+  const y = parseFloat(img.style.top) || 0;
+  const w = img.offsetWidth || 96;
+  const offsets = { 'wear-head': 6, 'wear-face': 36, 'wear-neck': 64 };
+  WEARABLE_SLOTS.forEach(slot => {
+    const el = document.getElementById(slot);
+    if (!el) return;
+    el.style.left = (x + w / 2) + 'px';
+    el.style.top = (y + offsets[slot]) + 'px';
+    el.style.transform = 'translateX(-50%)';
   });
 }
 
@@ -554,9 +676,24 @@ function closeShopModal() {
 
 function renderShopList() {
   const list = document.getElementById('shop-list');
-  list.innerHTML = Object.entries(shopItems).map(([itemId, item]) => {
+  const renderGroup = (entries) => entries.map(([itemId, item]) => {
     const owned = decorations.some(d => d.itemId === itemId);
     const affordable = (pet.coins || 0) >= item.price;
+    let btnLabel, btnAction, disabled;
+    if (!owned) {
+      btnLabel = '購買';
+      btnAction = `buyItem('${itemId}')`;
+      disabled = !affordable;
+    } else if (item.category === 'wearable') {
+      const equipped = decorations.some(d => d.itemId === itemId && d.slot === item.slot);
+      btnLabel = equipped ? '收下' : '穿上';
+      btnAction = `toggleWear('${itemId}')`;
+      disabled = false;
+    } else {
+      btnLabel = '已擁有';
+      btnAction = '';
+      disabled = true;
+    }
     return `
       <div class="shop-item">
         <span class="icon">${item.icon}</span>
@@ -564,10 +701,16 @@ function renderShopList() {
           <div class="name">${item.name}</div>
           <div class="price">🪙 ${item.price}</div>
         </div>
-        <button ${owned || !affordable ? 'disabled' : ''} onclick="buyItem('${itemId}')">${owned ? '已擁有' : '購買'}</button>
+        <button ${disabled ? 'disabled' : ''} onclick="${btnAction}">${btnLabel}</button>
       </div>
     `;
   }).join('');
+  const entries = Object.entries(shopItems);
+  const decorEntries = entries.filter(([, item]) => item.category !== 'wearable');
+  const wearEntries = entries.filter(([, item]) => item.category === 'wearable');
+  list.innerHTML =
+    `<div class="shop-group-title">房間裝飾</div>` + renderGroup(decorEntries) +
+    `<div class="shop-group-title">寶可夢穿搭</div>` + renderGroup(wearEntries);
 }
 
 async function buyItem(itemId) {
@@ -581,6 +724,26 @@ async function buyItem(itemId) {
     const data = await res.json();
     updateCoinsUI(data.coins);
     decorations.push({ itemId, slot: null });
+    renderShopList();
+  } catch (e) { /* 網路失敗，維持原狀讓玩家再試一次 */ }
+}
+
+/* 穿搭類道具沒有房間插槽可點，直接在商城列表用「穿上/收下」按鈕切換裝備狀態，
+   複用跟房間裝飾同一個 POST /api/pet/place 端點——wearable的slot是資料本身固定的。 */
+async function toggleWear(itemId) {
+  const item = shopItems[itemId];
+  const entry = decorations.find(d => d.itemId === itemId);
+  const newSlot = (entry && entry.slot === item.slot) ? null : item.slot;
+  try {
+    const res = await fetch('/api/pet/place', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${myToken}` },
+      body: JSON.stringify({ itemId, slot: newSlot }),
+    });
+    if (!res.ok) return;
+    if (entry) entry.slot = newSlot;
+    updateWearLayersUI();
+    syncWearPositions();
     renderShopList();
   } catch (e) { /* 網路失敗，維持原狀讓玩家再試一次 */ }
 }
@@ -604,7 +767,7 @@ function closeSlotModal() {
 function renderSlotPickList() {
   const list = document.getElementById('slot-pick-list');
   const current = decorations.find(d => d.slot === activeSlot);
-  const available = decorations.filter(d => d.slot === null);
+  const available = decorations.filter(d => d.slot === null && shopItems[d.itemId] && shopItems[d.itemId].category !== 'wearable');
   let html = '';
   if (current && shopItems[current.itemId]) {
     html += `<div class="slot-pick-item" onclick="placeItem('${current.itemId}', null)">
@@ -692,14 +855,7 @@ function triggerFirework(cx, cy) {
   }
 }
 
-/* ─────────────────────────────────────────
-   餵食/道具/拜訪朋友——先建按鈕，日後再實裝功能
-───────────────────────────────────────── */
 let toastTimer = null;
-function showComingSoon(label) {
-  showToast(`「${label}」功能尚未開放，敬請期待！`);
-}
-
 function showToast(message) {
   const toast = document.getElementById('toast');
   toast.textContent = message;
@@ -724,6 +880,7 @@ async function interactPet() {
   stage.appendChild(pop);
   pop.addEventListener('animationend', () => pop.remove(), { once: true });
 
+  resetIdleTimer();
   try {
     const res = await fetch('/api/pet/interact', {
       method: 'POST',
@@ -733,7 +890,191 @@ async function interactPet() {
     const data = await res.json();
     updateHappinessUI(data.happiness);
     document.getElementById('pet-reaction-text').textContent = data.reaction || '';
+    // 點擊互動有機率順便展示一下招式動畫，純視覺彩蛋，不接真實對戰招式資料
+    if (Math.random() < 0.3) playPetAnim(pet.speciesId, 'Attack', false);
   } catch (e) { /* 網路暫時失敗，畫面上的愛心動畫仍會播放，不影響體驗 */ }
+}
+
+/* ─────────────────────────────────────────
+   餵食：吃飽了不能再餵本身就是節流，不用另外做冷卻計時器
+───────────────────────────────────────── */
+let feeding = false;
+async function feedPet() {
+  if (feeding) return;
+  feeding = true;
+  setTimeout(() => { feeding = false; }, 500);
+  resetIdleTimer();
+  try {
+    const res = await fetch('/api/pet/feed', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${myToken}` },
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.fed) {
+      updateHungerUI(data.hunger);
+      showToast('已經吃飽了，晚點再來吧！');
+      return;
+    }
+    updateHungerUI(data.hunger);
+    updateHappinessUI(data.happiness);
+    document.getElementById('pet-reaction-text').textContent = data.reaction || '';
+    playPetAnim(pet.speciesId, 'Eat', false);
+  } catch (e) { /* 網路暫時失敗，維持原狀讓玩家再試一次 */ }
+}
+
+/* ─────────────────────────────────────────
+   動作動畫播放引擎——暫時把#pet-sprite的src蓋成透明像素，改用background-image
+   播放PMDCollab的sprite sheet；不逐幀還原AnimData.xml裡每幀不同的Duration，
+   改用「張數×固定時長」搭配CSS steps()均勻播完，對這麼小的圖示肉眼看不出差異
+───────────────────────────────────────── */
+let animTimer = null;
+let sleeping = false;
+function playPetAnim(speciesId, animName, loop) {
+  const table = PET_ANIM[speciesId];
+  if (!table) return;
+  const useName = table[animName] ? animName : 'Idle';
+  const meta = table[useName];
+  if (!meta || !currentSpUrls) return;
+  const img = document.getElementById('pet-sprite');
+  if (!img) return;
+  const [w, h, n] = meta;
+  const dex = String(speciesId).padStart(4, '0');
+  if (animTimer) { clearTimeout(animTimer); animTimer = null; }
+  sleeping = (animName === 'Sleep' && !!loop);
+  img.classList.add('pet-anim-playing');
+  img.style.backgroundImage = `url("${PET_ANIM_BASE_URL}/${dex}/${useName}-Anim.png")`;
+  img.style.width = w + 'px';
+  img.style.height = h + 'px';
+  img.style.setProperty('--frames', n);
+  img.style.setProperty('--strip-w', (w * n) + 'px');
+  img.src = TRANSPARENT_PIXEL;
+  const duration = n * 120;
+  img.style.animationDuration = duration + 'ms';
+  img.style.animationIterationCount = loop ? 'infinite' : '1';
+  if (!loop) animTimer = setTimeout(stopPetAnim, duration);
+}
+
+function stopPetAnim() {
+  if (animTimer) { clearTimeout(animTimer); animTimer = null; }
+  sleeping = false;
+  const img = document.getElementById('pet-sprite');
+  if (!img) return;
+  img.classList.remove('pet-anim-playing');
+  img.style.backgroundImage = '';
+  img.style.width = '';
+  img.style.height = '';
+  if (currentSpUrls) img.src = currentSpUrls.animated;
+}
+
+/* 閒置一段時間沒有互動（點擊寵物/按按鈕）就播放Sleep迴圈，純裝飾不影響任何數值；
+   下次互動立刻中斷恢復。客戶端限定，不存檔、不動server。 */
+let idleTimer = null;
+const IDLE_SLEEP_MS = 60000;
+function resetIdleTimer() {
+  if (idleTimer) clearTimeout(idleTimer);
+  if (sleeping) stopPetAnim();
+  idleTimer = setTimeout(() => {
+    if (pet) playPetAnim(pet.speciesId, 'Sleep', true);
+  }, IDLE_SLEEP_MS);
+}
+
+/* ─────────────────────────────────────────
+   拜訪朋友——唯讀查詢，重用renderRoomDecor房間渲染邏輯，不用另外複製一套畫面
+───────────────────────────────────────── */
+function openVisitModal() {
+  resetIdleTimer();
+  document.getElementById('visit-username-input').value = '';
+  document.getElementById('visit-result').style.display = 'none';
+  document.getElementById('visit-result').innerHTML = '';
+  document.getElementById('visit-search').style.display = 'flex';
+  document.getElementById('visit-modal').classList.add('open');
+}
+
+function closeVisitModal() {
+  document.getElementById('visit-modal').classList.remove('open');
+}
+
+async function visitFriend() {
+  const username = document.getElementById('visit-username-input').value.trim();
+  if (!username) return;
+  const resultEl = document.getElementById('visit-result');
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = `<p style="color:var(--muted);font-size:0.82rem">查詢中…</p>`;
+  try {
+    const res = await fetch(`/api/pet/visit/${encodeURIComponent(username)}`, {
+      headers: { Authorization: `Bearer ${myToken}` },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      resultEl.innerHTML = `<p style="color:var(--muted);font-size:0.82rem">${err.error === 'no_pet' ? '這位玩家還沒有寶可夢。' : '查無此玩家。'}</p>`;
+      return;
+    }
+    const data = await res.json();
+    renderVisitResult(data);
+  } catch (e) {
+    resultEl.innerHTML = `<p style="color:var(--muted);font-size:0.82rem">查詢失敗，請稍後再試。</p>`;
+  }
+}
+
+function renderVisitResult(data) {
+  document.getElementById('visit-search').style.display = 'none';
+  const resultEl = document.getElementById('visit-result');
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = '';
+
+  const header = document.createElement('div');
+  header.style.cssText = 'display:flex;justify-content:space-between;align-items:center';
+  header.innerHTML = `<span style="font-weight:700">${data.username}</span><span style="font-size:0.82rem;color:var(--muted)">好感度 ${data.pet.happiness}/100</span>`;
+  resultEl.appendChild(header);
+
+  const species = PET_SPECIES.find(s => s.id === data.pet.speciesId);
+  const stage = document.createElement('div');
+  stage.className = 'mini-stage' + (species ? ` room-${species.type}` : '');
+  resultEl.appendChild(stage);
+  renderRoomDecor(stage, species ? species.type : null);
+  renderReadOnlyDecor(stage, data.decorations || []);
+
+  if (data.badge) {
+    const b = document.createElement('img');
+    b.src = data.badge.image;
+    b.alt = data.badge.name;
+    b.title = data.badge.name;
+    b.className = 'visit-badge';
+    stage.appendChild(b);
+  }
+
+  const spUrls = spriteUrls(species || { id: data.pet.speciesId });
+  const img = document.createElement('img');
+  img.className = 'visit-pet-sprite';
+  img.src = spUrls.static;
+  img.onerror = () => { img.onerror = null; img.src = spUrls.animated; };
+  stage.appendChild(img);
+
+  const backBtn = document.createElement('div');
+  backBtn.className = 'modal-close';
+  backBtn.style.marginTop = '0.6rem';
+  backBtn.textContent = '← 重新查詢';
+  backBtn.onclick = openVisitModal;
+  resultEl.appendChild(backBtn);
+}
+
+function renderReadOnlyDecor(stage, decs) {
+  decs.forEach(d => {
+    if (!shopItems || !shopItems[d.itemId]) return;
+    const item = shopItems[d.itemId];
+    const el = document.createElement('div');
+    if (DECOR_SLOTS.includes(d.slot)) {
+      el.className = 'decor-slot ' + d.slot;
+    } else if (WEARABLE_SLOTS.includes(d.slot)) {
+      el.className = 'wear-layer-static ' + d.slot;
+    } else {
+      return;
+    }
+    el.textContent = item.icon;
+    el.title = item.name;
+    stage.appendChild(el);
+  });
 }
 
 init();

@@ -311,21 +311,29 @@ const BADGES = {
   'weekly-participant': { name: '週排行榜參與徽章', image: '/badges/weekly-participant-01.png' },
 };
 
-/* 商城道具——跟屬性無關的通用房間裝飾，買了永久持有（不是消耗品），純資料registry，
-   新增道具不需要碰前端邏輯（跟BADGES同一套設計）。 */
+/* 商城道具——跟屬性無關的通用房間裝飾/穿搭，買了永久持有（不是消耗品），純資料registry，
+   新增道具不需要碰前端邏輯（跟BADGES同一套設計）。category:'decor'放房間3插槽任一個；
+   category:'wearable'的slot是固定的（帽子只能戴頭上），玩家不能自己選插槽。 */
 const SHOP_ITEMS = {
-  'lamp-warm':     { name: '暖色檯燈', price: 30, icon: '🪔' },
-  'rug-round':     { name: '圓形地毯', price: 25, icon: '🟤' },
-  'plant-pot':     { name: '觀葉植物', price: 20, icon: '🪴' },
-  'picture-frame': { name: '掛畫',     price: 35, icon: '🖼️' },
-  'toy-ball':      { name: '玩具球',   price: 15, icon: '⚽' },
+  'lamp-warm':     { name: '暖色檯燈', price: 30, icon: '🪔', category: 'decor' },
+  'rug-round':     { name: '圓形地毯', price: 25, icon: '🟤', category: 'decor' },
+  'plant-pot':     { name: '觀葉植物', price: 20, icon: '🪴', category: 'decor' },
+  'picture-frame': { name: '掛畫',     price: 35, icon: '🖼️', category: 'decor' },
+  'toy-ball':      { name: '玩具球',   price: 15, icon: '⚽', category: 'decor' },
+  'hat-red':       { name: '紅色帽子',   price: 25, icon: '🧢', category: 'wearable', slot: 'wear-head' },
+  'glasses-round': { name: '圓框眼鏡',   price: 20, icon: '👓', category: 'wearable', slot: 'wear-face' },
+  'bow-pink':      { name: '粉紅蝴蝶結', price: 20, icon: '🎀', category: 'wearable', slot: 'wear-head' },
+  'scarf-blue':    { name: '藍色圍巾',   price: 25, icon: '🧣', category: 'wearable', slot: 'wear-neck' },
 };
 const DECOR_SLOTS = ['slot-wall', 'slot-floor-mid', 'slot-floor-right'];
+const WEARABLE_SLOTS = ['wear-head', 'wear-face', 'wear-neck'];
 // 每天依好感度核發金幣的公式，抓保守值，之後可依實際商城價格調整
 const DAILY_COIN_CAP = 20;
 function dailyCoinsForHappiness(happiness) {
   return Math.min(DAILY_COIN_CAP, Math.round(happiness / 4));
 }
+// 飢餓值每經過這麼多秒掉1點，抓保守值，之後可依實際遊戲節奏調整
+const HUNGER_DECAY_INTERVAL_SEC = 900;
 
 /* ═══════════════════════════════════════════
    GAME LOGIC  (synchronous server-side)
@@ -1525,6 +1533,20 @@ app.get('/api/team', requireAuth, async (req, res) => {
   }
 });
 
+/* 飢餓值lazy衰減——依實際經過時間（NOW() - last_fed_at）用SQL算出該掉幾點，套用後把錨點重置成NOW()。
+   整段比較留在SQL裡，不把TIMESTAMPTZ讀回JS做日期運算（跟claim-daily-coins的CURRENT_DATE教訓同一個坑）。 */
+async function decayHunger(userId) {
+  const { rows } = await pool.query(
+    `UPDATE pets
+     SET hunger = GREATEST(0, hunger - FLOOR(EXTRACT(EPOCH FROM (NOW() - last_fed_at)) / $1)::int),
+         last_fed_at = NOW()
+     WHERE user_id = $2
+     RETURNING hunger`,
+    [HUNGER_DECAY_INTERVAL_SEC, userId]
+  );
+  return rows[0]?.hunger;
+}
+
 /* ═══ 我的寶可夢：選一次寵物之後只讀/更新好感度，不能重選（MVP範圍） ═══ */
 app.get('/api/pet', requireAuth, async (req, res) => {
   try {
@@ -1535,7 +1557,8 @@ app.get('/api/pet', requireAuth, async (req, res) => {
     if (!rows.length) return res.json({ pet: null, badge });
     const { rows: decorRows } = await pool.query('SELECT item_id, slot FROM pet_decorations WHERE user_id = $1', [req.user.id]);
     const decorations = decorRows.map(r => ({ itemId: r.item_id, slot: r.slot }));
-    res.json({ pet: { speciesId: rows[0].species_id, happiness: rows[0].happiness, coins: rows[0].coins }, badge, decorations });
+    const hunger = await decayHunger(req.user.id);
+    res.json({ pet: { speciesId: rows[0].species_id, happiness: rows[0].happiness, coins: rows[0].coins, hunger }, badge, decorations });
   } catch (e) {
     console.error('pet fetch error:', e.message);
     res.status(503).json({ error: 'db_error' });
@@ -1600,7 +1623,17 @@ app.post('/api/pet/buy', requireAuth, async (req, res) => {
 /* slot為null代表收回道具欄；同一插槽同時只能有一件，先把佔用該插槽的其他道具清空再指定給這件 */
 app.post('/api/pet/place', requireAuth, async (req, res) => {
   const { itemId, slot } = req.body || {};
-  if (slot !== null && !DECOR_SLOTS.includes(slot)) return res.status(400).json({ error: 'invalid_slot' });
+  const validSlots = [...DECOR_SLOTS, ...WEARABLE_SLOTS];
+  if (slot !== null && !validSlots.includes(slot)) return res.status(400).json({ error: 'invalid_slot' });
+  // 穿搭類道具的slot是資料本身固定的（帽子只能戴頭上），雙向檢查：不能塞進跟自己定義不符的
+  // 穿搭插槽，也不能把穿搭道具塞進房間插槽（或反過來把房間道具塞進穿搭插槽）
+  if (slot !== null) {
+    const isWearSlot = WEARABLE_SLOTS.includes(slot);
+    const itemSlot = SHOP_ITEMS[itemId]?.slot;
+    if (isWearSlot ? itemSlot !== slot : itemSlot !== undefined) {
+      return res.status(400).json({ error: 'slot_mismatch' });
+    }
+  }
   try {
     const { rows } = await pool.query(
       'SELECT 1 FROM pet_decorations WHERE user_id = $1 AND item_id = $2', [req.user.id, itemId]
@@ -1652,6 +1685,52 @@ app.post('/api/pet/interact', requireAuth, async (req, res) => {
     res.json({ happiness, reaction, cooldown: false });
   } catch (e) {
     console.error('pet interact error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 餵食：先lazy衰減、再判斷吃不吃得下。「吃飽了不能再餵」本身就是節流，不用另外做冷卻計時器。 */
+const PET_FEED_REACTIONS = ['大口大口地吃了起來！', '滿足地咂咂嘴！', '吃得津津有味！', '開心地吃光光！'];
+app.post('/api/pet/feed', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT happiness FROM pets WHERE user_id = $1', [req.user.id]);
+    if (!rows.length) return res.status(404).json({ error: 'no_pet' });
+    const hunger = await decayHunger(req.user.id);
+    if (hunger >= 100) return res.json({ fed: false, reason: 'full', hunger });
+    const newHunger = Math.min(100, hunger + 25);
+    const newHappiness = Math.min(100, rows[0].happiness + 2);
+    await pool.query('UPDATE pets SET hunger = $1, happiness = $2 WHERE user_id = $3', [newHunger, newHappiness, req.user.id]);
+    const reaction = PET_FEED_REACTIONS[Math.floor(Math.random() * PET_FEED_REACTIONS.length)];
+    res.json({ fed: true, hunger: newHunger, happiness: newHappiness, reaction });
+  } catch (e) {
+    console.error('pet feed error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 拜訪朋友：唯讀查詢，不需要好友關係（沒有好友清單系統，比照排行榜的開放程度）。
+   刻意不回傳coins——別人的錢包餘額沒有展示必要。 */
+app.get('/api/pet/visit/:username', requireAuth, async (req, res) => {
+  try {
+    const { rows: userRows } = await pool.query('SELECT id, badge_id FROM users WHERE username = $1', [req.params.username]);
+    if (!userRows.length) return res.status(404).json({ error: 'user_not_found' });
+    const targetId = userRows[0].id;
+    const { rows: petRows } = await pool.query('SELECT species_id, happiness FROM pets WHERE user_id = $1', [targetId]);
+    if (!petRows.length) return res.status(404).json({ error: 'no_pet' });
+    const { rows: decorRows } = await pool.query(
+      'SELECT item_id, slot FROM pet_decorations WHERE user_id = $1 AND slot IS NOT NULL', [targetId]
+    );
+    const decorations = decorRows.map(r => ({ itemId: r.item_id, slot: r.slot }));
+    const badgeId = userRows[0].badge_id;
+    const badge = badgeId && BADGES[badgeId] ? { id: badgeId, ...BADGES[badgeId] } : null;
+    res.json({
+      username: req.params.username,
+      pet: { speciesId: petRows[0].species_id, happiness: petRows[0].happiness },
+      badge,
+      decorations,
+    });
+  } catch (e) {
+    console.error('pet visit error:', e.message);
     res.status(503).json({ error: 'db_error' });
   }
 });
@@ -2406,6 +2485,9 @@ async function initDB() {
     )`);
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS coins INTEGER NOT NULL DEFAULT 0`);
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS last_coin_grant_date DATE`);
+    // 飢餓值：DEFAULT NOW()讓補欄位當下就是錨點，不會讓舊寵物一登入就補算一大段過去的衰減
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS hunger INTEGER NOT NULL DEFAULT 100`);
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS last_fed_at TIMESTAMPTZ DEFAULT NOW()`);
     // 商城道具——買了就永久持有（不是消耗品），slot=NULL代表放在道具欄裡還沒擺進房間
     await pool.query(`CREATE TABLE IF NOT EXISTS pet_decorations (
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
