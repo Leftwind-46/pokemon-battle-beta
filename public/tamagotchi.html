@@ -63,9 +63,6 @@
   .pet-anim-playing{background-repeat:no-repeat;image-rendering:pixelated;animation-name:pet-anim-strip;animation-timing-function:steps(var(--frames))}
   @keyframes pet-anim-strip{from{background-position:0 0}to{background-position:calc(-1 * var(--strip-w)) 0}}
 
-  /* ── 小夥伴寶可夢（皮丘）：繞著主寶可夢跑，位置由JS的requestAnimationFrame迴圈即時算 ── */
-  .companion-sprite{position:absolute;z-index:4;width:32px;height:32px;image-rendering:pixelated;pointer-events:none;transform:translate(-50%,-50%);filter:drop-shadow(0 3px 4px rgba(0,0,0,0.4))}
-
   /* ── 寶可夢空間：依屬性設計成一個小房間（純CSS/SVG繪製，不外抓素材）──
      結構統一：牆面(62%) + 地板(38%，帶透視感的水平木紋/磁磚) + 一個屬性主題的角落擺設 */
   .room-wall{position:absolute;inset:0 0 38% 0;z-index:0}
@@ -348,20 +345,9 @@ const TRANSPARENT_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAA
 
 /* 寶可夢穿搭功能已經整個移除（2026-07-18，使用者放棄裝扮方向——WEAR_ANCHORS前後校正了
    三輪，根本原因抓對了（待機圖是動態GIF不是靜態PNG）之後精準度已經明顯改善，但使用者仍
-   覺得不夠理想，改走「小夥伴寶可夢繞著跑」的方向。見下方PICHU_COMPANION_FRAMES。
+   覺得不夠理想，改走「小夥伴寶可夢繞著跑」的方向；小夥伴（皮丘）後來又於2026-07-19移除。
    完整的sprite校正方法論還留著（.claude/skills/pet-sprite-calibration/SKILL.md），
    之後如果要重新做穿搭功能，那份skill的方法論依然適用，不用重新摸索一次。 */
-
-/* 小夥伴寶可夢——皮丘，在主寶可夢周圍繞圈跑。素材來源：Rangi42/polishedcrystal（Pokémon
-   Crystal同人disassembly專案的gfx/minis/pichu.png，遊戲內部用在圖鑑/背包選單的16×16
-   「mini sprite」，2幀，原始檔案是灰階4階調（GBC硬體限制），這裡手動上色成黃/黑（比對
-   TYPE_COLOR.electric的#f8d030）方便辨識成皮丘，而不是維持原本純灰階的選單圖示風格。
-   該repo沒有明確的LICENSE檔案，比照專案原本對PokeAPI/Showdown/PMDCollab這幾個非正式授權
-   的粉絲素材來源的既有處理方式（fetch/衍生+標註出處），沒有另外找正式CC授權的來源。 */
-const PICHU_COMPANION_FRAMES = [
-  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAsklEQVR4nGNgGPKAEUTIycn9RxZ89OgRWBwZ4FLDgs1UdMX4ABO6wLK8b2D61iYhOEYWx+uFZXnfGExcZHDadmbPE4aoSVwoXmDE5myQ5I8LBnA+h8EFRnR5DC88ggqCnIweBiA+zCvoAcyEzZkwxWp+7+DhARLHGQa4bANpgoUJyDBs0cuITTPMZmQAEyfoBTW/d3AvoGsGgSM9Iijhg+EkdJdgcxE2r2AYAIsJZDZNAABYwWjTGwJQrAAAAABJRU5ErkJggg==',
-  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAyUlEQVR4nGNgGGjACCLk5OT+Iws+evQILI4McKlhwWYqumJ8gAldYFneNzB9a5MQHCOL4/XCsrxvDCYuMjhtO7PnCUPUJC4ULzBiczZI8scFAzifw+ACI7o8hhceQQVBTkYPAxAf5hX0AGbC5kyYYjW/d/DwAIljA0zoAjA/ogccsjgyYEEXANkGs5mBgYuBYdI7LOI4XPDo0SNGkCKYF7AZeqRHBCV8WLC6C6oJG8DlFRQACnVQNCLTuNTidAHIyRAvMRCdrMkCAJwrZar4JykxAAAAAElFTkSuQmCC',
-];
 
 /* AI生成素材覆蓋層——皮卡丘試點（2026-07-19）。來源：使用者在ChatGPT上傳一張皮卡丘參考圖，
    請ChatGPT萃取成純技術性的「Style Specification」（無角色名稱，GBA風格/12-16色/無反鋸齒/
@@ -610,8 +596,6 @@ function startStage() {
   img.style.left = (stageW / 2 - 48) + 'px';
   img.style.top  = Math.max(1, stageH * 0.60) + 'px';
 
-  startCompanion(stage);
-
   if (walkTimer) clearInterval(walkTimer);
   scheduleWalk();
   resetIdleTimer();
@@ -713,62 +697,6 @@ function updateDecorSlotsUI() {
       el.title = '點擊擺放道具';
     }
   });
-}
-
-/* ─────────────────────────────────────────
-   小夥伴寶可夢（皮丘）——繞著主寶可夢的目前位置跑圈，用requestAnimationFrame每一幀
-   即時讀主寶可夢當下的left/top（不管牠是靜止還是走位中途），橢圓軌道模擬俯視透視感。
-   不依賴WEAR_ANCHORS那套「精準對齊某個部位」的座標系統——這正是使用者放棄裝扮功能、
-   改要小夥伴的原因，繞圈本身不需要pixel-perfect對齊，容錯空間大很多。
-───────────────────────────────────────── */
-let companionRAF = null;
-let companionAngle = Math.random() * Math.PI * 2;
-function startCompanion(stage) {
-  const companion = document.createElement('img');
-  companion.id = 'pet-companion';
-  companion.className = 'companion-sprite';
-  companion.src = PICHU_COMPANION_FRAMES[0];
-  companion.alt = '皮丘';
-  companion.title = '皮丘';
-  stage.appendChild(companion);
-
-  if (companionRAF) cancelAnimationFrame(companionRAF);
-  let lastFrameSwap = 0;
-  let frameIdx = 0;
-  function tick(now) {
-    const img = document.getElementById('pet-sprite');
-    const stageEl = document.getElementById('pet-stage');
-    if (!img || !stageEl) { companionRAF = requestAnimationFrame(tick); return; }
-    // 用getBoundingClientRect()讀「即時視覺位置」，不要用img.style.left/top——#pet-sprite的
-    // left/top有CSS transition(1.8s ease-in-out)做走位平滑動畫，style.left在JS設定的當下就已
-    // 經是「動畫終點」，但畫面上實際還在慢慢移動過去；如果拿style.left當圓心，小夥伴會瞬間繞
-    // 著寶可夢「還沒走到」的目標位置轉，寶可夢本體要花1.8秒才追上，兩者會明顯脫節分開一段時間
-    // （這個bug第一次實測就抓到了：截圖看到皮丘飄到房間另一頭去）。
-    const imgRect = img.getBoundingClientRect();
-    const stageRect = stageEl.getBoundingClientRect();
-    const petW = imgRect.width || 96;
-    const petH = imgRect.height || 96;
-    const centerX = (imgRect.left - stageRect.left) + petW / 2;
-    const centerY = (imgRect.top - stageRect.top) + petH / 2;
-    const radiusX = petW / 2 + 26;
-    const radiusY = petH / 2 * 0.45 + 14; // 橢圓（Y軸壓扁），看起來像繞著地面跑一圈而不是飄在半空
-    companionAngle += 0.025;
-    const cx = centerX + Math.cos(companionAngle) * radiusX;
-    const cy = centerY + Math.sin(companionAngle) * radiusY;
-    companion.style.left = cx + 'px';
-    companion.style.top = cy + 'px';
-    // 走到軌道前半圈（Y分量變小=靠近畫面上方=在寶可夢後面）時z-index降低，製造繞到後面的錯覺
-    companion.style.zIndex = Math.sin(companionAngle) < 0 ? 3 : 4;
-    const movingLeft = Math.cos(companionAngle + 0.025) - Math.cos(companionAngle) < 0;
-    companion.style.transform = `translate(-50%,-50%) scaleX(${movingLeft ? -1 : 1})`;
-    if (now - lastFrameSwap > 220) {
-      frameIdx = (frameIdx + 1) % PICHU_COMPANION_FRAMES.length;
-      companion.src = PICHU_COMPANION_FRAMES[frameIdx];
-      lastFrameSwap = now;
-    }
-    companionRAF = requestAnimationFrame(tick);
-  }
-  companionRAF = requestAnimationFrame(tick);
 }
 
 /* ─────────────────────────────────────────
