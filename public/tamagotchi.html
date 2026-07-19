@@ -346,7 +346,8 @@ const PET_ANIM = {
    是同一隻寶可夢從Sleep切到Attack畫面上會有感知得到的縮放跳動（frame切換那一刻），但這比
    「兩個動作大小長期不一致」的觀感問題小很多，使用者要的是「看起來跟待機差不多大」，不是
    「PMDCollab原始rig的角色比例被完整保留」。 */
-const ANIM_DISPLAY_TARGET = 88;
+const ANIM_DISPLAY_TARGET = 108;
+const FRAME_MS = 180; // 每幀顯示時長，原本120ms使用者反映切換太快，改慢一點看起來更順
 const PET_ANIM_BASE_URL = 'https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite';
 const TRANSPARENT_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 
@@ -1054,7 +1055,12 @@ function playPetAnim(speciesId, animName, loop) {
         img.style.top = (stage.clientHeight / 2 - h / 2) + 'px';
         facingLeft = false;
       }
+    } else if (!loop) {
+      // 一次性動作（吃東西/攻擊）播放期間先暫停走位排程，播完由stopPetAnim()重新排——
+      // 不然吃到一半突然被排定的走位打斷、寶可夢瞬間滑到別的地方，使用者反映「餵食時不要動」
+      if (walkTimer) { clearTimeout(walkTimer); walkTimer = null; }
     }
+    if (walkAnimRevertTimer) { clearTimeout(walkAnimRevertTimer); walkAnimRevertTimer = null; }
     currentAnimScale = ANIM_DISPLAY_TARGET / Math.max(w, h);
     img.classList.add('pet-anim-playing');
     img.style.backgroundImage = `url("${url}")`;
@@ -1064,7 +1070,7 @@ function playPetAnim(speciesId, animName, loop) {
     img.style.setProperty('--strip-w', (w * n) + 'px');
     img.src = TRANSPARENT_PIXEL;
     applySpriteTransform();
-    const duration = n * 120;
+    const duration = n * FRAME_MS;
     img.style.animationDuration = duration + 'ms';
     img.style.animationIterationCount = loop ? 'infinite' : '1';
     if (!loop) animTimer = setTimeout(stopPetAnim, duration);
@@ -1089,7 +1095,10 @@ function playStaticPoseArt(art, animName, loop) {
       img.style.top = (stage.clientHeight / 2 - art.h / 2) + 'px';
       facingLeft = false;
     }
+  } else if (!loop && walkTimer) {
+    clearTimeout(walkTimer); walkTimer = null; // 吃東西/攻擊播放期間先別亂走位，播完由stopPetAnim()重新排
   }
+  if (walkAnimRevertTimer) { clearTimeout(walkAnimRevertTimer); walkAnimRevertTimer = null; }
   currentAnimScale = ANIM_DISPLAY_TARGET / Math.max(art.w, art.h);
   img.classList.remove('pet-anim-playing');
   img.style.backgroundImage = '';
@@ -1102,12 +1111,13 @@ function playStaticPoseArt(art, animName, loop) {
 
 function stopPetAnim() {
   if (animTimer) { clearTimeout(animTimer); animTimer = null; }
-  const wasSleeping = sleeping;
   sleeping = false;
   // 「回到中性狀態」現在是回到Idle迴圈（PMDCollab），不是換回PokeAPI的靜態/動態圖——
   // playPetAnim()自己的reveal()會重新設好背景圖/尺寸/transform，這裡不用手動清一輪再設一輪
   if (pet) playPetAnim(pet.speciesId, 'Idle', true);
-  if (wasSleeping && !walkTimer) scheduleWalk();
+  // 不管剛剛是睡覺結束還是吃東西/攻擊播完，只要走位計時器已經被暫停（見reveal()裡的
+  // 暫停邏輯），這裡都要重新排一次，不然寶可夢會從此原地不動
+  if (!walkTimer) scheduleWalk();
 }
 
 /* 閒置一段時間沒有互動（點擊寵物/按按鈕）就播放Sleep迴圈，純裝飾不影響任何數值；
