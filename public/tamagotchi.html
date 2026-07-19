@@ -135,8 +135,8 @@
   .fishing-scene .scene-shore{position:absolute;left:58%;top:0;width:42%;height:100%;background:linear-gradient(180deg,#e0c088 0%,#c9a86a 100%)}
   .fishing-scene-pet{position:absolute;left:78%;bottom:14px;width:88px;height:88px;transform:translateX(-50%);image-rendering:pixelated}
   .fishing-scene-basket{position:absolute;left:94%;bottom:18px;transform:translateX(-50%);font-size:1.8rem}
-  .fishing-scene-rod{position:absolute;left:64%;bottom:30px;font-size:2rem;animation:rodBob 1.6s ease-in-out infinite;transform-origin:bottom center}
-  @keyframes rodBob{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}}
+  .fishing-scene-rod{position:absolute;left:58%;bottom:30px;transform:translateX(-50%);font-size:2rem;animation:rodBob 1.6s ease-in-out infinite;transform-origin:bottom center}
+  @keyframes rodBob{0%,100%{transform:translateX(-50%) scaleX(-1) rotate(-4deg)}50%{transform:translateX(-50%) scaleX(-1) rotate(4deg)}}
   .fishing-scene-text{position:absolute;left:50%;top:10px;transform:translateX(-50%);font-size:0.8rem;color:#e8eaf6;text-shadow:0 2px 4px rgba(0,0,0,0.6);z-index:2}
 
   /* ── 釣魚結果 ── */
