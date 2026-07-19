@@ -312,19 +312,16 @@ const BADGES = {
 
 /* 商城道具——跟屬性無關的通用房間裝飾/穿搭，買了永久持有（不是消耗品），純資料registry，
    新增道具不需要碰前端邏輯（跟BADGES同一套設計）。category:'decor'放房間3插槽任一個；
-   category:'wearable'的slot是固定的（帽子只能戴頭上），玩家不能自己選插槽。 */
+   穿搭類道具已經整個移除（2026-07-18，使用者放棄裝扮方向——sprite來源差異太大，
+   校正好幾輪眼鏡位置還是對不準，改走「小夥伴寶可夢繞著跑」的方向，見皮丘companion章節）。 */
 const SHOP_ITEMS = {
   'lamp-warm':     { name: '暖色檯燈', price: 30, icon: '🪔', category: 'decor' },
   'rug-round':     { name: '圓形地毯', price: 25, icon: '🟤', category: 'decor' },
   'plant-pot':     { name: '觀葉植物', price: 20, icon: '🪴', category: 'decor' },
   'picture-frame': { name: '掛畫',     price: 35, icon: '🖼️', category: 'decor' },
   'toy-ball':      { name: '玩具球',   price: 15, icon: '⚽', category: 'decor' },
-  /* 穿搭類暫時只留眼鏡——帽子/蝴蝶結/圍巾需要頭部/脖子錨點才能對齊，眼睛位置比較好抓，
-     先把這個做準才擴充其他部位（2026-07-18，使用者要求先縮小範圍）。 */
-  'glasses-round': { name: '圓框眼鏡',   price: 20, icon: '👓', category: 'wearable', slot: 'wear-face' },
 };
 const DECOR_SLOTS = ['slot-wall', 'slot-floor-mid', 'slot-floor-right'];
-const WEARABLE_SLOTS = ['wear-face'];
 // 每天依好感度核發金幣的公式，抓保守值，之後可依實際商城價格調整
 const DAILY_COIN_CAP = 20;
 function dailyCoinsForHappiness(happiness) {
@@ -1621,17 +1618,7 @@ app.post('/api/pet/buy', requireAuth, async (req, res) => {
 /* slot為null代表收回道具欄；同一插槽同時只能有一件，先把佔用該插槽的其他道具清空再指定給這件 */
 app.post('/api/pet/place', requireAuth, async (req, res) => {
   const { itemId, slot } = req.body || {};
-  const validSlots = [...DECOR_SLOTS, ...WEARABLE_SLOTS];
-  if (slot !== null && !validSlots.includes(slot)) return res.status(400).json({ error: 'invalid_slot' });
-  // 穿搭類道具的slot是資料本身固定的（帽子只能戴頭上），雙向檢查：不能塞進跟自己定義不符的
-  // 穿搭插槽，也不能把穿搭道具塞進房間插槽（或反過來把房間道具塞進穿搭插槽）
-  if (slot !== null) {
-    const isWearSlot = WEARABLE_SLOTS.includes(slot);
-    const itemSlot = SHOP_ITEMS[itemId]?.slot;
-    if (isWearSlot ? itemSlot !== slot : itemSlot !== undefined) {
-      return res.status(400).json({ error: 'slot_mismatch' });
-    }
-  }
+  if (slot !== null && !DECOR_SLOTS.includes(slot)) return res.status(400).json({ error: 'invalid_slot' });
   try {
     const { rows } = await pool.query(
       'SELECT 1 FROM pet_decorations WHERE user_id = $1 AND item_id = $2', [req.user.id, itemId]
