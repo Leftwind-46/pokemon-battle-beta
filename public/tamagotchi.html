@@ -133,13 +133,10 @@
   .fishing-scene{position:relative;width:100%;height:220px;border-radius:14px;overflow:hidden}
   .fishing-scene .scene-water{position:absolute;left:0;top:0;width:58%;height:100%;background:linear-gradient(180deg,#2a7aa8 0%,#1a5a80 100%)}
   .fishing-scene .scene-shore{position:absolute;left:58%;top:0;width:42%;height:100%;background:linear-gradient(180deg,#e0c088 0%,#c9a86a 100%)}
-  .fishing-scene-pet{position:absolute;left:78%;bottom:14px;width:88px;height:88px;transform:translateX(-50%) scaleX(-1);image-rendering:pixelated}
+  .fishing-scene-pet{position:absolute;left:78%;bottom:14px;width:88px;height:88px;transform:translateX(-50%);image-rendering:pixelated}
   .fishing-scene-basket{position:absolute;left:94%;bottom:18px;transform:translateX(-50%);font-size:1.8rem}
-  .scene-rod-pole{position:absolute;left:66%;bottom:26px;width:5px;height:56px;background:linear-gradient(90deg,#6d4c33,#8a6642);border-radius:3px;transform-origin:bottom center;transform:rotate(35deg);animation:rodBob 1.6s ease-in-out infinite}
-  @keyframes rodBob{0%,100%{transform:rotate(33deg)}50%{transform:rotate(37deg)}}
-  .scene-rod-line{position:absolute;left:66%;bottom:76px;width:130px;height:1px;background:rgba(255,255,255,0.55);transform-origin:left center;transform:rotate(10deg)}
-  .scene-rod-bobber{position:absolute;left:37%;bottom:70px;width:8px;height:8px;border-radius:50%;background:#f05030;border:1px solid #fff;animation:bobberFloat 1.8s ease-in-out infinite}
-  @keyframes bobberFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
+  .fishing-scene-rod{position:absolute;left:64%;bottom:30px;font-size:2rem;animation:rodBob 1.6s ease-in-out infinite;transform-origin:bottom center}
+  @keyframes rodBob{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}}
   .fishing-scene-text{position:absolute;left:50%;top:10px;transform:translateX(-50%);font-size:0.8rem;color:#e8eaf6;text-shadow:0 2px 4px rgba(0,0,0,0.6);z-index:2}
 
   /* ── 釣魚結果 ── */
@@ -151,12 +148,14 @@
   .fish-result-name.rare{color:#f8d030}
   .fish-result-fail{align-self:center;font-size:1.05rem;font-weight:700;color:var(--muted);text-align:center}
 
-  .fish-list-item{display:flex;align-items:center;gap:0.7rem;padding:0.5rem 0.7rem;border:1px solid var(--border);border-radius:12px;cursor:pointer}
-  .fish-list-item:hover{background:rgba(255,255,255,0.06)}
-  .fish-list-item img{width:40px;height:40px;object-fit:contain;image-rendering:pixelated}
-  .fish-list-item .name{flex:1;font-weight:700;font-size:0.88rem}
+  .fish-list-item{display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0.7rem;border:1px solid var(--border);border-radius:12px}
+  .fish-list-item img{width:40px;height:40px;object-fit:contain;image-rendering:pixelated;cursor:pointer}
+  .fish-list-item .name{flex:1;font-weight:700;font-size:0.88rem;cursor:pointer}
+  .fish-list-item .name:hover{text-decoration:underline}
   .fish-list-item .name.rare{color:#f8d030}
-  .fish-list-item .caught-at{font-size:0.7rem;color:var(--muted)}
+  .fish-list-item .caught-at{font-size:0.68rem;color:var(--muted)}
+  .fish-sell-btn{padding:0.35rem 0.6rem;border-radius:999px;border:none;font-size:0.72rem;font-weight:700;cursor:pointer;background:rgba(248,208,48,0.22);color:#f8d030;white-space:nowrap}
+  .fish-sell-btn:hover{background:rgba(248,208,48,0.35)}
 
   /* ── 互動按鈕列（餵食/道具/拜訪朋友，先建UI日後再實裝）── */
   .pet-actions{display:flex;gap:0.7rem;flex-wrap:wrap;justify-content:center}
@@ -315,9 +314,7 @@
       <div class="scene-water"></div>
       <div class="scene-shore"></div>
       <div class="fishing-scene-text">正在釣魚...</div>
-      <div class="scene-rod-line"></div>
-      <div class="scene-rod-bobber"></div>
-      <div class="scene-rod-pole"></div>
+      <div class="fishing-scene-rod">🎣</div>
       <img class="fishing-scene-pet" id="fishing-scene-pet-img" src="" alt="">
       <div class="fishing-scene-basket">🧺</div>
     </div>
@@ -1117,6 +1114,11 @@ const FISHING_WAIT_MS = 2500;
 function fishSpriteUrl(speciesId, shiny) {
   return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${shiny ? 'shiny/' : ''}${speciesId}.png`;
 }
+// 魚缸展示位用動態圖讓魚看起來會動——Gen5 B/W動圖的shiny版跟一般版路徑不一樣
+// （shiny資料夾包在animated底下，不是animated包在shiny底下，實測curl確認過）
+function fishAnimatedSpriteUrl(speciesId, shiny) {
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${shiny ? 'shiny/' : ''}${speciesId}.gif`;
+}
 
 async function openFishingScene() {
   if (!pet) return;
@@ -1172,7 +1174,7 @@ function collectFish() {
   if (!lastFishResult) return;
   // 這隻魚在剛剛那次 POST /api/pet/fish 就已經存進DB了，這裡純粹更新畫面
   const data = lastFishResult;
-  caughtFish.unshift({ id: data.fishId, fishType: data.fishType, name: data.name, speciesId: data.speciesId, shiny: data.shiny, caughtAt: data.caughtAt });
+  caughtFish.unshift({ id: data.fishId, fishType: data.fishType, name: data.name, speciesId: data.speciesId, shiny: data.shiny, sellPrice: data.sellPrice, caughtAt: data.caughtAt });
   lastFishResult = null;
   closeFishingResultModal();
   showToast('已收進魚籃！');
@@ -1184,7 +1186,7 @@ function renderFishTank() {
   if (displayFishData) {
     slot.className = '';
     slot.title = `${displayFishData.name}（點擊查看魚缸）`;
-    slot.innerHTML = `<img src="${fishSpriteUrl(displayFishData.speciesId, displayFishData.shiny)}" alt="${displayFishData.name}">`;
+    slot.innerHTML = `<img src="${fishAnimatedSpriteUrl(displayFishData.speciesId, displayFishData.shiny)}" alt="${displayFishData.name}">`;
   } else {
     slot.className = 'empty';
     slot.title = '尚無展示魚（點擊查看魚缸）';
@@ -1193,19 +1195,24 @@ function renderFishTank() {
 }
 
 function openFishTankModal() {
+  renderFishTankList();
+  document.getElementById('fish-tank-modal').classList.add('open');
+}
+
+function renderFishTankList() {
   const list = document.getElementById('fish-tank-list');
   list.innerHTML = caughtFish.length
     ? caughtFish.map(f => {
         const isRare = f.fishType === 'golden-magikarp' || f.fishType === 'red-gyarados';
         const caughtDate = f.caughtAt ? new Date(f.caughtAt).toLocaleDateString() : '';
-        return `<div class="fish-list-item" onclick="setDisplayFish(${f.id})">
-          <img src="${fishSpriteUrl(f.speciesId, f.shiny)}" alt="${f.name}">
-          <div class="name${isRare ? ' rare' : ''}">${f.name}</div>
+        return `<div class="fish-list-item">
+          <img src="${fishSpriteUrl(f.speciesId, f.shiny)}" alt="${f.name}" onclick="setDisplayFish(${f.id})">
+          <div class="name${isRare ? ' rare' : ''}" onclick="setDisplayFish(${f.id})">${f.name}</div>
           <div class="caught-at">${caughtDate}</div>
+          <button class="fish-sell-btn" onclick="sellFish(${f.id})">💰 賣出 ${f.sellPrice}</button>
         </div>`;
       }).join('')
     : '<div style="font-size:0.82rem;color:var(--muted);text-align:center">還沒有釣到任何魚</div>';
-  document.getElementById('fish-tank-modal').classList.add('open');
 }
 
 function closeFishTankModal() {
@@ -1223,6 +1230,26 @@ async function setDisplayFish(fishId) {
     displayFishData = caughtFish.find(f => f.id === fishId) || null;
     renderFishTank();
     closeFishTankModal();
+  } catch (e) { /* 網路暫時失敗，維持原狀讓玩家再試一次 */ }
+}
+
+async function sellFish(fishId) {
+  try {
+    const res = await fetch('/api/pet/fish/sell', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${myToken}` },
+      body: JSON.stringify({ fishId }),
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    caughtFish = caughtFish.filter(f => f.id !== fishId);
+    if (displayFishData && displayFishData.id === fishId) {
+      displayFishData = null; // 賣掉的剛好是展示中的那隻，DB端已經靠外鍵ON DELETE SET NULL清空了
+      renderFishTank();
+    }
+    updateCoinsUI(data.coins);
+    renderFishTankList();
+    showToast(`賣出獲得 ${data.gained} 金幣！`);
   } catch (e) { /* 網路暫時失敗，維持原狀讓玩家再試一次 */ }
 }
 

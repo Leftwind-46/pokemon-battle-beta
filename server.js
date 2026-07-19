@@ -328,10 +328,10 @@ const DECOR_SLOTS = ['slot-wall', 'slot-floor-mid', 'slot-floor-right'];
    sprite網址組法見 spriteUrl()/rollFish() 呼叫端，不需要另外做圖。 */
 const FISH_TYPES = {
   'none':            { name: '失敗',       weight: 50 },
-  'magikarp':        { name: '鯉魚王',     weight: 20, speciesId: 129, shiny: false },
-  'gyarados':        { name: '暴鯉龍',     weight: 15, speciesId: 130, shiny: false },
-  'golden-magikarp': { name: '黃金鯉魚王', weight: 10, speciesId: 129, shiny: true },
-  'red-gyarados':    { name: '紅色暴鯉龍', weight: 5,  speciesId: 130, shiny: true },
+  'magikarp':        { name: '鯉魚王',     weight: 20, speciesId: 129, shiny: false, sellPrice: 5 },
+  'gyarados':        { name: '暴鯉龍',     weight: 15, speciesId: 130, shiny: false, sellPrice: 15 },
+  'golden-magikarp': { name: '黃金鯉魚王', weight: 10, speciesId: 129, shiny: true,  sellPrice: 40 },
+  'red-gyarados':    { name: '紅色暴鯉龍', weight: 5,  speciesId: 130, shiny: true,  sellPrice: 80 },
 };
 function rollFish() {
   const entries = Object.entries(FISH_TYPES);
@@ -1755,6 +1755,26 @@ app.post('/api/pet/fish/display', requireAuth, async (req, res) => {
     res.json({});
   } catch (e) {
     console.error('pet fish display error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 賣魚換金幣——直接DELETE那筆pet_fish就好，如果賣掉的剛好是目前展示中的那隻，
+   pets.display_fish_id的外鍵是ON DELETE SET NULL，Postgres會自動清空展示欄位，
+   不用另外手動UPDATE。 */
+app.post('/api/pet/fish/sell', requireAuth, async (req, res) => {
+  const fishId = req.body?.fishId;
+  try {
+    const { rows } = await pool.query('SELECT fish_type FROM pet_fish WHERE id = $1 AND user_id = $2', [fishId, req.user.id]);
+    if (!rows.length) return res.status(404).json({ error: 'not_owned' });
+    const price = FISH_TYPES[rows[0].fish_type]?.sellPrice || 0;
+    await pool.query('DELETE FROM pet_fish WHERE id = $1', [fishId]);
+    const { rows: updated } = await pool.query(
+      'UPDATE pets SET coins = coins + $1 WHERE user_id = $2 RETURNING coins', [price, req.user.id]
+    );
+    res.json({ coins: updated[0].coins, gained: price });
+  } catch (e) {
+    console.error('pet fish sell error:', e.message);
     res.status(503).json({ error: 'db_error' });
   }
 });
