@@ -322,6 +322,28 @@ const SHOP_ITEMS = {
   'toy-ball':      { name: '玩具球',   price: 15, icon: '⚽', category: 'decor' },
 };
 const DECOR_SLOTS = ['slot-wall', 'slot-floor-mid', 'slot-floor-right'];
+
+/* 釣魚結果registry——weight加總=100，直接當百分比讀。黃金鯉魚王/紅色暴鯉龍刻意不生新素材，
+   直接借用鯉魚王(129)/暴鯉龍(130)在正史遊戲裡本來就是的shiny配色（金色/紅色跟需求完全對上），
+   sprite網址組法見 spriteUrl()/rollFish() 呼叫端，不需要另外做圖。 */
+const FISH_TYPES = {
+  'none':            { name: '失敗',       weight: 50 },
+  'magikarp':        { name: '鯉魚王',     weight: 20, speciesId: 129, shiny: false },
+  'gyarados':        { name: '暴鯉龍',     weight: 15, speciesId: 130, shiny: false },
+  'golden-magikarp': { name: '黃金鯉魚王', weight: 10, speciesId: 129, shiny: true },
+  'red-gyarados':    { name: '紅色暴鯉龍', weight: 5,  speciesId: 130, shiny: true },
+};
+function rollFish() {
+  const entries = Object.entries(FISH_TYPES);
+  const total = entries.reduce((s, [, f]) => s + f.weight, 0); // 100
+  let r = Math.random() * total;
+  for (const [id, f] of entries) {
+    if (r < f.weight) return id;
+    r -= f.weight;
+  }
+  return entries[entries.length - 1][0]; // 保底，理論上浮點誤差以外不會走到這行
+}
+
 // 每天依好感度核發金幣的公式，抓保守值，之後可依實際商城價格調整
 const DAILY_COIN_CAP = 20;
 function dailyCoinsForHappiness(happiness) {
@@ -1545,7 +1567,7 @@ async function decayHunger(userId) {
 /* ═══ 我的寶可夢：選一次寵物之後只讀/更新好感度，不能重選（MVP範圍） ═══ */
 app.get('/api/pet', requireAuth, async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT species_id, happiness, coins FROM pets WHERE user_id = $1', [req.user.id]);
+    const { rows } = await pool.query('SELECT species_id, happiness, coins, display_fish_id FROM pets WHERE user_id = $1', [req.user.id]);
     const { rows: userRows } = await pool.query('SELECT badge_id FROM users WHERE id = $1', [req.user.id]);
     const badgeId = userRows[0]?.badge_id;
     const badge = badgeId && BADGES[badgeId] ? { id: badgeId, ...BADGES[badgeId] } : null;
@@ -1553,7 +1575,12 @@ app.get('/api/pet', requireAuth, async (req, res) => {
     const { rows: decorRows } = await pool.query('SELECT item_id, slot FROM pet_decorations WHERE user_id = $1', [req.user.id]);
     const decorations = decorRows.map(r => ({ itemId: r.item_id, slot: r.slot }));
     const hunger = await decayHunger(req.user.id);
-    res.json({ pet: { speciesId: rows[0].species_id, happiness: rows[0].happiness, coins: rows[0].coins, hunger }, badge, decorations });
+    const { rows: fishRows } = await pool.query(
+      'SELECT id, fish_type, caught_at FROM pet_fish WHERE user_id = $1 ORDER BY caught_at DESC', [req.user.id]
+    );
+    const fish = fishRows.map(r => ({ id: r.id, fishType: r.fish_type, caughtAt: r.caught_at, ...FISH_TYPES[r.fish_type] }));
+    const displayFish = rows[0].display_fish_id ? (fish.find(f => f.id === rows[0].display_fish_id) || null) : null;
+    res.json({ pet: { speciesId: rows[0].species_id, happiness: rows[0].happiness, coins: rows[0].coins, hunger }, badge, decorations, fish, displayFish });
   } catch (e) {
     console.error('pet fetch error:', e.message);
     res.status(503).json({ error: 'db_error' });
@@ -1689,6 +1716,45 @@ app.post('/api/pet/feed', requireAuth, async (req, res) => {
     res.json({ fed: true, hunger: newHunger, happiness: newHappiness, reaction });
   } catch (e) {
     console.error('pet feed error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 釣魚：完全免費、不限次數（使用者確認過不用金幣成本也不用每日次數上限）。抽獎+存檔在同一次
+   呼叫裡原子完成——不要拆成「先跟前端要抽獎結果、前端點『收進魚籃』才存檔」兩段式，那樣等於
+   讓client端事後回報一個信任的結果，前端隨便送個fishType='red-gyarados'就能無中生有一條魚。
+   前端UI上的「跳結果→點擊收進魚籃」兩步驟感覺，靠這次回應裡已經帶的完整魚資料，在前端本地
+   模擬那個節奏就好，不需要真的補第二次網路請求。 */
+app.post('/api/pet/fish', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT 1 FROM pets WHERE user_id = $1', [req.user.id]);
+    if (!rows.length) return res.status(404).json({ error: 'no_pet' });
+    const fishType = rollFish();
+    if (fishType === 'none') {
+      return res.json({ fishType, ...FISH_TYPES[fishType] });
+    }
+    const { rows: insertRows } = await pool.query(
+      'INSERT INTO pet_fish (user_id, fish_type) VALUES ($1, $2) RETURNING id, caught_at',
+      [req.user.id, fishType]
+    );
+    res.json({ fishType, ...FISH_TYPES[fishType], fishId: insertRows[0].id, caughtAt: insertRows[0].caught_at });
+  } catch (e) {
+    console.error('pet fish error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+app.post('/api/pet/fish/display', requireAuth, async (req, res) => {
+  const fishId = req.body?.fishId ?? null;
+  try {
+    if (fishId !== null) {
+      const { rows } = await pool.query('SELECT 1 FROM pet_fish WHERE id = $1 AND user_id = $2', [fishId, req.user.id]);
+      if (!rows.length) return res.status(404).json({ error: 'not_owned' });
+    }
+    await pool.query('UPDATE pets SET display_fish_id = $1 WHERE user_id = $2', [fishId, req.user.id]);
+    res.json({});
+  } catch (e) {
+    console.error('pet fish display error:', e.message);
     res.status(503).json({ error: 'db_error' });
   }
 });
@@ -2494,6 +2560,16 @@ async function initDB() {
       acquired_at TIMESTAMPTZ DEFAULT NOW(),
       PRIMARY KEY (user_id, item_id)
     )`);
+    // 釣魚——用SERIAL PRIMARY KEY而不是像pet_decorations那樣用(user_id,item_id)複合主鍵，
+    // 因為魚可以重複釣到同一種，每次都是新的一列，不是「擁有一件獨特道具」那種語意。
+    // 必須排在下面ALTER TABLE pets之前，因為display_fish_id的外鍵參照到這張表。
+    await pool.query(`CREATE TABLE IF NOT EXISTS pet_fish (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      fish_type TEXT NOT NULL,
+      caught_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS display_fish_id INTEGER REFERENCES pet_fish(id) ON DELETE SET NULL`);
     console.log('PostgreSQL connected');
   } catch (e) {
     console.warn('PostgreSQL not available, running without DB:', e.message);
