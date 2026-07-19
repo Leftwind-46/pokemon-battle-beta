@@ -52,7 +52,7 @@
   .room-wall{position:absolute;inset:0 0 38% 0;z-index:0}
   .room-floor{position:absolute;left:0;right:0;bottom:0;height:40%;z-index:0;box-shadow:0 -3px 10px rgba(0,0,0,0.35) inset}
   .room-floor::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(180deg,rgba(0,0,0,0.14) 0,rgba(0,0,0,0.14) 2px,transparent 2px,transparent 22px)}
-  .room-decor{position:absolute;left:0;right:0;bottom:0;height:100%;z-index:1;pointer-events:none;background-repeat:no-repeat;background-position:bottom left;background-size:auto 44%}
+  .room-decor{position:absolute;left:0;right:0;bottom:0;height:100%;z-index:1;pointer-events:none;background-repeat:no-repeat;background-position:bottom left;background-size:auto 28%}
 
   .room-grass .room-wall{background:linear-gradient(180deg,#0d1f12 0%,#1a3a20 100%)}
   .room-grass .room-floor{background:#4a3624}
@@ -531,10 +531,10 @@ function startStage() {
   img.onclick = interactPet;
   stage.appendChild(img);
 
-  // 初始位置置中
+  // 初始位置置中，Y軸落在磁磚地板範圍內（對齊 walkToRandomSpot 的地板判定）
   const stageW = stage.clientWidth, stageH = stage.clientHeight;
   img.style.left = (stageW / 2 - 48) + 'px';
-  img.style.top  = (stageH / 2 - 48) + 'px';
+  img.style.top  = Math.max(1, stageH * 0.60) + 'px';
 
   startCompanion(stage);
 
@@ -566,8 +566,10 @@ function walkToRandomSpot() {
   if (!stage || !img) return;
   const stageW = stage.clientWidth, stageH = stage.clientHeight;
   const margin = 96;
+  // 只在磁磚地板範圍內遊走，不要走上牆面——地板對齊 .room-floor 的 CSS height:40%（頂部從60%開始）
+  const floorTopY = Math.min(stageH * 0.60, Math.max(1, stageH - margin));
   const newX = Math.random() * Math.max(1, stageW - margin);
-  const newY = Math.random() * Math.max(1, stageH - margin);
+  const newY = floorTopY + Math.random() * Math.max(1, stageH - margin - floorTopY);
   const curX = parseFloat(img.style.left) || 0;
   if (newX < curX) facingLeft = true;
   else if (newX > curX) facingLeft = false;
