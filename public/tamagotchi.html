@@ -127,14 +127,20 @@
     100%{transform:translate(var(--fx),var(--fy)) scale(0.2);opacity:0}
   }
 
-  /* ── 釣魚中畫面：純CSS場景，不外抓素材——上半水面漸層、下半沙岸，寶可夢站在交界處，
-     🎣/🧺 emoji擺在旁邊當釣竿/魚籃，🎣加個輕微擺動暗示正在等待 ── */
-  .fishing-scene{position:relative;width:100%;height:220px;border-radius:14px;overflow:hidden;background:linear-gradient(180deg,#1a5a80 0%,#2a7aa8 55%,#2a7aa8 62%,#c9a86a 62%,#e0c088 100%)}
-  .fishing-scene-pet{position:absolute;left:50%;bottom:38%;width:96px;height:96px;transform:translateX(-70%);image-rendering:pixelated}
-  .fishing-scene-rod{position:absolute;left:calc(50% + 30px);bottom:44%;font-size:2rem;animation:rodBob 1.4s ease-in-out infinite;transform-origin:bottom center}
-  @keyframes rodBob{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}}
-  .fishing-scene-basket{position:absolute;left:calc(50% - 70px);bottom:40%;font-size:1.8rem}
-  .fishing-scene-text{position:absolute;left:50%;top:10px;transform:translateX(-50%);font-size:0.8rem;color:#e8eaf6;text-shadow:0 2px 4px rgba(0,0,0,0.6)}
+  /* ── 釣魚中畫面：純CSS場景，不外抓素材——左邊海、右邊岸，寶可夢站在岸上面向左邊的海，
+     身後（更右邊）放魚籃，釣竿插在寶可夢手邊的沙灘上、竿頭斜向海面，一條線一路拉到
+     海面上的浮標，暗示「竿在岸上、線甩到海裡」。 ── */
+  .fishing-scene{position:relative;width:100%;height:220px;border-radius:14px;overflow:hidden}
+  .fishing-scene .scene-water{position:absolute;left:0;top:0;width:58%;height:100%;background:linear-gradient(180deg,#2a7aa8 0%,#1a5a80 100%)}
+  .fishing-scene .scene-shore{position:absolute;left:58%;top:0;width:42%;height:100%;background:linear-gradient(180deg,#e0c088 0%,#c9a86a 100%)}
+  .fishing-scene-pet{position:absolute;left:78%;bottom:14px;width:88px;height:88px;transform:translateX(-50%) scaleX(-1);image-rendering:pixelated}
+  .fishing-scene-basket{position:absolute;left:94%;bottom:18px;transform:translateX(-50%);font-size:1.8rem}
+  .scene-rod-pole{position:absolute;left:66%;bottom:26px;width:5px;height:56px;background:linear-gradient(90deg,#6d4c33,#8a6642);border-radius:3px;transform-origin:bottom center;transform:rotate(35deg);animation:rodBob 1.6s ease-in-out infinite}
+  @keyframes rodBob{0%,100%{transform:rotate(33deg)}50%{transform:rotate(37deg)}}
+  .scene-rod-line{position:absolute;left:66%;bottom:76px;width:130px;height:1px;background:rgba(255,255,255,0.55);transform-origin:left center;transform:rotate(10deg)}
+  .scene-rod-bobber{position:absolute;left:37%;bottom:70px;width:8px;height:8px;border-radius:50%;background:#f05030;border:1px solid #fff;animation:bobberFloat 1.8s ease-in-out infinite}
+  @keyframes bobberFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
+  .fishing-scene-text{position:absolute;left:50%;top:10px;transform:translateX(-50%);font-size:0.8rem;color:#e8eaf6;text-shadow:0 2px 4px rgba(0,0,0,0.6);z-index:2}
 
   /* ── 釣魚結果 ── */
   .fish-result-sprite-wrap{position:relative;align-self:center;width:140px;height:140px;display:flex;align-items:center;justify-content:center}
@@ -306,9 +312,13 @@
   <div class="modal-box" onclick="event.stopPropagation()">
     <h2>🎣 釣魚中</h2>
     <div class="fishing-scene">
+      <div class="scene-water"></div>
+      <div class="scene-shore"></div>
       <div class="fishing-scene-text">正在釣魚...</div>
+      <div class="scene-rod-line"></div>
+      <div class="scene-rod-bobber"></div>
+      <div class="scene-rod-pole"></div>
       <img class="fishing-scene-pet" id="fishing-scene-pet-img" src="" alt="">
-      <div class="fishing-scene-rod">🎣</div>
       <div class="fishing-scene-basket">🧺</div>
     </div>
   </div>
