@@ -31,7 +31,26 @@
   .species-card.custom-entry .custom-icon{font-size:2.2rem;margin-bottom:0.3rem}
 
   /* ── pet stage ── */
-  #stage-screen{display:none;flex-direction:column;align-items:center;gap:1rem;width:100%;max-width:700px}
+  #stage-screen{display:none;flex-direction:row;align-items:flex-start;justify-content:center;gap:1.5rem;width:100%;max-width:920px}
+  #stage-main{display:flex;flex-direction:column;align-items:center;gap:1rem;flex:1;min-width:0;max-width:700px}
+
+  /* ── 我的收藏（徽章＋擁有的寶可夢，桌面版是左側常駐側欄，窄螢幕收成一顆按鈕+彈窗）── */
+  #collection-sidebar{width:190px;flex-shrink:0;display:flex;flex-direction:column;gap:0.8rem;padding:1rem;border-radius:16px;border:2px solid var(--border);background:rgba(255,255,255,0.04)}
+  #collection-sidebar h3{font-size:0.9rem}
+  .collection-badge-row{display:flex;align-items:center;gap:0.6rem}
+  .collection-badge-mini{width:40px;height:40px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.1rem;background:rgba(0,0,0,0.2);border:2px dashed rgba(255,255,255,0.25);color:var(--muted)}
+  .collection-badge-mini img{width:100%;height:100%;border-radius:50%;object-fit:cover;box-shadow:0 0 10px rgba(248,208,48,0.55)}
+  .collection-badge-name{font-size:0.78rem;color:var(--muted)}
+  .collection-mon-list{display:flex;flex-direction:column;gap:0.5rem;max-height:340px;overflow-y:auto}
+  .collection-mon-item{display:flex;align-items:center;gap:0.5rem;padding:0.35rem;border-radius:10px;background:rgba(255,255,255,0.03)}
+  .collection-mon-item img{width:36px;height:36px;image-rendering:pixelated;flex-shrink:0}
+  .collection-mon-item .cm-name{font-size:0.78rem;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .collection-mon-item .cm-strip{width:6px;align-self:stretch;border-radius:3px;flex-shrink:0}
+  #collection-toggle-btn{display:none;position:fixed;left:1rem;bottom:1rem;z-index:80;width:48px;height:48px;border-radius:50%;border:none;background:linear-gradient(135deg,#f8d030,#f05030);color:#1a1a2e;font-size:1.2rem;cursor:pointer;box-shadow:0 4px 16px rgba(248,208,48,0.4)}
+  @media (max-width:860px){
+    #collection-sidebar{display:none}
+    #collection-toggle-btn{display:flex;align-items:center;justify-content:center}
+  }
   .happiness-bar{width:100%;max-width:340px;display:flex;align-items:center;gap:0.6rem}
   .happiness-track{flex:1;height:14px;border-radius:999px;background:rgba(255,255,255,0.1);overflow:hidden}
   .happiness-fill{height:100%;background:linear-gradient(90deg,#f8d030,#f05030);transition:width 0.4s ease}
@@ -160,7 +179,7 @@
 
   <div id="gate-screen">
     <p style="color:var(--muted)">這個玩法需要先登入帳號才能使用。</p>
-    <a class="btn btn-primary" href="/pvp.html">前往登入</a>
+    <a class="btn btn-primary" href="/index.html">前往登入</a>
     <a class="back" href="/">← 返回主選單</a>
   </div>
 
@@ -171,27 +190,39 @@
   </div>
 
   <div id="stage-screen">
-    <div id="pet-name-label"></div>
-    <div class="happiness-bar">
-      <span style="font-size:0.85rem;color:var(--muted)">好感度</span>
-      <div class="happiness-track"><div class="happiness-fill" id="happiness-fill"></div></div>
-      <span id="happiness-text" style="font-size:0.85rem;font-weight:700">0/100</span>
-      <div id="coin-display">🪙 <span id="coin-text">0</span></div>
+    <div id="collection-sidebar">
+      <h3>🎒 我的收藏</h3>
+      <div class="collection-badge-row">
+        <div class="collection-badge-mini" id="collection-badge-mini"></div>
+        <div class="collection-badge-name" id="collection-badge-name">尚未獲得徽章</div>
+      </div>
+      <div class="collection-mon-list" id="collection-sidebar-body"></div>
     </div>
-    <div class="happiness-bar">
-      <span style="font-size:0.85rem;color:var(--muted)">飢餓值</span>
-      <div class="happiness-track"><div class="happiness-fill hunger-fill" id="hunger-fill"></div></div>
-      <span id="hunger-text" style="font-size:0.85rem;font-weight:700">0/100</span>
+    <button id="collection-toggle-btn" onclick="openCollectionModal()" title="我的收藏">🎒</button>
+
+    <div id="stage-main">
+      <div id="pet-name-label"></div>
+      <div class="happiness-bar">
+        <span style="font-size:0.85rem;color:var(--muted)">好感度</span>
+        <div class="happiness-track"><div class="happiness-fill" id="happiness-fill"></div></div>
+        <span id="happiness-text" style="font-size:0.85rem;font-weight:700">0/100</span>
+        <div id="coin-display">🪙 <span id="coin-text">0</span></div>
+      </div>
+      <div class="happiness-bar">
+        <span style="font-size:0.85rem;color:var(--muted)">飢餓值</span>
+        <div class="happiness-track"><div class="happiness-fill hunger-fill" id="hunger-fill"></div></div>
+        <span id="hunger-text" style="font-size:0.85rem;font-weight:700">0/100</span>
+      </div>
+      <div id="pet-stage"></div>
+      <div id="pet-reaction-text"></div>
+      <div class="pet-actions">
+        <div class="pet-action-btn" onclick="feedPet()"><span class="icon">🍖</span>餵食</div>
+        <div class="pet-action-btn" onclick="openShopModal()"><span class="icon">🎒</span>道具</div>
+        <div class="pet-action-btn" onclick="openVisitModal()"><span class="icon">🚪</span>拜訪朋友</div>
+      </div>
+      <p style="font-size:0.68rem;color:var(--muted);text-align:center">動作素材來源：<a href="https://github.com/PMDCollab/SpriteCollab" target="_blank" rel="noopener" style="color:var(--muted)">PMDCollab/SpriteCollab</a>（CC BY-NC）</p>
+      <a class="back" href="/">← 返回主選單</a>
     </div>
-    <div id="pet-stage"></div>
-    <div id="pet-reaction-text"></div>
-    <div class="pet-actions">
-      <div class="pet-action-btn" onclick="feedPet()"><span class="icon">🍖</span>餵食</div>
-      <div class="pet-action-btn" onclick="openShopModal()"><span class="icon">🎒</span>道具</div>
-      <div class="pet-action-btn" onclick="openVisitModal()"><span class="icon">🚪</span>拜訪朋友</div>
-    </div>
-    <p style="font-size:0.68rem;color:var(--muted);text-align:center">動作素材來源：<a href="https://github.com/PMDCollab/SpriteCollab" target="_blank" rel="noopener" style="color:var(--muted)">PMDCollab/SpriteCollab</a>（CC BY-NC）</p>
-    <a class="back" href="/">← 返回主選單</a>
   </div>
 </div>
 <div id="toast"></div>
@@ -214,6 +245,17 @@
     <h2>選擇擺放的道具</h2>
     <div id="slot-pick-list"></div>
     <div class="modal-close" onclick="closeSlotModal()">關閉</div>
+  </div>
+</div>
+<div id="collection-modal" class="modal-overlay" onclick="closeCollectionModal()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <h2>🎒 我的收藏</h2>
+    <div class="collection-badge-row">
+      <div class="collection-badge-mini" id="collection-modal-badge-mini"></div>
+      <div class="collection-badge-name" id="collection-modal-badge-name">尚未獲得徽章</div>
+    </div>
+    <div class="collection-mon-list" id="collection-modal-body"></div>
+    <div class="modal-close" onclick="closeCollectionModal()">關閉</div>
   </div>
 </div>
 <div id="visit-modal" class="modal-overlay" onclick="closeVisitModal()">
@@ -259,6 +301,18 @@ const PET_SPECIES = [
   { id: 133, name: '伊布',     type: 'normal', custom: true },
 ];
 const TYPE_COLOR = { grass:'#78c850', fire:'#f05030', water:'#6890f0', electric:'#f8d030', ghost:'#705898', normal:'#a8a878' };
+
+/* 「我的收藏」側欄用的完整18屬性色表——上面的 TYPE_COLOR 只涵蓋6種「我的寶可夢」房間主題色，
+   但 GET /api/team 回傳的是完整152隻對戰名單的寶可夢，屬性種類遠不只6種，不能共用同一張表。 */
+const TEAM_TYPE_COLOR = {
+  fire:'#f05030', water:'#6890f0', grass:'#78c850', electric:'#f8d030',
+  psychic:'#f85888', fighting:'#c03028', ghost:'#705898', dragon:'#7038f8',
+  steel:'#b8b8d0', ice:'#98d8d8', normal:'#a8a878', dark:'#705848',
+  ground:'#e0c068', flying:'#a890f0', rock:'#b8a038', fairy:'#ee99ac',
+  poison:'#a040a0', bug:'#a8b820',
+};
+function teamSpriteUrl(id) { return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`; }
+function teamOfficialArtworkUrl(id) { return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`; }
 
 /* 動作動畫素材：PMDCollab/SpriteCollab（CC BY-NC，已在畫面上標註來源）。
    每隻寶可夢的 Eat/Sleep/Attack sprite sheet 尺寸[寬,高,張數]，從 AnimData.xml 解析確認。
@@ -519,6 +573,8 @@ function startStage() {
   badgeSlot.id = 'badge-slot';
   stage.appendChild(badgeSlot);
   renderBadgeSlot();
+  renderBadgeMini();
+  loadMyTeamForCollection();
 
   renderDecorSlots(stage);
 
@@ -839,6 +895,60 @@ function openBadgeModal() {
 
 function closeBadgeModal() {
   document.getElementById('badge-modal').classList.remove('open');
+}
+
+/* ─────────────────────────────────────────
+   我的收藏——左側欄（桌面）/ 按鈕+彈窗（窄螢幕）共用同一份渲染邏輯，
+   徽章沿用 startStage() 已經載入的 badge 變數，寶可夢清單另外呼叫一次
+   GET /api/team（跟 pvp.html「我的隊伍」畫面同一支既有端點）。
+───────────────────────────────────────── */
+let myTeam = [];
+
+function renderBadgeMini() {
+  ['collection-badge-mini', 'collection-modal-badge-mini'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = badge ? `<img src="${badge.image}" alt="${badge.name}">` : '🔒';
+    el.title = badge ? badge.name : '尚未獲得徽章';
+  });
+  ['collection-badge-name', 'collection-modal-badge-name'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = badge ? badge.name : '尚未獲得徽章';
+  });
+}
+
+function renderCollectionMonList() {
+  const html = myTeam.length
+    ? myTeam.map(p => {
+        const col = TEAM_TYPE_COLOR[p.type] || '#888';
+        return `<div class="collection-mon-item">
+          <div class="cm-strip" style="background:${col}"></div>
+          <img src="${teamSpriteUrl(p.id)}" alt="${p.name}" onerror="this.onerror=null;this.src='${teamOfficialArtworkUrl(p.id)}'">
+          <div class="cm-name">${p.name}</div>
+        </div>`;
+      }).join('')
+    : '<div style="font-size:0.78rem;color:var(--muted)">尚未取得隊伍資料</div>';
+  ['collection-sidebar-body', 'collection-modal-body'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = html;
+  });
+}
+
+async function loadMyTeamForCollection() {
+  try {
+    const res = await fetch('/api/team', { headers: { Authorization: `Bearer ${myToken}` } });
+    if (!res.ok) return;
+    const data = await res.json();
+    myTeam = data.team || [];
+    renderCollectionMonList();
+  } catch (e) { /* 側欄拿不到隊伍資料就維持空清單，不影響主要養成功能 */ }
+}
+
+function openCollectionModal() {
+  document.getElementById('collection-modal').classList.add('open');
+}
+function closeCollectionModal() {
+  document.getElementById('collection-modal').classList.remove('open');
 }
 
 function triggerFirework(cx, cy) {

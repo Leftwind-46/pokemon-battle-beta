@@ -24,6 +24,18 @@
     .mode-icon{font-size:2.2rem;flex-shrink:0;width:48px;text-align:center}
     .mode-title{font-size:1.05rem;font-weight:800;margin-bottom:0.22rem}
     .mode-desc{font-size:0.8rem;color:var(--muted);line-height:1.4}
+    .btn{padding:0.6rem 1.4rem;border:none;border-radius:999px;font-size:0.9rem;font-weight:700;cursor:pointer;transition:all 0.2s;letter-spacing:0.02em}
+    .btn-primary{background:linear-gradient(135deg,#f8d030,#f05030);color:#fff;box-shadow:0 4px 20px rgba(248,208,48,0.3)}
+    .btn-primary:hover{transform:translateY(-2px);box-shadow:0 6px 28px rgba(248,208,48,0.5)}
+    .btn-secondary{background:rgba(255,255,255,0.07);color:var(--text);border:1px solid var(--border)}
+    .btn-secondary:hover{background:rgba(255,255,255,0.13);transform:translateY(-2px)}
+    #auth-bar{display:flex;gap:0.6rem;align-items:center;font-size:0.85rem;color:var(--muted);flex-wrap:wrap;justify-content:center}
+    #auth-status-anon, #auth-status-loggedin{display:flex;gap:0.5rem;align-items:center}
+    #auth-status-loggedin{display:none}
+    #auth-panel{display:none;flex-direction:column;gap:0.6rem;width:100%;max-width:280px;align-items:center}
+    #auth-panel input{padding:0.6rem 1rem;border-radius:999px;border:2px solid var(--border);background:rgba(255,255,255,0.07);color:var(--text);font-size:1rem;width:100%;box-sizing:border-box;text-align:center;outline:none}
+    #auth-panel .btn{width:100%}
+    #auth-err{color:#ef5350;font-size:0.82rem;min-height:1.1em}
   </style>
 </head>
 <body>
@@ -34,6 +46,26 @@
     <h1>寶可夢卡牌對戰</h1>
     <p>選擇遊戲模式</p>
   </div>
+
+  <div id="auth-bar">
+    <span id="auth-status-anon">
+      <button class="btn btn-secondary" onclick="toggleAuthPanel()">登入 / 註冊</button>
+    </span>
+    <span id="auth-status-loggedin">
+      已登入：<b id="auth-username-label"></b>
+      <button class="btn btn-secondary" onclick="logout()">登出</button>
+    </span>
+  </div>
+
+  <div id="auth-panel">
+    <p id="auth-mode-label" style="font-weight:700">登入</p>
+    <input id="auth-username-input" placeholder="帳號（3-20碼英數/底線）">
+    <input id="auth-password-input" type="password" placeholder="密碼（至少8碼）" onkeydown="if(event.key==='Enter')submitAuth()">
+    <button class="btn btn-primary" id="auth-submit-btn" onclick="submitAuth()">登入</button>
+    <button class="btn btn-secondary" onclick="toggleAuthMode()" id="auth-toggle-btn">還沒有帳號？註冊一個</button>
+    <div id="auth-err"></div>
+  </div>
+
   <div class="modes">
     <a class="mode-card" href="/single.html">
       <div class="mode-icon">🤖</div>
@@ -65,6 +97,98 @@
   function draw(){ctx.clearRect(0,0,cvs.width,cvs.height);for(const s of stars){s.a+=s.da;if(s.a<=0.05||s.a>=1)s.da=-s.da;ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fillStyle=`rgba(255,255,255,${s.a.toFixed(2)})`;ctx.fill();}requestAnimationFrame(draw);}
   resize();draw();addEventListener('resize',resize);
 })();
+
+/* ─────────────────────────────────────────
+   ACCOUNTS —— 登入介面統一放在首頁，pvp.html/tamagotchi.html
+   都只讀同一把 localStorage['pvpToken']，不需要各自帶一份表單。
+───────────────────────────────────────── */
+let myToken    = localStorage.getItem('pvpToken') || null;
+let myUsername = localStorage.getItem('pvpUsername') || null;
+let authMode    = 'login'; // or 'register'
+
+function updateAuthUI() {
+  const anon = document.getElementById('auth-status-anon');
+  const li   = document.getElementById('auth-status-loggedin');
+  if (myToken) {
+    anon.style.display = 'none';
+    li.style.display = 'flex';
+    document.getElementById('auth-username-label').textContent = myUsername || '';
+    document.getElementById('auth-panel').style.display = 'none';
+  } else {
+    anon.style.display = 'flex';
+    li.style.display = 'none';
+  }
+}
+
+async function refreshAuthFromServer() {
+  if (!myToken) { updateAuthUI(); return; }
+  try {
+    const res = await fetch('/api/me', { headers: { Authorization: `Bearer ${myToken}` } });
+    if (!res.ok) {
+      myToken = null; myUsername = null;
+      localStorage.removeItem('pvpToken'); localStorage.removeItem('pvpUsername');
+    } else {
+      const data = await res.json();
+      myUsername = data.username;
+      localStorage.setItem('pvpUsername', myUsername);
+    }
+  } catch (e) { /* 網路暫時失敗就先維持本機狀態，不因為這樣把人登出 */ }
+  updateAuthUI();
+}
+
+function toggleAuthPanel() {
+  const panel = document.getElementById('auth-panel');
+  panel.style.display = panel.style.display === 'flex' ? 'none' : 'flex';
+}
+
+function toggleAuthMode() {
+  authMode = authMode === 'login' ? 'register' : 'login';
+  document.getElementById('auth-mode-label').textContent  = authMode === 'login' ? '登入' : '註冊';
+  document.getElementById('auth-submit-btn').textContent  = authMode === 'login' ? '登入' : '註冊';
+  document.getElementById('auth-toggle-btn').textContent  = authMode === 'login' ? '還沒有帳號？註冊一個' : '已經有帳號？登入';
+  document.getElementById('auth-err').textContent = '';
+}
+
+function authErrMessage(code) {
+  switch (code) {
+    case 'invalid_username':   return '帳號格式錯誤（3-20碼英數或底線）';
+    case 'invalid_password':   return '密碼至少需要8碼';
+    case 'username_taken':     return '這個帳號已經有人使用了';
+    case 'invalid_credentials':return '帳號或密碼錯誤';
+    case 'no_db':              return '帳號功能目前無法使用';
+    default:                   return '發生錯誤，請稍後再試';
+  }
+}
+
+async function submitAuth() {
+  const username = document.getElementById('auth-username-input').value.trim();
+  const password = document.getElementById('auth-password-input').value;
+  const errEl = document.getElementById('auth-err');
+  errEl.textContent = '';
+  const endpoint = authMode === 'login' ? '/api/login' : '/api/register';
+  try {
+    const res  = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = authErrMessage(data.error); return; }
+    myToken = data.token; myUsername = data.username;
+    localStorage.setItem('pvpToken', myToken);
+    localStorage.setItem('pvpUsername', myUsername);
+    updateAuthUI();
+  } catch (e) {
+    errEl.textContent = '連線失敗，請稍後再試';
+  }
+}
+
+async function logout() {
+  if (myToken) {
+    try { await fetch('/api/logout', { method: 'POST', headers: { Authorization: `Bearer ${myToken}` } }); } catch (e) {}
+  }
+  myToken = null; myUsername = null;
+  localStorage.removeItem('pvpToken'); localStorage.removeItem('pvpUsername');
+  updateAuthUI();
+}
+
+refreshAuthFromServer();
 </script>
 </body>
 </html>

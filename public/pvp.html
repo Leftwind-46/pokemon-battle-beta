@@ -33,7 +33,7 @@
     .btn-ghost:disabled { opacity:0.3; cursor:not-allowed; }
 
     /* ══ LOBBY ══ */
-    #lobby-screen, #auth-screen, #leaderboard-screen { align-items:center; justify-content:center; padding:2rem; }
+    #lobby-screen, #leaderboard-screen { align-items:center; justify-content:center; padding:2rem; }
     .lobby-center { display:flex; flex-direction:column; align-items:center; gap:1.8rem; text-align:center; max-width:400px; width:100%; }
     .pokeball { width:90px; height:90px; border-radius:50%; background:linear-gradient(180deg,#e63946 50%,#f1f1f1 50%); border:5px solid #111; position:relative; animation:spin 5s linear infinite; }
     .pokeball::before { content:''; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:24px; height:24px; border-radius:50%; background:#f1f1f1; border:5px solid #111; z-index:2; }
@@ -583,6 +583,10 @@
     @keyframes bubbleIn  { from{opacity:0;transform:scale(0.3)} to{opacity:1;transform:scale(1)} }
     @keyframes bubbleOut { to{opacity:0;transform:scale(0.5) translateY(-30px)} }
 
+    /* 觀眾聊天泡泡——固定在畫面左邊（#log-drawer 附近），桌面版才顯示，同一時間多則訊息會往下疊放 */
+    .spectator-bubble { position:fixed; left:1rem; max-width:200px; padding:0.5rem 0.8rem; border-radius:12px; background:rgba(15,18,40,0.92); border:1px solid rgba(121,134,203,0.5); font-size:0.78rem; line-height:1.4; color:var(--text); pointer-events:none; z-index:71; animation:bubbleIn 0.3s ease, bubbleOut 0.5s ease 3.5s forwards; }
+    .spectator-bubble b { color:#90caf9; }
+
     /* ── Disconnected overlay ── */
     #dc-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.82); z-index:200; display:none; align-items:center; justify-content:center; flex-direction:column; gap:1.2rem; text-align:center; padding:2rem; }
     #dc-overlay.open { display:flex; }
@@ -621,7 +625,7 @@
 
     <div id="auth-bar" style="display:flex;gap:0.6rem;align-items:center;font-size:0.85rem;color:var(--muted);flex-wrap:wrap;justify-content:center">
       <span id="auth-status-anon" style="display:flex;gap:0.5rem;align-items:center">
-        <button class="btn btn-secondary" onclick="showScreen('auth-screen')" style="font-size:0.82rem;padding:0.45rem 1.2rem">登入 / 註冊</button>
+        <button class="btn btn-secondary" onclick="location.href='/index.html'" style="font-size:0.82rem;padding:0.45rem 1.2rem">登入 / 註冊</button>
       </span>
       <span id="auth-status-loggedin" style="display:none;gap:0.5rem;align-items:center">
         已登入：<b id="auth-username-label"></b>
@@ -652,21 +656,6 @@
     <div id="lobby-err"></div>
     <button class="btn btn-secondary" onclick="openGuide()" style="font-size:0.88rem;padding:0.55rem 1.5rem">遊戲說明</button>
     <a href="/" style="font-size:0.82rem;color:var(--muted);text-decoration:none">← 返回主選單</a>
-  </div>
-</div>
-
-<!-- ══ AUTH ══ -->
-<div id="auth-screen" class="screen">
-  <div class="lobby-center">
-    <div class="logo"><h1>帳號</h1><p id="auth-mode-label">登入</p></div>
-    <div class="lobby-actions" style="max-width:280px">
-      <input id="auth-username-input" placeholder="帳號（3-20碼英數/底線）" style="padding:0.6rem 1rem;border-radius:999px;border:2px solid var(--border);background:rgba(255,255,255,0.07);color:var(--text);font-size:1rem;width:100%;box-sizing:border-box;text-align:center;outline:none">
-      <input id="auth-password-input" type="password" placeholder="密碼（至少8碼）" onkeydown="if(event.key==='Enter')submitAuth()" style="padding:0.6rem 1rem;border-radius:999px;border:2px solid var(--border);background:rgba(255,255,255,0.07);color:var(--text);font-size:1rem;width:100%;box-sizing:border-box;text-align:center;outline:none">
-      <button class="btn btn-primary" id="auth-submit-btn" onclick="submitAuth()" style="width:100%">登入</button>
-      <button class="btn btn-secondary" onclick="toggleAuthMode()" style="font-size:0.85rem;padding:0.5rem 1rem" id="auth-toggle-btn">還沒有帳號？註冊一個</button>
-    </div>
-    <div id="auth-err" style="color:#ef5350;font-size:0.88rem;min-height:1.2em"></div>
-    <button class="btn btn-secondary" onclick="showScreen('lobby-screen')" style="font-size:0.88rem;padding:0.55rem 1.5rem">← 返回大廳</button>
   </div>
 </div>
 
@@ -1440,7 +1429,6 @@ let tsConfirmed = false;
 // Account state — purely additive; connect()/createRoom()/joinRoom() work identically with myToken === null
 let myToken    = localStorage.getItem('pvpToken') || null;
 let myUsername = localStorage.getItem('pvpUsername') || null;
-let authMode   = 'login'; // or 'register'
 let opponentUsername = null; // 對手的暱稱，只有對手有登入才會有值；匿名對手維持null
 
 // 編輯隊伍（登入玩家專用，取代匿名玩家的「重新生成」按鈕）
@@ -1483,7 +1471,7 @@ function connect() {
 }
 
 function send(msg) {
-  if (isSpectator) return; // 觀戰者純唯讀，任何動作一律不送出（保底防線，UI 層也會擋）
+  if (isSpectator && msg.type !== 'spectator_chat') return; // 觀戰者純唯讀，唯一例外是觀眾聊天
   if (ws?.readyState === 1) ws.send(JSON.stringify(msg));
 }
 
@@ -1527,47 +1515,8 @@ async function refreshAuthFromServer() {
   updateAuthUI();
 }
 
-function toggleAuthMode() {
-  authMode = authMode === 'login' ? 'register' : 'login';
-  document.getElementById('auth-mode-label').textContent  = authMode === 'login' ? '登入' : '註冊';
-  document.getElementById('auth-submit-btn').textContent  = authMode === 'login' ? '登入' : '註冊';
-  document.getElementById('auth-toggle-btn').textContent  = authMode === 'login' ? '還沒有帳號？註冊一個' : '已經有帳號？登入';
-  document.getElementById('auth-err').textContent = '';
-}
-
-function authErrMessage(code) {
-  switch (code) {
-    case 'invalid_username':   return '帳號格式錯誤（3-20碼英數或底線）';
-    case 'invalid_password':   return '密碼至少需要8碼';
-    case 'username_taken':     return '這個帳號已經有人使用了';
-    case 'invalid_credentials':return '帳號或密碼錯誤';
-    case 'no_db':              return '帳號功能目前無法使用';
-    default:                   return '發生錯誤，請稍後再試';
-  }
-}
-
-async function submitAuth() {
-  const username = document.getElementById('auth-username-input').value.trim();
-  const password = document.getElementById('auth-password-input').value;
-  const errEl = document.getElementById('auth-err');
-  errEl.textContent = '';
-  const endpoint = authMode === 'login' ? '/api/login' : '/api/register';
-  try {
-    const res  = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
-    const data = await res.json();
-    if (!res.ok) { errEl.textContent = authErrMessage(data.error); return; }
-    myToken = data.token; myUsername = data.username;
-    localStorage.setItem('pvpToken', myToken);
-    localStorage.setItem('pvpUsername', myUsername);
-    updateAuthUI();
-    showScreen('lobby-screen');
-    if (ws && ws.readyState === 1) ws.close(); // 換帳號了，重新連線才會帶上新token
-    connect();
-  } catch (e) {
-    errEl.textContent = '連線失敗，請稍後再試';
-  }
-}
-
+// 登入表單本體搬到 index.html 了（帳號是加分功能，PvP大廳只需要顯示狀態/登出，
+// 不需要再內嵌一份表單）——這裡只留讀取/顯示登入狀態跟登出，帳密輸入一律導去首頁。
 async function logout() {
   if (myToken) {
     try { await fetch('/api/logout', { method: 'POST', headers: { Authorization: `Bearer ${myToken}` } }); } catch (e) {}
@@ -1688,6 +1637,7 @@ function handleMsg(msg) {
         document.getElementById('battle-log').innerHTML = '';
         document.getElementById('chat-log').innerHTML = '';
         log('👀 已加入觀戰', 'system');
+        showChatBtn();
         renderBattle();
       } else {
         showScreen('spectate-wait-screen');
@@ -1747,7 +1697,7 @@ function handleMsg(msg) {
       document.getElementById('battle-log').innerHTML = '';
       document.getElementById('chat-log').innerHTML = '';
       for (const entry of (msg.log || [])) log(entry.text, entry.cls);
-      if (!isSpectator) showChatBtn();
+      showChatBtn(); // 玩家跟觀眾都能聊天，唯讀的只有戰鬥動作本身
       showCoinFlip(msg.coinFlip);
       break;
 
@@ -1847,6 +1797,10 @@ function handleMsg(msg) {
 
     case 'chat':
       receiveChatMsg(msg);
+      break;
+
+    case 'spectator_chat':
+      showSpectatorBubble(msg.username, msg.text);
       break;
   }
 }
@@ -2928,11 +2882,18 @@ function sendChat() {
   const text  = input.value.trim();
   if (!text) return;
   input.value = '';
+  if (isSpectator) {
+    // 觀眾走 spectator_chat，不做本地樂觀回顯——伺服器 broadcast() 本來就會把訊息送回發送者自己
+    // （room.spectators 陣列包含自己），這裡再手動加一次會變成看到自己的訊息跳兩次。
+    send({ type: 'spectator_chat', text });
+    return;
+  }
   send({ type: 'chat', text });
   appendChatMsg({ role: myRole, text }, true);
 }
 
 function sendSticker(sticker) {
+  if (isSpectator) return; // 貼圖目前只給雙方玩家用，觀眾聊天先只支援文字
   send({ type: 'chat', sticker });
   appendChatMsg({ role: myRole, sticker }, true);
   showStickerBubble(sticker, true);
@@ -2966,6 +2927,23 @@ function showStickerBubble(sticker, isMe) {
   el.style.top  = (rect.top + scrollY + 10) + 'px';
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 3200);
+}
+
+// 觀眾聊天泡泡——手機/窄螢幕直接跳過整個功能（沿用 #log-drawer 收合成FAB的900px斷點），
+// 桌面版錨定在 #log-drawer 附近（畫面最左邊），同一時間多則訊息往下疊放，不互相重疊
+let specBubbleCount = 0;
+function showSpectatorBubble(username, text) {
+  if (matchMedia('(max-width:900px)').matches) return;
+  const drawer = document.getElementById('log-drawer');
+  const rect   = drawer?.getBoundingClientRect() || { left: 16, top: 16, width: 220 };
+  const el = document.createElement('div');
+  el.className = 'spectator-bubble';
+  el.innerHTML = `<b>${username}：</b>${text}`;
+  el.style.left = (rect.left) + 'px';
+  el.style.top  = (rect.top + scrollY + specBubbleCount * 48) + 'px';
+  document.body.appendChild(el);
+  specBubbleCount++;
+  setTimeout(() => { el.remove(); specBubbleCount = Math.max(0, specBubbleCount - 1); }, 4000);
 }
 
 initChat();

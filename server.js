@@ -1951,6 +1951,19 @@ async function handleMessage(ws, msg) {
     const room = rooms.get(ws.roomCode);
     if (!room) { send(ws, { type: 'error', message: '房間已不存在，請重新建立房間' }); return; }
     const role = ws.role;
+
+    // 觀眾聊天——刻意放在下面「觀戰者純唯讀」的擋板之前，因為這是唯一一種觀眾可以送出的訊息類型；
+    // 反過來只允許真正的觀眾使用（role!=='spectator' 就忽略），玩家發言走原本的 chat 類型。
+    if (type === 'spectator_chat') {
+      if (role !== 'spectator') return;
+      const text = typeof msg.text === 'string' ? msg.text.trim().slice(0, 80) : '';
+      if (!text) return;
+      const now = Date.now();
+      if (ws.lastSpecChatAt && now - ws.lastSpecChatAt < 1500) return; // 輕量節流，避免洗頻
+      ws.lastSpecChatAt = now;
+      broadcast(room, { type: 'spectator_chat', username: ws.username || '路人觀眾', text });
+      return;
+    }
     if (role === 'spectator') return; // 觀戰者純唯讀，房間內的任何動作訊息一律忽略
 
     /* ── Team select ── */
