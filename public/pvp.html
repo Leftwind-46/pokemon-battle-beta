@@ -702,8 +702,8 @@
   <div id="ts-opponent-status" class="ts-waiting" style="display:none">對手正在選隊伍…</div>
   <div id="ts-err" style="color:#ef5350;font-size:0.88rem;min-height:1.2em"></div>
   <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;justify-content:center">
-    <button class="btn btn-secondary" id="ts-reroll-btn" onclick="rerollRoster()" style="font-size:0.88rem;padding:0.55rem 1.4rem">重新生成（剩 <span id="ts-rerolls">3</span> 次）</button>
-    <button class="btn btn-secondary" id="ts-edit-team-btn" onclick="startTeamEdit()" style="display:none;font-size:0.88rem;padding:0.55rem 1.4rem">編輯隊伍（剩 <span id="ts-edits-left">3</span> 次）</button>
+    <button class="btn btn-secondary" id="ts-reroll-btn" onclick="rerollRoster()" style="font-size:0.88rem;padding:0.55rem 1.4rem">重新生成（剩 <span id="ts-rerolls">1</span> 次）</button>
+    <button class="btn btn-secondary" id="ts-edit-team-btn" onclick="startTeamEdit()" style="display:none;font-size:0.88rem;padding:0.55rem 1.4rem">編輯隊伍（剩 <span id="ts-edits-left">1</span> 次）</button>
     <button class="btn btn-primary" id="ts-confirm-btn" disabled onclick="confirmTeam()">確認出戰</button>
   </div>
 </div>
@@ -831,7 +831,7 @@
     <h3>對戰規則</h3>
     <ul>
       <li>建立房間後，將代碼分享給對手，對手輸入代碼加入。</li>
-      <li>雙方各從隨機 6 隻寶可夢中選出 3 隻出戰，且必須從三個血量區間（200-249／250-309／310+，候補保證各區間都有 2 隻）各選 1 隻（可重新生成最多 3 次）。</li>
+      <li>雙方各從隨機 6 隻寶可夢中選出 3 隻出戰，且必須從三個血量區間（200-249／250-309／310+，候補保證各區間都有 2 隻）各選 1 隻（可重新生成最多 1 次）。已登入玩家改成從自己帳號的寶可夢隊伍（起始 3 隻，可透過「我的寶可夢」捕捉養到最多 10 隻）中，各血量區間選 1 隻出戰，可編輯隊伍最多 1 次。</li>
       <li>擲硬幣決定先後攻，先擊倒對手全部 3 隻寶可夢者獲勝。</li>
       <li>雙方輪流行動；每回合限換場一次，換場會直接結束本回合，新上場的寶可夢該回合受到的傷害減少 20%（使用撤退背心後的換場不會結束回合）。</li>
       <li><b>💤 待機</b>：跳過攻擊，抽 1 張支援者牌進入手牌。</li>
@@ -1894,7 +1894,7 @@ function showTeamSelect() {
   document.getElementById('ts-reroll-btn').disabled = false;
   document.getElementById('ts-edit-team-btn').style.display = loggedIn ? '' : 'none';
   document.getElementById('ts-edit-team-btn').disabled = false;
-  document.getElementById('ts-edits-left').textContent = 3;
+  document.getElementById('ts-edits-left').textContent = 1;
   renderTeamSelect();
 }
 

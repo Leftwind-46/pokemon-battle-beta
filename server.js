@@ -377,7 +377,18 @@ const SHOP_ITEMS = {
   'plant-pot':     { name: '觀葉植物', price: 20, icon: '🪴', category: 'decor' },
   'picture-frame': { name: '掛畫',     price: 35, icon: '🖼️', category: 'decor' },
   'toy-ball':      { name: '玩具球',   price: 15, icon: '⚽', category: 'decor' },
+  // 寶可夢球——消耗品，跟上面裝飾品的一次性擁有邏輯不同，允許重複購買囤貨（見 /api/pet/buy 的 category==='ball' 分支）
+  'ball-normal': { name: '一般球', price: 1,  icon: '⚪', category: 'ball', ballField: 'ball_normal' },
+  'ball-great':  { name: '超級球', price: 5,  icon: '🔵', category: 'ball', ballField: 'ball_great' },
+  'ball-ultra':  { name: '高級球', price: 10, icon: '🟡', category: 'ball', ballField: 'ball_ultra' },
 };
+// 球的等級 → 捕捉基礎成功率（丟球小遊戲用，寶可夢 tier 越高會再往下修正，見 /api/pet/catch/throw）
+const BALL_CATCH_RATE = { 'ball-normal': 0.30, 'ball-great': 0.55, 'ball-ultra': 0.80 };
+const CATCH_TIER_MULT = { 1: 1, 2: 0.85, 3: 0.7 };
+// 隊伍已滿10隻時，捕捉成功但還沒決定要放生誰的暫存狀態（伺服器記憶體，不用開DB欄位存這種短命的中繼狀態）——
+// 防止client跳過encounter/throw流程，直接偽造一次「捕捉成功」呼叫resolve-release把任意寶可夢塞進隊伍
+const pendingCatchReleases = new Map(); // userId -> { pokemonId, expiresAt }
+const PENDING_RELEASE_TTL_MS = 2 * 60 * 1000;
 const DECOR_SLOTS = ['slot-wall', 'slot-floor-mid', 'slot-floor-right'];
 
 /* 釣魚結果registry——weight加總=100，直接當百分比讀。黃金鯉魚王/紅色暴鯉龍刻意不生新素材，
@@ -1871,10 +1882,11 @@ function verifyPassword(password, stored) {
   return candidate.length === expected.length && crypto.timingSafeEqual(candidate, expected);
 }
 
-/* 帳號收藏庫（註冊初始6隻／編輯隊伍候補6隻／損壞自動修復6隻，共用同一套規則）
-   randomRoster() 現在保證血量三區間（200-249/250-309/310+）各2隻，取代舊的「>=300最多1隻」規則 */
-function generatePlayerPool() {
-  return randomRoster().map(p => p.id);
+/* 帳號收藏庫。2026-07-20後：註冊初始／損壞修復改成3隻（三區間各1隻，捕捉機制上線後隊伍改成
+   從3隻起步、靠捕捉養到最多10隻），編輯隊伍候補仍然生成6隻（沿用舊行為，只是換卡候補數量跟
+   起始隊伍大小脫鉤）。randomRoster(n) 保證三區間平均分配。 */
+function generatePlayerPool(n = 6) {
+  return randomRoster(n).map(p => p.id);
 }
 
 function send(ws, msg) {
@@ -1980,13 +1992,15 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-/* 讀取帳號收藏庫；任一 id 在目前 POKEMON 名單裡找不到就視為損壞，重新生成並覆寫回DB */
+/* 讀取帳號收藏庫。隊伍大小2026-07-20後改成可變動（3隻起步，捕捉養到最多10隻），
+   只有「完全空/所有id都在目前POKEMON名單裡找不到」才視為損壞重建成3隻——絕對不能把
+   玩家捕捉養出來的4~10隻誤判成損壞而洗掉，所以拿掉了舊版「必須剛好是6」的檢查 */
 async function loadUserTeam(userId) {
   const { rows } = await pool.query('SELECT pokemon_ids FROM teams WHERE user_id = $1', [userId]);
   let ids = rows[0]?.pokemon_ids || [];
   let mons = ids.map(id => POKEMON.find(p => p.id === id)).filter(Boolean);
-  if (mons.length !== 6) {
-    ids = generatePlayerPool();
+  if (mons.length === 0) {
+    ids = generatePlayerPool(3);
     mons = ids.map(id => POKEMON.find(p => p.id === id));
     await pool.query(
       `INSERT INTO teams (user_id, pokemon_ids) VALUES ($1, $2)
@@ -2013,7 +2027,7 @@ app.post('/api/register', async (req, res) => {
       'INSERT INTO users (username, password_hash, session_token) VALUES ($1, $2, $3) RETURNING id',
       [username, passwordHash, token]
     );
-    const pokemonIds = generatePlayerPool();
+    const pokemonIds = generatePlayerPool(3);
     await pool.query('INSERT INTO teams (user_id, pokemon_ids) VALUES ($1, $2)', [rows[0].id, pokemonIds]);
     res.status(201).json({ token, username });
   } catch (e) {
@@ -2087,7 +2101,7 @@ async function decayHunger(userId) {
 /* ═══ 我的寶可夢：選一次寵物之後只讀/更新好感度，不能重選（MVP範圍） ═══ */
 app.get('/api/pet', requireAuth, async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT species_id, happiness, coins, display_fish_id FROM pets WHERE user_id = $1', [req.user.id]);
+    const { rows } = await pool.query('SELECT species_id, happiness, coins, display_fish_id, ball_normal, ball_great, ball_ultra FROM pets WHERE user_id = $1', [req.user.id]);
     const { rows: userRows } = await pool.query('SELECT badge_id FROM users WHERE id = $1', [req.user.id]);
     const badgeId = userRows[0]?.badge_id;
     const badge = badgeId && BADGES[badgeId] ? { id: badgeId, ...BADGES[badgeId] } : null;
@@ -2100,7 +2114,8 @@ app.get('/api/pet', requireAuth, async (req, res) => {
     );
     const fish = fishRows.map(r => ({ id: r.id, fishType: r.fish_type, caughtAt: r.caught_at, ...FISH_TYPES[r.fish_type] }));
     const displayFish = rows[0].display_fish_id ? (fish.find(f => f.id === rows[0].display_fish_id) || null) : null;
-    res.json({ pet: { speciesId: rows[0].species_id, happiness: rows[0].happiness, coins: rows[0].coins, hunger }, badge, decorations, fish, displayFish });
+    const balls = { ballNormal: rows[0].ball_normal, ballGreat: rows[0].ball_great, ballUltra: rows[0].ball_ultra };
+    res.json({ pet: { speciesId: rows[0].species_id, happiness: rows[0].happiness, coins: rows[0].coins, hunger, ...balls }, badge, decorations, fish, displayFish });
   } catch (e) {
     console.error('pet fetch error:', e.message);
     res.status(503).json({ error: 'db_error' });
@@ -2142,22 +2157,129 @@ app.get('/api/shop', (req, res) => {
 
 app.post('/api/pet/buy', requireAuth, async (req, res) => {
   const itemId = req.body?.itemId;
-  if (!SHOP_ITEMS[itemId]) return res.status(400).json({ error: 'invalid_item' });
+  const item = SHOP_ITEMS[itemId];
+  if (!item) return res.status(400).json({ error: 'invalid_item' });
   try {
-    const { rows } = await pool.query('SELECT coins FROM pets WHERE user_id = $1', [req.user.id]);
+    const { rows } = await pool.query('SELECT coins, ball_normal, ball_great, ball_ultra FROM pets WHERE user_id = $1', [req.user.id]);
     if (!rows.length) return res.status(404).json({ error: 'no_pet' });
+    if (rows[0].coins < item.price) return res.status(400).json({ error: 'not_enough_coins' });
+    const coins = rows[0].coins - item.price;
+    // 球是消耗品，允許重複購買囤貨——跟裝飾品的一次性擁有邏輯是不同分支
+    if (item.category === 'ball') {
+      const newCount = rows[0][item.ballField] + 1;
+      await pool.query(`UPDATE pets SET coins = $1, ${item.ballField} = $2 WHERE user_id = $3`, [coins, newCount, req.user.id]);
+      return res.status(201).json({ coins, ballField: item.ballField, count: newCount });
+    }
     const { rows: ownedRows } = await pool.query(
       'SELECT 1 FROM pet_decorations WHERE user_id = $1 AND item_id = $2', [req.user.id, itemId]
     );
     if (ownedRows.length) return res.status(409).json({ error: 'already_owned' });
-    const price = SHOP_ITEMS[itemId].price;
-    if (rows[0].coins < price) return res.status(400).json({ error: 'not_enough_coins' });
-    const coins = rows[0].coins - price;
     await pool.query('UPDATE pets SET coins = $1 WHERE user_id = $2', [coins, req.user.id]);
     await pool.query('INSERT INTO pet_decorations (user_id, item_id) VALUES ($1, $2)', [req.user.id, itemId]);
     res.status(201).json({ coins });
   } catch (e) {
     console.error('pet buy error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 捕捉第1步：花100金幣讓一隻野生寶可夢出現。不消耗球、不判定捕捉成功與否——
+   跟釣魚一樣，真正的隨機結果（丟球成功率）要留到 catch/throw 才由伺服器端擲，不能讓client先看到結果 */
+app.post('/api/pet/catch/encounter', requireAuth, async (req, res) => {
+  const ENCOUNTER_COST = 100;
+  try {
+    const { rows } = await pool.query('SELECT coins FROM pets WHERE user_id = $1', [req.user.id]);
+    if (!rows.length) return res.status(404).json({ error: 'no_pet' });
+    if (rows[0].coins < ENCOUNTER_COST) return res.status(400).json({ error: 'not_enough_coins' });
+    const coins = rows[0].coins - ENCOUNTER_COST;
+    await pool.query('UPDATE pets SET coins = $1 WHERE user_id = $2', [coins, req.user.id]);
+    const wild = POKEMON[Math.floor(Math.random() * POKEMON.length)];
+    res.json({ coins, pokemonId: wild.id, name: wild.name, tier: wild.tier });
+  } catch (e) {
+    console.error('pet catch encounter error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 捕捉第2步：丟球。伺服器端原子完成「驗證持有球數→扣球→擲成功率→依隊伍狀態決定加入/發金幣/待放生」，
+   不信任client回報「我抓到了」——跟釣魚 rollFish() 同一套教訓 */
+app.post('/api/pet/catch/throw', requireAuth, async (req, res) => {
+  const pokemonId = Number(req.body?.pokemonId);
+  const ballType = req.body?.ballType;
+  const ballItem = SHOP_ITEMS[ballType];
+  const wild = POKEMON.find(p => p.id === pokemonId);
+  if (!wild || !ballItem || ballItem.category !== 'ball') return res.status(400).json({ error: 'invalid_request' });
+  try {
+    const { rows } = await pool.query(
+      `SELECT ${ballItem.ballField} AS ball_count FROM pets WHERE user_id = $1`, [req.user.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'no_pet' });
+    if (rows[0].ball_count < 1) return res.status(400).json({ error: 'no_balls' });
+    await pool.query(`UPDATE pets SET ${ballItem.ballField} = ${ballItem.ballField} - 1 WHERE user_id = $1`, [req.user.id]);
+
+    const rate = BALL_CATCH_RATE[ballType] * (CATCH_TIER_MULT[wild.tier] ?? 1);
+    const success = Math.random() < rate;
+    if (!success) return res.json({ caught: false });
+
+    const { rows: teamRows } = await pool.query('SELECT pokemon_ids FROM teams WHERE user_id = $1', [req.user.id]);
+    const currentIds = teamRows[0]?.pokemon_ids || [];
+    if (currentIds.includes(pokemonId)) {
+      const { rows: coinRows } = await pool.query('SELECT coins FROM pets WHERE user_id = $1', [req.user.id]);
+      const coins = coinRows[0].coins + 300;
+      await pool.query('UPDATE pets SET coins = $1 WHERE user_id = $2', [coins, req.user.id]);
+      return res.json({ caught: true, duplicate: true, coinsAwarded: 300, coins, pokemonId, name: wild.name });
+    }
+    if (currentIds.length < 10) {
+      const newIds = [...currentIds, pokemonId];
+      await pool.query(
+        `INSERT INTO teams (user_id, pokemon_ids) VALUES ($1, $2)
+         ON CONFLICT (user_id) DO UPDATE SET pokemon_ids = $2, updated_at = NOW()`,
+        [req.user.id, newIds]
+      );
+      return res.json({ caught: true, added: true, pokemonId, name: wild.name });
+    }
+    // 隊伍已滿10隻，且不是重複——先記在記憶體，等玩家選好要放生誰才真的寫進DB
+    pendingCatchReleases.set(req.user.id, { pokemonId, expiresAt: Date.now() + PENDING_RELEASE_TTL_MS });
+    res.json({ caught: true, needsRelease: true, pokemonId, name: wild.name });
+  } catch (e) {
+    console.error('pet catch throw error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 捕捉第3步（只有隊伍剛好滿10隻時才會用到）：從剛才 catch/throw 記下的待放生狀態裡，
+   驗證 newPokemonId 真的對得上，玩家選1隻放生（releasePokemonId 可以等於 newPokemonId 本身＝放棄這次捕捉）*/
+app.post('/api/pet/catch/resolve-release', requireAuth, async (req, res) => {
+  const newPokemonId = Number(req.body?.newPokemonId);
+  const releasePokemonId = Number(req.body?.releasePokemonId);
+  const pending = pendingCatchReleases.get(req.user.id);
+  if (!pending || pending.pokemonId !== newPokemonId || pending.expiresAt < Date.now()) {
+    return res.status(400).json({ error: 'no_pending_release' });
+  }
+  try {
+    if (releasePokemonId === newPokemonId) {
+      pendingCatchReleases.delete(req.user.id);
+      return res.json({ released: false, kept: 'existing' }); // 玩家選擇放棄這次捕捉，隊伍不變
+    }
+    const { rows: teamRows } = await pool.query('SELECT pokemon_ids FROM teams WHERE user_id = $1', [req.user.id]);
+    const currentIds = teamRows[0]?.pokemon_ids || [];
+    if (!currentIds.includes(releasePokemonId)) return res.status(400).json({ error: 'invalid_release_target' });
+    const newIds = currentIds.filter(id => id !== releasePokemonId).concat(newPokemonId);
+    const newMons = newIds.map(id => POKEMON.find(p => p.id === id)).filter(Boolean);
+    // 安全檢查：放生後三個血量區間都要還有至少1隻，不然玩家會卡在PvP選隊畫面湊不出合法隊伍
+    // 這裡刻意還沒刪pendingCatchReleases——擋下的話玩家要能換一隻放生對象重試，不用重新花錢捕捉
+    if (new Set(newMons.map(p => hpBand(p.hp))).size !== 3) {
+      return res.status(400).json({ error: 'would_break_hp_bands' });
+    }
+    await pool.query(
+      `INSERT INTO teams (user_id, pokemon_ids) VALUES ($1, $2)
+       ON CONFLICT (user_id) DO UPDATE SET pokemon_ids = $2, updated_at = NOW()`,
+      [req.user.id, newIds]
+    );
+    pendingCatchReleases.delete(req.user.id);
+    res.json({ released: true, releasedPokemonId: releasePokemonId, addedPokemonId: newPokemonId });
+  } catch (e) {
+    console.error('pet catch resolve-release error:', e.message);
     res.status(503).json({ error: 'db_error' });
   }
 });
@@ -2190,8 +2312,9 @@ app.post('/api/pet/choose', requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT species_id FROM pets WHERE user_id = $1', [req.user.id]);
     if (rows.length) return res.status(409).json({ error: 'already_chosen' });
-    await pool.query('INSERT INTO pets (user_id, species_id) VALUES ($1, $2)', [req.user.id, speciesId]);
-    res.status(201).json({ pet: { speciesId, happiness: 50 } });
+    // 起始金幣 1000（2026-07-20）——捕捉機制需要玩家一開始就有能力嘗試幾次
+    await pool.query('INSERT INTO pets (user_id, species_id, coins) VALUES ($1, $2, 1000)', [req.user.id, speciesId]);
+    res.status(201).json({ pet: { speciesId, happiness: 50, coins: 1000 } });
   } catch (e) {
     console.error('pet choose error:', e.message);
     res.status(503).json({ error: 'db_error' });
@@ -2594,26 +2717,27 @@ async function handleMessage(ws, msg) {
     if (type === 'reroll') {
       if (room.phase !== 'selecting' && room.phase !== 'waiting') { send(ws, { type: 'error', message: '目前階段無法重新生成' }); return; }
       const key = `${role}Rerolls`;
-      if (room[key] >= 3) { send(ws, { type: 'error', message: '重新生成次數已用完！' }); return; }
+      if (room[key] >= 1) { send(ws, { type: 'error', message: '重新生成次數已用完！' }); return; }
       room[key]++;
       const newRoster = randomRoster();
       room[`${role}Roster`] = newRoster;
-      send(ws, { type: 'roster_update', roster: newRoster, rerollsLeft: 3 - room[key] });
+      send(ws, { type: 'roster_update', roster: newRoster, rerollsLeft: 1 - room[key] });
       return;
     }
 
     /* 已登入玩家專用（取代匿名玩家的reroll）：生成6隻候補，玩家自選要換掉收藏庫裡的哪幾隻，
-       每場比賽前最多3次，跟reroll用一樣的次數模型（生成候補本身就算用掉1次，不管最後有沒有真的換） */
+       每場比賽前最多1次（2026-07-20從3次改成1次），跟reroll用一樣的次數模型（生成候補本身就算用掉1次，
+       不管最後有沒有真的換） */
     if (type === 'edit_team') {
       if (!ws.userId || !pool) { send(ws, { type: 'error', message: '請先登入才能編輯隊伍' }); return; }
       if (room.phase !== 'selecting' && room.phase !== 'waiting') { send(ws, { type: 'error', message: '目前階段無法編輯隊伍' }); return; }
       const key = `${role}TeamEdits`;
-      if (room[key] >= 3) { send(ws, { type: 'error', message: '編輯隊伍次數已用完！' }); return; }
+      if (room[key] >= 1) { send(ws, { type: 'error', message: '編輯隊伍次數已用完！' }); return; }
       room[key]++;
       const candidateIds = generatePlayerPool();
       const candidates = candidateIds.map(id => POKEMON.find(p => p.id === id));
       room[`${role}EditCandidates`] = candidates;
-      send(ws, { type: 'team_edit_candidates', candidates, editsLeft: 3 - room[key] });
+      send(ws, { type: 'team_edit_candidates', candidates, editsLeft: 1 - room[key] });
       return;
     }
 
@@ -2622,20 +2746,21 @@ async function handleMessage(ws, msg) {
       const candKey = `${role}EditCandidates`;
       const candidates = room[candKey];
       if (!candidates) { send(ws, { type: 'error', message: '請先點編輯隊伍生成候補' }); return; }
+      const rosterKey = `${role}Roster`;
       const swaps = Array.isArray(msg.swaps) ? msg.swaps : [];
       const usedSlots = new Set(), usedCandidateIds = new Set();
       for (const s of swaps) {
-        if (!s || typeof s.slotIdx !== 'number' || s.slotIdx < 0 || s.slotIdx > 5) { send(ws, { type: 'error', message: '無效的隊伍位置' }); return; }
+        // slotIdx上限改成動態依目前收藏庫實際長度（2026-07-20後隊伍不再固定6隻，靠捕捉養到3~10隻不等）
+        if (!s || typeof s.slotIdx !== 'number' || s.slotIdx < 0 || s.slotIdx >= room[rosterKey].length) { send(ws, { type: 'error', message: '無效的隊伍位置' }); return; }
         if (!candidates.some(p => p.id === s.candidatePokemonId)) { send(ws, { type: 'error', message: '無效的候補寶可夢' }); return; }
         if (usedSlots.has(s.slotIdx) || usedCandidateIds.has(s.candidatePokemonId)) { send(ws, { type: 'error', message: '每個位置/候補只能用一次' }); return; }
         usedSlots.add(s.slotIdx); usedCandidateIds.add(s.candidatePokemonId);
       }
-      const rosterKey = `${role}Roster`;
       const roster = [...room[rosterKey]];
       for (const s of swaps) {
         roster[s.slotIdx] = candidates.find(p => p.id === s.candidatePokemonId);
       }
-      // 換完之後6隻收藏庫必須仍涵蓋三個血量區間，否則玩家會卡在選隊畫面湊不出合法出戰組合
+      // 換完之後收藏庫必須仍涵蓋三個血量區間，否則玩家會卡在選隊畫面湊不出合法出戰組合
       if (new Set(roster.map(p => hpBand(p.hp))).size !== 3) {
         send(ws, { type: 'error', message: '此編輯會讓收藏庫湊不出三個血量區間，請調整換入的候補' });
         return;
@@ -2652,7 +2777,7 @@ async function handleMessage(ws, msg) {
         console.error('persist team edit error:', e.message);
         /* DB沒寫成功，但房間內roster已經更新，這場對戰照樣繼續——不讓玩家卡在team-select畫面 */
       }
-      send(ws, { type: 'team_edit_confirmed', roster, editsLeft: 3 - room[`${role}TeamEdits`] });
+      send(ws, { type: 'team_edit_confirmed', roster, editsLeft: 1 - room[`${role}TeamEdits`] });
       return;
     }
 
@@ -3111,9 +3236,46 @@ async function initDB() {
       caught_at TIMESTAMPTZ DEFAULT NOW()
     )`);
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS display_fish_id INTEGER REFERENCES pet_fish(id) ON DELETE SET NULL`);
+    // 捕捉寶可夢用的球——3種固定類型，跟coins一樣是pets的flat欄位（不像魚會累積很多種，球只需要計數）
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS ball_normal INTEGER NOT NULL DEFAULT 0`);
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS ball_great INTEGER NOT NULL DEFAULT 0`);
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS ball_ultra INTEGER NOT NULL DEFAULT 0`);
+    // 一次性migration追蹤表——沒有ORM/migration工具，用一列「已套用哪些一次性migration」的標記表，
+    // 用INSERT...ON CONFLICT DO NOTHING RETURNING判斷這次伺服器啟動是不是第一次跑到這條migration
+    await pool.query(`CREATE TABLE IF NOT EXISTS migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ DEFAULT NOW())`);
+    await runMigrationOnce('2026-07-20-catch-system-reset', async () => {
+      // 既有帳號金幣統一設成1000（捕捉機制的起始金幣基準）
+      await pool.query('UPDATE pets SET coins = 1000');
+      // 既有隊伍（原本固定6隻）裁到3隻，三個血量區間各保留隨機1隻——比照 randomRoster 的分組邏輯，
+      // 但這裡是從玩家「現有」陣容裡挑，不是從整個圖鑑重新抽
+      const { rows } = await pool.query('SELECT user_id, pokemon_ids FROM teams');
+      for (const row of rows) {
+        const mons = row.pokemon_ids.map(id => POKEMON.find(p => p.id === id)).filter(Boolean);
+        const bands = [[], [], []];
+        for (const p of mons) bands[hpBand(p.hp)].push(p);
+        const trimmed = bands.map(b => b.length ? b[Math.floor(Math.random() * b.length)] : null).filter(Boolean);
+        if (trimmed.length === 3) {
+          await pool.query('UPDATE teams SET pokemon_ids = $1 WHERE user_id = $2', [trimmed.map(p => p.id), row.user_id]);
+        }
+        // 湊不出三區間各1隻的損壞資料就跳過——loadUserTeam 既有的「length===0才修復」邏輯這裡不適用
+        // （length不是0），但下次玩家連線時如果真的損壞會在其他既有的驗證路徑被處理，不在這裡強行修
+      }
+    });
     console.log('PostgreSQL connected');
   } catch (e) {
     console.warn('PostgreSQL not available, running without DB:', e.message);
+  }
+}
+
+async function runMigrationOnce(name, fn) {
+  const { rows } = await pool.query('INSERT INTO migrations (name) VALUES ($1) ON CONFLICT DO NOTHING RETURNING name', [name]);
+  if (!rows.length) return; // 已經套用過，跳過
+  try {
+    await fn();
+    console.log(`migration applied: ${name}`);
+  } catch (e) {
+    console.error(`migration failed: ${name}`, e.message);
+    await pool.query('DELETE FROM migrations WHERE name = $1', [name]); // 失敗就撤回標記，下次啟動重試
   }
 }
 
