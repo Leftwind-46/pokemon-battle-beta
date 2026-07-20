@@ -770,10 +770,20 @@ function startStage() {
   img.onclick = interactPet;
   stage.appendChild(img);
 
-  // 初始位置置中，Y軸落在磁磚地板範圍內（對齊 walkToRandomSpot 的地板判定）
+  // 初始位置置中，Y軸落在磁磚地板範圍內（對齊 walkToRandomSpot 的地板判定）。
+  // 這裡刻意在「視覺上實際會看到的框」座標系裡算置中/地板位置，再換算回原始框需要的
+  // left/top（見 walkToRandomSpot 內的完整說明，同一個transform-origin:center造成的落差，
+  // 原本這裡固定假設寬度~96px、Y直接用原始框頂端對齊，呆火鱷這種原始尺寸遠大於視覺尺寸
+  // 的素材會讓寶可夢一開場就有一部分外露在地板下方甚至畫面外）。
   const stageW = stage.clientWidth, stageH = stage.clientHeight;
-  img.style.left = (stageW / 2 - 48) + 'px';
-  img.style.top  = Math.max(1, stageH * 0.60) + 'px';
+  const [initRawW, initRawH] = getAnimMeta(pet.speciesId, 'Idle') || [96, 96];
+  const initScale = ANIM_DISPLAY_TARGET / Math.max(initRawW, initRawH);
+  const initVisW = initRawW * initScale, initVisH = initRawH * initScale;
+  const initOffsetX = initRawW * (1 - initScale) / 2, initOffsetY = initRawH * (1 - initScale) / 2;
+  const initVisLeft = stageW / 2 - initVisW / 2;
+  const initVisTop = Math.max(1, stageH * 0.60);
+  img.style.left = (initVisLeft - initOffsetX) + 'px';
+  img.style.top  = (initVisTop - initOffsetY) + 'px';
 
   // 待機動畫改用跟Eat/Sleep/Attack同一套PMDCollab來源（見PET_ANIM上方註解），
   // 不再用PokeAPI的靜態圖當「待機時的樣子」——static只是上面那行的載入前佔位而已
@@ -804,13 +814,26 @@ function scheduleWalk() {
 function walkToRandomSpot() {
   const stage = document.getElementById('pet-stage');
   const img = document.getElementById('pet-sprite');
-  if (!stage || !img) return;
+  if (!stage || !img || !pet) return;
   const stageW = stage.clientWidth, stageH = stage.clientHeight;
-  const margin = 96;
+  // img.style.left/top定位的是「縮放前的原始框」左上角，但transform:scale()是繞著框的中心點
+  // 縮放，兩者只有在原始尺寸跟縮放後尺寸一樣大時才會重合。原本这里用固定margin=96夾原始框的
+  // 位置，對PMDCollab那批小尺寸(通常<=80px)素材來說湊巧夠用；但换成呆火鱷的GIF後原始尺寸
+  // 大到208~301px，把「原始框」夾在畫面內不代表「縮放後、玩家實際看到的框」也在畫面內——
+  // 原始框可能大到中心點被推出畫面外，縮放後的可視框就跟著跑出去了（使用者回報的「跑出畫面」）。
+  // 正確做法：先在「視覺上實際看到的框」座標系裡選一個在畫面內的隨機位置，
+  // 再換算回原始框需要的left/top（兩者的差值固定是 rawSize*(1-scale)/2，因為transform-origin
+  // 預設是正中心）。
+  const [rawW, rawH] = getAnimMeta(pet.speciesId, 'Walk') || [64, 64];
+  const scale = ANIM_DISPLAY_TARGET / Math.max(rawW, rawH);
+  const visW = rawW * scale, visH = rawH * scale;
+  const offsetX = rawW * (1 - scale) / 2, offsetY = rawH * (1 - scale) / 2;
   // 只在磁磚地板範圍內遊走，不要走上牆面——地板對齊 .room-floor 的 CSS height:40%（頂部從60%開始）
-  const floorTopY = Math.min(stageH * 0.60, Math.max(1, stageH - margin));
-  const newX = Math.random() * Math.max(1, stageW - margin);
-  const newY = floorTopY + Math.random() * Math.max(1, stageH - margin - floorTopY);
+  const floorTopY = Math.min(stageH * 0.60, Math.max(1, stageH - visH));
+  const visLeft = Math.random() * Math.max(1, stageW - visW);
+  const visTop  = floorTopY + Math.random() * Math.max(1, stageH - visH - floorTopY);
+  const newX = visLeft - offsetX;
+  const newY = visTop - offsetY;
   const curX = parseFloat(img.style.left) || 0;
   if (newX < curX) facingLeft = true;
   else if (newX > curX) facingLeft = false;
@@ -1649,6 +1672,26 @@ async function sellFish(fishId) {
 let animTimer = null;
 let sleeping = false;
 let currentAnimScale = 1;
+/* 回傳某物種某動作「實際會用哪個素材」的原始尺寸[w,h]，跟playPetAnim()自己判斷素材來源
+   同一套優先序（PET_ART_OVERRIDE → PET_GIF_OVERRIDE → PET_ANIM）——沒有回傳scale是因為
+   scale本身就是 ANIM_DISPLAY_TARGET/max(w,h) 這個公式，呼叫端自己算即可，不用另外傳。
+   給走位計算（walkToRandomSpot/startStage）用，讓邊界判斷考慮到「原始素材尺寸經過
+   transform:scale()縮放後，視覺上的框其實跟原始框大小不同」——原本走位計算只用固定
+   margin=96，是針對PMDCollab那批小尺寸(通常<=80px)素材校準的；呆火鱷這批GIF原始尺寸
+   達208~301px，遠大於margin，導致「原始框」的定位點雖然被夾在畫面內，但transform:scale()
+   縮小後的「視覺框」中心點被原始框帶著跑到畫面外——這正是使用者回報「跑出畫面」的成因。 */
+function getAnimMeta(speciesId, animName) {
+  const artOverride = PET_ART_OVERRIDE[speciesId] && PET_ART_OVERRIDE[speciesId][animName];
+  if (artOverride) return [artOverride.w, artOverride.h];
+  const gifOverride = PET_GIF_OVERRIDE[speciesId] && PET_GIF_OVERRIDE[speciesId][animName];
+  if (gifOverride) return [gifOverride.w, gifOverride.h];
+  const table = PET_ANIM[speciesId];
+  if (!table) return null;
+  const useName = table[animName] ? animName : 'Idle';
+  const meta = table[useName];
+  return meta ? [meta[0], meta[1]] : null;
+}
+
 function playPetAnim(speciesId, animName, loop) {
   const artOverride = PET_ART_OVERRIDE[speciesId] && PET_ART_OVERRIDE[speciesId][animName];
   if (artOverride) { playStaticPoseArt(artOverride, animName, loop); return; }
