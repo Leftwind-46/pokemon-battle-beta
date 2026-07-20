@@ -801,12 +801,19 @@ function executeSupportMoveSrv(attacker, defender, atk, role, op, G, log) {
       log.push({ text: `${attacker.name} 潛入了陰影中，下次受到攻擊有機會擲硬幣完全閃避！`, cls: 'special' });
       break;
     case 'debuff': {
+      const aBuff = G[`${role}Buff`];
+      const guaranteed = aBuff.guaranteedStatus;
+      aBuff.guaranteedStatus = false;
+      if (atk.status && !defender.status && defender.cur > 0 && G[`${op}StatusImmuneTurns`] > 0) {
+        log.push({ text: `${defender.name} 的妖精結界抵擋了異常狀態！`, cls: 'special' });
+        break;
+      }
       if (atk.status && !defender.status && defender.cur > 0 && defender.ability?.id === 'status-immune-once' && !defender._temperedHeart) {
         defender._temperedHeart = true;
         log.push({ text: `${defender.name} 的淬鍊之心發動，免疫了異常狀態並提升了攻擊力！`, cls: 'special' });
         break;
       }
-      if (atk.status && !defender.status && defender.cur > 0 && Math.random() < atk.status.chance) {
+      if (atk.status && !defender.status && defender.cur > 0 && (guaranteed || Math.random() < atk.status.chance)) {
         const effect = atk.status.effect;
         if (effect === 'confusion' && defender.ability?.id === 'own-tempo') {
           log.push({ text: `${defender.name} 的我行我素抵消了混亂！`, cls: 'special' });

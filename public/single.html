@@ -4742,9 +4742,13 @@ function executeSupportMove(attacker, defender, atk, aSide, dSide, onDone) {
       G[`${aSide}CoinShield`] = true;
       log(`${aLabel}${attacker.name} 潛入了陰影中，下次受到攻擊有機會擲硬幣完全閃避！`, 'special');
       break;
-    case 'debuff':
-      tryInflictStatus(atk, defender, dSide, attacker, guaranteedStatusThisHit);
+    case 'debuff': {
+      const aBuff = aSide === 'player' ? G.playerBuff : G.cpuBuff;
+      const guaranteed = aBuff.guaranteedStatus;
+      aBuff.guaranteedStatus = false;
+      tryInflictStatus(atk, defender, dSide, attacker, guaranteed);
       break;
+    }
     case 'meditate':
       G[`${aSide}BonusItemDrawsNextTurn`] = (G[`${aSide}BonusItemDrawsNextTurn`] || 0) + 2;
       log(`${aLabel}${attacker.name} 開始冥想，下回合將額外抽 2 張道具／競技場卡！`, 'special');
