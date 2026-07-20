@@ -263,6 +263,26 @@ const TRAINERS = [
   {id:'sacrifice',      name:'搏命',       cat:'supporter', desc:'我方與對方上場寶可夢同歸於盡'},
   {id:'mad-scientist',  name:'瘋狂博士',   cat:'supporter', desc:'選我方一隻寶可夢，變身成我方或對方一隻陣亡的寶可夢（回復變身後 50% HP）'},
   {id:'cheerleader',    name:'啦啦隊',     cat:'supporter', desc:'將能量補滿到 20'},
+  // ── 支援者牌：屬性分類新卡（18種屬性各一張，補齊「每種屬性都有專屬支援者卡」的空缺；
+  //   刻意少放補血、多放幽靈/惡這兩張封印Mega進化——使用者原話「補血卡少一點，多一些封印」）──
+  {id:'fire-nova',      name:'灼焒爆發',   cat:'supporter', type:'fire',     desc:'下次攻擊威力 +60，30% 機率讓對手灼傷'},
+  {id:'abyssal-power',  name:'深海之力',   cat:'supporter', type:'water',    desc:'下次攻擊消耗能量減半'},
+  {id:'earthen-wall',   name:'大地壁壘',   cat:'supporter', type:'ground',   desc:'下次受到攻擊傷害減少 90'},
+  {id:'lightning-dash', name:'電光石火',   cat:'supporter', type:'electric', desc:'本回合這次攻擊不消耗能量'},
+  {id:'leech-seed',     name:'寄生種子',   cat:'supporter', type:'grass',    desc:'接下來 3 回合，每回合開始吸取對方 3 點能量轉為自己能量'},
+  {id:'mind-focus',     name:'心靈感應',   cat:'supporter', type:'psychic',  desc:'下次攻擊的異常狀態機率視為 100%'},
+  {id:'breakthrough',   name:'直搗黃龍',   cat:'supporter', type:'fighting', desc:'下次攻擊威力 +40，且無視對方的「受傷減少」效果'},
+  {id:'wraith-curse',   name:'亡靈詛咒',   cat:'supporter', type:'ghost',    desc:'封印對手 Mega 進化 2 回合，並讓對方損失 5 點能量'},
+  {id:'dragon-might',   name:'龍神顯現',   cat:'supporter', type:'dragon',   desc:'自身損失 25% 最大HP，下次攻擊威力 ×1.5'},
+  {id:'steel-fortress', name:'鋼鐵壁壘',   cat:'supporter', type:'steel',    desc:'下次受到攻擊傷害減少 100'},
+  {id:'frost-armor',    name:'冰凍護甲',   cat:'supporter', type:'ice',      desc:'下次受到攻擊傷害減少 60；若對方該次攻擊為冰屬性則完全無效'},
+  {id:'quick-thinking', name:'隨機應變',   cat:'supporter', type:'normal',   desc:'立即抽 2 張手牌'},
+  {id:'shadow-lockdown',name:'暗影封鎖',   cat:'supporter', type:'dark',     desc:'封印對手 Mega 進化 2 回合，並讓對方隨機棄 1 張手牌'},
+  {id:'gale-dodge',     name:'疾風迴避',   cat:'supporter', type:'flying',   desc:'下次受到攻擊有 50% 機率完全迴避'},
+  {id:'tectonic-shift', name:'地殼變動',   cat:'supporter', type:'rock',     desc:'立即清除目前的競技場效果'},
+  {id:'fairy-barrier',  name:'妖精結界',   cat:'supporter', type:'fairy',    desc:'接下來 2 回合，我方上場寶可夢免疫異常狀態'},
+  {id:'toxic-pact',     name:'劇毒契約',   cat:'supporter', type:'poison',   desc:'讓對方陷入中毒，並讓對方損失 10 點能量'},
+  {id:'swarm-feast',    name:'蟲群啃食',   cat:'supporter', type:'bug',      desc:'讓對方損失 8 點能量，其中 4 點轉給自己'},
   // ── stadium ──
   {id:'stadium-training',      name:'訓練場',     cat:'stadium', desc:'場上所有技能威力 +20（雙方）'},
   {id:'stadium-spring',        name:'地熱溫泉',   cat:'stadium', desc:'每回合結束，雙方上場寶可夢各回復 15 HP'},
@@ -360,9 +380,11 @@ function clonePoke(p) {
     megaEvolved: p.mega ? false : undefined };
 }
 
-function effectiveCostSrv(atk, opponentPoke, G) {
+function effectiveCostSrv(atk, opponentPoke, G, buff) {
+  if (buff?.costFree) return 0;
   let cost = atk.cost;
   if (G?.activeStadium?.id === 'stadium-ocean' && atk.type === 'water') cost = Math.floor(cost / 2);
+  if (buff?.costHalved) cost = Math.floor(cost / 2);
   return cost;
 }
 
@@ -530,7 +552,7 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     const dmg     = Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus) * aBuff.atkMult * burnMult * (rawMult || 1)));
     attacker.cur  = Math.max(0, attacker.cur - dmg);
     log.push({ text: `反彈鏡！攻擊被反彈，${attacker.name} 承受了 ${dmg} 傷害！`, cls: 'special' });
-    aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; aBuff.doubleStrike = false; aBuff.typeBoost = null; dBuff.shield = 0;
+    aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; aBuff.doubleStrike = false; aBuff.typeBoost = null; aBuff.ignoreShield = false; aBuff.guaranteedStatus = false; aBuff.costFree = false; aBuff.costHalved = false; dBuff.shield = 0; dBuff.iceImmune = false;
     return { damage: dmg, mult: 1 };
   }
 
@@ -541,7 +563,7 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     defender.cur = Math.min(defender.hp, defender.cur + heal);
     log.push({ text: `${attacker.name} 使用了 ${atk.name}！`, cls: 'attack' });
     log.push({ text: `${defender.name} 的儲水吸收了攻擊，回復了 ${actualHeal} HP！`, cls: 'special' });
-    aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; aBuff.doubleStrike = false; aBuff.typeBoost = null; dBuff.shield = 0;
+    aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; aBuff.doubleStrike = false; aBuff.typeBoost = null; aBuff.ignoreShield = false; aBuff.guaranteedStatus = false; aBuff.costFree = false; aBuff.costHalved = false; dBuff.shield = 0; dBuff.iceImmune = false;
     return { damage: 0, mult: 1 };
   }
 
@@ -551,7 +573,7 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     G[`${dRole}Energy`] = Math.min(20, (G[`${dRole}Energy`] || 0) + 3);
     log.push({ text: `${attacker.name} 使用了 ${atk.name}！`, cls: 'attack' });
     log.push({ text: `${defender.name} 的電氣引擎吸收了攻擊，回復了 3 點能量！`, cls: 'special' });
-    aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; aBuff.doubleStrike = false; aBuff.typeBoost = null; dBuff.shield = 0;
+    aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; aBuff.doubleStrike = false; aBuff.typeBoost = null; aBuff.ignoreShield = false; aBuff.guaranteedStatus = false; aBuff.costFree = false; aBuff.costHalved = false; dBuff.shield = 0; dBuff.iceImmune = false;
     return { damage: 0, mult: 1 };
   }
 
@@ -560,7 +582,7 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     dBuff.atkBonus += 20;
     log.push({ text: `${attacker.name} 使用了 ${atk.name}！`, cls: 'attack' });
     log.push({ text: `${defender.name} 的引火吸收了攻擊，下次攻擊威力提升！`, cls: 'special' });
-    aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; aBuff.doubleStrike = false; aBuff.typeBoost = null; dBuff.shield = 0;
+    aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; aBuff.doubleStrike = false; aBuff.typeBoost = null; aBuff.ignoreShield = false; aBuff.guaranteedStatus = false; aBuff.costFree = false; aBuff.costHalved = false; dBuff.shield = 0; dBuff.iceImmune = false;
     return { damage: 0, mult: 1 };
   }
 
@@ -614,15 +636,21 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
   const stadiumMult = colosseumMult * mysticSpaceMult * lavaMult * oceanMult * rockFieldMult;
   // 龍之波動／順風：只在下次攻擊剛好符合指定屬性時才加成，不論有沒有命中屬性都會被這次攻擊消耗掉
   const typeBoostMult = (aBuff.typeBoost && atkType === aBuff.typeBoost.type) ? aBuff.typeBoost.mult : 1;
+  // 冰凍護甲：對方這次攻擊若剛好是冰屬性，無視前面所有計算直接完全無效（比一般shield更強的針對性防禦）
+  const frostArmorProc = !!dBuff.iceImmune && atkType === 'ice';
   let damage;
   if (mult === 0) {
     damage = 0;
     log.push({ text: `${atk.name} 對 ${defender.name} 完全無效！`, cls: 'resist' });
+  } else if (frostArmorProc) {
+    damage = 0;
+    log.push({ text: `${defender.name} 的冰凍護甲抵擋了冰屬性攻擊，完全無效！`, cls: 'special' });
   } else {
     // 烈空坐系特性「威壓氣場」：對手的攻擊力提升效果（atkMult超過1的部分）減半，只影響防守方是這隻寶可夢的情況
     const effectiveAtkMult = defender.ability?.id === 'weaken-buffs' ? (1 + Math.max(0, aBuff.atkMult - 1) * 0.5) : aBuff.atkMult;
     // 烏賊王「顛倒之心」：對手的防禦加成（shield）對它反而變成傷害加成
-    const shieldTerm = defender.ability?.id === 'shield-invert' ? -dBuff.shield : dBuff.shield;
+    // 直搗黃龍：無視對方的shield（受傷減少）效果，這次攻擊當它不存在
+    const shieldTerm = aBuff.ignoreShield ? 0 : (defender.ability?.id === 'shield-invert' ? -dBuff.shield : dBuff.shield);
     damage = Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumBonus + reversalBonus) * effectiveAtkMult * burnMult * mult * stabMult * switchGuardMult * abilityDmgMult * defAbilityMult * megaBoostMult * stadiumMult * typeBoostMult) - shieldTerm);
     // 影舞：下一次受到攻擊擲硬幣，正面完全免傷——一次性旗標，這次攻擊到來就消耗掉（不論正反面）。true-damage系特性無視此效果。
     if (!moldBreaker && G[`${dRole}CoinShield`]) {
@@ -683,12 +711,18 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     }
     // Inflict status — wrapped so 連擊 (double-strike) can roll it a second time
     const rollStatus = () => {
+      // 妖精結界：接下來N回合，我方上場寶可夢免疫異常狀態
+      if (damage > 0 && atk.status && !defender.status && defender.cur > 0 && G[`${dRole}StatusImmuneTurns`] > 0) {
+        log.push({ text: `${defender.name} 的妖精結界抵擋了異常狀態！`, cls: 'special' });
+        return;
+      }
       if (damage > 0 && atk.status && !defender.status && defender.cur > 0 && defender.ability?.id === 'status-immune-once' && !defender._temperedHeart) {
         defender._temperedHeart = true;
         log.push({ text: `${defender.name} 的淬鍊之心發動，免疫了異常狀態並提升了攻擊力！`, cls: 'special' });
         return;
       }
-      if (damage > 0 && atk.status && !defender.status && defender.cur > 0 && Math.random() < atk.status.chance) {
+      // 心靈感應：下次攻擊的異常狀態機率視為 100%
+      if (damage > 0 && atk.status && !defender.status && defender.cur > 0 && (aBuff.guaranteedStatus || Math.random() < atk.status.chance)) {
         const effect = atk.status.effect;
         if (effect === 'confusion' && defender.ability?.id === 'own-tempo') {
           log.push({ text: `${defender.name} 的我行我素抵消了混亂！`, cls: 'special' });
@@ -722,7 +756,7 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
   }
 
   // Consume buffs
-  aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; aBuff.doubleStrike = false; aBuff.typeBoost = null; dBuff.shield = 0;
+  aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; aBuff.doubleStrike = false; aBuff.typeBoost = null; aBuff.ignoreShield = false; aBuff.guaranteedStatus = false; aBuff.costFree = false; aBuff.costHalved = false; dBuff.shield = 0; dBuff.iceImmune = false;
   return { damage, mult };
 }
 
@@ -1186,6 +1220,124 @@ function applyTrainer(card, role, G, log, chosenType) {
       G[`${role}Energy`] = 20;
       log.push({ text: `啦啦隊將能量補滿到 20！`, cls: 'special' });
       break;
+    // ── 支援者牌：屬性分類新卡 ──
+    case 'fire-nova': {
+      buff.atkBonus += 60;
+      const opDeck = G[`${op}Deck`]; const opActive = opDeck[G[`${op}Idx`]];
+      if (!opActive.status && Math.random() < 0.3) {
+        opActive.status = { type: 'burn', turnsLeft: 999 };
+        log.push({ text: `使用了${card.name}，下次攻擊威力 +60，${opActive.name} 陷入了燒傷！`, cls: 'special' });
+      } else {
+        log.push({ text: `使用了${card.name}，下次攻擊威力 +60！`, cls: 'system' });
+      }
+      break;
+    }
+    case 'abyssal-power':
+      buff.costHalved = true;
+      log.push({ text: `使用了${card.name}，下次攻擊消耗能量減半！`, cls: 'system' });
+      break;
+    case 'earthen-wall':
+      buff.shield += 90;
+      log.push({ text: `使用了${card.name}，下次承受傷害 -90！`, cls: 'system' });
+      break;
+    case 'lightning-dash':
+      buff.costFree = true;
+      log.push({ text: `使用了${card.name}，這次攻擊不消耗能量！`, cls: 'system' });
+      break;
+    case 'leech-seed':
+      G[`${role}LeechTurns`] = 3;
+      log.push({ text: `使用了${card.name}，接下來 3 回合，每回合開始都會吸取對方 3 點能量！`, cls: 'special' });
+      break;
+    case 'mind-focus':
+      buff.guaranteedStatus = true;
+      log.push({ text: `使用了${card.name}，下次攻擊的異常狀態機率視為 100%！`, cls: 'system' });
+      break;
+    case 'breakthrough':
+      buff.atkBonus += 40;
+      buff.ignoreShield = true;
+      log.push({ text: `使用了${card.name}，下次攻擊威力 +40，且無視對方的受傷減少效果！`, cls: 'system' });
+      break;
+    case 'wraith-curse': {
+      G[`${op}MegaSealedTurns`] = 2;
+      const before = G[`${op}Energy`] || 0;
+      G[`${op}Energy`] = Math.max(0, before - 5);
+      log.push({ text: `使用了${card.name}，封印對方 Mega 進化 2 回合，並讓對方損失了 ${before - G[`${op}Energy`]} 點能量！`, cls: 'special' });
+      break;
+    }
+    case 'dragon-might': {
+      buff.atkMult = Math.max(buff.atkMult, 1.5);
+      const loss = Math.round(active.hp * 0.25);
+      active.cur = Math.max(1, active.cur - loss);
+      log.push({ text: `使用了${card.name}，${active.name} 損失了 25% 最大HP，下次攻擊威力 ×1.5！（剩 ${active.cur}/${active.hp}）`, cls: 'system' });
+      break;
+    }
+    case 'steel-fortress':
+      buff.shield += 100;
+      log.push({ text: `使用了${card.name}，下次承受傷害 -100！`, cls: 'system' });
+      break;
+    case 'frost-armor':
+      buff.shield += 60;
+      buff.iceImmune = true;
+      log.push({ text: `使用了${card.name}，下次承受傷害 -60；若對方使用冰屬性攻擊則完全無效！`, cls: 'system' });
+      break;
+    case 'quick-thinking': {
+      const hand = G[`${role}Hand`];
+      const itemsOnly = getDrawPool(active.type, active.type2);
+      const drawn = [itemsOnly[Math.floor(Math.random() * itemsOnly.length)], itemsOnly[Math.floor(Math.random() * itemsOnly.length)]];
+      hand.push(...drawn);
+      log.push({ text: `使用了${card.name}，抽到了：${drawn.map(c => c.name).join('、')}！`, cls: 'system' });
+      G[`${role}NeedsDiscard`] = hand.length > 7;
+      break;
+    }
+    case 'shadow-lockdown': {
+      G[`${op}MegaSealedTurns`] = 2;
+      const opHand = G[`${op}Hand`];
+      if (opHand.length) {
+        const wIdx = Math.floor(Math.random() * opHand.length);
+        const discarded = opHand.splice(wIdx, 1)[0];
+        log.push({ text: `使用了${card.name}，封印對方 Mega 進化 2 回合，並讓對方棄掉了【${discarded.name}】！`, cls: 'special' });
+      } else {
+        log.push({ text: `使用了${card.name}，封印對方 Mega 進化 2 回合，但對方沒有手牌可以棄。`, cls: 'system' });
+      }
+      break;
+    }
+    case 'gale-dodge':
+      G[`${role}CoinShield`] = true;
+      log.push({ text: `使用了${card.name}，下次受到攻擊有機會擲硬幣完全迴避！`, cls: 'system' });
+      break;
+    case 'tectonic-shift':
+      if (G.activeStadium) {
+        log.push({ text: `使用了${card.name}，清除了競技場【${G.activeStadium.name}】的效果！`, cls: 'special' });
+        G.activeStadium = null;
+      } else {
+        log.push({ text: `使用了${card.name}，但目前沒有競技場效果。`, cls: 'system' });
+      }
+      break;
+    case 'fairy-barrier':
+      G[`${role}StatusImmuneTurns`] = 2;
+      log.push({ text: `使用了${card.name}，接下來 2 回合，我方上場寶可夢免疫異常狀態！`, cls: 'special' });
+      break;
+    case 'toxic-pact': {
+      const opDeck = G[`${op}Deck`]; const opActive = opDeck[G[`${op}Idx`]];
+      const before = G[`${op}Energy`] || 0;
+      G[`${op}Energy`] = Math.max(0, before - 10);
+      if (!opActive.status) {
+        opActive.status = { type: 'poison', turnsLeft: 999 };
+        log.push({ text: `使用了${card.name}，讓${opActive.name} 陷入中毒，並損失了 ${before - G[`${op}Energy`]} 點能量！`, cls: 'special' });
+      } else {
+        log.push({ text: `使用了${card.name}，${opActive.name} 已有異常狀態，只損失了 ${before - G[`${op}Energy`]} 點能量！`, cls: 'system' });
+      }
+      break;
+    }
+    case 'swarm-feast': {
+      const before = G[`${op}Energy`] || 0;
+      G[`${op}Energy`] = Math.max(0, before - 8);
+      const drained = before - G[`${op}Energy`];
+      const transfer = Math.min(4, drained);
+      G[`${role}Energy`] = Math.min(20, (G[`${role}Energy`] || 0) + transfer);
+      log.push({ text: `使用了${card.name}，對方損失了 ${drained} 點能量，自己獲得了 ${transfer} 點能量！`, cls: 'special' });
+      break;
+    }
     case 'stadium-training':
     case 'stadium-spring':
     case 'stadium-reversal':
@@ -1251,6 +1403,18 @@ function drawForRole(G, role) {
   if (G.activeStadium?.id === 'stadium-mega-prism' && !G[`${role}MegaUsed`]) {
     G[`${role}MegaEnergy`] = Math.min(20, (G[`${role}MegaEnergy`] || 0) + 10);
   }
+  // 亡靈詛咒／暗影封鎖：封印Mega進化的回合倒數
+  if (G[`${role}MegaSealedTurns`] > 0) G[`${role}MegaSealedTurns`]--;
+  // 寄生種子：接下來N回合，每回合開始從對方身上吸取能量
+  if (G[`${role}LeechTurns`] > 0) {
+    const op = role === 'p1' ? 'p2' : 'p1';
+    const amt = Math.min(3, G[`${op}Energy`] || 0);
+    G[`${op}Energy`] = (G[`${op}Energy`] || 0) - amt;
+    G[`${role}Energy`] = Math.min(20, (G[`${role}Energy`] || 0) + amt);
+    G[`${role}LeechTurns`]--;
+  }
+  // 妖精結界：異常狀態免疫的回合倒數
+  if (G[`${role}StatusImmuneTurns`] > 0) G[`${role}StatusImmuneTurns`]--;
   const activePoke = G[`${role}Deck`][G[`${role}Idx`]];
   const itemsOnly = getDrawPool(activePoke.type, activePoke.type2);
   const n = 2;
@@ -2242,6 +2406,7 @@ async function handleMessage(ws, msg) {
       if (G.turn !== role || G.pendingKOSwitch) return;
       const attacker = G[`${role}Deck`][G[`${role}Idx`]];
       if (!attacker.mega || attacker.megaEvolved || G[`${role}MegaUsed`] || G[`${role}MegaEnergy`] < 20) return;
+      if (G[`${role}MegaSealedTurns`] > 0) { send(ws, { type: 'error', message: `Mega進化被封印中，還剩 ${G[`${role}MegaSealedTurns`]} 回合` }); return; }
       attacker.id = attacker.mega.spriteId;
       attacker.type = attacker.mega.type;
       attacker.type2 = attacker.mega.type2 ?? null;
@@ -2268,7 +2433,7 @@ async function handleMessage(ws, msg) {
       const dBuff    = G[`${op}Buff`];
       const atk      = attacker.attacks[msg.idx];
       if (!atk) return;
-      const atkCost = effectiveCostSrv(atk, defender, G);
+      const atkCost = effectiveCostSrv(atk, defender, G, aBuff);
       if ((G[`${role}Energy`] || 0) < atkCost) { send(ws, { type:'error', message:'能量不足，無法使用這個招式' }); return; }
 
       const log = [];
