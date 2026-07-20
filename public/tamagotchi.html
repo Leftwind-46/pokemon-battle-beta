@@ -175,11 +175,11 @@
   .catch-scene-wild{position:absolute;left:50%;top:50%;width:120px;height:120px;transform:translate(-50%,-50%);image-rendering:pixelated;filter:drop-shadow(0 8px 10px rgba(0,0,0,0.4))}
   .catch-scene-wild.shaking{animation:catchShake 0.4s ease-in-out}
   @keyframes catchShake{0%,100%{transform:translate(-50%,-50%) rotate(0)}25%{transform:translate(-50%,-50%) rotate(-8deg)}75%{transform:translate(-50%,-50%) rotate(8deg)}}
-  .catch-scene-ball{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);font-size:2rem;animation:ballBob 1.4s ease-in-out infinite}
+  .catch-scene-ball{position:absolute;left:50%;bottom:14px;width:34px;height:34px;transform:translateX(-50%);animation:ballBob 1.4s ease-in-out infinite;image-rendering:pixelated;filter:drop-shadow(0 3px 4px rgba(0,0,0,0.5))}
   @keyframes ballBob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-6px)}}
   .catch-ball-picker{display:flex;gap:0.6rem;justify-content:center;flex-wrap:wrap}
   .catch-ball-btn{display:flex;flex-direction:column;align-items:center;gap:0.2rem;padding:0.5rem 0.8rem;border-radius:12px;border:2px solid var(--border);background:rgba(255,255,255,0.05);color:var(--text);font-size:0.72rem;font-weight:700;cursor:pointer}
-  .catch-ball-btn .icon{font-size:1.4rem}
+  .catch-ball-btn .icon{width:28px;height:28px;image-rendering:pixelated}
   .catch-ball-btn:disabled{opacity:0.35;cursor:not-allowed}
   .catch-result-sprite-wrap{position:relative;align-self:center;width:140px;height:140px;display:flex;align-items:center;justify-content:center}
   .catch-result-sprite-wrap img{width:100%;height:100%;object-fit:contain;image-rendering:pixelated}
@@ -196,6 +196,7 @@
   .pet-action-btn{display:flex;flex-direction:column;align-items:center;gap:0.25rem;padding:0.6rem 1.1rem;border-radius:14px;border:2px solid var(--border);background:rgba(255,255,255,0.05);color:var(--text);font-size:0.78rem;font-weight:700;cursor:pointer;transition:all 0.15s}
   .pet-action-btn:hover{background:rgba(255,255,255,0.1);transform:translateY(-2px)}
   .pet-action-btn .icon{font-size:1.4rem}
+  .pet-action-btn .icon-img{width:24px;height:24px;image-rendering:pixelated}
 
   /* ── 敬請期待 toast ── */
   #toast{position:fixed;left:50%;bottom:2rem;transform:translateX(-50%) translateY(20px);background:rgba(20,20,35,0.95);border:1px solid var(--border);border-radius:999px;padding:0.6rem 1.4rem;font-size:0.85rem;color:var(--text);z-index:600;opacity:0;pointer-events:none;transition:all 0.25s ease}
@@ -221,6 +222,7 @@
   .modal-close{align-self:center;font-size:0.82rem;color:var(--muted);cursor:pointer;text-decoration:underline}
   .shop-item{display:flex;align-items:center;gap:0.7rem;padding:0.6rem 0.7rem;border:1px solid var(--border);border-radius:12px}
   .shop-item .icon{font-size:1.6rem}
+  .shop-item .icon-img{width:32px;height:32px;image-rendering:pixelated}
   .shop-item .info{flex:1}
   .shop-item .name{font-weight:700;font-size:0.9rem}
   .shop-item .price{font-size:0.78rem;color:#f8d030}
@@ -291,7 +293,7 @@
         <div class="pet-action-btn" onclick="openShopModal()"><span class="icon">🎒</span>道具</div>
         <div class="pet-action-btn" onclick="openVisitModal()"><span class="icon">🚪</span>拜訪朋友</div>
         <div class="pet-action-btn" onclick="openFishingScene()"><span class="icon">🎣</span>釣魚</div>
-        <div class="pet-action-btn" onclick="openCatchScene()"><span class="icon">🎾</span>捕捉</div>
+        <div class="pet-action-btn" onclick="openCatchScene()"><img class="icon-img" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png" alt="">捕捉</div>
       </div>
       <p style="font-size:0.68rem;color:var(--muted);text-align:center">動作素材來源：<a href="https://github.com/PMDCollab/SpriteCollab" target="_blank" rel="noopener" style="color:var(--muted)">PMDCollab/SpriteCollab</a>（CC BY-NC）</p>
       <a class="back" href="/">← 返回主選單</a>
@@ -354,6 +356,7 @@
       <div class="fishing-scene-basket">🧺</div>
       <div class="fishing-scene-pile" id="fishing-scene-pile"></div>
     </div>
+    <div class="modal-close" onclick="closeFishingSession()">結束釣魚</div>
   </div>
 </div>
 <div id="fishing-result-modal" class="modal-overlay" onclick="closeFishingResultModal()">
@@ -367,11 +370,11 @@
     <h2>🎾 野生寶可夢出現！</h2>
     <div class="catch-scene">
       <img class="catch-scene-wild" id="catch-scene-wild-img" src="" alt="">
-      <div class="catch-scene-ball" id="catch-scene-ball" style="display:none">⚪</div>
+      <img class="catch-scene-ball" id="catch-scene-ball" src="" alt="" style="display:none">
     </div>
     <div id="catch-scene-name" style="text-align:center;font-weight:700"></div>
     <div class="catch-ball-picker" id="catch-ball-picker"></div>
-    <div class="modal-close" id="catch-scene-close" onclick="closeCatchScene()">放棄離開</div>
+    <div class="modal-close" id="catch-scene-close" onclick="closeCatchScene()">放棄離開（退回 90 金幣）</div>
   </div>
 </div>
 <div id="catch-result-modal" class="modal-overlay" onclick="closeCatchResultModal()">
@@ -893,7 +896,7 @@ function renderShopList() {
     const owned = pet[BALL_FIELD_TO_PET_KEY[item.ballField]] || 0;
     return `
       <div class="shop-item">
-        <span class="icon">${item.icon}</span>
+        <img class="icon-img" src="${item.iconUrl}" alt="">
         <div class="info">
           <div class="name">${item.name}（持有 ${owned}）</div>
           <div class="price">🪙 ${item.price}</div>
@@ -1222,8 +1225,13 @@ function addToFishingPile(data) {
   pile.appendChild(img);
 }
 
+// 是否還在釣魚session中——關掉介面（closeFishingSession）會把這個設false，
+// 讓正在跑的runFishingAttempt()迴圈在下一個檢查點停下來，不會硬跳出還在等待的fetch
+let fishingActive = false;
+
 async function openFishingScene() {
   if (!pet) return;
+  fishingActive = true;
   resetFishingPile();
   const petImg = document.getElementById('fishing-scene-pet-img');
   const urls = spriteUrls(PET_SPECIES.find(s => s.id === pet.speciesId) || { id: pet.speciesId });
@@ -1232,46 +1240,64 @@ async function openFishingScene() {
   await runFishingAttempt();
 }
 
-// 抽出成獨立函式，讓「收進魚籃後繼續釣魚」可以重新呼叫同一段流程，不用整個重開場景（沙灘堆疊才留得住）
+// 玩家主動按「結束釣魚」——關掉場景/結果兩個modal，把迴圈旗標關掉，之後不會再自動續釣
+function closeFishingSession() {
+  fishingActive = false;
+  document.getElementById('fishing-scene-modal').classList.remove('open');
+  document.getElementById('fishing-result-modal').classList.remove('open');
+  lastFishResult = null;
+}
+
+// 抽出成獨立函式，讓「收進魚籃後繼續釣魚」跟「失敗後自動續釣」都能重新呼叫同一段流程，
+// 不用整個重開場景（沙灘堆疊才留得住）。失敗（fishType==='none'）不彈窗，直接顯示提示後自動再釣一次，
+// 直到玩家按「結束釣魚」為止；成功才需要玩家點「收進魚籃」手動繼續（給玩家看清楚釣到什麼的機會）。
 async function runFishingAttempt() {
+  if (!fishingActive) return;
+  document.getElementById('fishing-scene-modal').classList.add('open');
+
   const fetchPromise = fetch('/api/pet/fish', { method: 'POST', headers: { Authorization: `Bearer ${myToken}` } })
     .then(r => r.ok ? r.json() : null)
     .catch(() => null);
   const waitPromise = new Promise(r => setTimeout(r, FISHING_WAIT_MS));
   const [data] = await Promise.all([fetchPromise, waitPromise]);
 
+  if (!fishingActive) return; // 等待期間玩家按了結束釣魚
   document.getElementById('fishing-scene-modal').classList.remove('open');
-  if (data) showFishingResult(data);
-  else showToast('連線失敗，請再試一次');
+
+  if (!data) {
+    showToast('連線失敗，請再試一次');
+    fishingActive = false;
+    return;
+  }
+  if (data.fishType === 'none') {
+    showToast('沒有咬餌…繼續釣魚中');
+    setTimeout(() => { if (fishingActive) runFishingAttempt(); }, 500);
+    return;
+  }
+  showFishingResult(data);
 }
 
 let lastFishResult = null; // 暫存最近一次釣魚結果，避免把整包物件序列化塞進onclick屬性
 function showFishingResult(data) {
   lastFishResult = data;
   const body = document.getElementById('fishing-result-body');
-  if (data.fishType === 'none') {
-    body.innerHTML = `
-      <div class="fish-result-fail">😢 失敗</div>
-      <div class="modal-close" onclick="closeFishingResultModal()">關閉</div>
-    `;
-  } else {
-    const isRare = data.fishType === 'golden-magikarp' || data.fishType === 'red-gyarados';
-    const isLegendary = !!data.legendary; // 蓋歐卡——FISH_TYPES裡標了legendary:true，不用比對字串id
-    const spriteUrl = fishSpriteUrl(data.speciesId, data.shiny);
-    const wrapClass = isLegendary ? ' legendary' : (isRare ? ' rare' : '');
-    body.innerHTML = `
-      <div class="fish-result-sprite-wrap${wrapClass}">
-        ${isLegendary ? '<div class="fish-wave-ring"></div><div class="fish-wave-ring ring-2"></div><div class="fish-wave-ring ring-3"></div>' : ''}
-        <img src="${spriteUrl}" alt="${data.name}">
-        ${data.fishType === 'red-gyarados' ? '<div class="fish-result-crown">👑</div>' : ''}
-      </div>
-      <div class="fish-result-name${wrapClass}">${isLegendary ? `🌊 ${data.name} 降臨！🌊` : data.name}</div>
-      <button class="btn btn-primary" onclick="collectFish()">收進魚籃！</button>
-    `;
-    if (isRare || isLegendary) {
-      const rect = body.getBoundingClientRect();
-      setTimeout(() => triggerFirework(rect.left + rect.width / 2, rect.top + 80), 200);
-    }
+  const isRare = data.fishType === 'golden-magikarp' || data.fishType === 'red-gyarados';
+  const isLegendary = !!data.legendary; // 蓋歐卡——FISH_TYPES裡標了legendary:true，不用比對字串id
+  const spriteUrl = fishSpriteUrl(data.speciesId, data.shiny);
+  const wrapClass = isLegendary ? ' legendary' : (isRare ? ' rare' : '');
+  body.innerHTML = `
+    <div class="fish-result-sprite-wrap${wrapClass}">
+      ${isLegendary ? '<div class="fish-wave-ring"></div><div class="fish-wave-ring ring-2"></div><div class="fish-wave-ring ring-3"></div>' : ''}
+      <img src="${spriteUrl}" alt="${data.name}">
+      ${data.fishType === 'red-gyarados' ? '<div class="fish-result-crown">👑</div>' : ''}
+    </div>
+    <div class="fish-result-name${wrapClass}">${isLegendary ? `🌊 ${data.name} 降臨！🌊` : data.name}</div>
+    <button class="btn btn-primary" onclick="collectFish()">收進魚籃！</button>
+    <div class="modal-close" onclick="closeFishingSession()">結束釣魚</div>
+  `;
+  if (isRare || isLegendary) {
+    const rect = body.getBoundingClientRect();
+    setTimeout(() => triggerFirework(rect.left + rect.width / 2, rect.top + 80), 200);
   }
   document.getElementById('fishing-result-modal').classList.add('open');
 }
@@ -1288,9 +1314,8 @@ async function collectFish() {
   addToFishingPile(data);
   lastFishResult = null;
   closeFishingResultModal();
+  if (!fishingActive) return; // 保險：理論上結束釣魚時modal就關了收不到點擊，這裡再擋一次
   showToast('已收進魚籃！繼續釣魚中...');
-  // 繼續釣魚——重開場景modal（沙灘堆疊不清空，因為resetFishingPile只在openFishingScene的session起點呼叫）
-  document.getElementById('fishing-scene-modal').classList.add('open');
   await runFishingAttempt();
 }
 
@@ -1302,6 +1327,12 @@ async function collectFish() {
 function catchSpriteUrl(pokemonId) {
   return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemonId}.png`;
 }
+// 真的精靈球道具sprite（PokeAPI items目錄），不用emoji湊數
+const POKEBALL_ICON_URLS = {
+  'ball-normal': 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png',
+  'ball-great':  'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/great-ball.png',
+  'ball-ultra':  'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/ultra-ball.png',
+};
 
 let currentEncounter = null; // { pokemonId, name, tier }
 let pendingRelease = null;   // { newPokemonId, newName }
@@ -1318,7 +1349,8 @@ async function openCatchScene() {
     const data = await res.json();
     if (!res.ok) {
       showToast(data.error === 'not_enough_coins' ? '金幣不足，捕捉一次需要 100 金幣' : '發生錯誤，請再試一次');
-      closeCatchScene();
+      document.getElementById('catch-scene-modal').classList.remove('open');
+      currentEncounter = null;
       return;
     }
     updateCoinsUI(data.coins);
@@ -1328,27 +1360,37 @@ async function openCatchScene() {
     renderBallPicker();
   } catch (e) {
     showToast('連線失敗，請再試一次');
-    closeCatchScene();
+    document.getElementById('catch-scene-modal').classList.remove('open');
+    currentEncounter = null;
   }
 }
 
 function renderBallPicker() {
   const picker = document.getElementById('catch-ball-picker');
   const balls = [
-    { type: 'ball-normal', icon: '⚪', name: '一般球', count: pet.ballNormal || 0 },
-    { type: 'ball-great',  icon: '🔵', name: '超級球', count: pet.ballGreat || 0 },
-    { type: 'ball-ultra',  icon: '🟡', name: '高級球', count: pet.ballUltra || 0 },
+    { type: 'ball-normal', name: '一般球', count: pet.ballNormal || 0 },
+    { type: 'ball-great',  name: '超級球', count: pet.ballGreat || 0 },
+    { type: 'ball-ultra',  name: '高級球', count: pet.ballUltra || 0 },
   ];
   picker.innerHTML = balls.map(b => `
     <button class="catch-ball-btn" ${b.count < 1 ? 'disabled' : ''} onclick="throwBall('${b.type}')">
-      <span class="icon">${b.icon}</span>${b.name}（${b.count}）
+      <img class="icon" src="${POKEBALL_ICON_URLS[b.type]}" alt="">${b.name}（${b.count}）
     </button>
   `).join('');
 }
 
-function closeCatchScene() {
+// 玩家主動放棄這次遭遇（不是丟球失敗）——呼叫giveup端點退90金幣，再關掉場景。
+// 沒有進行中的遭遇（例如encounter API本身就失敗了）就純粹關窗，不用打giveup。
+async function closeCatchScene() {
+  const hadEncounter = !!currentEncounter;
   document.getElementById('catch-scene-modal').classList.remove('open');
   currentEncounter = null;
+  if (!hadEncounter) return;
+  try {
+    const res = await fetch('/api/pet/catch/giveup', { method: 'POST', headers: { Authorization: `Bearer ${myToken}` } });
+    const data = await res.json();
+    if (res.ok) { updateCoinsUI(data.coins); showToast(`已放棄，退回 🪙 ${data.refunded} 金幣`); }
+  } catch (e) { /* 網路失敗就算了，不影響UI關閉 */ }
 }
 
 const CATCH_THROW_WAIT_MS = 1200;
@@ -1356,6 +1398,7 @@ async function throwBall(ballType) {
   if (!currentEncounter) return;
   const pokemonId = currentEncounter.pokemonId;
   document.getElementById('catch-ball-picker').innerHTML = '';
+  document.getElementById('catch-scene-ball').src = POKEBALL_ICON_URLS[ballType];
   document.getElementById('catch-scene-ball').style.display = '';
   const wildImg = document.getElementById('catch-scene-wild-img');
   wildImg.classList.add('shaking');
@@ -1369,18 +1412,33 @@ async function throwBall(ballType) {
   const [result] = await Promise.all([fetchPromise, waitPromise]);
 
   wildImg.classList.remove('shaking');
+  document.getElementById('catch-scene-ball').style.display = 'none';
+
+  if (!result || !result.ok) {
+    showToast('連線失敗，請再試一次');
+    document.getElementById('catch-scene-modal').classList.remove('open');
+    currentEncounter = null;
+    return;
+  }
+
+  const data = result.data;
+  // 沒抓到但沒激烈反抗——遭遇還在進行中，只要還有球就能繼續丟，不用重新花錢encounter
+  if (!data.caught && !data.fled) {
+    showToast(`${currentEncounter.name} 掙脫了！再試一次`);
+    renderBallPicker();
+    return;
+  }
+  // 抓到了，或是激烈反抗逃跑——這次遭遇結束
   document.getElementById('catch-scene-modal').classList.remove('open');
   currentEncounter = null;
-
-  if (!result || !result.ok) { showToast('連線失敗，請再試一次'); return; }
-  showCatchResult(result.data);
+  showCatchResult(data);
 }
 
 function showCatchResult(data) {
   const body = document.getElementById('catch-result-body');
   if (!data.caught) {
     body.innerHTML = `
-      <div class="catch-result-fail">😢 寶可夢掙脫了！</div>
+      <div class="catch-result-fail">😡 寶可夢激烈反抗，逃跑了！</div>
       <div class="modal-close" onclick="closeCatchResultModal()">關閉</div>
     `;
     document.getElementById('catch-result-modal').classList.add('open');

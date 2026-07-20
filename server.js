@@ -377,14 +377,24 @@ const SHOP_ITEMS = {
   'plant-pot':     { name: '觀葉植物', price: 20, icon: '🪴', category: 'decor' },
   'picture-frame': { name: '掛畫',     price: 35, icon: '🖼️', category: 'decor' },
   'toy-ball':      { name: '玩具球',   price: 15, icon: '⚽', category: 'decor' },
-  // 寶可夢球——消耗品，跟上面裝飾品的一次性擁有邏輯不同，允許重複購買囤貨（見 /api/pet/buy 的 category==='ball' 分支）
-  'ball-normal': { name: '一般球', price: 1,  icon: '⚪', category: 'ball', ballField: 'ball_normal' },
-  'ball-great':  { name: '超級球', price: 5,  icon: '🔵', category: 'ball', ballField: 'ball_great' },
-  'ball-ultra':  { name: '高級球', price: 10, icon: '🟡', category: 'ball', ballField: 'ball_ultra' },
+  // 寶可夢球——消耗品，跟上面裝飾品的一次性擁有邏輯不同，允許重複購買囤貨（見 /api/pet/buy 的 category==='ball' 分支）。
+  // iconUrl 用PokeAPI真的道具sprite（不是emoji湊數），前端渲染時偵測到iconUrl就改用<img>
+  'ball-normal': { name: '一般球', price: 1,  iconUrl: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png',   category: 'ball', ballField: 'ball_normal' },
+  'ball-great':  { name: '超級球', price: 5,  iconUrl: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/great-ball.png',  category: 'ball', ballField: 'ball_great' },
+  'ball-ultra':  { name: '高級球', price: 10, iconUrl: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/ultra-ball.png',  category: 'ball', ballField: 'ball_ultra' },
 };
 // 球的等級 → 捕捉基礎成功率（丟球小遊戲用，寶可夢 tier 越高會再往下修正，見 /api/pet/catch/throw）
-const BALL_CATCH_RATE = { 'ball-normal': 0.30, 'ball-great': 0.55, 'ball-ultra': 0.80 };
-const CATCH_TIER_MULT = { 1: 1, 2: 0.85, 3: 0.7 };
+// 2026-07-21 應使用者要求調高：一般30%→45%、超級55%→70%、高級80%→92%，tier修正也放寬一些
+const BALL_CATCH_RATE = { 'ball-normal': 0.45, 'ball-great': 0.70, 'ball-ultra': 0.92 };
+const CATCH_TIER_MULT = { 1: 1, 2: 0.9, 3: 0.82 };
+// 丟球沒抓到時，1%機率讓寶可夢「激烈反抗」直接逃跑結束這次遭遇；其餘99%只是這次沒抓到，
+// 玩家還有球的話可以在同一次遭遇裡繼續丟，不用重新花100金幣encounter
+const FIERCE_RESISTANCE_CHANCE = 0.01;
+const CATCH_GIVEUP_REFUND = 90; // encounter花100，玩家選擇放棄退90（扣的10算「探索費」不退）
+// 進行中的捕捉遭遇（伺服器記憶體）——玩家encounter完、決定要不要丟球/放棄之前，記住是哪隻野生寶可夢，
+// 防止client直接偽造pokemonId呼叫throw/giveup跳過encounter的100金幣費用
+const activeEncounters = new Map(); // userId -> { pokemonId, name, tier, expiresAt }
+const ENCOUNTER_TTL_MS = 5 * 60 * 1000;
 // 隊伍已滿10隻時，捕捉成功但還沒決定要放生誰的暫存狀態（伺服器記憶體，不用開DB欄位存這種短命的中繼狀態）——
 // 防止client跳過encounter/throw流程，直接偽造一次「捕捉成功」呼叫resolve-release把任意寶可夢塞進隊伍
 const pendingCatchReleases = new Map(); // userId -> { pokemonId, expiresAt }
@@ -2190,6 +2200,10 @@ app.post('/api/pet/buy', requireAuth, async (req, res) => {
    跟釣魚一樣，真正的隨機結果（丟球成功率）要留到 catch/throw 才由伺服器端擲，不能讓client先看到結果 */
 app.post('/api/pet/catch/encounter', requireAuth, async (req, res) => {
   const ENCOUNTER_COST = 100;
+  const existing = activeEncounters.get(req.user.id);
+  if (existing && existing.expiresAt > Date.now()) {
+    return res.status(400).json({ error: 'encounter_in_progress' });
+  }
   try {
     const { rows } = await pool.query('SELECT coins FROM pets WHERE user_id = $1', [req.user.id]);
     if (!rows.length) return res.status(404).json({ error: 'no_pet' });
@@ -2197,6 +2211,7 @@ app.post('/api/pet/catch/encounter', requireAuth, async (req, res) => {
     const coins = rows[0].coins - ENCOUNTER_COST;
     await pool.query('UPDATE pets SET coins = $1 WHERE user_id = $2', [coins, req.user.id]);
     const wild = POKEMON[Math.floor(Math.random() * POKEMON.length)];
+    activeEncounters.set(req.user.id, { pokemonId: wild.id, name: wild.name, tier: wild.tier, expiresAt: Date.now() + ENCOUNTER_TTL_MS });
     res.json({ coins, pokemonId: wild.id, name: wild.name, tier: wild.tier });
   } catch (e) {
     console.error('pet catch encounter error:', e.message);
@@ -2205,13 +2220,19 @@ app.post('/api/pet/catch/encounter', requireAuth, async (req, res) => {
 });
 
 /* 捕捉第2步：丟球。伺服器端原子完成「驗證持有球數→扣球→擲成功率→依隊伍狀態決定加入/發金幣/待放生」，
-   不信任client回報「我抓到了」——跟釣魚 rollFish() 同一套教訓 */
+   不信任client回報「我抓到了」——跟釣魚 rollFish() 同一套教訓。
+   2026-07-21 改成：沒抓到不代表遭遇結束——只要玩家還有球就能對同一隻野生寶可夢繼續丟，
+   除非骰到1%的「激烈反抗」讓寶可夢直接逃跑（activeEncounters 才會被清掉）。 */
 app.post('/api/pet/catch/throw', requireAuth, async (req, res) => {
   const pokemonId = Number(req.body?.pokemonId);
   const ballType = req.body?.ballType;
   const ballItem = SHOP_ITEMS[ballType];
   const wild = POKEMON.find(p => p.id === pokemonId);
+  const encounter = activeEncounters.get(req.user.id);
   if (!wild || !ballItem || ballItem.category !== 'ball') return res.status(400).json({ error: 'invalid_request' });
+  if (!encounter || encounter.pokemonId !== pokemonId || encounter.expiresAt < Date.now()) {
+    return res.status(400).json({ error: 'no_active_encounter' });
+  }
   try {
     const { rows } = await pool.query(
       `SELECT ${ballItem.ballField} AS ball_count FROM pets WHERE user_id = $1`, [req.user.id]
@@ -2222,7 +2243,16 @@ app.post('/api/pet/catch/throw', requireAuth, async (req, res) => {
 
     const rate = BALL_CATCH_RATE[ballType] * (CATCH_TIER_MULT[wild.tier] ?? 1);
     const success = Math.random() < rate;
-    if (!success) return res.json({ caught: false });
+    if (!success) {
+      const fierce = Math.random() < FIERCE_RESISTANCE_CHANCE;
+      if (fierce) {
+        activeEncounters.delete(req.user.id);
+        return res.json({ caught: false, fled: true });
+      }
+      return res.json({ caught: false, fled: false }); // 遭遇繼續，activeEncounters不清除
+    }
+
+    activeEncounters.delete(req.user.id); // 抓到了，這次遭遇結束
 
     const { rows: teamRows } = await pool.query('SELECT pokemon_ids FROM teams WHERE user_id = $1', [req.user.id]);
     const currentIds = teamRows[0]?.pokemon_ids || [];
@@ -2246,6 +2276,26 @@ app.post('/api/pet/catch/throw', requireAuth, async (req, res) => {
     res.json({ caught: true, needsRelease: true, pokemonId, name: wild.name });
   } catch (e) {
     console.error('pet catch throw error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 玩家主動放棄這次遭遇（不繼續丟球）——退回90金幣（encounter花的100扣掉10點「探索費」不退）。
+   只有真的有進行中的遭遇才能退款，防止重複呼叫這個端點刷金幣。 */
+app.post('/api/pet/catch/giveup', requireAuth, async (req, res) => {
+  const encounter = activeEncounters.get(req.user.id);
+  if (!encounter || encounter.expiresAt < Date.now()) {
+    return res.status(400).json({ error: 'no_active_encounter' });
+  }
+  try {
+    activeEncounters.delete(req.user.id);
+    const { rows } = await pool.query('SELECT coins FROM pets WHERE user_id = $1', [req.user.id]);
+    if (!rows.length) return res.status(404).json({ error: 'no_pet' });
+    const coins = rows[0].coins + CATCH_GIVEUP_REFUND;
+    await pool.query('UPDATE pets SET coins = $1 WHERE user_id = $2', [coins, req.user.id]);
+    res.json({ coins, refunded: CATCH_GIVEUP_REFUND });
+  } catch (e) {
+    console.error('pet catch giveup error:', e.message);
     res.status(503).json({ error: 'db_error' });
   }
 });
