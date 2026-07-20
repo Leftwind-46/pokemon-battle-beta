@@ -1529,15 +1529,6 @@
           <li>潮汐回復（水屬性） — 回復上場寶可夢 30% 最大HP</li>
           <li>龍之波動（龍屬性） — 下次攻擊若為龍屬性，傷害 ×1.12</li>
           <li>捨身猛擊（格鬥屬性） — 下次攻擊威力 ×1.04，但自身 HP ×0.8</li>
-        </ul>
-        <li><b>支援者牌</b>（藍框）每回合限用 1 張，沒有場次上限。僅開局手牌中會出現：</li>
-        <ul>
-          <li>復活藥 — 復活備戰欄第一隻倒下的寶可夢（回復 80 HP，每場限用一次）</li>
-          <li>治療師 — 上場寶可夢完全回復 HP 並解除異常狀態</li>
-          <li>全力出擊 — 下次攻擊傷害 ×1.2，但下回合無法回復能量</li>
-          <li>搏命 — 我方與對方上場寶可夢同歸於盡，雙方各自選下一隻上場</li>
-          <li>瘋狂博士 — 選我方一隻寶可夢，變身成我方或對方一隻陣亡的寶可夢（回復變身後 50% HP）</li>
-          <li>啦啦隊 — 將能量補滿到 20</li>
           <li>灼焒爆發（火屬性） — 下次攻擊威力 +60，30% 機率讓對手灼傷</li>
           <li>深海之力（水屬性） — 下次攻擊消耗能量減半</li>
           <li>大地壁壘（地面屬性） — 下次受到攻擊傷害減少 90</li>
@@ -1556,6 +1547,15 @@
           <li>妖精結界（妖精屬性） — 接下來 2 回合，我方上場寶可夢免疫異常狀態</li>
           <li>劇毒契約（毒屬性） — 讓對方陷入中毒，並讓對方損失 10 點能量</li>
           <li>蟲群啃食（蟲屬性） — 讓對方損失 8 點能量，其中 4 點轉給自己</li>
+        </ul>
+        <li><b>支援者牌</b>（藍框）每回合限用 1 張，沒有場次上限。僅開局手牌中會出現：</li>
+        <ul>
+          <li>復活藥 — 復活備戰欄第一隻倒下的寶可夢（回復 80 HP，每場限用一次）</li>
+          <li>治療師 — 上場寶可夢完全回復 HP 並解除異常狀態</li>
+          <li>全力出擊 — 下次攻擊傷害 ×1.2，但下回合無法回復能量</li>
+          <li>搏命 — 我方與對方上場寶可夢同歸於盡，雙方各自選下一隻上場</li>
+          <li>瘋狂博士 — 選我方一隻寶可夢，變身成我方或對方一隻陣亡的寶可夢（回復變身後 50% HP）</li>
+          <li>啦啦隊 — 將能量補滿到 20</li>
         </ul>
         <li><b>競技場牌</b>（橘框）效果持續整場，放置新競技場會取代舊的：</li>
         <ul>
@@ -2295,24 +2295,24 @@ const TRAINERS = [
   {id:'cheerleader',    name:'啦啦隊',     cat:'supporter', desc:'將能量補滿到 20'},
   // ── 支援者牌：屬性分類新卡（18種屬性各一張，補齊「每種屬性都有專屬支援者卡」的空缺；
   //   刻意少放補血、多放幽靈/惡這兩張封印Mega進化——使用者原話「補血卡少一點，多一些封印」）──
-  {id:'fire-nova',      name:'灼焒爆發',   cat:'supporter', type:'fire',     desc:'下次攻擊威力 +60，30% 機率讓對手灼傷'},
-  {id:'abyssal-power',  name:'深海之力',   cat:'supporter', type:'water',    desc:'下次攻擊消耗能量減半'},
-  {id:'earthen-wall',   name:'大地壁壘',   cat:'supporter', type:'ground',   desc:'下次受到攻擊傷害減少 90'},
-  {id:'lightning-dash', name:'電光石火',   cat:'supporter', type:'electric', desc:'本回合這次攻擊不消耗能量'},
-  {id:'leech-seed',     name:'寄生種子',   cat:'supporter', type:'grass',    desc:'接下來 3 回合，每回合開始吸取對方 3 點能量轉為自己能量'},
-  {id:'mind-focus',     name:'心靈感應',   cat:'supporter', type:'psychic',  desc:'下次攻擊的異常狀態機率視為 100%'},
-  {id:'breakthrough',   name:'直搗黃龍',   cat:'supporter', type:'fighting', desc:'下次攻擊威力 +40，且無視對方的「受傷減少」效果'},
-  {id:'wraith-curse',   name:'亡靈詛咒',   cat:'supporter', type:'ghost',    desc:'封印對手 Mega 進化 2 回合，並讓對方損失 5 點能量'},
-  {id:'dragon-might',   name:'龍神顯現',   cat:'supporter', type:'dragon',   desc:'自身損失 25% 最大HP，下次攻擊威力 ×1.5'},
-  {id:'steel-fortress', name:'鋼鐵壁壘',   cat:'supporter', type:'steel',    desc:'下次受到攻擊傷害減少 100'},
-  {id:'frost-armor',    name:'冰凍護甲',   cat:'supporter', type:'ice',      desc:'下次受到攻擊傷害減少 60；若對方該次攻擊為冰屬性則完全無效'},
-  {id:'quick-thinking', name:'隨機應變',   cat:'supporter', type:'normal',   desc:'立即抽 2 張手牌'},
-  {id:'shadow-lockdown',name:'暗影封鎖',   cat:'supporter', type:'dark',     desc:'封印對手 Mega 進化 2 回合，並讓對方隨機棄 1 張手牌'},
-  {id:'gale-dodge',     name:'疾風迴避',   cat:'supporter', type:'flying',   desc:'下次受到攻擊有 50% 機率完全迴避'},
-  {id:'tectonic-shift', name:'地殼變動',   cat:'supporter', type:'rock',     desc:'立即清除目前的競技場效果'},
-  {id:'fairy-barrier',  name:'妖精結界',   cat:'supporter', type:'fairy',    desc:'接下來 2 回合，我方上場寶可夢免疫異常狀態'},
-  {id:'toxic-pact',     name:'劇毒契約',   cat:'supporter', type:'poison',   desc:'讓對方陷入中毒，並讓對方損失 10 點能量'},
-  {id:'swarm-feast',    name:'蟲群啃食',   cat:'supporter', type:'bug',      desc:'讓對方損失 8 點能量，其中 4 點轉給自己'},
+  {id:'fire-nova',      name:'灼焒爆發',   cat:'item', type:'fire',     desc:'下次攻擊威力 +60，30% 機率讓對手灼傷'},
+  {id:'abyssal-power',  name:'深海之力',   cat:'item', type:'water',    desc:'下次攻擊消耗能量減半'},
+  {id:'earthen-wall',   name:'大地壁壘',   cat:'item', type:'ground',   desc:'下次受到攻擊傷害減少 90'},
+  {id:'lightning-dash', name:'電光石火',   cat:'item', type:'electric', desc:'本回合這次攻擊不消耗能量'},
+  {id:'leech-seed',     name:'寄生種子',   cat:'item', type:'grass',    desc:'接下來 3 回合，每回合開始吸取對方 3 點能量轉為自己能量'},
+  {id:'mind-focus',     name:'心靈感應',   cat:'item', type:'psychic',  desc:'下次攻擊的異常狀態機率視為 100%'},
+  {id:'breakthrough',   name:'直搗黃龍',   cat:'item', type:'fighting', desc:'下次攻擊威力 +40，且無視對方的「受傷減少」效果'},
+  {id:'wraith-curse',   name:'亡靈詛咒',   cat:'item', type:'ghost',    desc:'封印對手 Mega 進化 2 回合，並讓對方損失 5 點能量'},
+  {id:'dragon-might',   name:'龍神顯現',   cat:'item', type:'dragon',   desc:'自身損失 25% 最大HP，下次攻擊威力 ×1.5'},
+  {id:'steel-fortress', name:'鋼鐵壁壘',   cat:'item', type:'steel',    desc:'下次受到攻擊傷害減少 100'},
+  {id:'frost-armor',    name:'冰凍護甲',   cat:'item', type:'ice',      desc:'下次受到攻擊傷害減少 60；若對方該次攻擊為冰屬性則完全無效'},
+  {id:'quick-thinking', name:'隨機應變',   cat:'item', type:'normal',   desc:'立即抽 2 張手牌'},
+  {id:'shadow-lockdown',name:'暗影封鎖',   cat:'item', type:'dark',     desc:'封印對手 Mega 進化 2 回合，並讓對方隨機棄 1 張手牌'},
+  {id:'gale-dodge',     name:'疾風迴避',   cat:'item', type:'flying',   desc:'下次受到攻擊有 50% 機率完全迴避'},
+  {id:'tectonic-shift', name:'地殼變動',   cat:'item', type:'rock',     desc:'立即清除目前的競技場效果'},
+  {id:'fairy-barrier',  name:'妖精結界',   cat:'item', type:'fairy',    desc:'接下來 2 回合，我方上場寶可夢免疫異常狀態'},
+  {id:'toxic-pact',     name:'劇毒契約',   cat:'item', type:'poison',   desc:'讓對方陷入中毒，並讓對方損失 10 點能量'},
+  {id:'swarm-feast',    name:'蟲群啃食',   cat:'item', type:'bug',      desc:'讓對方損失 8 點能量，其中 4 點轉給自己'},
   // ── 競技場牌 ──
   {id:'stadium-training',      name:'訓練場',     cat:'stadium', desc:'場上所有技能威力 +20（雙方）'},
   {id:'stadium-spring',        name:'地熱溫泉',   cat:'stadium', desc:'每回合結束，雙方上場寶可夢各回復 15 HP'},
