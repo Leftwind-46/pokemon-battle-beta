@@ -220,8 +220,8 @@ const TRAINERS = [
   {id:'x-def',      name:'防禦強化',   cat:'item',      desc:'下次受傷害減少 40'},
   {id:'energize',   name:'能量強化',   cat:'item',      desc:'下次攻擊傷害 ×1.2，但自身損失 50 HP'},
   {id:'antidote',   name:'萬能藥',     cat:'item',      desc:'解除上場寶可夢的異常狀態'},
-  {id:'fire-bomb',  name:'火焰彈',     cat:'item',      type:'fire',    desc:'讓對手上場寶可夢陷入燒傷'},
-  {id:'gas-attack', name:'瓦斯攻擊',   cat:'item',      type:'poison',  desc:'讓對手上場寶可夢陷入中毒'},
+  {id:'fire-bomb',  name:'火焰彈',     cat:'item',      type:'fire', weight:10,    desc:'讓對手上場寶可夢陷入燒傷'},
+  {id:'gas-attack', name:'瓦斯攻擊',   cat:'item',      type:'poison', weight:10,  desc:'讓對手上場寶可夢陷入中毒'},
   {id:'switcher',   name:'交換器',     cat:'item',      desc:'讓對手上場寶可夢與備戰寶可夢隨機互換'},
   {id:'reflect',    name:'反彈鏡',     cat:'item',      desc:'下回合對手的攻擊傷害反彈回自身'},
   // 屬性轉換 listed 6× — it replaced 13 separate single-type orb cards, so without extra
@@ -235,8 +235,8 @@ const TRAINERS = [
   {id:'type-orb',   name:'屬性轉換',   cat:'item',      desc:'選擇一個屬性，本回合攻擊視為該屬性（可享有屬性加成）'},
   {id:'type-orb',   name:'屬性轉換',   cat:'item',      desc:'選擇一個屬性，本回合攻擊視為該屬性（可享有屬性加成）'},
   {id:'retreat-vest', name:'撤退背心', cat:'item',      desc:'下次換場不會結束回合'},
-  {id:'confuse-potion', name:'混亂藥', cat:'item',      type:'psychic', desc:'讓對手上場寶可夢陷入混亂'},
-  {id:'absolute-zero', name:'絕對零度', cat:'item',     type:'ice',     desc:'讓對手上場寶可夢陷入結凍'},
+  {id:'confuse-potion', name:'混亂藥', cat:'item',      type:'psychic', weight:10, desc:'讓對手上場寶可夢陷入混亂'},
+  {id:'absolute-zero', name:'絕對零度', cat:'item',     type:'ice', weight:10,     desc:'讓對手上場寶可夢陷入結凍'},
   {id:'energy-patch-l', name:'能量補丁（大）', cat:'item', desc:'回復 4 點能量'},
   {id:'hand-wreck', name:'手牌破壞',   cat:'item',      desc:'讓對方隨機棄掉 1 張手牌'},
   {id:'energy-drain', name:'能量剝奪', cat:'item',      desc:'讓對方損失 6 點能量'},
@@ -246,16 +246,16 @@ const TRAINERS = [
   {id:'plunder',    name:'掠奪',       cat:'item',      desc:'隨機搶奪對手一張手牌'},
   {id:'comm-seal',  name:'通訊封印',   cat:'item',      desc:'下回合對手不能使用支援者卡'},
   // ── items：屬性分類卡（依場上寶可夢屬性抽取，優先補之前完全沒有主題卡的屬性）──
-  {id:'paralyze-trap', name:'電擊誘餌', cat:'item', type:'electric', desc:'讓對手上場寶可夢陷入麻痺'},
-  {id:'curse-drain',   name:'詛咒波動', cat:'item', type:'ghost',    desc:'讓對方損失 8 點能量，自身回復 20 HP'},
-  {id:'iron-guard',    name:'鋼鐵裝甲', cat:'item', type:'steel',   desc:'下次受到傷害減少 70'},
-  {id:'night-raid',    name:'夜襲',     cat:'item', type:'dark',    desc:'隨機搶奪對手 2 張手牌'},
-  {id:'tailwind',      name:'順風',     cat:'item', type:'flying',  desc:'下次攻擊若為飛行屬性，傷害 ×1.04'},
-  {id:'fairy-wind',    name:'妖精之光', cat:'item', type:'fairy',   desc:'解除上場寶可夢異常狀態並回復 40 HP'},
-  {id:'swarm-sting',   name:'群聚針刺', cat:'item', type:'bug',     desc:'讓對手陷入中毒，並損失 3 點能量'},
-  {id:'tidal-heal',    name:'潮汐回復', cat:'item', type:'water',   desc:'回復上場寶可夢 30% 最大HP'},
-  {id:'dragon-pulse',  name:'龍之波動', cat:'item', type:'dragon',  desc:'下次攻擊若為龍屬性，傷害 ×1.12'},
-  {id:'focus-punch',   name:'捨身猛擊', cat:'item', type:'fighting',desc:'下次攻擊威力 ×1.04，但自身 HP ×0.8'},
+  {id:'paralyze-trap', name:'電擊誘餌', cat:'item', type:'electric', weight:10, desc:'讓對手上場寶可夢陷入麻痺'},
+  {id:'curse-drain',   name:'詛咒波動', cat:'item', type:'ghost', weight:10,    desc:'讓對方損失 8 點能量，自身回復 20 HP'},
+  {id:'iron-guard',    name:'鋼鐵裝甲', cat:'item', type:'steel', weight:10,   desc:'下次受到傷害減少 70'},
+  {id:'night-raid',    name:'夜襲',     cat:'item', type:'dark', weight:10,    desc:'隨機搶奪對手 2 張手牌'},
+  {id:'tailwind',      name:'順風',     cat:'item', type:'flying', weight:10,  desc:'下次攻擊若為飛行屬性，傷害 ×1.04'},
+  {id:'fairy-wind',    name:'妖精之光', cat:'item', type:'fairy', weight:10,   desc:'解除上場寶可夢異常狀態並回復 40 HP'},
+  {id:'swarm-sting',   name:'群聚針刺', cat:'item', type:'bug', weight:10,     desc:'讓對手陷入中毒，並損失 3 點能量'},
+  {id:'tidal-heal',    name:'潮汐回復', cat:'item', type:'water', weight:10,   desc:'回復上場寶可夢 30% 最大HP'},
+  {id:'dragon-pulse',  name:'龍之波動', cat:'item', type:'dragon', weight:10,  desc:'下次攻擊若為龍屬性，傷害 ×1.12'},
+  {id:'focus-punch',   name:'捨身猛擊', cat:'item', type:'fighting', weight:10,desc:'下次攻擊威力 ×1.04，但自身 HP ×0.8'},
   // ── supporters ──
   {id:'revive',     name:'復活藥',     cat:'supporter', desc:'復活備戰欄第一隻倒下的寶可夢（回復 40 HP，每場限用一次）'},
   {id:'nurse',      name:'治療師',     cat:'supporter', desc:'上場寶可夢完全回復 HP 並解除異常狀態'},
@@ -265,24 +265,61 @@ const TRAINERS = [
   {id:'cheerleader',    name:'啦啦隊',     cat:'supporter', desc:'將能量補滿到 20'},
   // ── 支援者牌：屬性分類新卡（18種屬性各一張，補齊「每種屬性都有專屬支援者卡」的空缺；
   //   刻意少放補血、多放幽靈/惡這兩張封印Mega進化——使用者原話「補血卡少一點，多一些封印」）──
-  {id:'fire-nova',      name:'灼焒爆發',   cat:'item', type:'fire',     desc:'下次攻擊威力 +60，30% 機率讓對手灼傷'},
-  {id:'abyssal-power',  name:'深海之力',   cat:'item', type:'water',    desc:'下次攻擊消耗能量減半'},
-  {id:'earthen-wall',   name:'大地壁壘',   cat:'item', type:'ground',   desc:'下次受到攻擊傷害減少 90'},
-  {id:'lightning-dash', name:'電光石火',   cat:'item', type:'electric', desc:'本回合這次攻擊不消耗能量'},
-  {id:'leech-seed',     name:'寄生種子',   cat:'item', type:'grass',    desc:'接下來 3 回合，每回合開始吸取對方 3 點能量轉為自己能量'},
-  {id:'mind-focus',     name:'心靈感應',   cat:'item', type:'psychic',  desc:'下次攻擊的異常狀態機率視為 100%'},
-  {id:'breakthrough',   name:'直搗黃龍',   cat:'item', type:'fighting', desc:'下次攻擊威力 +40，且無視對方的「受傷減少」效果'},
-  {id:'wraith-curse',   name:'亡靈詛咒',   cat:'item', type:'ghost',    desc:'封印對手 Mega 進化 2 回合，並讓對方損失 5 點能量'},
-  {id:'dragon-might',   name:'龍神顯現',   cat:'item', type:'dragon',   desc:'自身損失 25% 最大HP，下次攻擊威力 ×1.5'},
-  {id:'steel-fortress', name:'鋼鐵壁壘',   cat:'item', type:'steel',    desc:'下次受到攻擊傷害減少 100'},
-  {id:'frost-armor',    name:'冰凍護甲',   cat:'item', type:'ice',      desc:'下次受到攻擊傷害減少 60；若對方該次攻擊為冰屬性則完全無效'},
-  {id:'quick-thinking', name:'隨機應變',   cat:'item', type:'normal',   desc:'立即抽 2 張手牌'},
-  {id:'shadow-lockdown',name:'暗影封鎖',   cat:'item', type:'dark',     desc:'封印對手 Mega 進化 2 回合，並讓對方隨機棄 1 張手牌'},
-  {id:'gale-dodge',     name:'疾風迴避',   cat:'item', type:'flying',   desc:'下次受到攻擊有 50% 機率完全迴避'},
-  {id:'tectonic-shift', name:'地殼變動',   cat:'item', type:'rock',     desc:'立即清除目前的競技場效果'},
-  {id:'fairy-barrier',  name:'妖精結界',   cat:'item', type:'fairy',    desc:'接下來 2 回合，我方上場寶可夢免疫異常狀態'},
-  {id:'toxic-pact',     name:'劇毒契約',   cat:'item', type:'poison',   desc:'讓對方陷入中毒，並讓對方損失 10 點能量'},
-  {id:'swarm-feast',    name:'蟲群啃食',   cat:'item', type:'bug',      desc:'讓對方損失 8 點能量，其中 4 點轉給自己'},
+  {id:'fire-nova',      name:'灼焒爆發',   cat:'item', type:'fire', weight:10,     desc:'下次攻擊威力 +60，30% 機率讓對手灼傷'},
+  {id:'abyssal-power',  name:'深海之力',   cat:'item', type:'water', weight:10,    desc:'下次攻擊消耗能量減半'},
+  {id:'earthen-wall',   name:'大地壁壘',   cat:'item', type:'ground', weight:10,   desc:'下次受到攻擊傷害減少 90'},
+  {id:'lightning-dash', name:'電光石火',   cat:'item', type:'electric', weight:10, desc:'本回合這次攻擊不消耗能量'},
+  {id:'leech-seed',     name:'寄生種子',   cat:'item', type:'grass', weight:10,    desc:'接下來 3 回合，每回合開始吸取對方 3 點能量轉為自己能量'},
+  {id:'mind-focus',     name:'心靈感應',   cat:'item', type:'psychic', weight:10,  desc:'下次攻擊的異常狀態機率視為 100%'},
+  {id:'breakthrough',   name:'直搗黃龍',   cat:'item', type:'fighting', weight:10, desc:'下次攻擊威力 +40，且無視對方的「受傷減少」效果'},
+  {id:'wraith-curse',   name:'亡靈詛咒',   cat:'item', type:'ghost', weight:10,    desc:'封印對手 Mega 進化 2 回合，並讓對方損失 5 點能量'},
+  {id:'dragon-might',   name:'龍神顯現',   cat:'item', type:'dragon', weight:10,   desc:'自身損失 25% 最大HP，下次攻擊威力 ×1.5'},
+  {id:'steel-fortress', name:'鋼鐵壁壘',   cat:'item', type:'steel', weight:10,    desc:'下次受到攻擊傷害減少 100'},
+  {id:'frost-armor',    name:'冰凍護甲',   cat:'item', type:'ice', weight:10,      desc:'下次受到攻擊傷害減少 60；若對方該次攻擊為冰屬性則完全無效'},
+  {id:'quick-thinking', name:'隨機應變',   cat:'item', type:'normal', weight:10,   desc:'立即抽 2 張手牌'},
+  {id:'shadow-lockdown',name:'暗影封鎖',   cat:'item', type:'dark', weight:10,     desc:'封印對手 Mega 進化 2 回合，並讓對方隨機棄 1 張手牌'},
+  {id:'gale-dodge',     name:'疾風迴避',   cat:'item', type:'flying', weight:10,   desc:'下次受到攻擊有 50% 機率完全迴避'},
+  {id:'tectonic-shift', name:'地殼變動',   cat:'item', type:'rock', weight:10,     desc:'立即清除目前的競技場效果'},
+  {id:'fairy-barrier',  name:'妖精結界',   cat:'item', type:'fairy', weight:10,    desc:'接下來 2 回合，我方上場寶可夢免疫異常狀態'},
+  {id:'toxic-pact',     name:'劇毒契約',   cat:'item', type:'poison', weight:10,   desc:'讓對方陷入中毒，並讓對方損失 10 點能量'},
+  {id:'swarm-feast',    name:'蟲群啃食',   cat:'item', type:'bug', weight:10,      desc:'讓對方損失 8 點能量，其中 4 點轉給自己'},
+  // ── 支援者牌屬性分類新卡 第二批（每種屬性再+2張，延續同一套屬性→機制對照表）──
+  {id:'fire-fury',        name:'業火燎原',   cat:'item', type:'fire',     weight:10, desc:'若對手已有異常狀態，下次攻擊威力 +70；否則 +25'},
+  {id:'fire-resolve',     name:'灰燼決意',   cat:'item', type:'fire',     weight:10, desc:'自身損失 15 點能量，下次攻擊威力 ×1.3'},
+  {id:'water-recover',    name:'水流恢復',   cat:'item', type:'water',    weight:10, desc:'立即回復 8 點能量'},
+  {id:'water-aegis',      name:'大海之盾',   cat:'item', type:'water',    weight:10, desc:'下次受到攻擊傷害減少 50，並立即回復 3 點能量'},
+  {id:'ground-heal',      name:'大地治癒',   cat:'item', type:'ground',   weight:10, desc:'立即回復上場寶可夢 15% 最大HP'},
+  {id:'ground-bulwark',   name:'磐石防禦',   cat:'item', type:'ground',   weight:10, desc:'下次受到攻擊傷害減少 70，並讓對手下次攻擊威力 ×0.9'},
+  {id:'electric-charge',  name:'高速充能',   cat:'item', type:'electric', weight:10, desc:'立即回復 10 點能量'},
+  {id:'electric-chain',   name:'連鎖閃電',   cat:'item', type:'electric', weight:10, desc:'讓對手有 40% 機率立即陷入麻痺'},
+  {id:'grass-bind',       name:'藤蔓束縛',   cat:'item', type:'grass',    weight:10, desc:'讓對手立即損失 6 點能量'},
+  {id:'grass-photosyn',   name:'光合作用',   cat:'item', type:'grass',    weight:10, desc:'立即回復 10 點能量；若自身HP低於50%額外回復 8 HP'},
+  {id:'psychic-disrupt',  name:'精神干擾',   cat:'item', type:'psychic',  weight:10, desc:'讓對方隨機棄掉 1 張手牌'},
+  {id:'psychic-foresight',name:'未來視',     cat:'item', type:'psychic',  weight:10, desc:'下次攻擊威力 +50；若對手已有異常狀態額外 +30'},
+  {id:'fighting-crush',   name:'崩拳',       cat:'item', type:'fighting', weight:10, desc:'下次攻擊威力 +60；若對手當下持有防禦加成額外 +30'},
+  {id:'fighting-ironfist',name:'鋼鐵之拳',   cat:'item', type:'fighting', weight:10, desc:'讓對手下次攻擊威力 ×0.85'},
+  {id:'ghost-drain',      name:'幽冥追跡',   cat:'item', type:'ghost',    weight:10, desc:'讓對手損失 8 點能量，並讓對方隨機棄掉 1 張手牌'},
+  {id:'ghost-obsession',  name:'怨念集中',   cat:'item', type:'ghost',    weight:10, desc:'下次攻擊異常狀態機率視為 100%；若對手為 Mega 型態額外 +40 威力'},
+  {id:'dragon-fang',      name:'逆鱗',       cat:'item', type:'dragon',   weight:10, desc:'下次攻擊威力 +90，自身損失 10 點能量'},
+  {id:'dragon-cleanse',   name:'龍息滌蕩',   cat:'item', type:'dragon',   weight:10, desc:'解除自身異常狀態，並回復 5 HP'},
+  {id:'steel-resolve',    name:'鋼鐵意志',   cat:'item', type:'steel',    weight:10, desc:'下次受到攻擊傷害減少 50，並立即回復 5 點能量'},
+  {id:'steel-flash',      name:'鎂光反射',   cat:'item', type:'steel',    weight:10, desc:'下次受到攻擊傷害減少 40，並讓對手下次攻擊威力 ×0.9'},
+  {id:'ice-howl',         name:'冰霜咆哮',   cat:'item', type:'ice',      weight:10, desc:'讓對手有 35% 機率立即陷入結凍'},
+  {id:'ice-barrier',      name:'極寒屏障',   cat:'item', type:'ice',      weight:10, desc:'下次受到攻擊傷害減少 40，接下來 1 回合免疫異常狀態'},
+  {id:'normal-allout',    name:'全力以赴',   cat:'item', type:'normal',   weight:10, desc:'下次攻擊威力 +35，且這次攻擊不消耗能量'},
+  {id:'normal-refresh',   name:'換氣追擊',   cat:'item', type:'normal',   weight:10, desc:'立即抽 1 張手牌，並回復 4 點能量'},
+  {id:'dark-heist',       name:'暗夜掠奪',   cat:'item', type:'dark',     weight:10, desc:'隨機搶奪對手 1 張手牌到自己手上'},
+  {id:'dark-ambush',      name:'不意打擊',   cat:'item', type:'dark',     weight:10, desc:'下次攻擊威力 +50，並讓對手下次攻擊威力 ×0.9'},
+  {id:'flying-dance',     name:'疾風之舞',   cat:'item', type:'flying',   weight:10, desc:'下次攻擊威力 ×1.2，且下次受到攻擊傷害減少 30'},
+  {id:'flying-gale',      name:'暴風捲',     cat:'item', type:'flying',   weight:10, desc:'讓對手立即損失 8 點能量'},
+  {id:'rock-slide',       name:'岩崩',       cat:'item', type:'rock',     weight:10, desc:'下次攻擊威力 +55；若場上有競技場效果額外 +25'},
+  {id:'rock-fortress',    name:'坐地為王',   cat:'item', type:'rock',     weight:10, desc:'下次受到攻擊傷害減少 60'},
+  {id:'fairy-song',       name:'妖精之歌',   cat:'item', type:'fairy',    weight:10, desc:'讓對手有 30% 機率立即陷入混亂'},
+  {id:'fairy-heal',       name:'治癒之風',   cat:'item', type:'fairy',    weight:10, desc:'解除自身異常狀態，並回復 10 HP'},
+  {id:'poison-spore',     name:'劇毒孢子',   cat:'item', type:'poison',   weight:10, desc:'讓對手有 50% 機率立即陷入中毒'},
+  {id:'poison-strike',    name:'猛毒突襲',   cat:'item', type:'poison',   weight:10, desc:'下次攻擊威力 +40；若對手已中毒額外 +40'},
+  {id:'bug-web',          name:'蟲網束縛',   cat:'item', type:'bug',      weight:10, desc:'讓對手損失 6 點能量，自身下次攻擊威力 +20'},
+  {id:'bug-swarm',        name:'群聚共鳴',   cat:'item', type:'bug',      weight:10, desc:'立即回復 6 點能量，並抽 1 張手牌'},
   // ── stadium ──
   {id:'stadium-training',      name:'訓練場',     cat:'stadium', desc:'場上所有技能威力 +20（雙方）'},
   {id:'stadium-spring',        name:'地熱溫泉',   cat:'stadium', desc:'每回合結束，雙方上場寶可夢各回復 15 HP'},
@@ -437,6 +474,18 @@ function dealHand(n) {
 // 有type欄位的卡只有在符合當前寶可夢的其中一個屬性時才會出現在池子裡（雙屬性=聯集）
 function getDrawPool(type1, type2) {
   return TRAINERS.filter(c => c.cat !== 'supporter' && (!c.type || c.type === type1 || c.type === type2));
+}
+
+// 加權抽取：屬性道具卡 weight:10，其餘（含所有無屬性卡與競技場卡）預設 weight:1
+function weightedPick(pool) {
+  const total = pool.reduce((s, c) => s + (c.weight ?? 1), 0);
+  let r = Math.random() * total;
+  for (const c of pool) {
+    const w = c.weight ?? 1;
+    if (r < w) return c;
+    r -= w;
+  }
+  return pool[pool.length - 1];
 }
 
 // Processes status before an attack. Mutates poke.
@@ -1290,7 +1339,7 @@ function applyTrainer(card, role, G, log, chosenType) {
     case 'quick-thinking': {
       const hand = G[`${role}Hand`];
       const itemsOnly = getDrawPool(active.type, active.type2);
-      const drawn = [itemsOnly[Math.floor(Math.random() * itemsOnly.length)], itemsOnly[Math.floor(Math.random() * itemsOnly.length)]];
+      const drawn = [weightedPick(itemsOnly), weightedPick(itemsOnly)];
       hand.push(...drawn);
       log.push({ text: `使用了${card.name}，抽到了：${drawn.map(c => c.name).join('、')}！`, cls: 'system' });
       G[`${role}NeedsDiscard`] = hand.length > 7;
@@ -1343,6 +1392,301 @@ function applyTrainer(card, role, G, log, chosenType) {
       const transfer = Math.min(4, drained);
       G[`${role}Energy`] = Math.min(20, (G[`${role}Energy`] || 0) + transfer);
       log.push({ text: `使用了${card.name}，對方損失了 ${drained} 點能量，自己獲得了 ${transfer} 點能量！`, cls: 'special' });
+      break;
+    }
+    // ── 支援者牌屬性分類新卡 第二批 ──
+    case 'fire-fury': {
+      const opActive = G[`${op}Deck`][G[`${op}Idx`]];
+      if (opActive.status) {
+        buff.atkBonus += 70;
+        log.push({ text: `使用了${card.name}，對手已有異常狀態，下次攻擊威力 +70！`, cls: 'special' });
+      } else {
+        buff.atkBonus += 25;
+        log.push({ text: `使用了${card.name}，下次攻擊威力 +25！`, cls: 'special' });
+      }
+      break;
+    }
+    case 'fire-resolve':
+      G[`${role}Energy`] = Math.max(0, (G[`${role}Energy`] || 0) - 15);
+      buff.atkMult = Math.max(buff.atkMult, 1.3);
+      log.push({ text: `使用了${card.name}，損失 15 點能量，下次攻擊威力 ×1.3！`, cls: 'special' });
+      break;
+    case 'water-recover':
+      G[`${role}Energy`] = Math.min(20, (G[`${role}Energy`] || 0) + 8);
+      log.push({ text: `使用了${card.name}，回復了 8 點能量！`, cls: 'special' });
+      break;
+    case 'water-aegis':
+      buff.shield += 50;
+      G[`${role}Energy`] = Math.min(20, (G[`${role}Energy`] || 0) + 3);
+      log.push({ text: `使用了${card.name}，下次承受傷害 -50，並回復了 3 點能量！`, cls: 'special' });
+      break;
+    case 'ground-heal': {
+      const heal = Math.round(active.hp * 0.15);
+      const gain = Math.min(active.hp - active.cur, heal);
+      active.cur = Math.min(active.hp, active.cur + heal);
+      log.push({ text: `使用了${card.name}，${active.name} 回復了 ${gain} HP！（現在 ${active.cur}/${active.hp}）`, cls: 'special' });
+      break;
+    }
+    case 'ground-bulwark': {
+      const opBuff = G[`${op}Buff`];
+      buff.shield += 70;
+      opBuff.atkMult = Math.min(opBuff.atkMult, 0.9);
+      log.push({ text: `使用了${card.name}，下次承受傷害 -70，並讓對手下次攻擊威力 ×0.9！`, cls: 'special' });
+      break;
+    }
+    case 'electric-charge':
+      G[`${role}Energy`] = Math.min(20, (G[`${role}Energy`] || 0) + 10);
+      log.push({ text: `使用了${card.name}，回復了 10 點能量！`, cls: 'special' });
+      break;
+    case 'electric-chain': {
+      const opActive = G[`${op}Deck`][G[`${op}Idx`]];
+      if (!opActive.status && Math.random() < 0.4) {
+        opActive.status = { type: 'paralysis', turnsLeft: 999 };
+        log.push({ text: `使用了${card.name}，${opActive.name} 陷入了麻痺！`, cls: 'special' });
+      } else {
+        log.push({ text: `使用了${card.name}，但沒有觸發效果。`, cls: 'system' });
+      }
+      break;
+    }
+    case 'grass-bind': {
+      const before = G[`${op}Energy`] || 0;
+      G[`${op}Energy`] = Math.max(0, before - 6);
+      log.push({ text: `使用了${card.name}，對方損失了 ${before - G[`${op}Energy`]} 點能量！`, cls: 'special' });
+      break;
+    }
+    case 'grass-photosyn':
+      G[`${role}Energy`] = Math.min(20, (G[`${role}Energy`] || 0) + 10);
+      if (active.cur <= active.hp * 0.5) {
+        const gain = Math.min(active.hp - active.cur, 8);
+        active.cur = Math.min(active.hp, active.cur + gain);
+        log.push({ text: `使用了${card.name}，回復了 10 點能量，並額外回復了 ${gain} HP！`, cls: 'special' });
+      } else {
+        log.push({ text: `使用了${card.name}，回復了 10 點能量！`, cls: 'special' });
+      }
+      break;
+    case 'psychic-disrupt': {
+      const opHand = G[`${op}Hand`];
+      if (opHand.length) {
+        const wIdx = Math.floor(Math.random() * opHand.length);
+        const discarded = opHand.splice(wIdx, 1)[0];
+        log.push({ text: `使用了${card.name}，讓對方棄掉了【${discarded.name}】！`, cls: 'special' });
+      } else {
+        log.push({ text: `使用了${card.name}，但對方沒有手牌可以棄。`, cls: 'system' });
+      }
+      break;
+    }
+    case 'psychic-foresight': {
+      const opActive = G[`${op}Deck`][G[`${op}Idx`]];
+      if (opActive.status) {
+        buff.atkBonus += 80;
+        log.push({ text: `使用了${card.name}，對手已有異常狀態，下次攻擊威力 +80！`, cls: 'special' });
+      } else {
+        buff.atkBonus += 50;
+        log.push({ text: `使用了${card.name}，下次攻擊威力 +50！`, cls: 'special' });
+      }
+      break;
+    }
+    case 'fighting-crush': {
+      const opBuff = G[`${op}Buff`];
+      if (opBuff.shield > 0) {
+        buff.atkBonus += 90;
+        log.push({ text: `使用了${card.name}，對手持有防禦加成，下次攻擊威力 +90！`, cls: 'special' });
+      } else {
+        buff.atkBonus += 60;
+        log.push({ text: `使用了${card.name}，下次攻擊威力 +60！`, cls: 'special' });
+      }
+      break;
+    }
+    case 'fighting-ironfist': {
+      const opBuff = G[`${op}Buff`];
+      opBuff.atkMult = Math.min(opBuff.atkMult, 0.85);
+      log.push({ text: `使用了${card.name}，讓對手下次攻擊威力 ×0.85！`, cls: 'special' });
+      break;
+    }
+    case 'ghost-drain': {
+      const opHand = G[`${op}Hand`];
+      const before = G[`${op}Energy`] || 0;
+      G[`${op}Energy`] = Math.max(0, before - 8);
+      if (opHand.length) {
+        const wIdx = Math.floor(Math.random() * opHand.length);
+        const discarded = opHand.splice(wIdx, 1)[0];
+        log.push({ text: `使用了${card.name}，對方損失了 ${before - G[`${op}Energy`]} 點能量，並棄掉了【${discarded.name}】！`, cls: 'special' });
+      } else {
+        log.push({ text: `使用了${card.name}，對方損失了 ${before - G[`${op}Energy`]} 點能量！`, cls: 'special' });
+      }
+      break;
+    }
+    case 'ghost-obsession': {
+      const opActive = G[`${op}Deck`][G[`${op}Idx`]];
+      buff.guaranteedStatus = true;
+      if (opActive.megaEvolved) {
+        buff.atkBonus += 40;
+        log.push({ text: `使用了${card.name}，下次攻擊異常狀態機率 100%，對手為 Mega 型態，威力額外 +40！`, cls: 'special' });
+      } else {
+        log.push({ text: `使用了${card.name}，下次攻擊異常狀態機率視為 100%！`, cls: 'special' });
+      }
+      break;
+    }
+    case 'dragon-fang':
+      G[`${role}Energy`] = Math.max(0, (G[`${role}Energy`] || 0) - 10);
+      buff.atkBonus += 90;
+      log.push({ text: `使用了${card.name}，損失 10 點能量，下次攻擊威力 +90！`, cls: 'special' });
+      break;
+    case 'dragon-cleanse': {
+      if (active.status) {
+        const st = STATUS_ZH[active.status.type] || active.status.type;
+        active.status = null;
+        log.push({ text: `使用了${card.name}，解除了 ${active.name} 的${st}！`, cls: 'special' });
+      }
+      const gain = Math.min(active.hp - active.cur, 5);
+      active.cur = Math.min(active.hp, active.cur + gain);
+      break;
+    }
+    case 'steel-resolve':
+      buff.shield += 50;
+      G[`${role}Energy`] = Math.min(20, (G[`${role}Energy`] || 0) + 5);
+      log.push({ text: `使用了${card.name}，下次承受傷害 -50，並回復了 5 點能量！`, cls: 'special' });
+      break;
+    case 'steel-flash': {
+      const opBuff = G[`${op}Buff`];
+      buff.shield += 40;
+      opBuff.atkMult = Math.min(opBuff.atkMult, 0.9);
+      log.push({ text: `使用了${card.name}，下次承受傷害 -40，並讓對手下次攻擊威力 ×0.9！`, cls: 'special' });
+      break;
+    }
+    case 'ice-howl': {
+      const opActive = G[`${op}Deck`][G[`${op}Idx`]];
+      if (!opActive.status && Math.random() < 0.35) {
+        opActive.status = { type: 'freeze', turnsLeft: 2 };
+        log.push({ text: `使用了${card.name}，${opActive.name} 陷入了結凍！`, cls: 'special' });
+      } else {
+        log.push({ text: `使用了${card.name}，但沒有觸發效果。`, cls: 'system' });
+      }
+      break;
+    }
+    case 'ice-barrier':
+      buff.shield += 40;
+      G[`${role}StatusImmuneTurns`] = Math.max(G[`${role}StatusImmuneTurns`] || 0, 1);
+      log.push({ text: `使用了${card.name}，下次承受傷害 -40，接下來 1 回合免疫異常狀態！`, cls: 'special' });
+      break;
+    case 'normal-allout':
+      buff.atkBonus += 35;
+      buff.costFree = true;
+      log.push({ text: `使用了${card.name}，下次攻擊威力 +35，且不消耗能量！`, cls: 'special' });
+      break;
+    case 'normal-refresh': {
+      const hand = G[`${role}Hand`];
+      const itemsOnly = getDrawPool(active.type, active.type2);
+      const drawn = weightedPick(itemsOnly);
+      hand.push(drawn);
+      G[`${role}Energy`] = Math.min(20, (G[`${role}Energy`] || 0) + 4);
+      log.push({ text: `使用了${card.name}，抽到了【${drawn.name}】，並回復了 4 點能量！`, cls: 'special' });
+      G[`${role}NeedsDiscard`] = hand.length > 7;
+      break;
+    }
+    case 'dark-heist': {
+      const opHand = G[`${op}Hand`];
+      const myHand = G[`${role}Hand`];
+      if (opHand.length) {
+        const wIdx = Math.floor(Math.random() * opHand.length);
+        const stolen = opHand.splice(wIdx, 1)[0];
+        myHand.push(stolen);
+        log.push({ text: `使用了${card.name}，搶走了對方的【${stolen.name}】！`, cls: 'special' });
+        G[`${role}NeedsDiscard`] = myHand.length > 7;
+      } else {
+        log.push({ text: `使用了${card.name}，但對方沒有手牌可以搶。`, cls: 'system' });
+      }
+      break;
+    }
+    case 'dark-ambush': {
+      const opBuff = G[`${op}Buff`];
+      buff.atkBonus += 50;
+      opBuff.atkMult = Math.min(opBuff.atkMult, 0.9);
+      log.push({ text: `使用了${card.name}，下次攻擊威力 +50，並讓對手下次攻擊威力 ×0.9！`, cls: 'special' });
+      break;
+    }
+    case 'flying-dance':
+      buff.atkMult = Math.max(buff.atkMult, 1.2);
+      buff.shield += 30;
+      log.push({ text: `使用了${card.name}，下次攻擊威力 ×1.2，且下次承受傷害 -30！`, cls: 'special' });
+      break;
+    case 'flying-gale': {
+      const before = G[`${op}Energy`] || 0;
+      G[`${op}Energy`] = Math.max(0, before - 8);
+      log.push({ text: `使用了${card.name}，對方損失了 ${before - G[`${op}Energy`]} 點能量！`, cls: 'special' });
+      break;
+    }
+    case 'rock-slide':
+      if (G.activeStadium) {
+        buff.atkBonus += 80;
+        log.push({ text: `使用了${card.name}，場上有競技場效果，下次攻擊威力 +80！`, cls: 'special' });
+      } else {
+        buff.atkBonus += 55;
+        log.push({ text: `使用了${card.name}，下次攻擊威力 +55！`, cls: 'special' });
+      }
+      break;
+    case 'rock-fortress':
+      buff.shield += 60;
+      log.push({ text: `使用了${card.name}，下次承受傷害 -60！`, cls: 'special' });
+      break;
+    case 'fairy-song': {
+      const opActive = G[`${op}Deck`][G[`${op}Idx`]];
+      if (opActive.ability?.id === 'own-tempo') {
+        log.push({ text: `${opActive.name} 的我行我素抵消了${card.name}！`, cls: 'special' });
+      } else if (!opActive.status && Math.random() < 0.3) {
+        opActive.status = { type: 'confusion', turnsLeft: Math.floor(Math.random() * 3) + 2 };
+        log.push({ text: `使用了${card.name}，${opActive.name} 陷入了混亂！`, cls: 'special' });
+      } else {
+        log.push({ text: `使用了${card.name}，但沒有觸發效果。`, cls: 'system' });
+      }
+      break;
+    }
+    case 'fairy-heal': {
+      if (active.status) {
+        const st = STATUS_ZH[active.status.type] || active.status.type;
+        active.status = null;
+        log.push({ text: `使用了${card.name}，解除了 ${active.name} 的${st}！`, cls: 'special' });
+      }
+      const gain = Math.min(active.hp - active.cur, 10);
+      active.cur = Math.min(active.hp, active.cur + gain);
+      break;
+    }
+    case 'poison-spore': {
+      const opActive = G[`${op}Deck`][G[`${op}Idx`]];
+      if (!opActive.status && Math.random() < 0.5) {
+        opActive.status = { type: 'poison', turnsLeft: 999 };
+        log.push({ text: `使用了${card.name}，${opActive.name} 陷入了中毒！`, cls: 'special' });
+      } else {
+        log.push({ text: `使用了${card.name}，但沒有觸發效果。`, cls: 'system' });
+      }
+      break;
+    }
+    case 'poison-strike': {
+      const opActive = G[`${op}Deck`][G[`${op}Idx`]];
+      if (opActive.status?.type === 'poison') {
+        buff.atkBonus += 80;
+        log.push({ text: `使用了${card.name}，對手已中毒，下次攻擊威力 +80！`, cls: 'special' });
+      } else {
+        buff.atkBonus += 40;
+        log.push({ text: `使用了${card.name}，下次攻擊威力 +40！`, cls: 'special' });
+      }
+      break;
+    }
+    case 'bug-web': {
+      const before = G[`${op}Energy`] || 0;
+      G[`${op}Energy`] = Math.max(0, before - 6);
+      buff.atkBonus += 20;
+      log.push({ text: `使用了${card.name}，對方損失了 ${before - G[`${op}Energy`]} 點能量，自己下次攻擊威力 +20！`, cls: 'special' });
+      break;
+    }
+    case 'bug-swarm': {
+      const hand = G[`${role}Hand`];
+      const itemsOnly = getDrawPool(active.type, active.type2);
+      const drawn = weightedPick(itemsOnly);
+      hand.push(drawn);
+      G[`${role}Energy`] = Math.min(20, (G[`${role}Energy`] || 0) + 6);
+      log.push({ text: `使用了${card.name}，回復了 6 點能量，並抽到了【${drawn.name}】！`, cls: 'special' });
+      G[`${role}NeedsDiscard`] = hand.length > 7;
       break;
     }
     case 'stadium-training':
@@ -1426,12 +1770,12 @@ function drawForRole(G, role) {
   const itemsOnly = getDrawPool(activePoke.type, activePoke.type2);
   const n = 2;
   for (let i = 0; i < n; i++) {
-    G[`${role}Hand`].push(itemsOnly[Math.floor(Math.random() * itemsOnly.length)]);
+    G[`${role}Hand`].push(weightedPick(itemsOnly));
   }
   // 冥想：上回合使用時承諾的額外道具/競技場抽牌
   if (G[`${role}BonusItemDrawsNextTurn`]) {
     for (let i = 0; i < G[`${role}BonusItemDrawsNextTurn`]; i++) {
-      G[`${role}Hand`].push(itemsOnly[Math.floor(Math.random() * itemsOnly.length)]);
+      G[`${role}Hand`].push(weightedPick(itemsOnly));
     }
     G[`${role}BonusItemDrawsNextTurn`] = 0;
   }
@@ -2689,7 +3033,7 @@ async function handleMessage(ws, msg) {
       }
       if (cardType !== 'stadium' && cardType !== 'item') return;
       const pool = TRAINERS.filter(c => c.cat === cardType);
-      const newCard = pool[Math.floor(Math.random() * pool.length)];
+      const newCard = weightedPick(pool);
       hand.push(newCard);
       G[`${role}NeedsDiscard`] = hand.length > 7;
       const log = [{ text: `棄牌換卡！【${newCard.name}】到手！`, cls: 'system' }];
