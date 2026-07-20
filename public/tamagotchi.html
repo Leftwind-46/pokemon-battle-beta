@@ -138,21 +138,34 @@
   .fishing-scene-rod{position:absolute;left:58%;bottom:30px;transform:translateX(-50%);font-size:2rem;animation:rodBob 1.6s ease-in-out infinite;transform-origin:bottom center}
   @keyframes rodBob{0%,100%{transform:translateX(-50%) scaleX(-1) rotate(-4deg)}50%{transform:translateX(-50%) scaleX(-1) rotate(4deg)}}
   .fishing-scene-text{position:absolute;left:50%;top:10px;transform:translateX(-50%);font-size:0.8rem;color:#e8eaf6;text-shadow:0 2px 4px rgba(0,0,0,0.6);z-index:2}
+  /* 沙灘堆疊——本次連續釣魚session釣到的魚，一隻隻疊在岸邊，離開/關閉釣魚場景就清空（純視覺、不存檔） */
+  .fishing-scene-pile{position:absolute;left:60%;bottom:10px;width:36%;height:60px;display:flex;flex-wrap:wrap-reverse;align-items:flex-end;gap:2px;z-index:2;pointer-events:none}
+  .fishing-scene-pile img{width:26px;height:26px;object-fit:contain;image-rendering:pixelated;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.4));animation:pileDrop 0.35s ease-out}
+  @keyframes pileDrop{0%{transform:translateY(-16px);opacity:0}100%{transform:translateY(0);opacity:1}}
 
   /* ── 釣魚結果 ── */
   .fish-result-sprite-wrap{position:relative;align-self:center;width:140px;height:140px;display:flex;align-items:center;justify-content:center}
   .fish-result-sprite-wrap img{width:100%;height:100%;object-fit:contain;image-rendering:pixelated}
   .fish-result-sprite-wrap.rare img{filter:drop-shadow(0 0 18px rgba(248,208,48,0.75))}
+  .fish-result-sprite-wrap.legendary img{filter:drop-shadow(0 0 22px rgba(64,158,255,0.85))}
   .fish-result-crown{position:absolute;top:-6px;right:6px;font-size:1.8rem;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5))}
   .fish-result-name{align-self:center;font-size:1.15rem;font-weight:800}
   .fish-result-name.rare{color:#f8d030}
+  .fish-result-name.legendary{color:#40c4ff}
   .fish-result-fail{align-self:center;font-size:1.05rem;font-weight:700;color:var(--muted);text-align:center}
+
+  /* ── 蓋歐卡海浪特效——同心圓水藍色環，從寶可夢圖片中心往外擴散淡出，3層錯開時間製造波浪感 ── */
+  .fish-wave-ring{position:absolute;left:50%;top:50%;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;border:3px solid rgba(64,196,255,0.75);pointer-events:none;animation:waveRing 1.4s ease-out infinite}
+  .fish-wave-ring.ring-2{animation-delay:0.35s}
+  .fish-wave-ring.ring-3{animation-delay:0.7s}
+  @keyframes waveRing{0%{width:40px;height:40px;margin:-20px 0 0 -20px;opacity:0.9}100%{width:180px;height:180px;margin:-90px 0 0 -90px;opacity:0}}
 
   .fish-list-item{display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0.7rem;border:1px solid var(--border);border-radius:12px}
   .fish-list-item img{width:40px;height:40px;object-fit:contain;image-rendering:pixelated;cursor:pointer}
   .fish-list-item .name{flex:1;font-weight:700;font-size:0.88rem;cursor:pointer}
   .fish-list-item .name:hover{text-decoration:underline}
   .fish-list-item .name.rare{color:#f8d030}
+  .fish-list-item .name.legendary{color:#40c4ff}
   .fish-list-item .caught-at{font-size:0.68rem;color:var(--muted)}
   .fish-sell-btn{padding:0.35rem 0.6rem;border-radius:999px;border:none;font-size:0.72rem;font-weight:700;cursor:pointer;background:rgba(248,208,48,0.22);color:#f8d030;white-space:nowrap}
   .fish-sell-btn:hover{background:rgba(248,208,48,0.35)}
@@ -339,6 +352,7 @@
       <div class="fishing-scene-rod">🎣</div>
       <img class="fishing-scene-pet" id="fishing-scene-pet-img" src="" alt="">
       <div class="fishing-scene-basket">🧺</div>
+      <div class="fishing-scene-pile" id="fishing-scene-pile"></div>
     </div>
   </div>
 </div>
@@ -1191,13 +1205,35 @@ function fishAnimatedSpriteUrl(speciesId, shiny) {
   return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${shiny ? 'shiny/' : ''}${speciesId}.gif`;
 }
 
+// 沙灘堆疊——本次連續釣魚session（同一次進入釣魚場景到離開之間）釣到的魚，純視覺、不是caughtFish那種存檔清單
+let fishingSessionPile = [];
+function resetFishingPile() {
+  fishingSessionPile = [];
+  const pile = document.getElementById('fishing-scene-pile');
+  if (pile) pile.innerHTML = '';
+}
+function addToFishingPile(data) {
+  fishingSessionPile.push(data);
+  const pile = document.getElementById('fishing-scene-pile');
+  if (!pile) return;
+  const img = document.createElement('img');
+  img.src = fishSpriteUrl(data.speciesId, data.shiny);
+  img.alt = data.name;
+  pile.appendChild(img);
+}
+
 async function openFishingScene() {
   if (!pet) return;
+  resetFishingPile();
   const petImg = document.getElementById('fishing-scene-pet-img');
   const urls = spriteUrls(PET_SPECIES.find(s => s.id === pet.speciesId) || { id: pet.speciesId });
   petImg.src = urls.static;
   document.getElementById('fishing-scene-modal').classList.add('open');
+  await runFishingAttempt();
+}
 
+// 抽出成獨立函式，讓「收進魚籃後繼續釣魚」可以重新呼叫同一段流程，不用整個重開場景（沙灘堆疊才留得住）
+async function runFishingAttempt() {
   const fetchPromise = fetch('/api/pet/fish', { method: 'POST', headers: { Authorization: `Bearer ${myToken}` } })
     .then(r => r.ok ? r.json() : null)
     .catch(() => null);
@@ -1220,16 +1256,19 @@ function showFishingResult(data) {
     `;
   } else {
     const isRare = data.fishType === 'golden-magikarp' || data.fishType === 'red-gyarados';
+    const isLegendary = !!data.legendary; // 蓋歐卡——FISH_TYPES裡標了legendary:true，不用比對字串id
     const spriteUrl = fishSpriteUrl(data.speciesId, data.shiny);
+    const wrapClass = isLegendary ? ' legendary' : (isRare ? ' rare' : '');
     body.innerHTML = `
-      <div class="fish-result-sprite-wrap${isRare ? ' rare' : ''}">
+      <div class="fish-result-sprite-wrap${wrapClass}">
+        ${isLegendary ? '<div class="fish-wave-ring"></div><div class="fish-wave-ring ring-2"></div><div class="fish-wave-ring ring-3"></div>' : ''}
         <img src="${spriteUrl}" alt="${data.name}">
         ${data.fishType === 'red-gyarados' ? '<div class="fish-result-crown">👑</div>' : ''}
       </div>
-      <div class="fish-result-name${isRare ? ' rare' : ''}">${data.name}</div>
+      <div class="fish-result-name${wrapClass}">${isLegendary ? `🌊 ${data.name} 降臨！🌊` : data.name}</div>
       <button class="btn btn-primary" onclick="collectFish()">收進魚籃！</button>
     `;
-    if (isRare) {
+    if (isRare || isLegendary) {
       const rect = body.getBoundingClientRect();
       setTimeout(() => triggerFirework(rect.left + rect.width / 2, rect.top + 80), 200);
     }
@@ -1241,14 +1280,18 @@ function closeFishingResultModal() {
   document.getElementById('fishing-result-modal').classList.remove('open');
 }
 
-function collectFish() {
+async function collectFish() {
   if (!lastFishResult) return;
   // 這隻魚在剛剛那次 POST /api/pet/fish 就已經存進DB了，這裡純粹更新畫面
   const data = lastFishResult;
-  caughtFish.unshift({ id: data.fishId, fishType: data.fishType, name: data.name, speciesId: data.speciesId, shiny: data.shiny, sellPrice: data.sellPrice, caughtAt: data.caughtAt });
+  caughtFish.unshift({ id: data.fishId, fishType: data.fishType, name: data.name, speciesId: data.speciesId, shiny: data.shiny, sellPrice: data.sellPrice, caughtAt: data.caughtAt, legendary: !!data.legendary });
+  addToFishingPile(data);
   lastFishResult = null;
   closeFishingResultModal();
-  showToast('已收進魚籃！');
+  showToast('已收進魚籃！繼續釣魚中...');
+  // 繼續釣魚——重開場景modal（沙灘堆疊不清空，因為resetFishingPile只在openFishingScene的session起點呼叫）
+  document.getElementById('fishing-scene-modal').classList.add('open');
+  await runFishingAttempt();
 }
 
 /* ─────────────────────────────────────────
@@ -1440,10 +1483,11 @@ function renderFishTankList() {
   list.innerHTML = caughtFish.length
     ? caughtFish.map(f => {
         const isRare = f.fishType === 'golden-magikarp' || f.fishType === 'red-gyarados';
+        const nameClass = f.legendary ? ' legendary' : (isRare ? ' rare' : '');
         const caughtDate = f.caughtAt ? new Date(f.caughtAt).toLocaleDateString() : '';
         return `<div class="fish-list-item">
           <img src="${fishSpriteUrl(f.speciesId, f.shiny)}" alt="${f.name}" onclick="setDisplayFish(${f.id})">
-          <div class="name${isRare ? ' rare' : ''}" onclick="setDisplayFish(${f.id})">${f.name}</div>
+          <div class="name${nameClass}" onclick="setDisplayFish(${f.id})">${f.name}</div>
           <div class="caught-at">${caughtDate}</div>
           <button class="fish-sell-btn" onclick="sellFish(${f.id})">💰 賣出 ${f.sellPrice}</button>
         </div>`;

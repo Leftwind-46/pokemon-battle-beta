@@ -391,15 +391,18 @@ const pendingCatchReleases = new Map(); // userId -> { pokemonId, expiresAt }
 const PENDING_RELEASE_TTL_MS = 2 * 60 * 1000;
 const DECOR_SLOTS = ['slot-wall', 'slot-floor-mid', 'slot-floor-right'];
 
-/* 釣魚結果registry——weight加總=100，直接當百分比讀。黃金鯉魚王/紅色暴鯉龍刻意不生新素材，
-   直接借用鯉魚王(129)/暴鯉龍(130)在正史遊戲裡本來就是的shiny配色（金色/紅色跟需求完全對上），
-   sprite網址組法見 spriteUrl()/rollFish() 呼叫端，不需要另外做圖。 */
+/* 釣魚結果registry——weight加總曾經=100可以直接當百分比讀，2026-07-20加入蓋歐卡（機率要精準到0.1%）
+   後全部×10改用整數（加總=1001），蓋歐卡=1/1001≈0.0999%。黃金鯉魚王/紅色暴鯉龍/蓋歐卡刻意不生新素材，
+   直接借用鯉魚王(129)/暴鯉龍(130)在正史遊戲裡本來就是的shiny配色（金色/紅色跟需求完全對上）、
+   蓋歐卡(382)用一般配色搭配前端的海浪/發光特效，sprite網址組法見 spriteUrl()/rollFish() 呼叫端，
+   不需要另外做圖。 */
 const FISH_TYPES = {
-  'none':            { name: '失敗',       weight: 50 },
-  'magikarp':        { name: '鯉魚王',     weight: 20, speciesId: 129, shiny: false, sellPrice: 5 },
-  'gyarados':        { name: '暴鯉龍',     weight: 15, speciesId: 130, shiny: false, sellPrice: 15 },
-  'golden-magikarp': { name: '黃金鯉魚王', weight: 10, speciesId: 129, shiny: true,  sellPrice: 40 },
-  'red-gyarados':    { name: '紅色暴鯉龍', weight: 5,  speciesId: 130, shiny: true,  sellPrice: 80 },
+  'none':            { name: '失敗',       weight: 500 },
+  'magikarp':        { name: '鯉魚王',     weight: 200, speciesId: 129, shiny: false, sellPrice: 5 },
+  'gyarados':        { name: '暴鯉龍',     weight: 150, speciesId: 130, shiny: false, sellPrice: 15 },
+  'golden-magikarp': { name: '黃金鯉魚王', weight: 100, speciesId: 129, shiny: true,  sellPrice: 40 },
+  'red-gyarados':    { name: '紅色暴鯉龍', weight: 50,  speciesId: 130, shiny: true,  sellPrice: 80 },
+  'kyogre':          { name: '蓋歐卡',     weight: 1,   speciesId: 382, shiny: false, sellPrice: 500, legendary: true },
 };
 function rollFish() {
   const entries = Object.entries(FISH_TYPES);
