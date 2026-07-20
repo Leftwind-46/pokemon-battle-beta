@@ -507,6 +507,34 @@ const PET_ART_OVERRIDE = {
   // （不是只有3個動作），可以照同樣的 { w, h, src } 格式重新填進來。
 };
 
+/* 完整GIF動畫覆蓋層——呆火鱷試點（2026-07-21）。來源：使用者提供的一組現成動圖
+   （參考圖檔/呆火鱷＿素材/，idle.gif／eat.gif／sleep.gif／happy_jump.gif，四張畫風一致的
+   已完成pixel art動圖），跟上面 PET_ART_OVERRIDE 的AI靜態插圖不同——這些本身就是多幀GIF，
+   瀏覽器原生播放就會動，不需要PMDCollab那套sprite sheet+CSS steps()切格機制，也不需要
+   像PET_ART_OVERRIDE那樣另外設計「單張靜態圖停留固定時間」的邏輯（雖然實作上仍走一個很
+   類似的簡化路徑，見 playGifArt()）。
+   檔案放在 public/pet-art/{speciesId}/，比照 public/badges/ 的既有慣例用 express.static
+   直接服務，不base64內嵌——這批素材單檔37~82KB，全部嵌進tamagotchi.html會比皮卡丘那批
+   （單檔10~16KB才適合內嵌）肥大好幾倍，不划算。因為img.src指到的是站內但仍要走一次網路
+   請求的URL（不是已經在記憶體裡的data URI），playGifArt()一樣要走preload-before-reveal，
+   跟playPetAnim()抓PMDCollab遠端URL同一套「寶可夢消失」防呆邏輯，不能省。
+   沒有提供對應的Walk/Attack動圖：Walk直接重用idle.gif（呆火鱷官方遊戲本來就沒有走路動畫，
+   這裡的「走路」原本也只是換位置+待機圖跟著滑動，重用idle不會有損失，改用PMDCollab的Walk
+   反而會讓待機/走路兩個最常見狀態畫風對不上）；Attack借給了happy_jump.gif——這個
+   「開心跳躍」動畫本來就沒有對應到任何現有狀態，但目前程式裡Attack只有一個用途：
+   interactPet()點擊寶可夢時30%機率觸發的彩蛋動畫（純視覺、跟真實對戰招式無關），
+   「開心跳躍」語意上遠比揮拳攻擊更貼近「摸寶可夢牠很開心」的情境，所以借用同一個key、
+   不用另外造一個新的動畫狀態名稱貫穿整個引擎。 */
+const PET_GIF_OVERRIDE = {
+  909: {
+    Idle:   { w: 208, h: 244, src: '/pet-art/909/idle.gif' },
+    Walk:   { w: 208, h: 244, src: '/pet-art/909/idle.gif' },
+    Eat:    { w: 209, h: 242, src: '/pet-art/909/eat.gif', holdMs: 1800 },
+    Sleep:  { w: 235, h: 190, src: '/pet-art/909/sleep.gif' },
+    Attack: { w: 211, h: 301, src: '/pet-art/909/happy_jump.gif', holdMs: 1600 },
+  },
+};
+
 // 寶可夢空間依屬性設計成一個小房間的角落擺設（純手繪SVG，不外抓圖片素材——
 // 找過itch.io/OpenGameArt都沒有現成、授權乾淨、六種屬性齊全的單張房間背景圖，
 // 改用自己畫的簡單剪影：草=盆栽、火=壁爐、水=魚缸、電=電路板+閃電、幽靈=蜘蛛網+月窗、一般=書櫃+地毯）
@@ -1173,14 +1201,25 @@ async function feedPet() {
 }
 
 const FOOD_ICONS = ['🌰', '🍎', '🍖', '🫐'];
+// 停留時間跟這隻寶可夢Eat動畫「實際會播放」的時長對齊——PET_ART_OVERRIDE/PET_GIF_OVERRIDE
+// 兩種覆蓋素材各自的收尾時間（STATIC_POSE_MS/holdMs）跟PET_ANIM的frame數×FRAME_MS是不同
+// 計算方式，food-pop不能只看PET_ANIM，不然覆蓋素材的物種會讓食物圖示提早消失、跟畫面上
+// 還在播的吃東西動畫兜不起來（比照playPetAnim()判斷來源的優先順序：art override → gif
+// override → PMDCollab sprite sheet）
+function getEatAnimDurationMs(speciesId) {
+  const artOverride = PET_ART_OVERRIDE[speciesId] && PET_ART_OVERRIDE[speciesId].Eat;
+  if (artOverride) return artOverride.holdMs || STATIC_POSE_MS;
+  const gifOverride = PET_GIF_OVERRIDE[speciesId] && PET_GIF_OVERRIDE[speciesId].Eat;
+  if (gifOverride) return gifOverride.holdMs || DEFAULT_GIF_HOLD_MS;
+  const table = PET_ANIM[speciesId];
+  const meta = table && (table.Eat || table.Idle);
+  return meta ? meta[2] * FRAME_MS : 1400;
+}
 function showFoodPop() {
   const stage = document.getElementById('pet-stage');
   const img = document.getElementById('pet-sprite');
   if (!stage || !img) return;
-  // 停留時間跟這隻寶可夢Eat動畫實際播放時長對齊（沒有Eat就退回Idle，跟playPetAnim()同一套fallback規則）
-  const table = PET_ANIM[pet.speciesId];
-  const meta = table && (table.Eat || table.Idle);
-  const durationMs = meta ? meta[2] * FRAME_MS : 1400;
+  const durationMs = getEatAnimDurationMs(pet.speciesId);
   const pop = document.createElement('div');
   pop.className = 'food-pop';
   pop.textContent = FOOD_ICONS[Math.floor(Math.random() * FOOD_ICONS.length)];
@@ -1613,6 +1652,8 @@ let currentAnimScale = 1;
 function playPetAnim(speciesId, animName, loop) {
   const artOverride = PET_ART_OVERRIDE[speciesId] && PET_ART_OVERRIDE[speciesId][animName];
   if (artOverride) { playStaticPoseArt(artOverride, animName, loop); return; }
+  const gifOverride = PET_GIF_OVERRIDE[speciesId] && PET_GIF_OVERRIDE[speciesId][animName];
+  if (gifOverride) { playGifArt(gifOverride, animName, loop); return; }
   const table = PET_ANIM[speciesId];
   if (!table) return;
   const useName = table[animName] ? animName : 'Idle';
@@ -1693,6 +1734,47 @@ function playStaticPoseArt(art, animName, loop) {
   img.src = art.src;
   applySpriteTransform();
   if (!loop) animTimer = setTimeout(stopPetAnim, STATIC_POSE_MS);
+}
+
+/* PET_GIF_OVERRIDE的素材本身就是多幀GIF（不是單張靜態插圖），瀏覽器原生播放就會自己跑完
+   整組frame timing，不需要steps()切格，也不需要像playStaticPoseArt()那樣手動計時單張停留——
+   但因為img.src指向站內的網路URL（不是已經在記憶體裡的data URI），跟PMDCollab遠端sprite
+   sheet一樣要走preload-before-reveal，避免載入中那段空窗期畫面上完全看不到寶可夢。
+   loop:false時的收尾時間用該素材自己算好的holdMs（GIF總時長），不是固定值，這樣才會剛好
+   播完一輪才切回待機，不會卡在動畫播到一半的畫面。 */
+const DEFAULT_GIF_HOLD_MS = 1600;
+function playGifArt(art, animName, loop) {
+  const img = document.getElementById('pet-sprite');
+  if (!img) return;
+  const preload = new Image();
+  preload.onload = () => reveal();
+  preload.onerror = () => { /* 載入失敗，放棄這次動畫，維持原本待機圖 */ };
+  preload.src = art.src;
+
+  function reveal() {
+    if (animTimer) { clearTimeout(animTimer); animTimer = null; }
+    sleeping = (animName === 'Sleep' && !!loop);
+    if (sleeping) {
+      if (walkTimer) { clearTimeout(walkTimer); walkTimer = null; }
+      const stage = document.getElementById('pet-stage');
+      if (stage) {
+        img.style.left = (stage.clientWidth / 2 - art.w / 2) + 'px';
+        img.style.top = (stage.clientHeight / 2 - art.h / 2) + 'px';
+        facingLeft = false;
+      }
+    } else if (!loop && walkTimer) {
+      clearTimeout(walkTimer); walkTimer = null; // 吃東西/攻擊播放期間先別亂走位，播完由stopPetAnim()重新排
+    }
+    if (walkAnimRevertTimer) { clearTimeout(walkAnimRevertTimer); walkAnimRevertTimer = null; }
+    currentAnimScale = ANIM_DISPLAY_TARGET / Math.max(art.w, art.h);
+    img.classList.remove('pet-anim-playing');
+    img.style.backgroundImage = '';
+    img.style.width = art.w + 'px';
+    img.style.height = art.h + 'px';
+    img.src = art.src;
+    applySpriteTransform();
+    if (!loop) animTimer = setTimeout(stopPetAnim, art.holdMs || DEFAULT_GIF_HOLD_MS);
+  }
 }
 
 function stopPetAnim() {
