@@ -115,11 +115,14 @@
 
   /* ── 徽章展示（自由拖曳位置，2026-07-21起可以同時展示多個——每個徽章各自是一個
      .badge-room-item，用left/top(百分比或拖曳中的px)+transform置中來定位，不再是單一#badge-slot）── */
-  .badge-room-item{position:absolute;transform:translate(-50%,-50%);z-index:5;width:72px;height:72px;border-radius:50%;cursor:pointer;touch-action:none}
+  .badge-room-item{position:absolute;transform:translate(-50%,-50%);z-index:6;width:72px;height:72px;border-radius:50%;cursor:pointer;touch-action:none}
   .badge-room-item img{width:100%;height:100%;border-radius:50%;object-fit:cover;box-shadow:0 0 18px rgba(248,208,48,0.6),0 0 0 3px rgba(248,208,48,0.75)}
 
   /* ── 房間裝飾（自由拖曳位置，取代舊版3個固定插槽）── */
-  .decor-room-item{position:absolute;transform:translate(-50%,-50%);z-index:3;width:52px;height:52px;border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.7rem;background:rgba(0,0,0,0.15);touch-action:none}
+  /* z-index必須高於#pet-sprite(4)——寶可夢會在房間裡走來走去，「加入房間」預設把新物件放在
+     正中央(0.5,0.5)，剛好很容易跟寶可夢走位重疊；原本這裡是3(低於寶可夢)，導致物件被走過去的
+     寶可夢擋住時完全點不到、拖不動、也按不到收回鈕（回報為「新增的東西無法移動/關掉」）。 */
+  .decor-room-item{position:absolute;transform:translate(-50%,-50%);z-index:6;width:52px;height:52px;border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.7rem;background:rgba(0,0,0,0.15);touch-action:none}
 
   /* ── 裝潢模式：可拖曳的物件套上金色虛線外框提示、拖曳手勢游標；收回按鈕只在此模式下出現 ── */
   .decorate-mode .badge-room-item,.decorate-mode .decor-room-item,.decorate-mode #fish-tank-slot,.decorate-mode #fish-dex-slot{cursor:grab;outline:2px dashed rgba(248,208,48,0.65);outline-offset:2px}
@@ -127,13 +130,14 @@
   #decorate-toggle-btn.active{background:rgba(248,208,48,0.28);border-color:#f8d030}
 
   /* ── 魚缸（自由拖曳位置——用left/top(百分比)+transform置中，不再是固定right/top）── */
-  #fish-tank-slot{position:absolute;transform:translate(-50%,-50%);z-index:4;width:64px;height:64px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:rgba(104,144,240,0.18);border:2px solid rgba(104,144,240,0.4);transition:transform 0.15s;overflow:hidden;touch-action:none}
+  /* z-index同樣調到高於#pet-sprite(4)，理由同上面.decor-room-item的說明 */
+  #fish-tank-slot{position:absolute;transform:translate(-50%,-50%);z-index:6;width:64px;height:64px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:rgba(104,144,240,0.18);border:2px solid rgba(104,144,240,0.4);transition:transform 0.15s;overflow:hidden;touch-action:none}
   #fish-tank-slot:hover{transform:translate(-50%,-50%) scale(1.08)}
   #fish-tank-slot img{width:80%;height:80%;object-fit:contain;image-rendering:pixelated}
   #fish-tank-slot.empty{font-size:1.5rem;opacity:0.45}
 
   /* ── 魚圖鑑聲納按鈕（自由拖曳位置）── */
-  #fish-dex-slot{position:absolute;transform:translate(-50%,-50%);z-index:4;width:64px;height:44px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.4rem;background:rgba(104,144,240,0.18);border:2px solid rgba(104,144,240,0.4);transition:transform 0.15s;touch-action:none}
+  #fish-dex-slot{position:absolute;transform:translate(-50%,-50%);z-index:6;width:64px;height:44px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.4rem;background:rgba(104,144,240,0.18);border:2px solid rgba(104,144,240,0.4);transition:transform 0.15s;touch-action:none}
   #fish-dex-slot:hover{transform:translate(-50%,-50%) scale(1.08)}
   .fish-dex-item{display:flex;flex-direction:column;align-items:center;gap:0.3rem;padding:0.6rem;border:1px solid var(--border);border-radius:12px}
   .fish-dex-item img{width:52px;height:52px;object-fit:contain;image-rendering:pixelated}
@@ -1006,6 +1010,11 @@ function makeRemoveBtn(onRemove) {
   btn.className = 'room-item-remove';
   btn.textContent = '✕';
   btn.title = '收回道具欄';
+  // 一定要在pointerdown階段就stopPropagation，不能只擋click——按鈕是父層(可拖曳物件)的子元素，
+  // 父層的pointerdown監聽器只要沒被擋下就會在decorateMode時呼叫setPointerCapture()把自己設成
+  // 這次手勢的接收者，之後瀏覽器產生的pointerup/click都會被重新導向到父層而不是這顆按鈕，
+  // 導致「按X沒反應」——實際上是被父層的拖曳邏輯攔截當成一次原地拖曳，而不是真的觸發收回。
+  btn.addEventListener('pointerdown', (e) => e.stopPropagation());
   btn.onclick = (e) => { e.stopPropagation(); onRemove(); };
   return btn;
 }
