@@ -1314,6 +1314,8 @@
     .dex-hp { font-size:0.72rem; color:var(--muted); margin-bottom:0.2rem; }
     .dex-move { font-size:0.72rem; color:#b0b8e0; margin-bottom:0.1rem; }
     .dex-move-badge { display:inline-block; font-size:0.58rem; font-weight:700; padding:0.04rem 0.3rem; border-radius:4px; color:#fff; margin-right:0.22rem; vertical-align:middle; }
+    .dex-mega-section { margin-top:0.3rem; padding-top:0.3rem; border-top:1px dashed var(--border); display:flex; gap:0.5rem; align-items:flex-start; }
+    .dex-mega-sprite { width:40px; height:40px; image-rendering:pixelated; flex-shrink:0; }
     #discard-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
     #discard-modal.open { display:flex; }
     #trade-modal, #trade-choose-modal, #switch-confirm-modal, #mad-scientist-modal, #type-orb-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
@@ -5823,11 +5825,23 @@ function renderDex() {
         </div>`;
       }).join('');
       const abilityHtml = p.ability ? `<div class="ability-badge" title="${p.ability.desc}">✨ ${p.ability.name}</div>` : '';
-      const megaHtml = p.mega ? `<div class="mega-badge" title="可以 Mega 進化">💎 可 Mega 進化</div>` : '';
+      const type2Badge = p.type2 ? `<span class="type-badge" style="background:${TYPE_COLOR[p.type2]||'#888'};font-size:0.58rem;padding:0.04rem 0.28rem;vertical-align:middle;margin-left:0.15rem">${TYPE_ZH[p.type2]||p.type2}</span>` : '';
+      const megaHtml = p.mega ? `
+        <div class="dex-mega-section">
+          <img class="dex-mega-sprite" src="${spriteUrl(p.mega.spriteId)}" alt="Mega${p.name}" onerror="this.onerror=null;this.src='${officialArtworkUrl(p.mega.spriteId)}'">
+          <div>
+            <div class="mega-badge" title="可以 Mega 進化">💎 Mega 形態</div>
+            <div>
+              <span class="type-badge" style="background:${TYPE_COLOR[p.mega.type]||'#888'};font-size:0.58rem;padding:0.04rem 0.28rem">${TYPE_ZH[p.mega.type]||p.mega.type}</span>
+              ${p.mega.type2 ? `<span class="type-badge" style="background:${TYPE_COLOR[p.mega.type2]||'#888'};font-size:0.58rem;padding:0.04rem 0.28rem;margin-left:0.15rem">${TYPE_ZH[p.mega.type2]||p.mega.type2}</span>` : ''}
+            </div>
+            ${p.mega.ability ? `<div class="ability-badge" title="${p.mega.ability.desc}">✨ ${p.mega.ability.name}</div>` : ''}
+          </div>
+        </div>` : '';
       html += `<div class="dex-card">
         <img class="dex-sprite" src="${spriteUrl(p.id)}" alt="${p.name}" onerror="this.onerror=null;this.src='${officialArtworkUrl(p.id)}'">
         <div class="dex-info">
-          <div class="dex-name">${p.name}&nbsp;<span class="type-badge" style="background:${col};font-size:0.58rem;padding:0.04rem 0.28rem;vertical-align:middle">${TYPE_ZH[p.type]||p.type}</span></div>
+          <div class="dex-name">${p.name}&nbsp;<span class="type-badge" style="background:${col};font-size:0.58rem;padding:0.04rem 0.28rem;vertical-align:middle">${TYPE_ZH[p.type]||p.type}</span>${type2Badge}</div>
           <div class="dex-hp">HP ${p.hp}</div>
           ${abilityHtml}
           ${megaHtml}

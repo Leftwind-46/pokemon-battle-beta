@@ -51,6 +51,20 @@
     #collection-sidebar{display:none}
     #collection-toggle-btn{display:flex;align-items:center;justify-content:center}
   }
+  /* 寶可夢圖鑑——固定在頁面最左上角，跟收藏側欄的行動版按鈕（左下角）錯開，永遠顯示不受版面寬度影響 */
+  #pokedex-toggle-btn{position:fixed;left:1rem;top:1rem;z-index:80;width:48px;height:48px;border-radius:50%;border:none;background:linear-gradient(135deg,#90caf9,#6890f0);color:#1a1a2e;font-size:1.2rem;cursor:pointer;box-shadow:0 4px 16px rgba(104,144,240,0.4);display:flex;align-items:center;justify-content:center}
+  #pokedex-search{width:100%;padding:0.5rem 0.8rem;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,0.05);color:var(--text);font-size:0.85rem;margin-bottom:0.4rem}
+  .pokedex-tier-label{font-size:0.8rem;font-weight:800;color:var(--muted);margin:0.6rem 0 0.3rem}
+  .pokedex-card{display:flex;gap:0.7rem;padding:0.6rem;border:1px solid var(--border);border-radius:12px;margin-bottom:0.5rem}
+  .pokedex-card img{width:56px;height:56px;object-fit:contain;image-rendering:pixelated;flex-shrink:0}
+  .pokedex-card .info{flex:1;min-width:0}
+  .pokedex-card .name-row{display:flex;align-items:center;gap:0.35rem;flex-wrap:wrap;font-weight:800;font-size:0.9rem}
+  .pokedex-type-badge{font-size:0.62rem;padding:0.06rem 0.32rem;border-radius:999px;color:#fff;font-weight:700}
+  .pokedex-hp{font-size:0.75rem;color:var(--muted)}
+  .pokedex-ability{font-size:0.75rem;margin-top:0.2rem;color:#ce93d8}
+  .pokedex-mega{margin-top:0.4rem;padding-top:0.4rem;border-top:1px dashed var(--border);display:flex;gap:0.6rem;align-items:center}
+  .pokedex-mega img{width:48px;height:48px;object-fit:contain;image-rendering:pixelated;flex-shrink:0}
+  .pokedex-mega .mega-label{font-size:0.68rem;font-weight:800;color:#f8d030;margin-bottom:0.15rem}
   .happiness-bar{width:100%;max-width:340px;display:flex;align-items:center;gap:0.6rem}
   .happiness-track{flex:1;height:14px;border-radius:999px;background:rgba(255,255,255,0.1);overflow:hidden}
   .happiness-fill{height:100%;background:linear-gradient(90deg,#f8d030,#f05030);transition:width 0.4s ease}
@@ -287,6 +301,7 @@
       <div class="collection-mon-list" id="collection-sidebar-body"></div>
     </div>
     <button id="collection-toggle-btn" onclick="openCollectionModal()" title="我的收藏">🎒</button>
+    <button id="pokedex-toggle-btn" onclick="openPokedexModal()" title="寶可夢圖鑑">📖</button>
 
     <div id="stage-main">
       <div id="pet-name-label"></div>
@@ -346,6 +361,14 @@
     </div>
     <div class="collection-mon-list" id="collection-modal-body"></div>
     <div class="modal-close" onclick="closeCollectionModal()">關閉</div>
+  </div>
+</div>
+<div id="pokedex-modal" class="modal-overlay" onclick="closePokedexModal()">
+  <div class="modal-box" onclick="event.stopPropagation()" style="max-width:420px">
+    <h2>📖 寶可夢圖鑑</h2>
+    <input id="pokedex-search" type="text" placeholder="搜尋名稱..." oninput="renderPokedexList()">
+    <div id="pokedex-list" style="max-height:60vh;overflow-y:auto"></div>
+    <div class="modal-close" onclick="closePokedexModal()">關閉</div>
   </div>
 </div>
 <div id="visit-modal" class="modal-overlay" onclick="closeVisitModal()">
@@ -466,6 +489,13 @@ const TEAM_TYPE_COLOR = {
 };
 function teamSpriteUrl(id) { return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`; }
 function teamOfficialArtworkUrl(id) { return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`; }
+// 圖鑑用的18種屬性中文名稱——跟pokemon_battle.html的TYPE_ZH是同一份對照表
+const TYPE_ZH = {
+  fire:'火', water:'水', grass:'草', electric:'電', psychic:'超能',
+  fighting:'格鬥', ghost:'幽靈', dragon:'龍', steel:'鋼', ice:'冰',
+  normal:'一般', dark:'惡', ground:'地面', flying:'飛行', rock:'岩石', fairy:'妖精',
+  poison:'毒', bug:'蟲',
+};
 
 /* 動作動畫素材：PMDCollab/SpriteCollab（CC BY-NC，已在畫面上標註來源）。
    每隻寶可夢的 Idle/Walk/Eat/Sleep/Attack sprite sheet 尺寸[寬,高,張數]，從 AnimData.xml 解析確認。
@@ -1168,6 +1198,68 @@ function openCollectionModal() {
 }
 function closeCollectionModal() {
   document.getElementById('collection-modal').classList.remove('open');
+}
+
+/* ─────────────────────────────────────────
+   寶可夢圖鑑——資料來源 GET /api/pokedex（公開端點，回傳完整152隻的顯示用欄位）。
+   只抓一次快取起來（跟shopItems同樣道理，圖鑑資料不會在執行期間變動），之後開modal
+   或打字搜尋都只是重新渲染快取，不用重打API。
+───────────────────────────────────────── */
+let pokedexData = null;
+async function openPokedexModal() {
+  document.getElementById('pokedex-modal').classList.add('open');
+  if (pokedexData) { renderPokedexList(); return; }
+  document.getElementById('pokedex-list').innerHTML = '<div style="font-size:0.82rem;color:var(--muted);text-align:center">載入中...</div>';
+  try {
+    const res = await fetch('/api/pokedex');
+    if (!res.ok) return;
+    const data = await res.json();
+    pokedexData = data.dex;
+    renderPokedexList();
+  } catch (e) { /* 網路暫時失敗，維持載入中的畫面 */ }
+}
+
+function closePokedexModal() {
+  document.getElementById('pokedex-modal').classList.remove('open');
+}
+
+function pokedexTypeBadge(type) {
+  return `<span class="pokedex-type-badge" style="background:${TEAM_TYPE_COLOR[type] || '#888'}">${TYPE_ZH[type] || type}</span>`;
+}
+
+function renderPokedexList() {
+  if (!pokedexData) return;
+  const q = (document.getElementById('pokedex-search').value || '').trim();
+  const filtered = q ? pokedexData.filter(p => p.name.includes(q)) : pokedexData;
+  const tierNames = { 1: '第 1 關（弱）', 2: '第 2 關（中）', 3: '第 3 關（強）' };
+  let html = '';
+  [1, 2, 3].forEach(tier => {
+    const inTier = filtered.filter(p => p.tier === tier);
+    if (!inTier.length) return;
+    html += `<div class="pokedex-tier-label">${tierNames[tier]}</div>`;
+    inTier.forEach(p => {
+      const abilityHtml = p.ability ? `<div class="pokedex-ability">✨ ${p.ability.name}<br><span style="color:var(--muted)">${p.ability.desc}</span></div>` : '';
+      const megaHtml = p.mega ? `
+        <div class="pokedex-mega">
+          <img src="${teamSpriteUrl(p.mega.spriteId)}" alt="Mega${p.name}" onerror="this.onerror=null;this.src='${teamOfficialArtworkUrl(p.mega.spriteId)}'">
+          <div>
+            <div class="mega-label">💎 Mega 形態</div>
+            <div>${pokedexTypeBadge(p.mega.type)}${p.mega.type2 ? pokedexTypeBadge(p.mega.type2) : ''}</div>
+            ${p.mega.ability ? `<div class="pokedex-ability">✨ ${p.mega.ability.name}<br><span style="color:var(--muted)">${p.mega.ability.desc}</span></div>` : ''}
+          </div>
+        </div>` : '';
+      html += `<div class="pokedex-card">
+        <img src="${teamSpriteUrl(p.id)}" alt="${p.name}" onerror="this.onerror=null;this.src='${teamOfficialArtworkUrl(p.id)}'">
+        <div class="info">
+          <div class="name-row">${p.name}${pokedexTypeBadge(p.type)}${p.type2 ? pokedexTypeBadge(p.type2) : ''}</div>
+          <div class="pokedex-hp">HP ${p.hp}</div>
+          ${abilityHtml}
+          ${megaHtml}
+        </div>
+      </div>`;
+    });
+  });
+  document.getElementById('pokedex-list').innerHTML = html || '<div style="font-size:0.82rem;color:var(--muted);text-align:center">找不到符合的寶可夢</div>';
 }
 
 function triggerFirework(cx, cy) {

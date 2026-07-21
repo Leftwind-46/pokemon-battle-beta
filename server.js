@@ -2168,6 +2168,16 @@ app.get('/api/shop', (req, res) => {
   res.json({ items: SHOP_ITEMS });
 });
 
+/* 寶可夢圖鑑——給「我的寶可夢」頁面的圖鑑彈窗用，裁剪成顯示會用到的欄位（不含attacks的完整
+   數值細節，那是戰鬥引擎的事）。不需要登入，比照/api/shop的公開唯讀慣例。 */
+app.get('/api/pokedex', (req, res) => {
+  const dex = POKEMON.map(p => ({
+    id: p.id, name: p.name, type: p.type, type2: p.type2 ?? null,
+    hp: p.hp, tier: p.tier, ability: p.ability ?? null, mega: p.mega ?? null,
+  }));
+  res.json({ dex });
+});
+
 app.post('/api/pet/buy', requireAuth, async (req, res) => {
   const itemId = req.body?.itemId;
   const item = SHOP_ITEMS[itemId];
