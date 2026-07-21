@@ -791,8 +791,8 @@
               <div class="atk-meta"><span style="font-size:0.72rem;color:var(--muted)">跳過攻擊，抽 1 張支援者牌</span></div>
             </button>
             <button class="btn-atk" id="btn-trade" onclick="playerDiscardTrade()" style="grid-column:span 2">
-              <div class="atk-name">🔄 棄2換1</div>
-              <div class="atk-meta"><span style="font-size:0.72rem;color:var(--muted)">棄掉 2 張手牌，換取 1 張競技場卡、道具卡、或 ⚡+5 能量</span></div>
+              <div class="atk-name">🔄 棄牌兌換</div>
+              <div class="atk-meta"><span style="font-size:0.72rem;color:var(--muted)">棄1張換競技場卡或⚡+5能量；棄2張換道具卡或解除異常狀態</span></div>
             </button>
           </div>
         </div>
@@ -844,7 +844,7 @@
       <li>每個招式都需要消耗能量才能使用；能量不足時該招式按鈕會反灰無法點選。</li>
       <li>弱招消耗低（甚至 0），可以幾乎每回合使用；強招消耗高，需要先囤積幾回合能量才打得出來。</li>
       <li>若能量不足以使用任何招式，該回合只能待機、換人或使用道具卡，無法攻擊。</li>
-      <li>可透過棄2換能量（+5）、能量補丁道具卡、或啦啦隊支援者卡（直接補滿到 20）額外獲取能量。</li>
+      <li>可透過棄牌兌換（棄1張換+5能量）、能量補丁道具卡、或啦啦隊支援者卡（直接補滿到 20）額外獲取能量。</li>
     </ul>
     <h3>💎 Mega 進化</h3>
     <ul>
@@ -891,7 +891,7 @@
         <li>群聚針刺（蟲屬性）— 讓對手中毒並損失 3 能量 ／ 潮汐回復（水屬性）— 回復 30% 最大HP</li>
         <li>龍之波動（龍屬性）— 下次攻擊若為龍屬性傷害 ×1.12 ／ 捨身猛擊（格鬥屬性）— 下次攻擊威力 +40，自身 HP ×0.8</li>
       </ul>
-      <li>可花費 2 張手牌，換取 1 張競技場卡、1 張道具卡、或 +5 能量（棄2換1按鈕）。</li>
+      <li>棄牌兌換按鈕：棄 1 張手牌可換 1 張競技場卡或 +5 能量；棄 2 張可換 1 張道具卡或解除上場寶可夢的異常狀態。</li>
       <li><b>支援者牌</b>（藍框）僅開局手牌中出現，每回合限用 1 張，沒有場次上限，也可用待機抽到：</li>
       <ul>
         <li>復活藥 — 復活備戰欄第一隻倒下的寶可夢（80 HP，每場限用一次）</li>
@@ -980,11 +980,11 @@
   </div>
 </div>
 
-<!-- Trade modal (discard 2 → get 1) -->
+<!-- Trade modal (discard 1 or 2 → get a reward) -->
 <div id="trade-modal">
   <div class="discard-inner">
     <div class="discard-title">棄牌換卡</div>
-    <div class="discard-sub">選擇 2 張手牌丟棄，換取 1 張新卡或 ⚡能量</div>
+    <div class="discard-sub">選擇 1 或 2 張手牌丟棄——棄 1 張可換競技場卡或 +5 能量；棄 2 張可換道具卡或解除異常狀態</div>
     <div id="trade-select-cards" style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;margin:0.6rem 0"></div>
     <div style="display:flex;gap:0.6rem;justify-content:center;margin-top:0.5rem">
       <button id="trade-confirm-btn" class="btn-modal-ok" onclick="pvpConfirmDiscardTrade()" disabled>確認棄牌</button>
@@ -997,12 +997,8 @@
 <div id="trade-choose-modal">
   <div class="discard-inner">
     <div class="discard-title">選擇換取類型</div>
-    <div class="discard-sub">你想換取哪種卡片，還是要能量？</div>
-    <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.8rem">
-      <button class="btn-modal-ok" onclick="pvpChooseTrade('stadium')">🏟 競技場</button>
-      <button class="btn-modal-ok" onclick="pvpChooseTrade('item')">🃏 道具卡</button>
-      <button class="btn-modal-ok" onclick="pvpChooseTrade('energy')">⚡ +5 能量</button>
-    </div>
+    <div class="discard-sub" id="trade-choose-sub">你想換取哪種卡片，還是要能量？</div>
+    <div id="trade-choose-options" style="display:flex;gap:1rem;justify-content:center;margin-top:0.8rem"></div>
   </div>
 </div>
 
@@ -1254,6 +1250,9 @@ const SUPPORT_EFFECT_ZH = {
   'trick': '下回合額外抽 1 張支援者卡，下次攻擊傷害 +40（+下回合能量+5）',
   'focus-energy': '下回合額外 +14 能量',
 };
+// 2026-07-22應使用者要求：抽牌／搶奪對方手牌效果太強，改成每回合限用一次（跟支援者卡一樣的鎖卡邏輯，
+// 只是這裡純粹是UI層面的按鈕disable提示——真正的驗證在server.js，這裡沒有就只是體驗較差不會出安全漏洞）
+const HAND_MANIPULATION_CARDS = ['plunder', 'night-raid', 'dark-heist', 'quick-thinking', 'normal-refresh', 'bug-swarm'];
 const EFF = {
   fire:    {grass:2,ice:2,steel:2,bug:2,water:0.5,fire:0.5,rock:0.5,dragon:0.5},
   water:   {fire:2,ground:2,rock:2,water:0.5,grass:0.5,dragon:0.5},
@@ -1445,6 +1444,7 @@ let G = {
   playerHand:[], cpuHand:[],
   playerSuppUsed:false, playerSuppStageUsed:0,
   cpuSuppUsed:false, cpuSuppStageUsed:0,
+  playerHandCardUsed:false, cpuHandCardUsed:false,
   playerFreeSwitch:false,
   playerBuff:{atkBonus:0,atkMult:1,shield:0},
   cpuBuff:{atkBonus:0,atkMult:1,shield:0},
@@ -1835,6 +1835,8 @@ function applyServerState(sG) {
   G.playerSuppStageUsed= sG[`${me}SuppStageUsed`];
   G.cpuSuppUsed        = sG[`${op}SuppUsed`];
   G.cpuSuppStageUsed   = sG[`${op}SuppStageUsed`];
+  G.playerHandCardUsed = sG[`${me}HandCardUsed`];
+  G.cpuHandCardUsed    = sG[`${op}HandCardUsed`];
   G.playerFreeSwitch   = sG[`${me}FreeSwitch`];
   G.playerBuff         = sG[`${me}Buff`];
   G.cpuBuff            = sG[`${op}Buff`];
@@ -2247,7 +2249,8 @@ function renderHand() {
   G.playerHand.forEach((card, i) => {
     const isSupp = card.cat === 'supporter';
     const noSwitcher = card.id === 'switcher' && G.cpuDeck.filter((p,j)=>j!==G.cpuIdx&&p.cur>0).length===0;
-    const disabled  = isSpectator || G.busy || (isSupp && G.playerSuppUsed) || noSwitcher;
+    const disabled  = isSpectator || G.busy || (isSupp && G.playerSuppUsed) || noSwitcher
+      || (HAND_MANIPULATION_CARDS.includes(card.id) && G.playerHandCardUsed);
     const isStadium = card.cat === 'stadium';
     const badgeLabel = isSupp ? '支援者' : isStadium ? '競技場' : '道具';
     const el = document.createElement('div');
@@ -2597,9 +2600,10 @@ function playerStandby() {
    DISCARD-TRADE MECHANIC (棄2換1)
 ───────────────────────────────────────── */
 let _tradeSelected = [];
+let _tradeDiscardCount = 0; // 2026-07-22：記住這次棄了1張還是2張，換取畫面要依此顯示不同選項
 
 function playerDiscardTrade() {
-  if (G.busy || G.playerNeedsDiscard || G.playerHand.length < 2) return;
+  if (G.busy || G.playerNeedsDiscard || G.playerHand.length < 1) return;
   _tradeSelected = [];
   renderTradeModal();
   document.getElementById('trade-modal').classList.add('open');
@@ -2618,7 +2622,8 @@ function renderTradeModal() {
     row.appendChild(el);
   });
   const btn = document.getElementById('trade-confirm-btn');
-  if (btn) btn.disabled = _tradeSelected.length !== 2;
+  // 2026-07-22應使用者要求：棄1張或2張都可以確認（原本卡死在一定要選滿2張）
+  if (btn) btn.disabled = _tradeSelected.length < 1;
 }
 
 function toggleTradeSelect(idx) {
@@ -2632,14 +2637,35 @@ function toggleTradeSelect(idx) {
 }
 
 function pvpConfirmDiscardTrade() {
-  if (_tradeSelected.length !== 2) return;
+  if (_tradeSelected.length < 1 || _tradeSelected.length > 2) return;
+  _tradeDiscardCount = _tradeSelected.length;
   document.getElementById('trade-modal').classList.remove('open');
+  renderTradeChooseModal();
   document.getElementById('trade-choose-modal').classList.add('open');
 }
 
 function closeTradeModal() {
   document.getElementById('trade-modal').classList.remove('open');
   _tradeSelected = [];
+}
+
+// 2026-07-22應使用者要求重新設計：棄1張換競技場卡或+5能量；棄2張換道具卡或解除異常狀態
+function renderTradeChooseModal() {
+  const sub = document.getElementById('trade-choose-sub');
+  const box = document.getElementById('trade-choose-options');
+  if (_tradeDiscardCount === 1) {
+    sub.textContent = '棄了 1 張——你想換競技場卡，還是要能量？';
+    box.innerHTML = `
+      <button class="btn-modal-ok" onclick="pvpChooseTrade('stadium')">🏟 競技場卡</button>
+      <button class="btn-modal-ok" onclick="pvpChooseTrade('energy')">⚡ +5 能量</button>
+    `;
+  } else {
+    sub.textContent = '棄了 2 張——你想換道具卡，還是要解除異常狀態？';
+    box.innerHTML = `
+      <button class="btn-modal-ok" onclick="pvpChooseTrade('item')">🃏 道具卡</button>
+      <button class="btn-modal-ok" onclick="pvpChooseTrade('cure')">💊 解除異常狀態</button>
+    `;
+  }
 }
 
 function pvpChooseTrade(type) {

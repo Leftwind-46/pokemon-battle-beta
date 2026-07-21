@@ -1441,7 +1441,7 @@
         <li><b>💤 待機</b>：跳過攻擊，抽 1 張支援者牌進入手牌。</li>
         <li>每個回合開始時，抽 2 張道具牌，手牌上限 7 張。</li>
         <li>若抽牌後超過 7 張，可選擇丟棄一張。</li>
-        <li>可花費 2 張手牌，換取 1 張競技場卡、1 張道具卡、或 +5 能量（棄2換1按鈕）。</li>
+        <li>棄牌兌換按鈕：棄 1 張手牌可換 1 張競技場卡或 +5 能量；棄 2 張可換 1 張道具卡或解除上場寶可夢的異常狀態。</li>
         <li>我方寶可夢 HP 歸零後，立即自由選擇下一隻上場（不消耗回合）。</li>
         <li>點擊場上或備戰欄的寶可夢可查看屬性、HP 與招式資訊。</li>
       </ul>
@@ -1452,7 +1452,7 @@
         <li>每個招式都需要消耗能量才能使用；能量不足時該招式按鈕會反灰無法點選。</li>
         <li>弱招消耗低（甚至 0），可以幾乎每回合使用；強招消耗高，需要先囤積幾回合能量才打得出來。</li>
         <li>若能量不足以使用任何招式，該回合只能待機、換人或使用道具卡，無法攻擊。</li>
-        <li>可透過棄2換能量（+5）、能量補丁道具卡、或啦啦隊支援者卡（直接補滿到 20）額外獲取能量。</li>
+        <li>可透過棄牌兌換（棄1張換+5能量）、能量補丁道具卡、或啦啦隊支援者卡（直接補滿到 20）額外獲取能量。</li>
         <li>過關進入下一關時，能量會跟 HP 一樣重置回初始值 5。</li>
       </ul>
 
@@ -1498,7 +1498,7 @@
       <h3>訓練師牌</h3>
       <p style="font-size:0.82rem;color:var(--muted);margin-bottom:0.5rem">部分道具卡／競技場卡有屬性標示，只有場上寶可夢符合該屬性（雙屬性則兩者皆可）時才會抽到；沒有標示屬性的是通用卡，任何時候都抽得到。</p>
       <ul>
-        <li><b>道具牌</b>（綠框）每回合可使用多張。開局後每回合只會抽到道具牌：</li>
+        <li><b>道具牌</b>（綠框）每回合可使用多張，但抽牌／搶奪對方手牌類的卡（隨機應變、換氣追擊、群聚共鳴、掠奪、夜襲、暗夜掠奪）每回合只能用其中 1 張。開局後每回合只會抽到道具牌：</li>
         <ul>
           <li>傷藥（小／中／大／特大）— 回復上場寶可夢 60／80／100／120 HP</li>
           <li>攻擊強化 — 下次攻擊 +40 傷害</li>
@@ -1828,8 +1828,8 @@
             <div class="atk-meta"><span style="font-size:0.72rem;color:var(--muted)">跳過攻擊，抽 1 張支援者牌</span></div>
           </button>
           <button class="btn-atk" id="btn-trade" onclick="playerDiscardTrade()" style="grid-column:span 2">
-            <div class="atk-name">🔄 棄2換1</div>
-            <div class="atk-meta"><span style="font-size:0.72rem;color:var(--muted)">棄掉 2 張手牌，換取 1 張競技場卡、道具卡、或 ⚡+5 能量</span></div>
+            <div class="atk-name">🔄 棄牌兌換</div>
+            <div class="atk-meta"><span style="font-size:0.72rem;color:var(--muted)">棄1張換競技場卡或⚡+5能量；棄2張換道具卡或解除異常狀態</span></div>
           </button>
         </div>
       </div>
@@ -2393,20 +2393,25 @@ const TRAINERS = [
   {id:'stadium-spring',        name:'地熱溫泉',   cat:'stadium', desc:'每回合結束，雙方上場寶可夢各回復 15 HP'},
   {id:'stadium-reversal',      name:'逆轉鬥技場', cat:'stadium', desc:'HP 低於 50% 時，攻擊威力 +30'},
   {id:'stadium-invert',        name:'反轉世界',   cat:'stadium', desc:'場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×1.2）'},
-  {id:'stadium-dragon-valley', name:'龍之谷',     cat:'stadium', type:'dragon', desc:'龍屬性寶可夢對妖精、冰系招式不受克制（效果最多×1）；龍屬性攻擊不會被減免或無效'},
-  {id:'stadium-evil-forest',   name:'邪惡森林',   cat:'stadium', type:'grass',  desc:'原本克制草屬性的寶可夢（火／冰／飛行／毒／蟲），全部變成弱草屬性（草屬性攻擊 ×1.2）'},
+  {id:'stadium-dragon-valley', name:'龍之谷',     cat:'stadium', type:'dragon', weight:10, desc:'龍屬性寶可夢對妖精、冰系招式不受克制（效果最多×1）；龍屬性攻擊不會被減免或無效'},
+  {id:'stadium-evil-forest',   name:'邪惡森林',   cat:'stadium', type:'grass', weight:10, desc:'原本克制草屬性的寶可夢（火／冰／飛行／毒／蟲），全部變成弱草屬性（草屬性攻擊 ×1.2）'},
   {id:'stadium-mega-prism',    name:'Mega 稜鏡塔', cat:'stadium', desc:'雙方每個自己的回合開始時，獲得 10 點 Mega 能量'},
   {id:'stadium-spikes',        name:'尖峰陷阱',   cat:'stadium', desc:'寶可夢上場時，受到最大HP 15% 的傷害（雙方對等）'},
-  {id:'stadium-toxic-field',   name:'劇毒領域',   cat:'stadium', type:'poison', desc:'寶可夢上場時，陷入中毒（雙方對等）'},
-  {id:'stadium-colosseum',     name:'羅馬鬥技場', cat:'stadium', type:'fighting', desc:'格鬥屬性招式傷害 ×1.1；格鬥屬性攻擊不再被幽靈屬性完全免疫'},
-  {id:'stadium-mystic-space',  name:'魔幻空間',   cat:'stadium', type:'psychic', desc:'超能力屬性寶可夢受到的傷害 ×0.98；弱點消失（不受超效傷害影響）'},
-  {id:'stadium-lava',          name:'熔岩火山',   cat:'stadium', type:'fire',   desc:'火屬性招式傷害 +40；水屬性招式傷害 ×0.9'},
-  {id:'stadium-ocean',         name:'海洋世界',   cat:'stadium', type:'water',  desc:'水屬性招式消耗能量減半；電屬性招式傷害 ×1.1'},
-  {id:'stadium-shrine',        name:'莊嚴神社',   cat:'stadium', type:'normal', desc:'一般屬性招式一律視為剋制對手（效果拉滿 ×1.2）'},
+  {id:'stadium-toxic-field',   name:'劇毒領域',   cat:'stadium', type:'poison', weight:10, desc:'寶可夢上場時，陷入中毒（雙方對等）'},
+  {id:'stadium-colosseum',     name:'羅馬鬥技場', cat:'stadium', type:'fighting', weight:10, desc:'格鬥屬性招式傷害 ×1.1；格鬥屬性攻擊不再被幽靈屬性完全免疫'},
+  {id:'stadium-mystic-space',  name:'魔幻空間',   cat:'stadium', type:'psychic', weight:10, desc:'超能力屬性寶可夢受到的傷害 ×0.98；弱點消失（不受超效傷害影響）'},
+  {id:'stadium-lava',          name:'熔岩火山',   cat:'stadium', type:'fire', weight:10, desc:'火屬性招式傷害 +40；水屬性招式傷害 ×0.9'},
+  {id:'stadium-ocean',         name:'海洋世界',   cat:'stadium', type:'water', weight:10, desc:'水屬性招式消耗能量減半；電屬性招式傷害 ×1.1'},
+  {id:'stadium-shrine',        name:'莊嚴神社',   cat:'stadium', type:'normal', weight:10, desc:'一般屬性招式一律視為剋制對手（效果拉滿 ×1.2）'},
   // ── 競技場牌：屬性分類新卡 ──
-  {id:'stadium-sandstorm',   name:'沙塵暴',   cat:'stadium', type:'ground', desc:'非地面／岩石／鋼屬性寶可夢，每回合結束損失最大HP的6%'},
-  {id:'stadium-rock-field',  name:'岩石地帶', cat:'stadium', type:'rock',   desc:'岩石／地面／鋼屬性寶可夢，受到的攻擊傷害 ×0.97'},
+  {id:'stadium-sandstorm',   name:'沙塵暴',   cat:'stadium', type:'ground', weight:10, desc:'非地面／岩石／鋼屬性寶可夢，每回合結束損失最大HP的6%'},
+  {id:'stadium-rock-field',  name:'岩石地帶', cat:'stadium', type:'rock', weight:10, desc:'岩石／地面／鋼屬性寶可夢，受到的攻擊傷害 ×0.97'},
 ];
+
+// 2026-07-22應使用者要求：抽牌／搶奪對方手牌效果太強（隨機應變/換氣追擊/群聚共鳴抽牌，
+// 掠奪/夜襲/暗夜掠奪搶對方牌），改成跟支援者卡一樣「每回合限用一次」（跨這6張卡共用同一個
+// 每回合旗標，不是各卡各自一次）——見G.playerHandCardUsed/cpuHandCardUsed。
+const HAND_MANIPULATION_CARDS = ['plunder', 'night-raid', 'dark-heist', 'quick-thinking', 'normal-refresh', 'bug-swarm'];
 
 function dealHand(n) {
   return [...TRAINERS].sort(() => Math.random() - 0.5).slice(0, n);
@@ -2418,7 +2423,9 @@ function getDrawPool(type1, type2) {
   return TRAINERS.filter(c => c.cat !== 'supporter' && (!c.type || c.type === type1 || c.type === type2));
 }
 
-// 加權抽取：屬性道具卡 weight:10，其餘（含所有無屬性卡與競技場卡）預設 weight:1
+// 加權抽取：有屬性標示的道具卡／競技場卡都是 weight:10（2026-07-22起競技場卡比照道具卡，
+// 原本沒設weight只能吃預設值1，導致場上寶可夢符合屬性時競技場卡還是很難抽到），
+// 其餘（無屬性的通用卡）預設 weight:1
 function weightedPick(pool) {
   const total = pool.reduce((s, c) => s + (c.weight ?? 1), 0);
   let r = Math.random() * total;
@@ -2520,6 +2527,8 @@ let G = {
   playerSuppStageUsed:  0,
   cpuSuppUsed:          false,
   cpuSuppStageUsed:     0,
+  playerHandCardUsed:   false,
+  cpuHandCardUsed:      false,
   freeSwitch:      false,
   switchedThisTurn: false,
   playerSwitchGuard: false,
@@ -3059,6 +3068,8 @@ function startBattle() {
   G.playerSuppStageUsed = 0;
   G.cpuSuppUsed         = false;
   G.cpuSuppStageUsed    = 0;
+  G.playerHandCardUsed  = false;
+  G.cpuHandCardUsed     = false;
   G.freeSwitch          = false;
   G.switchedThisTurn    = false;
   G.playerSwitchGuard   = false;
@@ -3338,7 +3349,7 @@ function renderHand() {
   G.playerHand.forEach((card, i) => {
     const isSupp = card.cat === 'supporter';
     const isStadium = card.cat === 'stadium';
-    const disabled = G.busy || (isSupp && G.playerSuppUsed);
+    const disabled = G.busy || (isSupp && G.playerSuppUsed) || (HAND_MANIPULATION_CARDS.includes(card.id) && G.playerHandCardUsed);
     const badgeLabel = isSupp ? '支援者' : isStadium ? '競技場' : '道具';
     const el = document.createElement('div');
     el.className = `t-card ${card.cat}`;
@@ -3359,6 +3370,10 @@ function useTrainer(idx) {
   if (card.cat === 'supporter' && G.playerSuppUsed) return;
   if (card.cat === 'supporter' && G.playerSupporterLockedThisTurn) {
     showWarn('通訊封印中，這回合無法使用支援者卡！');
+    return;
+  }
+  if (HAND_MANIPULATION_CARDS.includes(card.id) && G.playerHandCardUsed) {
+    showWarn('這回合已經用過抽牌／搶牌類的卡了！');
     return;
   }
 
@@ -3382,6 +3397,7 @@ function useTrainer(idx) {
     G.playerSuppUsed = true;
     G.playerSuppStageUsed++;
   }
+  if (HAND_MANIPULATION_CARDS.includes(card.id)) G.playerHandCardUsed = true;
   G.playerHand.splice(idx, 1);
   G.playerCardsUsed++;
   if (card.cat === 'item') G.playerUsedItemThisTurn = true; // 龍捲雲系特性「機械之心」用這個判斷
@@ -4478,6 +4494,7 @@ function playerStandby() {
 
 function cpuUseTrainers() {
   G.cpuSuppUsed = false;
+  G.cpuHandCardUsed = false;
   const supporterLocked = G.cpuSupporterLocked; // 通訊封印：只鎖這一回合，讀取後立刻消耗掉旗標
   G.cpuSupporterLocked = false;
   const cpu = CP();
@@ -4488,7 +4505,9 @@ function cpuUseTrainers() {
     if (i === -1) return false;
     const card = hand[i];
     if (card.cat === 'supporter' && (G.cpuSuppUsed || supporterLocked)) return false;
+    if (HAND_MANIPULATION_CARDS.includes(card.id) && G.cpuHandCardUsed) return false;
     if (card.cat === 'supporter') { G.cpuSuppUsed = true; G.cpuSuppStageUsed++; }
+    if (HAND_MANIPULATION_CARDS.includes(card.id)) G.cpuHandCardUsed = true;
     if (card.cat === 'item') G.cpuUsedItemThisTurn = true; // 龍捲雲系特性「機械之心」用這個判斷
     hand.splice(i, 1);
     applyTrainer(card, 'cpu');
@@ -4577,6 +4596,8 @@ function cpuAttack() {
   const endTurn = () => {
     G.playerSuppUsed  = false;
     G.cpuSuppUsed     = false;
+    G.playerHandCardUsed = false;
+    G.cpuHandCardUsed    = false;
     G.freeSwitch      = false;
     G.switchedThisTurn = false;
     G.playerSwitchGuard = false;
@@ -5579,7 +5600,8 @@ function showResult(winner) {
 function resetGame() {
   G = {
     playerDeck:[], cpuDeck:[], playerIdx:0, cpuIdx:0, round:0, busy:false,
-    playerHand:[], cpuHand:[], playerSuppUsed:false, playerSuppStageUsed:0, cpuSuppUsed:false, cpuSuppStageUsed:0, freeSwitch:false,
+    playerHand:[], cpuHand:[], playerSuppUsed:false, playerSuppStageUsed:0, cpuSuppUsed:false, cpuSuppStageUsed:0,
+    playerHandCardUsed:false, cpuHandCardUsed:false, freeSwitch:false,
     switchedThisTurn:false, playerSwitchGuard:false,
     playerMegaEnergy:0, cpuMegaEnergy:0, playerMegaUsed:false, cpuMegaUsed:false,
     playerBuff:{atkBonus:0,atkMult:1,shield:0,typeOverride:null,reflect:false}, cpuBuff:{atkBonus:0,atkMult:1,shield:0,typeOverride:null,reflect:false},
@@ -5734,9 +5756,10 @@ function discardCard(idx) {
    DISCARD-TRADE MECHANIC (棄2換1)
 ───────────────────────────────────────── */
 let _tradeSelected = [];
+let _tradeDiscardCount = 0; // 2026-07-22：記住這次棄了1張還是2張，換取畫面要依此顯示不同選項
 
 function playerDiscardTrade() {
-  if (G.busy || G.playerHand.length < 2) return;
+  if (G.busy || G.playerHand.length < 1) return;
   _tradeSelected = [];
   renderTradeModal();
   document.getElementById('trade-modal').classList.add('open');
@@ -5755,7 +5778,8 @@ function renderTradeModal() {
     row.appendChild(el);
   });
   const btn = document.getElementById('trade-confirm-btn');
-  if (btn) btn.disabled = _tradeSelected.length !== 2;
+  // 2026-07-22應使用者要求：棄1張或2張都可以確認（原本卡死在一定要選滿2張）
+  if (btn) btn.disabled = _tradeSelected.length < 1;
 }
 
 function toggleTradeSelect(idx) {
@@ -5769,17 +5793,39 @@ function toggleTradeSelect(idx) {
 }
 
 function confirmDiscardTrade() {
-  if (_tradeSelected.length !== 2) return;
+  if (_tradeSelected.length < 1 || _tradeSelected.length > 2) return;
+  _tradeDiscardCount = _tradeSelected.length;
   [..._tradeSelected].sort((a,b)=>b-a).forEach(i => G.playerHand.splice(i, 1));
   _tradeSelected = [];
   document.getElementById('trade-modal').classList.remove('open');
   renderHand();
+  renderTradeChooseModal();
   document.getElementById('trade-choose-modal').classList.add('open');
 }
 
 function closeTradeModal() {
   document.getElementById('trade-modal').classList.remove('open');
   _tradeSelected = [];
+}
+
+// 2026-07-22應使用者要求重新設計：棄1張換競技場卡或+5能量；棄2張換道具卡或解除異常狀態
+// （原本固定要棄2張、3選1含道具/競技場/能量，現在依棄牌數量分成兩組各2選1）
+function renderTradeChooseModal() {
+  const sub = document.getElementById('trade-choose-sub');
+  const box = document.getElementById('trade-choose-options');
+  if (_tradeDiscardCount === 1) {
+    sub.textContent = '棄了 1 張——你想換競技場卡，還是要能量？';
+    box.innerHTML = `
+      <button class="btn-modal-ok" onclick="chooseTrade('stadium')">🏟 競技場卡</button>
+      <button class="btn-modal-ok" onclick="chooseTrade('energy')">⚡ +5 能量</button>
+    `;
+  } else {
+    sub.textContent = '棄了 2 張——你想換道具卡，還是要解除異常狀態？';
+    box.innerHTML = `
+      <button class="btn-modal-ok" onclick="chooseTrade('item')">🃏 道具卡</button>
+      <button class="btn-modal-ok" onclick="chooseTrade('cure')">💊 解除異常狀態</button>
+    `;
+  }
 }
 
 function chooseTrade(type) {
@@ -5789,6 +5835,18 @@ function chooseTrade(type) {
     G.playerEnergy = Math.min(20, G.playerEnergy + 5);
     log(`棄牌換能量！回復了 ${gain} 點能量！（現在 ${G.playerEnergy}/20）`, 'system');
     renderHand();
+    renderBattle();
+    return;
+  }
+  if (type === 'cure') {
+    const active = P();
+    if (active.status) {
+      const effectName = STATUS_EFFECT_ZH[active.status.type] || active.status.type;
+      active.status = null;
+      log(`棄牌解除了${active.name}的${effectName}！`, 'system');
+    } else {
+      log(`${active.name}目前沒有異常狀態。`, 'system');
+    }
     renderBattle();
     return;
   }
@@ -5903,11 +5961,11 @@ function renderDex() {
   </div>
 </div>
 
-<!-- Trade modal (discard 2 → get 1) -->
+<!-- Trade modal (discard 1 or 2 → get a reward) -->
 <div id="trade-modal">
   <div class="discard-inner">
     <div class="discard-title">棄牌換卡</div>
-    <div class="discard-sub">選擇 2 張手牌丟棄，換取 1 張新卡或 ⚡能量</div>
+    <div class="discard-sub">選擇 1 或 2 張手牌丟棄——棄 1 張可換競技場卡或 +5 能量；棄 2 張可換道具卡或解除異常狀態</div>
     <div id="trade-select-cards" style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;margin:0.6rem 0"></div>
     <div style="display:flex;gap:0.6rem;justify-content:center;margin-top:0.5rem">
       <button id="trade-confirm-btn" class="btn-modal-ok" onclick="confirmDiscardTrade()" disabled>確認棄牌</button>
@@ -5920,12 +5978,8 @@ function renderDex() {
 <div id="trade-choose-modal">
   <div class="discard-inner">
     <div class="discard-title">選擇換取類型</div>
-    <div class="discard-sub">你想換取哪種卡片，還是要能量？</div>
-    <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.8rem">
-      <button class="btn-modal-ok" onclick="chooseTrade('stadium')">🏟 競技場</button>
-      <button class="btn-modal-ok" onclick="chooseTrade('item')">🃏 道具卡</button>
-      <button class="btn-modal-ok" onclick="chooseTrade('energy')">⚡ +5 能量</button>
-    </div>
+    <div class="discard-sub" id="trade-choose-sub">你想換取哪種卡片，還是要能量？</div>
+    <div id="trade-choose-options" style="display:flex;gap:1rem;justify-content:center;margin-top:0.8rem"></div>
   </div>
 </div>
 

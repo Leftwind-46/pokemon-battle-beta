@@ -325,20 +325,25 @@ const TRAINERS = [
   {id:'stadium-spring',        name:'地熱溫泉',   cat:'stadium', desc:'每回合結束，雙方上場寶可夢各回復 15 HP'},
   {id:'stadium-reversal',      name:'逆轉鬥技場', cat:'stadium', desc:'HP 低於 50% 時，攻擊威力 +30'},
   {id:'stadium-invert',        name:'反轉世界',   cat:'stadium', desc:'場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×1.2）'},
-  {id:'stadium-dragon-valley', name:'龍之谷',     cat:'stadium', type:'dragon', desc:'龍屬性寶可夢對妖精、冰系招式不受克制（效果最多×1）；龍屬性攻擊不會被減免或無效'},
-  {id:'stadium-evil-forest',   name:'邪惡森林',   cat:'stadium', type:'grass',  desc:'原本克制草屬性的寶可夢（火／冰／飛行／毒／蟲），全部變成弱草屬性（草屬性攻擊 ×1.2）'},
+  {id:'stadium-dragon-valley', name:'龍之谷',     cat:'stadium', type:'dragon', weight:10, desc:'龍屬性寶可夢對妖精、冰系招式不受克制（效果最多×1）；龍屬性攻擊不會被減免或無效'},
+  {id:'stadium-evil-forest',   name:'邪惡森林',   cat:'stadium', type:'grass', weight:10, desc:'原本克制草屬性的寶可夢（火／冰／飛行／毒／蟲），全部變成弱草屬性（草屬性攻擊 ×1.2）'},
   {id:'stadium-mega-prism',    name:'Mega 稜鏡塔', cat:'stadium', desc:'雙方每個自己的回合開始時，獲得 10 點 Mega 能量'},
   {id:'stadium-spikes',        name:'尖峰陷阱',   cat:'stadium', desc:'寶可夢上場時，受到最大HP 15% 的傷害（雙方對等）'},
-  {id:'stadium-toxic-field',   name:'劇毒領域',   cat:'stadium', type:'poison', desc:'寶可夢上場時，陷入中毒（雙方對等）'},
-  {id:'stadium-colosseum',     name:'羅馬鬥技場', cat:'stadium', type:'fighting', desc:'格鬥屬性招式傷害 ×1.1；格鬥屬性攻擊不再被幽靈屬性完全免疫'},
-  {id:'stadium-mystic-space',  name:'魔幻空間',   cat:'stadium', type:'psychic', desc:'超能力屬性寶可夢受到的傷害 ×0.98；弱點消失（不受超效傷害影響）'},
-  {id:'stadium-lava',          name:'熔岩火山',   cat:'stadium', type:'fire',   desc:'火屬性招式傷害 +40；水屬性招式傷害 ×0.9'},
-  {id:'stadium-ocean',         name:'海洋世界',   cat:'stadium', type:'water',  desc:'水屬性招式消耗能量減半；電屬性招式傷害 ×1.1'},
-  {id:'stadium-shrine',        name:'莊嚴神社',   cat:'stadium', type:'normal', desc:'一般屬性招式一律視為剋制對手（效果拉滿 ×1.2）'},
+  {id:'stadium-toxic-field',   name:'劇毒領域',   cat:'stadium', type:'poison', weight:10, desc:'寶可夢上場時，陷入中毒（雙方對等）'},
+  {id:'stadium-colosseum',     name:'羅馬鬥技場', cat:'stadium', type:'fighting', weight:10, desc:'格鬥屬性招式傷害 ×1.1；格鬥屬性攻擊不再被幽靈屬性完全免疫'},
+  {id:'stadium-mystic-space',  name:'魔幻空間',   cat:'stadium', type:'psychic', weight:10, desc:'超能力屬性寶可夢受到的傷害 ×0.98；弱點消失（不受超效傷害影響）'},
+  {id:'stadium-lava',          name:'熔岩火山',   cat:'stadium', type:'fire', weight:10, desc:'火屬性招式傷害 +40；水屬性招式傷害 ×0.9'},
+  {id:'stadium-ocean',         name:'海洋世界',   cat:'stadium', type:'water', weight:10, desc:'水屬性招式消耗能量減半；電屬性招式傷害 ×1.1'},
+  {id:'stadium-shrine',        name:'莊嚴神社',   cat:'stadium', type:'normal', weight:10, desc:'一般屬性招式一律視為剋制對手（效果拉滿 ×1.2）'},
   // ── stadium：屬性分類新卡 ──
-  {id:'stadium-sandstorm',   name:'沙塵暴',   cat:'stadium', type:'ground', desc:'非地面／岩石／鋼屬性寶可夢，每回合結束損失最大HP的6%'},
-  {id:'stadium-rock-field',  name:'岩石地帶', cat:'stadium', type:'rock',   desc:'岩石／地面／鋼屬性寶可夢，受到的攻擊傷害 ×0.97'},
+  {id:'stadium-sandstorm',   name:'沙塵暴',   cat:'stadium', type:'ground', weight:10, desc:'非地面／岩石／鋼屬性寶可夢，每回合結束損失最大HP的6%'},
+  {id:'stadium-rock-field',  name:'岩石地帶', cat:'stadium', type:'rock', weight:10, desc:'岩石／地面／鋼屬性寶可夢，受到的攻擊傷害 ×0.97'},
 ];
+
+// 2026-07-22應使用者要求：抽牌／搶奪對方手牌效果太強（隨機應變/換氣追擊/群聚共鳴抽牌，
+// 掠奪/夜襲/暗夜掠奪搶對方牌），改成跟支援者卡一樣「每回合限用一次」（跨這6張卡共用同一個
+// 每回合旗標，不是各卡各自一次）——見G[role+'HandCardUsed']。
+const HAND_MANIPULATION_CARDS = ['plunder', 'night-raid', 'dark-heist', 'quick-thinking', 'normal-refresh', 'bug-swarm'];
 
 const STATUS_ZH = {poison:'中毒',burn:'燒傷',paralysis:'麻痺',sleep:'睡眠',freeze:'結凍',confusion:'混亂'};
 
@@ -1881,6 +1886,7 @@ function buildG(room, startLog) {
     p1MegaUsed: false, p2MegaUsed: false,
     p1SuppUsed: false, p1SuppStageUsed: 0,
     p2SuppUsed: false, p2SuppStageUsed: 0,
+    p1HandCardUsed: false, p2HandCardUsed: false,
     p1FreeSwitch: false, p2FreeSwitch: false,
     p1SwitchedThisTurn: false, p2SwitchedThisTurn: false,
     p1SwitchGuard: false, p2SwitchGuard: false,
@@ -3112,6 +3118,9 @@ async function handleMessage(ws, msg) {
       if (card.cat === 'supporter' && G[`${role}SupporterLockedThisTurn`]) {
         send(ws, { type: 'error', message: '通訊封印中，這回合無法使用支援者卡！' }); return;
       }
+      if (HAND_MANIPULATION_CARDS.includes(card.id) && G[`${role}HandCardUsed`]) {
+        send(ws, { type: 'error', message: '這回合已經用過抽牌／搶牌類的卡了！' }); return;
+      }
       // 屬性轉換：先驗證 client 送來的屬性是合法值再消耗手牌，不信任隨便傳的字串
       if (card.id === 'type-orb' && !Object.keys(EFF).includes(msg.chosenType)) {
         send(ws, { type: 'error', message: '屬性轉換的屬性無效！' }); return;
@@ -3148,6 +3157,7 @@ async function handleMessage(ws, msg) {
 
       hand.splice(msg.handIdx, 1);
       if (card.cat === 'supporter') { G[`${role}SuppUsed`] = true; G[`${role}SuppStageUsed`]++; }
+      if (HAND_MANIPULATION_CARDS.includes(card.id)) G[`${role}HandCardUsed`] = true;
       if (card.cat === 'item') G[`${role}UsedItemThisTurn`] = true; // 龍捲雲系特性「機械之心」用這個判斷
 
       // 搏命：雙方場上寶可夢同歸於盡
@@ -3262,6 +3272,7 @@ async function handleMessage(ws, msg) {
         }
         G.turn = op;
         G[`${role}SuppUsed`] = false;
+        G[`${role}HandCardUsed`] = false;
         G[`${role}FreeSwitch`] = false;
         G[`${role}SwitchedThisTurn`] = false;
         G[`${op}SwitchGuard`] = false; // guard only lasts one enemy turn, even if that turn was skipped
@@ -3285,6 +3296,7 @@ async function handleMessage(ws, msg) {
         doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult);
       }
       G[`${role}SuppUsed`]  = false;
+      G[`${role}HandCardUsed`] = false;
       G[`${role}FreeSwitch`] = false;
       G[`${role}SwitchedThisTurn`] = false;
 
@@ -3381,6 +3393,7 @@ async function handleMessage(ws, msg) {
       }
 
       G[`${role}SuppUsed`] = false;
+      G[`${role}HandCardUsed`] = false;
       G[`${role}FreeSwitch`] = false;
       G[`${role}SwitchedThisTurn`] = false;
       G[`${op}Buff`].reflect = false; G[`${op}Braced`] = false; G[`${op}CoinShield`] = false; // all expire when opponent skips attack
@@ -3418,6 +3431,7 @@ async function handleMessage(ws, msg) {
       }
 
       G[`${role}SuppUsed`] = false;
+      G[`${role}HandCardUsed`] = false;
       G[`${role}SwitchedThisTurn`] = false; // this turn is over — clear it so role can switch again on their *next* turn
       G.turn = op;
       G.round++;
@@ -3458,11 +3472,17 @@ async function handleMessage(ws, msg) {
       if (G.turn !== role || G.pendingKOSwitch) return;
       const hand = G[`${role}Hand`];
       const indices = msg.indices;
-      if (!Array.isArray(indices) || indices.length !== 2) return;
+      // 2026-07-22應使用者要求重新設計：棄1張→競技場卡或+5能量；棄2張→道具卡或解除異常狀態
+      // （原本固定要棄2張、3選1）。cardType合法性依棄牌張數而不同，伺服器端驗證兩者搭配是否合法，
+      // 不信任client傳來的組合（避免用「棄1張」拿到本該棄2張才能換的道具卡）。
+      if (!Array.isArray(indices) || indices.length < 1 || indices.length > 2) return;
       if (indices.some(i => typeof i !== 'number' || i < 0 || i >= hand.length)) return;
+      if (new Set(indices).size !== indices.length) return;
+      const cardType = msg.cardType;
+      const allowedTypes = indices.length === 1 ? ['stadium', 'energy'] : ['item', 'cure'];
+      if (!allowedTypes.includes(cardType)) return;
       const sorted = [...indices].sort((a,b) => b-a);
       sorted.forEach(i => hand.splice(i, 1));
-      const cardType = msg.cardType;
       if (cardType === 'energy') {
         const gain = Math.min(20 - G[`${role}Energy`], 5);
         G[`${role}Energy`] = Math.min(20, G[`${role}Energy`] + 5);
@@ -3470,7 +3490,18 @@ async function handleMessage(ws, msg) {
         const log = [{ text: `棄牌換能量！回復了 ${gain} 點能量！（現在 ${G[`${role}Energy`]}/20）`, cls: 'system' }];
         broadcast(room, { type: 'update', state: G, log, actor: role }); return;
       }
-      if (cardType !== 'stadium' && cardType !== 'item') return;
+      if (cardType === 'cure') {
+        const active = G[`${role}Deck`][G[`${role}Idx`]];
+        let log;
+        if (active.status) {
+          const effectName = STATUS_ZH[active.status.type] || active.status.type;
+          active.status = null;
+          log = [{ text: `棄牌解除了${active.name}的${effectName}！`, cls: 'system' }];
+        } else {
+          log = [{ text: `${active.name}目前沒有異常狀態。`, cls: 'system' }];
+        }
+        broadcast(room, { type: 'update', state: G, log, actor: role }); return;
+      }
       const pool = TRAINERS.filter(c => c.cat === cardType);
       const newCard = weightedPick(pool);
       hand.push(newCard);
