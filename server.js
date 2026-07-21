@@ -337,7 +337,7 @@ const TRAINERS = [
   {id:'stadium-shrine',        name:'莊嚴神社',   cat:'stadium', type:'normal', weight:10, desc:'一般屬性招式一律視為剋制對手（效果拉滿 ×1.2）'},
   // ── stadium：屬性分類新卡 ──
   {id:'stadium-sandstorm',   name:'沙塵暴',   cat:'stadium', type:'ground', weight:10, desc:'非地面／岩石／鋼屬性寶可夢，每回合結束損失最大HP的6%'},
-  {id:'stadium-rock-field',  name:'岩石地帶', cat:'stadium', type:'rock', weight:10, desc:'岩石／地面／鋼屬性寶可夢，受到的攻擊傷害 ×0.97'},
+  {id:'stadium-rock-field',  name:'岩石地帶', cat:'stadium', type:'rock', weight:10, desc:'岩石／地面／鋼屬性寶可夢，受到的攻擊傷害 -80'},
 ];
 
 // 2026-07-22應使用者要求：抽牌／搶奪對方手牌效果太強（隨機應變/換氣追擊/群聚共鳴抽牌，
@@ -719,10 +719,11 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
   const lavaBonus = (G.activeStadium?.id === 'stadium-lava' && atkType === 'fire') ? 40 : 0;
   const lavaMult = (G.activeStadium?.id === 'stadium-lava' && atkType === 'water') ? 0.9 : 1;
   const oceanMult = (G.activeStadium?.id === 'stadium-ocean' && atkType === 'electric') ? 1.1 : 1;
-  // 岩石地帶：岩石／地面／鋼屬性寶可夢，受到的攻擊傷害×0.97
-  const rockFieldMult = (G.activeStadium?.id === 'stadium-rock-field' &&
-    (['rock','ground','steel'].includes(defender.type) || ['rock','ground','steel'].includes(defender.type2))) ? 0.97 : 1;
-  const stadiumMult = colosseumMult * mysticSpaceMult * lavaMult * oceanMult * rockFieldMult;
+  // 岩石地帶：岩石／地面／鋼屬性寶可夢，受到攻擊固定減傷80（原本×0.97太弱幾乎無感，
+  // 2026-07-22應使用者要求改成固定減傷，比照iron-guard等道具卡「受到傷害-N」的既有寫法）
+  const rockFieldReduction = (G.activeStadium?.id === 'stadium-rock-field' &&
+    (['rock','ground','steel'].includes(defender.type) || ['rock','ground','steel'].includes(defender.type2))) ? 80 : 0;
+  const stadiumMult = colosseumMult * mysticSpaceMult * lavaMult * oceanMult;
   const stadiumFlatBonus = stadiumBonus + reversalBonus + lavaBonus;
   // 龍之波動／順風：只在下次攻擊剛好符合指定屬性時才加成，不論有沒有命中屬性都會被這次攻擊消耗掉
   // typeBoost可以是倍率(mult，≥1.1維持原寫法)或固定加成(bonus，2026-07-22起<1.1的一律改成這種)
@@ -744,7 +745,7 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     // 烏賊王「顛倒之心」：對手的防禦加成（shield）對它反而變成傷害加成
     // 直搗黃龍：無視對方的shield（受傷減少）效果，這次攻擊當它不存在
     const shieldTerm = aBuff.ignoreShield ? 0 : (defender.ability?.id === 'shield-invert' ? -dBuff.shield : dBuff.shield);
-    damage = Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumFlatBonus + legacyDmgBonus + abilityDmgBonus + megaBoostBonus + typeBoostBonus) * effectiveAtkMult * burnMult * mult * stabMult * switchGuardMult * abilityDmgMult * defAbilityMult * stadiumMult * typeBoostMult) - shieldTerm);
+    damage = Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumFlatBonus + legacyDmgBonus + abilityDmgBonus + megaBoostBonus + typeBoostBonus) * effectiveAtkMult * burnMult * mult * stabMult * switchGuardMult * abilityDmgMult * defAbilityMult * stadiumMult * typeBoostMult) - shieldTerm - rockFieldReduction);
     // 影舞：下一次受到攻擊擲硬幣，正面完全免傷——一次性旗標，這次攻擊到來就消耗掉（不論正反面）。true-damage系特性無視此效果。
     if (!moldBreaker && G[`${dRole}CoinShield`]) {
       G[`${dRole}CoinShield`] = false;

@@ -1612,7 +1612,7 @@
           <li>海洋世界（水屬性） — 水屬性招式消耗能量減半；電屬性招式傷害 ×1.1</li>
           <li>莊嚴神社（一般屬性） — 一般屬性招式一律視為剋制對手（效果拉滿 ×1.2）</li>
           <li>沙塵暴（地面屬性） — 非地面／岩石／鋼屬性寶可夢，每回合結束損失最大HP的6%</li>
-          <li>岩石地帶（岩石屬性） — 岩石／地面／鋼屬性寶可夢，受到的攻擊傷害 ×0.97</li>
+          <li>岩石地帶（岩石屬性） — 岩石／地面／鋼屬性寶可夢，受到的攻擊傷害 -80</li>
         </ul>
       </ul>
 
@@ -2405,7 +2405,7 @@ const TRAINERS = [
   {id:'stadium-shrine',        name:'莊嚴神社',   cat:'stadium', type:'normal', weight:10, desc:'一般屬性招式一律視為剋制對手（效果拉滿 ×1.2）'},
   // ── 競技場牌：屬性分類新卡 ──
   {id:'stadium-sandstorm',   name:'沙塵暴',   cat:'stadium', type:'ground', weight:10, desc:'非地面／岩石／鋼屬性寶可夢，每回合結束損失最大HP的6%'},
-  {id:'stadium-rock-field',  name:'岩石地帶', cat:'stadium', type:'rock', weight:10, desc:'岩石／地面／鋼屬性寶可夢，受到的攻擊傷害 ×0.97'},
+  {id:'stadium-rock-field',  name:'岩石地帶', cat:'stadium', type:'rock', weight:10, desc:'岩石／地面／鋼屬性寶可夢，受到的攻擊傷害 -80'},
 ];
 
 // 2026-07-22應使用者要求：抽牌／搶奪對方手牌效果太強（隨機應變/換氣追擊/群聚共鳴抽牌，
@@ -4976,10 +4976,11 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   const lavaMult = (G.activeStadium?.id === 'stadium-lava' && atkType === 'water') ? 0.9 : 1;
   // Ocean World: electric-type moves ×1.1 (water-type cost reduction handled in effectiveCost)
   const oceanMult = (G.activeStadium?.id === 'stadium-ocean' && atkType === 'electric') ? 1.1 : 1;
-  // 岩石地帶：岩石／地面／鋼屬性寶可夢，受到的攻擊傷害×0.97
-  const rockFieldMult = (G.activeStadium?.id === 'stadium-rock-field' &&
-    (['rock','ground','steel'].includes(defender.type) || ['rock','ground','steel'].includes(defender.type2))) ? 0.97 : 1;
-  const stadiumMult = colosseumMult * mysticSpaceMult * lavaMult * oceanMult * rockFieldMult;
+  // 岩石地帶：岩石／地面／鋼屬性寶可夢，受到攻擊固定減傷80（原本×0.97太弱幾乎無感，
+  // 2026-07-22應使用者要求改成固定減傷，比照iron-guard等道具卡「受到傷害-N」的既有寫法）
+  const rockFieldReduction = (G.activeStadium?.id === 'stadium-rock-field' &&
+    (['rock','ground','steel'].includes(defender.type) || ['rock','ground','steel'].includes(defender.type2))) ? 80 : 0;
+  const stadiumMult = colosseumMult * mysticSpaceMult * lavaMult * oceanMult;
   const stadiumFlatBonus = stadiumBonus + reversalBonus + lavaBonus;
   // 龍之波動／順風：只在下次攻擊剛好符合指定屬性時才加成，不論有沒有命中屬性都會被這次攻擊消耗掉
   // typeBoost可以是倍率(mult，≥1.1的維持原本寫法，例如龍之波動×1.12)或固定加成(bonus，2026-07-22起
@@ -4996,7 +4997,7 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   // 冰凍護甲：對方這次攻擊若剛好是冰屬性，無視前面所有計算直接完全無效（比一般shield更強的針對性防禦）
   const frostArmorProc = !!dBuff.iceImmune && atkType === 'ice';
   let dmg = (mult === 0 || frostArmorProc) ? 0
-    : Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumFlatBonus + legacyDmgBonus + abilityDmgBonus + megaBoostBonus + typeBoostBonus) * effectiveAtkMult * burnMult * mult * stabMult * switchGuardMult * abilityDmgMult * defAbilityMult * stadiumMult * typeBoostMult) - shieldTerm);
+    : Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumFlatBonus + legacyDmgBonus + abilityDmgBonus + megaBoostBonus + typeBoostBonus) * effectiveAtkMult * burnMult * mult * stabMult * switchGuardMult * abilityDmgMult * defAbilityMult * stadiumMult * typeBoostMult) - shieldTerm - rockFieldReduction);
   const wasDoubleStrike = aBuff.doubleStrike; // captured before reset — 連擊 rolls the move's own status chance a second time
   const guaranteedStatusThisHit = aBuff.guaranteedStatus; // 心靈感應：captured before reset，同樣道理
   aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; aBuff.doubleStrike = false; aBuff.typeBoost = null; aBuff.ignoreShield = false; aBuff.guaranteedStatus = false; aBuff.costFree = false; aBuff.costHalved = false; dBuff.shield = 0; dBuff.iceImmune = false;
