@@ -7,7 +7,9 @@ description: Checklist for adding a new badge to the 我的寶可夢 badge syste
 
 The badge system (added 2026-07-17, extended 2026-07-18) is deliberately **registry-driven**: `server.js`'s `BADGES` object is the single source of truth, and both the GM admin panel (`public/admin.html`) and the pet display (`public/tamagotchi.html`) read from it dynamically — neither hardcodes a badge list. This means adding a badge is a 2-step, low-risk change. Do not add any code to admin.html or tamagotchi.html for a new badge; if you find yourself editing either of those files for this task, stop — that means the registry pattern broke somewhere and needs fixing, not working around.
 
-There is still **no automatic awarding mechanism** (no weekly cron/settlement that detects the leaderboard #1 and assigns a badge) — every badge is assigned manually by a GM via the admin panel's "設定徽章" dropdown. Don't build automatic awarding unless the user explicitly asks for it; it's a known, deliberate gap (see project memory).
+There is still **no automatic awarding mechanism** (no weekly cron/settlement that detects the leaderboard #1 and assigns a badge) — every badge is assigned manually by a GM via the admin panel's award/revoke UI. Don't build automatic awarding unless the user explicitly asks for it; it's a known, deliberate gap (see project memory).
+
+**2026-07-21: players can now own multiple badges at once.** `users.badge_id` (single column, last-assigned-wins) was replaced by a `user_badges` join table (`user_id, badge_id, pos_x, pos_y` — same "owned vs. placed" shape as `pet_decorations`, `pos_x`/`pos_y` NULL = owned but not displayed in the room). `users.badge_id` still exists in the schema but is dead — no code reads or writes it anymore. The admin panel's old single `<select>` + "設定徽章" (overwrite) is now a per-user list of owned badges (each with a revoke `✕`) plus an award dropdown, hitting `POST /api/admin/users/:id/badges/award` / `.../revoke` instead of the old `POST /api/admin/users/:id/badge`. `GET /api/pet`, `GET /api/pet/visit/:username`, and `GET /api/admin/users` all return a `badges`/`badgeIds` **array** now, not a singular `badge`/`badgeId`. Placed badges (`pos_x` not null) are draggable in `tamagotchi.html`'s decorate mode alongside room decorations — see the room-decoration skill/section in `pokemon-data`/battle-logic-adjacent skills if one exists, or just read `renderPlacedBadges()`/`setBadgePosition()` in `tamagotchi.html`. This checklist below (registering a new badge image into `BADGES`) is unaffected by any of this — a new badge still only needs the same 2-step registry edit.
 
 ## Steps
 
@@ -16,11 +18,11 @@ There is still **no automatic awarding mechanism** (no weekly cron/settlement th
 - [ ] Copy it into `public/badges/` with a clear kebab-case filename describing what it *is*, not the source filename — existing convention: `weekly-champion-01.png`, `weekly-participant-01.png`. Bump the trailing number if replacing/adding a variant of an existing type.
 - [ ] Add one entry to the `BADGES` object in `server.js` (currently ~line 309): `'{id}': { name: '{中文顯示名稱}', image: '/badges/{filename}' }` — pick `id` and `name` to match what the image actually depicts, following the existing naming style (`weekly-champion`, `weekly-participant`)
 - [ ] `node -c server.js`
-- [ ] That's it for code. Optionally smoke-test: start a local server against the test DB, log into `admin.html`, confirm the new option appears in any user's "設定徽章" dropdown, assign it, and confirm `GET /api/pet` returns the new `badge` object for that user — but given the registry-driven design this is low-risk, a quick spot-check is enough, not a full regression pass.
+- [ ] That's it for code. Optionally smoke-test: start a local server against the test DB, log into `admin.html`, confirm the new option appears in any user's badge-award dropdown, award it, and confirm `GET /api/pet` returns it inside the `badges` array for that user — but given the registry-driven design this is low-risk, a quick spot-check is enough, not a full regression pass.
 
 ## If the user asks for something beyond "just register the image"
 
 These are out of scope for this checklist and need their own design discussion (don't silently build them):
 - Automatic weekly champion/participant detection and assignment (currently 100% manual via GM)
-- A user-facing "badge gallery" showing all badges ever earned (currently: one `badge_id` column on `users`, i.e. **one badge slot per user, last-assigned-wins** — not a collection)
-- Badge expiry/rotation (e.g. this week's badge should replace last week's) — currently whatever the GM sets stays until manually changed
+- Badge expiry/rotation (e.g. this week's badge should replace last week's) — currently whatever the GM sets stays until manually revoked
+- A user-facing badge *gallery* already exists (multi-badge ownership, see above) — but per-badge metadata like "earned on {date}" beyond `awarded_at` in `user_badges`, or badge rarity/tiers, would still be new scope
