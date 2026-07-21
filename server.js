@@ -2123,9 +2123,9 @@ app.get('/api/pet', requireAuth, async (req, res) => {
     const decorations = decorRows.map(r => ({ itemId: r.item_id, slot: r.slot }));
     const hunger = await decayHunger(req.user.id);
     const { rows: fishRows } = await pool.query(
-      'SELECT id, fish_type, caught_at FROM pet_fish WHERE user_id = $1 ORDER BY caught_at DESC', [req.user.id]
+      'SELECT id, fish_type, caught_at, is_favorite FROM pet_fish WHERE user_id = $1 ORDER BY caught_at DESC', [req.user.id]
     );
-    const fish = fishRows.map(r => ({ id: r.id, fishType: r.fish_type, caughtAt: r.caught_at, ...FISH_TYPES[r.fish_type] }));
+    const fish = fishRows.map(r => ({ id: r.id, fishType: r.fish_type, caughtAt: r.caught_at, isFavorite: r.is_favorite, ...FISH_TYPES[r.fish_type] }));
     const displayFish = rows[0].display_fish_id ? (fish.find(f => f.id === rows[0].display_fish_id) || null) : null;
     const balls = { ballNormal: rows[0].ball_normal, ballGreat: rows[0].ball_great, ballUltra: rows[0].ball_ultra };
     res.json({ pet: { speciesId: rows[0].species_id, happiness: rows[0].happiness, coins: rows[0].coins, hunger, ...balls }, badge, decorations, fish, displayFish });
@@ -2480,9 +2480,31 @@ app.post('/api/pet/fish', requireAuth, async (req, res) => {
       'INSERT INTO pet_fish (user_id, fish_type) VALUES ($1, $2) RETURNING id, caught_at',
       [req.user.id, fishType]
     );
+    // 魚圖鑑用的永久「曾經釣到過」紀錄，跟pet_fish本身分開（賣掉不會清掉這筆）
+    await pool.query(
+      'INSERT INTO pet_fish_discovered (user_id, fish_type) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [req.user.id, fishType]
+    );
     res.json({ fishType, ...FISH_TYPES[fishType], fishId: insertRows[0].id, caughtAt: insertRows[0].caught_at });
   } catch (e) {
     console.error('pet fish error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 魚圖鑑——列出FISH_TYPES裡每一種可釣到的魚（排除none），標示這個帳號是否曾經釣到過。
+   discovered是查pet_fish_discovered這張獨立的永久紀錄表，不是看目前pet_fish裡還擁不擁有——
+   賣掉某種魚的最後一隻，圖鑑不會因此退回「未發現」。 */
+app.get('/api/pet/fish/dex', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT fish_type FROM pet_fish_discovered WHERE user_id = $1', [req.user.id]);
+    const discoveredSet = new Set(rows.map(r => r.fish_type));
+    const dex = Object.entries(FISH_TYPES)
+      .filter(([fishType]) => fishType !== 'none')
+      .map(([fishType, info]) => ({ fishType, ...info, discovered: discoveredSet.has(fishType) }));
+    res.json({ dex });
+  } catch (e) {
+    console.error('pet fish dex error:', e.message);
     res.status(503).json({ error: 'db_error' });
   }
 });
@@ -2504,12 +2526,13 @@ app.post('/api/pet/fish/display', requireAuth, async (req, res) => {
 
 /* 賣魚換金幣——直接DELETE那筆pet_fish就好，如果賣掉的剛好是目前展示中的那隻，
    pets.display_fish_id的外鍵是ON DELETE SET NULL，Postgres會自動清空展示欄位，
-   不用另外手動UPDATE。 */
+   不用另外手動UPDATE。標記「我的最愛」的魚一律拒賣，防止誤賣（2026-07-22新增）。 */
 app.post('/api/pet/fish/sell', requireAuth, async (req, res) => {
   const fishId = req.body?.fishId;
   try {
-    const { rows } = await pool.query('SELECT fish_type FROM pet_fish WHERE id = $1 AND user_id = $2', [fishId, req.user.id]);
+    const { rows } = await pool.query('SELECT fish_type, is_favorite FROM pet_fish WHERE id = $1 AND user_id = $2', [fishId, req.user.id]);
     if (!rows.length) return res.status(404).json({ error: 'not_owned' });
+    if (rows[0].is_favorite) return res.status(400).json({ error: 'is_favorite' });
     const price = FISH_TYPES[rows[0].fish_type]?.sellPrice || 0;
     await pool.query('DELETE FROM pet_fish WHERE id = $1', [fishId]);
     const { rows: updated } = await pool.query(
@@ -2518,6 +2541,50 @@ app.post('/api/pet/fish/sell', requireAuth, async (req, res) => {
     res.json({ coins: updated[0].coins, gained: price });
   } catch (e) {
     console.error('pet fish sell error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 切換單筆魚的「我的最愛」標記——標記後sell()會拒絕賣出，避免誤賣稀有魚（例如金色/傳說魚種）。 */
+app.post('/api/pet/fish/favorite', requireAuth, async (req, res) => {
+  const fishId = req.body?.fishId;
+  const favorite = !!req.body?.favorite;
+  try {
+    const { rows } = await pool.query(
+      'UPDATE pet_fish SET is_favorite = $1 WHERE id = $2 AND user_id = $3 RETURNING id',
+      [favorite, fishId, req.user.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'not_owned' });
+    res.json({ fishId, favorite });
+  } catch (e) {
+    console.error('pet fish favorite error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 一鍵賣掉重複的魚——每個魚種最多留1隻（優先留最新釣到的），標記「我的最愛」的魚完全不列入
+   刪除候選（永遠保留，不計入「留1隻」的名額）。用ROW_NUMBER()一次算完要刪哪些列，
+   RETURNING拿到被刪魚種清單換算總金幣，比一筆一筆呼叫/api/pet/fish/sell乾淨很多。 */
+app.post('/api/pet/fish/sell-duplicates', requireAuth, async (req, res) => {
+  try {
+    const { rows: deleted } = await pool.query(
+      `WITH ranked AS (
+         SELECT id, fish_type,
+           ROW_NUMBER() OVER (PARTITION BY fish_type ORDER BY caught_at DESC) AS rn
+         FROM pet_fish
+         WHERE user_id = $1 AND is_favorite = FALSE
+       )
+       DELETE FROM pet_fish WHERE id IN (SELECT id FROM ranked WHERE rn > 1)
+       RETURNING id, fish_type`,
+      [req.user.id]
+    );
+    const gained = deleted.reduce((sum, row) => sum + (FISH_TYPES[row.fish_type]?.sellPrice || 0), 0);
+    const { rows: updated } = await pool.query(
+      'UPDATE pets SET coins = coins + $1 WHERE user_id = $2 RETURNING coins', [gained, req.user.id]
+    );
+    res.json({ coins: updated[0].coins, gained, soldIds: deleted.map(r => r.id), soldCount: deleted.length });
+  } catch (e) {
+    console.error('pet fish sell-duplicates error:', e.message);
     res.status(503).json({ error: 'db_error' });
   }
 });
@@ -2666,6 +2733,32 @@ app.post('/api/admin/stats/:userId', requireAuth, requireAdmin, async (req, res)
     res.json({});
   } catch (e) {
     console.error('admin stats error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 手動幫玩家補回一筆魚——目前唯一的用途是誤賣後的人工還原（沒有UNDO功能，這是GM唯一的救濟手段）。
+   用帳號名稱查而不是內部id，GM操作時比較直覺（不用先去使用者列表對照id）。也順手補一筆discovered
+   紀錄，這樣萬一是「唯一一隻也賣掉導致圖鑑退回未發現」的情境，還原後圖鑑會一起正確顯示。 */
+app.post('/api/admin/fish/restore', requireAuth, requireAdmin, async (req, res) => {
+  const { username, fishType } = req.body || {};
+  if (typeof username !== 'string' || !username) return res.status(400).json({ error: 'invalid_username' });
+  if (typeof fishType !== 'string' || fishType === 'none' || !FISH_TYPES[fishType]) return res.status(400).json({ error: 'invalid_fish_type' });
+  try {
+    const { rows: userRows } = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
+    if (!userRows.length) return res.status(404).json({ error: 'user_not_found' });
+    const userId = userRows[0].id;
+    const { rows } = await pool.query(
+      'INSERT INTO pet_fish (user_id, fish_type) VALUES ($1, $2) RETURNING id, caught_at',
+      [userId, fishType]
+    );
+    await pool.query(
+      'INSERT INTO pet_fish_discovered (user_id, fish_type) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [userId, fishType]
+    );
+    res.status(201).json({ fishId: rows[0].id, fishType, caughtAt: rows[0].caught_at, ...FISH_TYPES[fishType] });
+  } catch (e) {
+    console.error('admin fish restore error:', e.message);
     res.status(503).json({ error: 'db_error' });
   }
 });
@@ -3336,6 +3429,16 @@ async function initDB() {
       caught_at TIMESTAMPTZ DEFAULT NOW()
     )`);
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS display_fish_id INTEGER REFERENCES pet_fish(id) ON DELETE SET NULL`);
+    // 「我的最愛」——標記後sell()端點會拒絕賣出，防止誤賣（2026-07-22新增）
+    await pool.query(`ALTER TABLE pet_fish ADD COLUMN IF NOT EXISTS is_favorite BOOLEAN NOT NULL DEFAULT FALSE`);
+    // 魚圖鑑用的「曾經釣到過」永久紀錄——跟pet_fish（目前擁有的魚）分開，賣光某種魚後圖鑑
+    // 不會因此退回「未發現」，這是刻意的設計（見魚圖鑑端點的說明）
+    await pool.query(`CREATE TABLE IF NOT EXISTS pet_fish_discovered (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      fish_type TEXT NOT NULL,
+      discovered_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (user_id, fish_type)
+    )`);
     // 捕捉寶可夢用的球——3種固定類型，跟coins一樣是pets的flat欄位（不像魚會累積很多種，球只需要計數）
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS ball_normal INTEGER NOT NULL DEFAULT 0`);
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS ball_great INTEGER NOT NULL DEFAULT 0`);
@@ -3360,6 +3463,15 @@ async function initDB() {
         // 湊不出三區間各1隻的損壞資料就跳過——loadUserTeam 既有的「length===0才修復」邏輯這裡不適用
         // （length不是0），但下次玩家連線時如果真的損壞會在其他既有的驗證路徑被處理，不在這裡強行修
       }
+    });
+    // 魚圖鑑上線前就已經釣到的魚，回填一次discovered紀錄——不然玩家明明釣過某種魚，
+    // 圖鑑卻顯示「未發現」（灰階），體驗上不合理
+    await runMigrationOnce('2026-07-22-fish-dex-backfill', async () => {
+      await pool.query(`
+        INSERT INTO pet_fish_discovered (user_id, fish_type)
+        SELECT DISTINCT user_id, fish_type FROM pet_fish
+        ON CONFLICT DO NOTHING
+      `);
     });
     console.log('PostgreSQL connected');
   } catch (e) {

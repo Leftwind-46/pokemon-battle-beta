@@ -112,6 +112,21 @@
   #fish-tank-slot img{width:80%;height:80%;object-fit:contain;image-rendering:pixelated}
   #fish-tank-slot.empty{font-size:1.5rem;opacity:0.45}
 
+  /* ── 魚圖鑑聲納按鈕（疊在魚缸插槽正下方）── */
+  #fish-dex-slot{position:absolute;right:14px;top:182px;z-index:4;width:64px;height:44px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.4rem;background:rgba(104,144,240,0.18);border:2px solid rgba(104,144,240,0.4);transition:transform 0.15s}
+  #fish-dex-slot:hover{transform:scale(1.08)}
+  .fish-dex-item{display:flex;flex-direction:column;align-items:center;gap:0.3rem;padding:0.6rem;border:1px solid var(--border);border-radius:12px}
+  .fish-dex-item img{width:52px;height:52px;object-fit:contain;image-rendering:pixelated}
+  .fish-dex-item.undiscovered img{filter:grayscale(1) brightness(0.55)}
+  .fish-dex-item .name{font-size:0.75rem;font-weight:700;text-align:center}
+  .fish-dex-item.undiscovered .name{color:var(--muted)}
+  .fish-dex-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:0.6rem}
+
+  /* ── 賣魚清單：最愛切換 + 一鍵賣魚 ── */
+  .fish-fav-btn{background:none;border:none;cursor:pointer;font-size:1.1rem;line-height:1;padding:0 0.3rem}
+  .fish-sell-all-btn{align-self:center;padding:0.45rem 1.1rem;border-radius:999px;border:none;font-size:0.82rem;font-weight:700;cursor:pointer;background:rgba(120,200,80,0.18);color:#78c850}
+  .fish-sell-all-btn:hover{background:rgba(120,200,80,0.3)}
+
   /* ── 徽章放大檢視 ── */
   #badge-modal{display:none;position:fixed;inset:0;z-index:700;align-items:center;justify-content:center;background:rgba(4,2,12,0.82);backdrop-filter:blur(2px)}
   #badge-modal.open{display:flex}
@@ -393,9 +408,18 @@
 <div id="fish-tank-modal" class="modal-overlay" onclick="closeFishTankModal()">
   <div class="modal-box" onclick="event.stopPropagation()">
     <h2>🐟 我的魚缸</h2>
-    <div class="ts-subtitle" style="font-size:0.75rem;color:var(--muted);text-align:center">選一隻放進魚缸展示</div>
+    <div class="ts-subtitle" style="font-size:0.75rem;color:var(--muted);text-align:center">選一隻放進魚缸展示；★ 標記「我的最愛」的魚不會被賣出</div>
+    <button class="fish-sell-all-btn" onclick="sellDuplicateFish()">🧹 一鍵賣魚（每種留1隻）</button>
     <div id="fish-tank-list"></div>
     <div class="modal-close" onclick="closeFishTankModal()">關閉</div>
+  </div>
+</div>
+<div id="fish-dex-modal" class="modal-overlay" onclick="closeFishDexModal()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <h2>🔊 魚圖鑑</h2>
+    <div class="ts-subtitle" style="font-size:0.75rem;color:var(--muted);text-align:center">彩色＝已釣到過，黑白＝尚未發現</div>
+    <div class="fish-dex-grid" id="fish-dex-grid"></div>
+    <div class="modal-close" onclick="closeFishDexModal()">關閉</div>
   </div>
 </div>
 
@@ -759,6 +783,13 @@ function startStage() {
   fishTankSlot.onclick = openFishTankModal;
   stage.appendChild(fishTankSlot);
   renderFishTank();
+
+  const fishDexSlot = document.createElement('div');
+  fishDexSlot.id = 'fish-dex-slot';
+  fishDexSlot.title = '魚圖鑑';
+  fishDexSlot.textContent = '🔊';
+  fishDexSlot.onclick = openFishDexModal;
+  stage.appendChild(fishDexSlot);
 
   renderDecorSlots(stage);
 
@@ -1633,10 +1664,74 @@ function renderFishTankList() {
           <img src="${fishSpriteUrl(f.speciesId, f.shiny)}" alt="${f.name}" onclick="setDisplayFish(${f.id})">
           <div class="name${nameClass}" onclick="setDisplayFish(${f.id})">${f.name}</div>
           <div class="caught-at">${caughtDate}</div>
+          <button class="fish-fav-btn" onclick="toggleFishFavorite(${f.id}, ${!f.isFavorite})" title="${f.isFavorite ? '取消最愛' : '標記最愛'}">${f.isFavorite ? '★' : '☆'}</button>
           <button class="fish-sell-btn" onclick="sellFish(${f.id})">💰 賣出 ${f.sellPrice}</button>
         </div>`;
       }).join('')
     : '<div style="font-size:0.82rem;color:var(--muted);text-align:center">還沒有釣到任何魚</div>';
+}
+
+async function toggleFishFavorite(fishId, favorite) {
+  try {
+    const res = await fetch('/api/pet/fish/favorite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${myToken}` },
+      body: JSON.stringify({ fishId, favorite }),
+    });
+    if (!res.ok) return;
+    const f = caughtFish.find(x => x.id === fishId);
+    if (f) f.isFavorite = favorite;
+    renderFishTankList();
+  } catch (e) { /* 網路暫時失敗，維持原狀讓玩家再試一次 */ }
+}
+
+async function sellDuplicateFish() {
+  try {
+    const res = await fetch('/api/pet/fish/sell-duplicates', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${myToken}` },
+    });
+    if (!res.ok) { showToast('發生錯誤，請再試一次'); return; }
+    const data = await res.json();
+    const soldSet = new Set(data.soldIds);
+    if (displayFishData && soldSet.has(displayFishData.id)) {
+      displayFishData = null; // 展示中的魚剛好被賣掉了，DB端已經靠外鍵ON DELETE SET NULL清空
+      renderFishTank();
+    }
+    caughtFish = caughtFish.filter(f => !soldSet.has(f.id));
+    updateCoinsUI(data.coins);
+    renderFishTankList();
+    showToast(data.soldCount > 0 ? `賣出 ${data.soldCount} 隻魚，獲得 🪙 ${data.gained} 金幣！` : '沒有多餘的魚可以賣');
+  } catch (e) { showToast('連線失敗，請再試一次'); }
+}
+
+/* ─────────────────────────────────────────
+   魚圖鑑——列出FISH_TYPES每一種魚，未發現的套灰階濾鏡。每次開啟都重新抓一次最新的
+   discovered狀態（不快取），畢竟玩家可能剛去釣魚回來，資料不會頻繁變動但也不貴，直接重抓最簡單。
+───────────────────────────────────────── */
+async function openFishDexModal() {
+  document.getElementById('fish-dex-modal').classList.add('open');
+  document.getElementById('fish-dex-grid').innerHTML = '<div style="font-size:0.82rem;color:var(--muted);text-align:center;grid-column:1/-1">載入中...</div>';
+  try {
+    const res = await fetch('/api/pet/fish/dex', { headers: { Authorization: `Bearer ${myToken}` } });
+    if (!res.ok) return;
+    const data = await res.json();
+    renderFishDexGrid(data.dex);
+  } catch (e) { /* 網路暫時失敗，維持載入中的畫面 */ }
+}
+
+function renderFishDexGrid(dex) {
+  const grid = document.getElementById('fish-dex-grid');
+  grid.innerHTML = dex.map(f => `
+    <div class="fish-dex-item${f.discovered ? '' : ' undiscovered'}">
+      <img src="${fishSpriteUrl(f.speciesId, f.shiny)}" alt="${f.name}">
+      <div class="name">${f.name}</div>
+    </div>
+  `).join('');
+}
+
+function closeFishDexModal() {
+  document.getElementById('fish-dex-modal').classList.remove('open');
 }
 
 function closeFishTankModal() {
@@ -1664,8 +1759,11 @@ async function sellFish(fishId) {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${myToken}` },
       body: JSON.stringify({ fishId }),
     });
-    if (!res.ok) return;
     const data = await res.json();
+    if (!res.ok) {
+      showToast(data.error === 'is_favorite' ? '已標記最愛，請先取消最愛才能賣出' : '發生錯誤，請再試一次');
+      return;
+    }
     caughtFish = caughtFish.filter(f => f.id !== fishId);
     if (displayFishData && displayFishData.id === fishId) {
       displayFishData = null; // 賣掉的剛好是展示中的那隻，DB端已經靠外鍵ON DELETE SET NULL清空了

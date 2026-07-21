@@ -78,6 +78,16 @@
     </div>
   </div>
   <div id="dash-err" class="err"></div>
+  <div class="card" style="max-width:960px;width:100%;margin-bottom:1rem">
+    <h1 style="font-size:1.05rem;margin-bottom:0.6rem">補回一筆魚（誤賣還原用）</h1>
+    <p style="color:var(--muted);font-size:0.8rem;margin-bottom:0.6rem">目前沒有一般的UNDO功能，這是玩家誤賣稀有魚時唯一的救濟手段。</p>
+    <div class="inline-panel">
+      <input id="fish-restore-username" placeholder="玩家帳號">
+      <select id="fish-restore-type"></select>
+      <button class="btn btn-primary" onclick="restoreFish()">還原</button>
+    </div>
+    <div id="fish-restore-msg" class="err" style="color:#78c850"></div>
+  </div>
   <table>
     <thead>
       <tr><th>ID</th><th>帳號</th><th>建立時間</th><th>本週勝場</th><th>狀態</th><th>徽章</th><th>操作</th></tr>
@@ -146,7 +156,34 @@ async function checkAdminAndEnter() {
   users = usersRes.data.users;
   badges = usersRes.data.badges || {};
   renderUsers();
+  await loadFishTypes();
   showScreen('dash-screen');
+}
+
+// 魚種下拉選單的資料來源——沿用玩家端已有的/api/pet/fish/dex（回傳全部魚種+discovered狀態，
+// 這裡只需要fishType/name，discovered部分忽略），不用另外開一個admin專用端點重複資料
+async function loadFishTypes() {
+  const { ok, data } = await api('/api/pet/fish/dex');
+  const select = document.getElementById('fish-restore-type');
+  if (!ok) { select.innerHTML = '<option value="">（載入失敗）</option>'; return; }
+  select.innerHTML = data.dex.map(f => `<option value="${f.fishType}">${f.name}</option>`).join('');
+}
+
+async function restoreFish() {
+  const username = document.getElementById('fish-restore-username').value.trim();
+  const fishType = document.getElementById('fish-restore-type').value;
+  const msgEl = document.getElementById('fish-restore-msg');
+  msgEl.style.color = '#ef5350';
+  msgEl.textContent = '';
+  if (!username) { msgEl.textContent = '請輸入帳號'; return; }
+  const { ok, data } = await api('/api/admin/fish/restore', { method: 'POST', body: JSON.stringify({ username, fishType }) });
+  if (!ok) {
+    msgEl.textContent = data.error === 'user_not_found' ? '找不到這個帳號' : '還原失敗，請再試一次';
+    return;
+  }
+  msgEl.style.color = '#78c850';
+  msgEl.textContent = `已幫 ${username} 補回一隻${data.name}`;
+  document.getElementById('fish-restore-username').value = '';
 }
 
 function doLogout() {
