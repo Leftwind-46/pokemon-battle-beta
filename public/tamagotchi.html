@@ -147,7 +147,13 @@
   .fish-dex-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:0.6rem}
 
   /* ── 賣魚清單：最愛切換 + 一鍵賣魚 ── */
-  .fish-fav-btn{background:none;border:none;cursor:pointer;font-size:1.1rem;line-height:1;padding:0 0.3rem}
+  /* <button>預設文字顏色是瀏覽器的buttontext（通常是黑色），沒有明確蓋掉的話在這個深色主題背景下
+     幾乎是純黑疊在近黑背景上、完全看不見——這正是使用者回報「沒有地方可以設置我的最愛」的根因，
+     按鈕其實一直都在、也能點，只是視覺上等於隱形。未標記用淺色可見、已標記用跟其他「最愛/強調」
+     一致的金色，兩種狀態都清楚可辨。 */
+  .fish-fav-btn{background:none;border:none;cursor:pointer;font-size:1.2rem;line-height:1;padding:0 0.3rem;color:var(--muted)}
+  .fish-fav-btn.favorited{color:#f8d030}
+  .fish-fav-btn:hover{color:#f8d030}
   .fish-sell-all-btn{align-self:center;padding:0.45rem 1.1rem;border-radius:999px;border:none;font-size:0.82rem;font-weight:700;cursor:pointer;background:rgba(120,200,80,0.18);color:#78c850}
   .fish-sell-all-btn:hover{background:rgba(120,200,80,0.3)}
 
@@ -1884,7 +1890,7 @@ function renderFishTankList() {
           <img src="${fishSpriteUrl(f.speciesId, f.shiny)}" alt="${f.name}" onclick="setDisplayFish(${f.id})">
           <div class="name${nameClass}" onclick="setDisplayFish(${f.id})">${f.name}</div>
           <div class="caught-at">${caughtDate}</div>
-          <button class="fish-fav-btn" onclick="toggleFishFavorite(${f.id}, ${!f.isFavorite})" title="${f.isFavorite ? '取消最愛' : '標記最愛'}">${f.isFavorite ? '★' : '☆'}</button>
+          <button class="fish-fav-btn${f.isFavorite ? ' favorited' : ''}" onclick="toggleFishFavorite(${f.id}, ${!f.isFavorite})" title="${f.isFavorite ? '取消最愛' : '標記最愛'}">${f.isFavorite ? '★' : '☆'}</button>
           <button class="fish-sell-btn" onclick="sellFish(${f.id})">💰 賣出 ${f.sellPrice}</button>
         </div>`;
       }).join('')
