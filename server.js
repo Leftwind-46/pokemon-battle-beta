@@ -2173,20 +2173,30 @@ app.post('/api/pet/buy', requireAuth, async (req, res) => {
   const item = SHOP_ITEMS[itemId];
   if (!item) return res.status(400).json({ error: 'invalid_item' });
   try {
-    const { rows } = await pool.query('SELECT coins, ball_normal, ball_great, ball_ultra FROM pets WHERE user_id = $1', [req.user.id]);
+    const { rows } = await pool.query('SELECT 1 FROM pets WHERE user_id = $1', [req.user.id]);
     if (!rows.length) return res.status(404).json({ error: 'no_pet' });
-    if (rows[0].coins < item.price) return res.status(400).json({ error: 'not_enough_coins' });
-    const coins = rows[0].coins - item.price;
-    // 球是消耗品，允許重複購買囤貨——跟裝飾品的一次性擁有邏輯是不同分支
+    // 球是消耗品，允許重複購買囤貨——跟裝飾品的一次性擁有邏輯是不同分支。
+    // 2026-07-22：改成單一原子UPDATE（金幣夠不夠也放進WHERE子句一起判斷），拿掉原本「先SELECT
+    // 讀數量、JS算完新值再UPDATE」的兩段式讀寫——原寫法在併發請求（雙擊購買、開兩分頁）下，
+    // 兩個請求可能都讀到同一個舊值，其中一次的購買效果會被覆蓋消失，這是使用者回報「捕捉時
+    // 發現球其實沒買到」的根因之一（買球端點也有一樣的race condition，不是只有丟球端點）。
     if (item.category === 'ball') {
-      const newCount = rows[0][item.ballField] + 1;
-      await pool.query(`UPDATE pets SET coins = $1, ${item.ballField} = $2 WHERE user_id = $3`, [coins, newCount, req.user.id]);
-      return res.status(201).json({ coins, ballField: item.ballField, count: newCount });
+      const { rows: updated } = await pool.query(
+        `UPDATE pets SET coins = coins - $1, ${item.ballField} = ${item.ballField} + 1
+         WHERE user_id = $2 AND coins >= $1
+         RETURNING coins, ${item.ballField} AS count`,
+        [item.price, req.user.id]
+      );
+      if (!updated.length) return res.status(400).json({ error: 'not_enough_coins' });
+      return res.status(201).json({ coins: updated[0].coins, ballField: item.ballField, count: updated[0].count });
     }
+    const { rows: coinRows } = await pool.query('SELECT coins FROM pets WHERE user_id = $1', [req.user.id]);
+    if (coinRows[0].coins < item.price) return res.status(400).json({ error: 'not_enough_coins' });
     const { rows: ownedRows } = await pool.query(
       'SELECT 1 FROM pet_decorations WHERE user_id = $1 AND item_id = $2', [req.user.id, itemId]
     );
     if (ownedRows.length) return res.status(409).json({ error: 'already_owned' });
+    const coins = coinRows[0].coins - item.price;
     await pool.query('UPDATE pets SET coins = $1 WHERE user_id = $2', [coins, req.user.id]);
     await pool.query('INSERT INTO pet_decorations (user_id, item_id) VALUES ($1, $2)', [req.user.id, itemId]);
     res.status(201).json({ coins });
@@ -2197,22 +2207,30 @@ app.post('/api/pet/buy', requireAuth, async (req, res) => {
 });
 
 /* 捕捉第1步：花100金幣讓一隻野生寶可夢出現。不消耗球、不判定捕捉成功與否——
-   跟釣魚一樣，真正的隨機結果（丟球成功率）要留到 catch/throw 才由伺服器端擲，不能讓client先看到結果 */
+   跟釣魚一樣，真正的隨機結果（丟球成功率）要留到 catch/throw 才由伺服器端擲，不能讓client先看到結果。
+   2026-07-22：每次遭遇都無條件多送5顆一般球（使用者要求的持續性機制），跟扣100金幣同一個原子UPDATE
+   一起做，回應夾帶最新的coins/ballNormal讓前端不用另外呼叫別的端點就能同步顯示。 */
 app.post('/api/pet/catch/encounter', requireAuth, async (req, res) => {
   const ENCOUNTER_COST = 100;
+  const FREE_BALLS_PER_ENCOUNTER = 5;
   const existing = activeEncounters.get(req.user.id);
   if (existing && existing.expiresAt > Date.now()) {
     return res.status(400).json({ error: 'encounter_in_progress' });
   }
   try {
-    const { rows } = await pool.query('SELECT coins FROM pets WHERE user_id = $1', [req.user.id]);
-    if (!rows.length) return res.status(404).json({ error: 'no_pet' });
-    if (rows[0].coins < ENCOUNTER_COST) return res.status(400).json({ error: 'not_enough_coins' });
-    const coins = rows[0].coins - ENCOUNTER_COST;
-    await pool.query('UPDATE pets SET coins = $1 WHERE user_id = $2', [coins, req.user.id]);
+    const { rows } = await pool.query(
+      `UPDATE pets SET coins = coins - $1, ball_normal = ball_normal + $2
+       WHERE user_id = $3 AND coins >= $1
+       RETURNING coins, ball_normal`,
+      [ENCOUNTER_COST, FREE_BALLS_PER_ENCOUNTER, req.user.id]
+    );
+    if (!rows.length) {
+      const { rows: existsRows } = await pool.query('SELECT 1 FROM pets WHERE user_id = $1', [req.user.id]);
+      return res.status(existsRows.length ? 400 : 404).json({ error: existsRows.length ? 'not_enough_coins' : 'no_pet' });
+    }
     const wild = POKEMON[Math.floor(Math.random() * POKEMON.length)];
     activeEncounters.set(req.user.id, { pokemonId: wild.id, name: wild.name, tier: wild.tier, expiresAt: Date.now() + ENCOUNTER_TTL_MS });
-    res.json({ coins, pokemonId: wild.id, name: wild.name, tier: wild.tier });
+    res.json({ coins: rows[0].coins, ballNormal: rows[0].ball_normal, pokemonId: wild.id, name: wild.name, tier: wild.tier });
   } catch (e) {
     console.error('pet catch encounter error:', e.message);
     res.status(503).json({ error: 'db_error' });
@@ -2221,62 +2239,91 @@ app.post('/api/pet/catch/encounter', requireAuth, async (req, res) => {
 
 /* 捕捉第2步：丟球。伺服器端原子完成「驗證持有球數→扣球→擲成功率→依隊伍狀態決定加入/發金幣/待放生」，
    不信任client回報「我抓到了」——跟釣魚 rollFish() 同一套教訓。
-   2026-07-21 改成：沒抓到不代表遭遇結束——只要玩家還有球就能對同一隻野生寶可夢繼續丟，
-   除非骰到1%的「激烈反抗」讓寶可夢直接逃跑（activeEncounters 才會被清掉）。 */
+   2026-07-21：沒抓到不代表遭遇結束——只要玩家還有球就能對同一隻野生寶可夢繼續丟，
+   除非骰到1%的「激烈反抗」讓寶可夢直接逃跑（activeEncounters 才會被清掉）。
+   2026-07-22：整段包成一個交易（pool.connect()取專屬client，BEGIN/COMMIT/ROLLBACK）——扣球、
+   擲成功率、依隊伍狀態決定加入/發金幣/待放生，要嘛全部一起生效、要嘛完全沒發生。原本沒有交易
+   保護時，扣球是獨立的一次UPDATE，若後面任何一步意外拋錯，球已經真的被扣掉、activeEncounters
+   也已經清空且無法恢復，玩家只會看到一個含糊的503——這是使用者回報「捕捉連線有時候出問題」的
+   根因之一。回應一律夾帶扣完球之後的最新三種球數量，前端不用另外猜。 */
 app.post('/api/pet/catch/throw', requireAuth, async (req, res) => {
   const pokemonId = Number(req.body?.pokemonId);
   const ballType = req.body?.ballType;
   const ballItem = SHOP_ITEMS[ballType];
   const wild = POKEMON.find(p => p.id === pokemonId);
-  const encounter = activeEncounters.get(req.user.id);
   if (!wild || !ballItem || ballItem.category !== 'ball') return res.status(400).json({ error: 'invalid_request' });
+
+  // 同步「認領」這次遭遇——檢查通過後立刻在這裡（任何await之前）就把它從Map刪掉，而不是等
+  // 交易結束才刪。壓力測試時發現：如果檢查跟刪除中間隔著DB的await，兩個併發的丟球請求可能都
+  // 通過檢查、各自獨立擲一次成功率，導致同一隻遭遇被「抓到」兩次。同步刪除後，只有第一個
+  // 拿到encounter的請求會繼續往下走，其餘併發請求會直接落到no_active_encounter。
+  // 只要這次丟球沒有真的讓遭遇結束（沒球/擲失敗沒逃跑/發生例外），下面對應分支都要記得
+  // 把encounter放回去，不然遭遇會憑空消失。
+  const encounter = activeEncounters.get(req.user.id);
   if (!encounter || encounter.pokemonId !== pokemonId || encounter.expiresAt < Date.now()) {
     return res.status(400).json({ error: 'no_active_encounter' });
   }
+  activeEncounters.delete(req.user.id);
+
+  const client = await pool.connect();
   try {
-    const { rows } = await pool.query(
-      `SELECT ${ballItem.ballField} AS ball_count FROM pets WHERE user_id = $1`, [req.user.id]
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      `UPDATE pets SET ${ballItem.ballField} = ${ballItem.ballField} - 1
+       WHERE user_id = $1 AND ${ballItem.ballField} >= 1
+       RETURNING ball_normal, ball_great, ball_ultra`,
+      [req.user.id]
     );
-    if (!rows.length) return res.status(404).json({ error: 'no_pet' });
-    if (rows[0].ball_count < 1) return res.status(400).json({ error: 'no_balls' });
-    await pool.query(`UPDATE pets SET ${ballItem.ballField} = ${ballItem.ballField} - 1 WHERE user_id = $1`, [req.user.id]);
+    if (!rows.length) {
+      await client.query('ROLLBACK');
+      activeEncounters.set(req.user.id, encounter); // 沒球，這次丟球沒發生，遭遇原樣放回去
+      return res.status(400).json({ error: 'no_balls' });
+    }
+    const ballCounts = { ballNormal: rows[0].ball_normal, ballGreat: rows[0].ball_great, ballUltra: rows[0].ball_ultra };
 
     const rate = BALL_CATCH_RATE[ballType] * (CATCH_TIER_MULT[wild.tier] ?? 1);
     const success = Math.random() < rate;
+
     if (!success) {
       const fierce = Math.random() < FIERCE_RESISTANCE_CHANCE;
-      if (fierce) {
-        activeEncounters.delete(req.user.id);
-        return res.json({ caught: false, fled: true });
-      }
-      return res.json({ caught: false, fled: false }); // 遭遇繼續，activeEncounters不清除
+      await client.query('COMMIT');
+      // 沒抓到又沒激烈反抗——遭遇還沒結束，放回去讓玩家可以繼續丟；順便延長一點過期時間，
+      // 避免玩家丟了好幾次球之後卡在快過期的邊緣
+      if (!fierce) activeEncounters.set(req.user.id, { ...encounter, expiresAt: Date.now() + ENCOUNTER_TTL_MS });
+      return res.json({ caught: false, fled: fierce, ...ballCounts });
     }
 
-    activeEncounters.delete(req.user.id); // 抓到了，這次遭遇結束
-
-    const { rows: teamRows } = await pool.query('SELECT pokemon_ids FROM teams WHERE user_id = $1', [req.user.id]);
+    const { rows: teamRows } = await client.query('SELECT pokemon_ids FROM teams WHERE user_id = $1', [req.user.id]);
     const currentIds = teamRows[0]?.pokemon_ids || [];
+    let responsePayload, pendingRelease = null;
     if (currentIds.includes(pokemonId)) {
-      const { rows: coinRows } = await pool.query('SELECT coins FROM pets WHERE user_id = $1', [req.user.id]);
-      const coins = coinRows[0].coins + 300;
-      await pool.query('UPDATE pets SET coins = $1 WHERE user_id = $2', [coins, req.user.id]);
-      return res.json({ caught: true, duplicate: true, coinsAwarded: 300, coins, pokemonId, name: wild.name });
-    }
-    if (currentIds.length < 10) {
+      const { rows: coinRows } = await client.query(
+        'UPDATE pets SET coins = coins + 300 WHERE user_id = $1 RETURNING coins', [req.user.id]
+      );
+      responsePayload = { caught: true, duplicate: true, coinsAwarded: 300, coins: coinRows[0].coins, pokemonId, name: wild.name, ...ballCounts };
+    } else if (currentIds.length < 10) {
       const newIds = [...currentIds, pokemonId];
-      await pool.query(
+      await client.query(
         `INSERT INTO teams (user_id, pokemon_ids) VALUES ($1, $2)
          ON CONFLICT (user_id) DO UPDATE SET pokemon_ids = $2, updated_at = NOW()`,
         [req.user.id, newIds]
       );
-      return res.json({ caught: true, added: true, pokemonId, name: wild.name });
+      responsePayload = { caught: true, added: true, pokemonId, name: wild.name, ...ballCounts };
+    } else {
+      // 隊伍已滿10隻，且不是重複——先記在記憶體，等玩家選好要放生誰才真的寫進DB
+      pendingRelease = { pokemonId, expiresAt: Date.now() + PENDING_RELEASE_TTL_MS };
+      responsePayload = { caught: true, needsRelease: true, pokemonId, name: wild.name, ...ballCounts };
     }
-    // 隊伍已滿10隻，且不是重複——先記在記憶體，等玩家選好要放生誰才真的寫進DB
-    pendingCatchReleases.set(req.user.id, { pokemonId, expiresAt: Date.now() + PENDING_RELEASE_TTL_MS });
-    res.json({ caught: true, needsRelease: true, pokemonId, name: wild.name });
+    await client.query('COMMIT'); // 抓到了，這次遭遇真的結束，encounter不放回去
+    if (pendingRelease) pendingCatchReleases.set(req.user.id, pendingRelease);
+    res.json(responsePayload);
   } catch (e) {
+    try { await client.query('ROLLBACK'); } catch (_) { /* 連線本身可能已經斷了，rollback失敗就不用管 */ }
+    activeEncounters.set(req.user.id, encounter); // 例外導致整個交易沒生效，遭遇原樣放回去讓玩家能重試
     console.error('pet catch throw error:', e.message);
     res.status(503).json({ error: 'db_error' });
+  } finally {
+    client.release();
   }
 });
 

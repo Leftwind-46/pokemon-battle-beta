@@ -986,6 +986,9 @@ async function buyItem(itemId) {
     updateCoinsUI(data.coins);
     if (data.ballField) {
       pet[BALL_FIELD_TO_PET_KEY[data.ballField]] = data.count;
+      // 如果捕捉畫面正開著（例如球用完了臨時切去商城買），順便刷新那邊的球數選單，
+      // 不然要等下一次丟球失敗才會重新渲染，畫面會跟剛買到的球數兜不起來
+      if (document.getElementById('catch-scene-modal').classList.contains('open')) renderBallPicker();
     } else {
       decorations.push({ itemId, slot: null });
     }
@@ -1416,6 +1419,7 @@ async function openCatchScene() {
       return;
     }
     updateCoinsUI(data.coins);
+    pet.ballNormal = data.ballNormal; // 每次遭遇都固定送5顆一般球，這裡同步最新數量
     currentEncounter = { pokemonId: data.pokemonId, name: data.name, tier: data.tier };
     document.getElementById('catch-scene-wild-img').src = catchSpriteUrl(data.pokemonId);
     document.getElementById('catch-scene-name').textContent = data.name;
@@ -1476,14 +1480,34 @@ async function throwBall(ballType) {
   wildImg.classList.remove('shaking');
   document.getElementById('catch-scene-ball').style.display = 'none';
 
-  if (!result || !result.ok) {
+  // result === null 才是fetch真的拋出例外（網路斷線）；result.ok === false 是伺服器正常回應
+  // 的業務邏輯錯誤（球不夠/遭遇過期），不該一律顯示「連線失敗」——這是使用者回報「捕捉時常常
+  // 顯示連線出問題」的主因：球數顯示沒即時更新，玩家點了其實已經用完的球，正常的no_balls被
+  // 誤報成斷線。
+  if (!result) {
     showToast('連線失敗，請再試一次');
+    document.getElementById('catch-scene-modal').classList.remove('open');
+    currentEncounter = null;
+    return;
+  }
+  if (!result.ok) {
+    const msg = {
+      no_balls: '這種球已經用完了，請先購買',
+      no_active_encounter: '這隻寶可夢已經不在了，請重新捕捉',
+      invalid_request: '請求有誤，請重新捕捉',
+    }[result.data.error] || '發生錯誤，請再試一次';
+    showToast(msg);
     document.getElementById('catch-scene-modal').classList.remove('open');
     currentEncounter = null;
     return;
   }
 
   const data = result.data;
+  // 每次丟球（不論成功失敗）伺服器都會回傳扣完之後的最新三種球數量，同步到本地狀態，
+  // 不然renderBallPicker()顯示的數字/按鈕disabled狀態會一直停留在encounter當下那次
+  if (data.ballNormal != null) pet.ballNormal = data.ballNormal;
+  if (data.ballGreat != null) pet.ballGreat = data.ballGreat;
+  if (data.ballUltra != null) pet.ballUltra = data.ballUltra;
   // 沒抓到但沒激烈反抗——遭遇還在進行中，只要還有球就能繼續丟，不用重新花錢encounter
   if (!data.caught && !data.fled) {
     showToast(`${currentEncounter.name} 掙脫了！再試一次`);
