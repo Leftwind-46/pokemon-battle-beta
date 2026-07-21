@@ -365,6 +365,7 @@ const PET_SPECIES = [
 const BADGES = {
   'weekly-champion':    { name: '週排行榜冠軍',   image: '/badges/weekly-champion-01.png' },
   'weekly-participant': { name: '週排行榜參與徽章', image: '/badges/weekly-participant-01.png' },
+  'sea-emperor':        { name: '海皇降臨',       image: '/badges/sea-emperor-01.gif' },
 };
 
 /* 商城道具——跟屬性無關的通用房間裝飾/穿搭，買了永久持有（不是消耗品），純資料registry，
@@ -399,7 +400,11 @@ const ENCOUNTER_TTL_MS = 5 * 60 * 1000;
 // 防止client跳過encounter/throw流程，直接偽造一次「捕捉成功」呼叫resolve-release把任意寶可夢塞進隊伍
 const pendingCatchReleases = new Map(); // userId -> { pokemonId, expiresAt }
 const PENDING_RELEASE_TTL_MS = 2 * 60 * 1000;
-const DECOR_SLOTS = ['slot-wall', 'slot-floor-mid', 'slot-floor-right'];
+// 房間裝飾/徽章改成自由拖曳座標(0~1標準化分數)後不再有固定插槽數量限制，
+// 改用「同時擺放幾件」的上限防止房間被塞爆——使用者要求維持上限（不是取消），裝飾用6件，
+// 徽章因為目前種類還很少（見BADGES）暫時給寬鬆一點的4個上限。
+const DECOR_PLACE_LIMIT = 6;
+const BADGE_PLACE_LIMIT = 4;
 
 /* 釣魚結果registry——weight加總曾經=100可以直接當百分比讀，2026-07-20加入蓋歐卡（機率要精準到0.1%）
    後全部×10改用整數（加總=1001），蓋歐卡=1/1001≈0.0999%。黃金鯉魚王/紅色暴鯉龍/蓋歐卡刻意不生新素材，
@@ -2114,13 +2119,16 @@ async function decayHunger(userId) {
 /* ═══ 我的寶可夢：選一次寵物之後只讀/更新好感度，不能重選（MVP範圍） ═══ */
 app.get('/api/pet', requireAuth, async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT species_id, happiness, coins, display_fish_id, ball_normal, ball_great, ball_ultra FROM pets WHERE user_id = $1', [req.user.id]);
-    const { rows: userRows } = await pool.query('SELECT badge_id FROM users WHERE id = $1', [req.user.id]);
-    const badgeId = userRows[0]?.badge_id;
-    const badge = badgeId && BADGES[badgeId] ? { id: badgeId, ...BADGES[badgeId] } : null;
-    if (!rows.length) return res.json({ pet: null, badge });
-    const { rows: decorRows } = await pool.query('SELECT item_id, slot FROM pet_decorations WHERE user_id = $1', [req.user.id]);
-    const decorations = decorRows.map(r => ({ itemId: r.item_id, slot: r.slot }));
+    const { rows } = await pool.query(
+      `SELECT species_id, happiness, coins, display_fish_id, ball_normal, ball_great, ball_ultra,
+              fish_tank_pos_x, fish_tank_pos_y, fish_dex_pos_x, fish_dex_pos_y
+       FROM pets WHERE user_id = $1`, [req.user.id]
+    );
+    const { rows: badgeRows } = await pool.query('SELECT badge_id, pos_x, pos_y FROM user_badges WHERE user_id = $1', [req.user.id]);
+    const badges = badgeRows.filter(r => BADGES[r.badge_id]).map(r => ({ id: r.badge_id, ...BADGES[r.badge_id], x: r.pos_x, y: r.pos_y }));
+    if (!rows.length) return res.json({ pet: null, badges });
+    const { rows: decorRows } = await pool.query('SELECT item_id, pos_x, pos_y FROM pet_decorations WHERE user_id = $1', [req.user.id]);
+    const decorations = decorRows.map(r => ({ itemId: r.item_id, x: r.pos_x, y: r.pos_y }));
     const hunger = await decayHunger(req.user.id);
     const { rows: fishRows } = await pool.query(
       'SELECT id, fish_type, caught_at, is_favorite FROM pet_fish WHERE user_id = $1 ORDER BY caught_at DESC', [req.user.id]
@@ -2128,7 +2136,12 @@ app.get('/api/pet', requireAuth, async (req, res) => {
     const fish = fishRows.map(r => ({ id: r.id, fishType: r.fish_type, caughtAt: r.caught_at, isFavorite: r.is_favorite, ...FISH_TYPES[r.fish_type] }));
     const displayFish = rows[0].display_fish_id ? (fish.find(f => f.id === rows[0].display_fish_id) || null) : null;
     const balls = { ballNormal: rows[0].ball_normal, ballGreat: rows[0].ball_great, ballUltra: rows[0].ball_ultra };
-    res.json({ pet: { speciesId: rows[0].species_id, happiness: rows[0].happiness, coins: rows[0].coins, hunger, ...balls }, badge, decorations, fish, displayFish });
+    const fishTankPos = rows[0].fish_tank_pos_x != null ? { x: rows[0].fish_tank_pos_x, y: rows[0].fish_tank_pos_y } : null;
+    const fishDexPos = rows[0].fish_dex_pos_x != null ? { x: rows[0].fish_dex_pos_x, y: rows[0].fish_dex_pos_y } : null;
+    res.json({
+      pet: { speciesId: rows[0].species_id, happiness: rows[0].happiness, coins: rows[0].coins, hunger, ...balls, fishTankPos, fishDexPos },
+      badges, decorations, fish, displayFish,
+    });
   } catch (e) {
     console.error('pet fetch error:', e.message);
     res.status(503).json({ error: 'db_error' });
@@ -2394,22 +2407,83 @@ app.post('/api/pet/catch/resolve-release', requireAuth, async (req, res) => {
   }
 });
 
-/* slot為null代表收回道具欄；同一插槽同時只能有一件，先把佔用該插槽的其他道具清空再指定給這件 */
+/* x/y為null代表收回道具欄；房間裝飾改成自由拖曳座標後不再有固定插槽，
+   改用「同時擺放幾件」的數量上限（DECOR_PLACE_LIMIT）防止房間被塞爆——
+   使用者明確要求維持上限、不要取消（見規劃討論）。座標是相對#pet-stage寬高的0~1標準化分數，
+   跟setupVisitSprite()既有的placeAt(fracX,fracY)手法同一套模型。 */
 app.post('/api/pet/place', requireAuth, async (req, res) => {
-  const { itemId, slot } = req.body || {};
-  if (slot !== null && !DECOR_SLOTS.includes(slot)) return res.status(400).json({ error: 'invalid_slot' });
+  const { itemId } = req.body || {};
+  let { x, y } = req.body || {};
+  x = (x === null || x === undefined) ? null : Number(x);
+  y = (y === null || y === undefined) ? null : Number(y);
+  if (x !== null && (Number.isNaN(x) || x < 0 || x > 1)) return res.status(400).json({ error: 'invalid_position' });
+  if (y !== null && (Number.isNaN(y) || y < 0 || y > 1)) return res.status(400).json({ error: 'invalid_position' });
   try {
     const { rows } = await pool.query(
       'SELECT 1 FROM pet_decorations WHERE user_id = $1 AND item_id = $2', [req.user.id, itemId]
     );
     if (!rows.length) return res.status(404).json({ error: 'not_owned' });
-    if (slot !== null) {
-      await pool.query('UPDATE pet_decorations SET slot = NULL WHERE user_id = $1 AND slot = $2', [req.user.id, slot]);
+    if (x !== null) {
+      const { rows: countRows } = await pool.query(
+        'SELECT COUNT(*)::int AS n FROM pet_decorations WHERE user_id = $1 AND pos_x IS NOT NULL AND item_id != $2',
+        [req.user.id, itemId]
+      );
+      if (countRows[0].n >= DECOR_PLACE_LIMIT) return res.status(400).json({ error: 'limit_reached' });
     }
-    await pool.query('UPDATE pet_decorations SET slot = $1 WHERE user_id = $2 AND item_id = $3', [slot, req.user.id, itemId]);
+    await pool.query('UPDATE pet_decorations SET pos_x = $1, pos_y = $2 WHERE user_id = $3 AND item_id = $4', [x, y, req.user.id, itemId]);
     res.json({});
   } catch (e) {
     console.error('pet place error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 玩家自己把擁有的徽章放進房間／收回，跟上面/api/pet/place裝飾的語意完全一致
+   （x/y為null=收回、上限用BADGE_PLACE_LIMIT），只是操作的是user_badges表而不是pet_decorations。 */
+app.post('/api/pet/badge/position', requireAuth, async (req, res) => {
+  const { badgeId } = req.body || {};
+  let { x, y } = req.body || {};
+  x = (x === null || x === undefined) ? null : Number(x);
+  y = (y === null || y === undefined) ? null : Number(y);
+  if (x !== null && (Number.isNaN(x) || x < 0 || x > 1)) return res.status(400).json({ error: 'invalid_position' });
+  if (y !== null && (Number.isNaN(y) || y < 0 || y > 1)) return res.status(400).json({ error: 'invalid_position' });
+  try {
+    const { rows } = await pool.query(
+      'SELECT 1 FROM user_badges WHERE user_id = $1 AND badge_id = $2', [req.user.id, badgeId]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'not_owned' });
+    if (x !== null) {
+      const { rows: countRows } = await pool.query(
+        'SELECT COUNT(*)::int AS n FROM user_badges WHERE user_id = $1 AND pos_x IS NOT NULL AND badge_id != $2',
+        [req.user.id, badgeId]
+      );
+      if (countRows[0].n >= BADGE_PLACE_LIMIT) return res.status(400).json({ error: 'limit_reached' });
+    }
+    await pool.query('UPDATE user_badges SET pos_x = $1, pos_y = $2 WHERE user_id = $3 AND badge_id = $4', [x, y, req.user.id, badgeId]);
+    res.json({});
+  } catch (e) {
+    console.error('pet badge position error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 魚缸／魚圖鑑聲納這兩個固定裝置的位置——沒有「收回」概念（一直都在房間裡），
+   也沒有數量上限（固定只有這兩個），單純記錄玩家拖曳後的最新座標。 */
+const FIXTURE_POS_FIELDS = {
+  fish_tank: ['fish_tank_pos_x', 'fish_tank_pos_y'],
+  fish_dex: ['fish_dex_pos_x', 'fish_dex_pos_y'],
+};
+app.post('/api/pet/fixture/position', requireAuth, async (req, res) => {
+  const { fixture } = req.body || {};
+  const fields = FIXTURE_POS_FIELDS[fixture];
+  if (!fields) return res.status(400).json({ error: 'invalid_fixture' });
+  const x = Number(req.body?.x), y = Number(req.body?.y);
+  if (Number.isNaN(x) || x < 0 || x > 1 || Number.isNaN(y) || y < 0 || y > 1) return res.status(400).json({ error: 'invalid_position' });
+  try {
+    await pool.query(`UPDATE pets SET ${fields[0]} = $1, ${fields[1]} = $2 WHERE user_id = $3`, [x, y, req.user.id]);
+    res.json({});
+  } catch (e) {
+    console.error('pet fixture position error:', e.message);
     res.status(503).json({ error: 'db_error' });
   }
 });
@@ -2603,21 +2677,23 @@ app.post('/api/pet/fish/sell-duplicates', requireAuth, async (req, res) => {
    刻意不回傳coins——別人的錢包餘額沒有展示必要。 */
 app.get('/api/pet/visit/:username', requireAuth, async (req, res) => {
   try {
-    const { rows: userRows } = await pool.query('SELECT id, badge_id FROM users WHERE username = $1', [req.params.username]);
+    const { rows: userRows } = await pool.query('SELECT id FROM users WHERE username = $1', [req.params.username]);
     if (!userRows.length) return res.status(404).json({ error: 'user_not_found' });
     const targetId = userRows[0].id;
     const { rows: petRows } = await pool.query('SELECT species_id, happiness FROM pets WHERE user_id = $1', [targetId]);
     if (!petRows.length) return res.status(404).json({ error: 'no_pet' });
     const { rows: decorRows } = await pool.query(
-      'SELECT item_id, slot FROM pet_decorations WHERE user_id = $1 AND slot IS NOT NULL', [targetId]
+      'SELECT item_id, pos_x, pos_y FROM pet_decorations WHERE user_id = $1 AND pos_x IS NOT NULL', [targetId]
     );
-    const decorations = decorRows.map(r => ({ itemId: r.item_id, slot: r.slot }));
-    const badgeId = userRows[0].badge_id;
-    const badge = badgeId && BADGES[badgeId] ? { id: badgeId, ...BADGES[badgeId] } : null;
+    const decorations = decorRows.map(r => ({ itemId: r.item_id, x: r.pos_x, y: r.pos_y }));
+    const { rows: badgeRows } = await pool.query(
+      'SELECT badge_id, pos_x, pos_y FROM user_badges WHERE user_id = $1 AND pos_x IS NOT NULL', [targetId]
+    );
+    const badges = badgeRows.filter(r => BADGES[r.badge_id]).map(r => ({ id: r.badge_id, ...BADGES[r.badge_id], x: r.pos_x, y: r.pos_y }));
     res.json({
       username: req.params.username,
       pet: { speciesId: petRows[0].species_id, happiness: petRows[0].happiness },
-      badge,
+      badges,
       decorations,
     });
   } catch (e) {
@@ -2653,17 +2729,20 @@ app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
   try {
     const weekStart = mondayOfWeek(new Date());
     const { rows } = await pool.query(
-      `SELECT u.id, u.username, u.created_at, u.disabled, u.is_admin, u.badge_id,
-              COALESCE(ws.wins, 0) AS this_week_wins
+      `SELECT u.id, u.username, u.created_at, u.disabled, u.is_admin,
+              COALESCE(ws.wins, 0) AS this_week_wins,
+              COALESCE(ARRAY_AGG(ub.badge_id) FILTER (WHERE ub.badge_id IS NOT NULL), '{}') AS badge_ids
        FROM users u
        LEFT JOIN weekly_stats ws ON ws.user_id = u.id AND ws.week_start_date = $1
+       LEFT JOIN user_badges ub ON ub.user_id = u.id
+       GROUP BY u.id, ws.wins
        ORDER BY u.id`,
       [weekStart]
     );
     res.json({ users: rows.map(r => ({
       id: r.id, username: r.username, createdAt: r.created_at,
       disabled: r.disabled, isAdmin: r.is_admin, thisWeekWins: r.this_week_wins,
-      badgeId: r.badge_id,
+      badgeIds: r.badge_ids,
     })), badges: BADGES });
   } catch (e) {
     console.error('admin users error:', e.message);
@@ -2684,17 +2763,34 @@ app.post('/api/admin/users/:id/disable', requireAuth, requireAdmin, async (req, 
   }
 });
 
-/* 手動指定/移除玩家的徽章——目前沒有「每週自動判定冠軍」的排程機制，GM每週手動幫排行榜第一名點一下 */
-app.post('/api/admin/users/:id/badge', requireAuth, requireAdmin, async (req, res) => {
+/* 手動頒發/收回玩家的徽章——目前沒有「每週自動判定冠軍」的排程機制，GM每週手動幫排行榜第一名點一下。
+   玩家可以同時擁有多個徽章（user_badges是多對多），award/revoke分成兩支端點，
+   不像舊版單一badge_id欄位那樣「指定新的就整個覆蓋掉舊的」。新頒發的徽章pos預設NULL，
+   放進玩家的徽章收藏、由玩家自己決定要不要擺進房間展示。 */
+app.post('/api/admin/users/:id/badges/award', requireAuth, requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id)) return res.status(400).json({ error: 'invalid_id' });
-  const badgeId = req.body?.badgeId || null;
-  if (badgeId !== null && !BADGES[badgeId]) return res.status(400).json({ error: 'invalid_badge' });
+  const badgeId = req.body?.badgeId;
+  if (!badgeId || !BADGES[badgeId]) return res.status(400).json({ error: 'invalid_badge' });
   try {
-    await pool.query('UPDATE users SET badge_id = $1 WHERE id = $2', [badgeId, id]);
+    await pool.query('INSERT INTO user_badges (user_id, badge_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [id, badgeId]);
     res.json({});
   } catch (e) {
-    console.error('admin badge error:', e.message);
+    console.error('admin badge award error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+app.post('/api/admin/users/:id/badges/revoke', requireAuth, requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) return res.status(400).json({ error: 'invalid_id' });
+  const badgeId = req.body?.badgeId;
+  if (!badgeId) return res.status(400).json({ error: 'invalid_badge' });
+  try {
+    await pool.query('DELETE FROM user_badges WHERE user_id = $1 AND badge_id = $2', [id, badgeId]);
+    res.json({});
+  } catch (e) {
+    console.error('admin badge revoke error:', e.message);
     res.status(503).json({ error: 'db_error' });
   }
 });
@@ -3421,7 +3517,9 @@ async function initDB() {
     // 飢餓值：DEFAULT NOW()讓補欄位當下就是錨點，不會讓舊寵物一登入就補算一大段過去的衰減
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS hunger INTEGER NOT NULL DEFAULT 100`);
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS last_fed_at TIMESTAMPTZ DEFAULT NOW()`);
-    // 商城道具——買了就永久持有（不是消耗品），slot=NULL代表放在道具欄裡還沒擺進房間
+    // 商城道具——買了就永久持有（不是消耗品）。原本slot是3選1固定插槽enum，2026-07-21改成
+    // 自由拖曳座標（pos_x/pos_y，0~1標準化分數，NULL=放在道具欄裡還沒擺進房間）——
+    // 舊的slot欄位刻意保留不刪（比照users.badge_id的做法，避免破壞性DROP COLUMN），新程式碼完全不再讀寫它。
     await pool.query(`CREATE TABLE IF NOT EXISTS pet_decorations (
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       item_id TEXT NOT NULL,
@@ -3429,6 +3527,8 @@ async function initDB() {
       acquired_at TIMESTAMPTZ DEFAULT NOW(),
       PRIMARY KEY (user_id, item_id)
     )`);
+    await pool.query(`ALTER TABLE pet_decorations ADD COLUMN IF NOT EXISTS pos_x REAL`);
+    await pool.query(`ALTER TABLE pet_decorations ADD COLUMN IF NOT EXISTS pos_y REAL`);
     // 釣魚——用SERIAL PRIMARY KEY而不是像pet_decorations那樣用(user_id,item_id)複合主鍵，
     // 因為魚可以重複釣到同一種，每次都是新的一列，不是「擁有一件獨特道具」那種語意。
     // 必須排在下面ALTER TABLE pets之前，因為display_fish_id的外鍵參照到這張表。
@@ -3453,6 +3553,21 @@ async function initDB() {
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS ball_normal INTEGER NOT NULL DEFAULT 0`);
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS ball_great INTEGER NOT NULL DEFAULT 0`);
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS ball_ultra INTEGER NOT NULL DEFAULT 0`);
+    // 魚缸／魚圖鑑聲納這兩個固定裝置的自由拖曳座標——NULL代表玩家還沒拖過，前端沿用固定的預設位置
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS fish_tank_pos_x REAL`);
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS fish_tank_pos_y REAL`);
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS fish_dex_pos_x REAL`);
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS fish_dex_pos_y REAL`);
+    // 多徽章擁有——跟pet_decorations同一套「擁有+可選擺放位置」語意（pos_x/y為NULL=擁有但沒展示在房間裡）。
+    // 取代舊的users.badge_id單一欄位（一人只能有一個、指定新的會整個覆蓋掉舊的）；badge_id欄位保留不刪。
+    await pool.query(`CREATE TABLE IF NOT EXISTS user_badges (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      badge_id TEXT NOT NULL,
+      pos_x REAL,
+      pos_y REAL,
+      awarded_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (user_id, badge_id)
+    )`);
     // 一次性migration追蹤表——沒有ORM/migration工具，用一列「已套用哪些一次性migration」的標記表，
     // 用INSERT...ON CONFLICT DO NOTHING RETURNING判斷這次伺服器啟動是不是第一次跑到這條migration
     await pool.query(`CREATE TABLE IF NOT EXISTS migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ DEFAULT NOW())`);
@@ -3482,6 +3597,31 @@ async function initDB() {
         SELECT DISTINCT user_id, fish_type FROM pet_fish
         ON CONFLICT DO NOTHING
       `);
+    });
+    // 既有玩家的單一badge_id搬進新的user_badges多對多表——pos給舊版#badge-slot固定位置
+    // （房間右上角，比照舊CSS的right:14px/top:14px换算成標準化分數）,讓既有玩家升級後
+    // 徽章視覺位置大致不變。舊的users.badge_id欄位保留不刪，新程式碼不再讀它。
+    await runMigrationOnce('2026-07-21-multi-badge-migration', async () => {
+      await pool.query(`
+        INSERT INTO user_badges (user_id, badge_id, pos_x, pos_y)
+        SELECT id, badge_id, 0.90, 0.12 FROM users WHERE badge_id IS NOT NULL
+        ON CONFLICT DO NOTHING
+      `);
+    });
+    // 既有的3種固定插槽裝飾換算成對應的標準化座標，視覺上盡量貼近原本位置
+    // （牆面插槽在左上角、地板中在下方置中、地板右在右下角）
+    await runMigrationOnce('2026-07-21-decor-freeform-position-migration', async () => {
+      const SLOT_POS = {
+        'slot-wall': [0.08, 0.08],
+        'slot-floor-mid': [0.5, 0.92],
+        'slot-floor-right': [0.92, 0.92],
+      };
+      for (const [slot, [x, y]] of Object.entries(SLOT_POS)) {
+        await pool.query(
+          'UPDATE pet_decorations SET pos_x = $1, pos_y = $2 WHERE slot = $3 AND pos_x IS NULL',
+          [x, y, slot]
+        );
+      }
     });
     console.log('PostgreSQL connected');
   } catch (e) {

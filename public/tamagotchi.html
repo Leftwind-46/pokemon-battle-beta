@@ -37,9 +37,9 @@
   /* ── 我的收藏（徽章＋擁有的寶可夢，桌面版是左側常駐側欄，窄螢幕收成一顆按鈕+彈窗）── */
   #collection-sidebar{width:190px;flex-shrink:0;display:flex;flex-direction:column;gap:0.8rem;padding:1rem;border-radius:16px;border:2px solid var(--border);background:rgba(255,255,255,0.04)}
   #collection-sidebar h3{font-size:0.9rem}
-  .collection-badge-row{display:flex;align-items:center;gap:0.6rem}
-  .collection-badge-mini{width:40px;height:40px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.1rem;background:rgba(0,0,0,0.2);border:2px dashed rgba(255,255,255,0.25);color:var(--muted)}
-  .collection-badge-mini img{width:100%;height:100%;border-radius:50%;object-fit:cover;box-shadow:0 0 10px rgba(248,208,48,0.55)}
+  .collection-badge-row{display:flex;flex-direction:column;gap:0.4rem}
+  .collection-badge-mini{display:flex;flex-wrap:wrap;align-items:center;gap:0.4rem;min-height:40px;font-size:1.3rem;color:var(--muted)}
+  .collection-badge-mini img{width:36px;height:36px;border-radius:50%;object-fit:cover;box-shadow:0 0 10px rgba(248,208,48,0.55);cursor:pointer}
   .collection-badge-name{font-size:0.78rem;color:var(--muted)}
   .collection-mon-list{display:flex;flex-direction:column;gap:0.5rem;max-height:340px;overflow-y:auto}
   .collection-mon-item{display:flex;align-items:center;gap:0.5rem;padding:0.35rem;border-radius:10px;background:rgba(255,255,255,0.03)}
@@ -113,22 +113,28 @@
   #pet-name-label{font-size:1rem;font-weight:700}
   #pet-reaction-text{font-size:0.82rem;color:var(--muted);min-height:1.2em}
 
-  /* ── 徽章展示位（放在寶可夢空間右上角，像掛在房間牆上的獎盃架）── */
-  #badge-slot{position:absolute;right:14px;top:14px;z-index:5;width:84px;height:84px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform 0.15s}
-  #badge-slot:hover{transform:scale(1.08)}
-  #badge-slot img{width:100%;height:100%;border-radius:50%;object-fit:cover;box-shadow:0 0 18px rgba(248,208,48,0.6),0 0 0 3px rgba(248,208,48,0.75)}
-  #badge-slot.empty{border:2px dashed rgba(255,255,255,0.28);background:rgba(0,0,0,0.2);color:var(--muted);font-size:1.6rem;cursor:default}
-  #badge-slot.empty:hover{transform:none}
+  /* ── 徽章展示（自由拖曳位置，2026-07-21起可以同時展示多個——每個徽章各自是一個
+     .badge-room-item，用left/top(百分比或拖曳中的px)+transform置中來定位，不再是單一#badge-slot）── */
+  .badge-room-item{position:absolute;transform:translate(-50%,-50%);z-index:5;width:72px;height:72px;border-radius:50%;cursor:pointer;touch-action:none}
+  .badge-room-item img{width:100%;height:100%;border-radius:50%;object-fit:cover;box-shadow:0 0 18px rgba(248,208,48,0.6),0 0 0 3px rgba(248,208,48,0.75)}
 
-  /* ── 魚缸（房間右邊牆，卡在徽章展示位下方、floor插槽上方，兩者都不衝突）── */
-  #fish-tank-slot{position:absolute;right:14px;top:110px;z-index:4;width:64px;height:64px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:rgba(104,144,240,0.18);border:2px solid rgba(104,144,240,0.4);transition:transform 0.15s;overflow:hidden}
-  #fish-tank-slot:hover{transform:scale(1.08)}
+  /* ── 房間裝飾（自由拖曳位置，取代舊版3個固定插槽）── */
+  .decor-room-item{position:absolute;transform:translate(-50%,-50%);z-index:3;width:52px;height:52px;border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.7rem;background:rgba(0,0,0,0.15);touch-action:none}
+
+  /* ── 裝潢模式：可拖曳的物件套上金色虛線外框提示、拖曳手勢游標；收回按鈕只在此模式下出現 ── */
+  .decorate-mode .badge-room-item,.decorate-mode .decor-room-item,.decorate-mode #fish-tank-slot,.decorate-mode #fish-dex-slot{cursor:grab;outline:2px dashed rgba(248,208,48,0.65);outline-offset:2px}
+  .room-item-remove{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:#f05030;color:#fff;font-size:0.68rem;line-height:20px;text-align:center;cursor:pointer;z-index:2}
+  #decorate-toggle-btn.active{background:rgba(248,208,48,0.28);border-color:#f8d030}
+
+  /* ── 魚缸（自由拖曳位置——用left/top(百分比)+transform置中，不再是固定right/top）── */
+  #fish-tank-slot{position:absolute;transform:translate(-50%,-50%);z-index:4;width:64px;height:64px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:rgba(104,144,240,0.18);border:2px solid rgba(104,144,240,0.4);transition:transform 0.15s;overflow:hidden;touch-action:none}
+  #fish-tank-slot:hover{transform:translate(-50%,-50%) scale(1.08)}
   #fish-tank-slot img{width:80%;height:80%;object-fit:contain;image-rendering:pixelated}
   #fish-tank-slot.empty{font-size:1.5rem;opacity:0.45}
 
-  /* ── 魚圖鑑聲納按鈕（疊在魚缸插槽正下方）── */
-  #fish-dex-slot{position:absolute;right:14px;top:182px;z-index:4;width:64px;height:44px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.4rem;background:rgba(104,144,240,0.18);border:2px solid rgba(104,144,240,0.4);transition:transform 0.15s}
-  #fish-dex-slot:hover{transform:scale(1.08)}
+  /* ── 魚圖鑑聲納按鈕（自由拖曳位置）── */
+  #fish-dex-slot{position:absolute;transform:translate(-50%,-50%);z-index:4;width:64px;height:44px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.4rem;background:rgba(104,144,240,0.18);border:2px solid rgba(104,144,240,0.4);transition:transform 0.15s;touch-action:none}
+  #fish-dex-slot:hover{transform:translate(-50%,-50%) scale(1.08)}
   .fish-dex-item{display:flex;flex-direction:column;align-items:center;gap:0.3rem;padding:0.6rem;border:1px solid var(--border);border-radius:12px}
   .fish-dex-item img{width:52px;height:52px;object-fit:contain;image-rendering:pixelated}
   .fish-dex-item.undiscovered img{filter:grayscale(1) brightness(0.55)}
@@ -234,16 +240,7 @@
   /* ── 金幣顯示 ── */
   #coin-display{display:flex;align-items:center;gap:0.35rem;font-size:0.85rem;font-weight:700;color:#f8d030}
 
-  /* ── 房間裝飾插槽（固定擺放點，買來的道具擺這裡）── */
-  .decor-slot{position:absolute;z-index:3;width:52px;height:52px;border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.7rem;transition:transform 0.15s;background:rgba(0,0,0,0.15)}
-  .decor-slot:hover{transform:scale(1.08)}
-  .decor-slot.empty{border:2px dashed rgba(255,255,255,0.25);color:rgba(255,255,255,0.3);font-size:1.3rem}
-  .slot-wall{top:14px;left:14px}
-  .slot-floor-mid{bottom:14px;left:55%;transform:translateX(-50%)}
-  .slot-floor-mid:hover{transform:translateX(-50%) scale(1.08)}
-  .slot-floor-right{bottom:14px;right:14px}
-
-  /* ── 商城 / 插槽選擇 彈窗（跟徽章放大彈窗同一套fixed置中樣式）── */
+  /* ── 商城 / 加入房間選擇 彈窗（跟徽章放大彈窗同一套fixed置中樣式）── */
   .modal-overlay{display:none;position:fixed;inset:0;z-index:700;align-items:center;justify-content:center;background:rgba(4,2,12,0.82);backdrop-filter:blur(2px)}
   .modal-overlay.open{display:flex}
   .modal-box{display:flex;flex-direction:column;gap:0.9rem;padding:1.3rem;background:var(--bg);border:1px solid var(--border);border-radius:18px;width:min(360px,88vw);max-height:80vh;overflow-y:auto}
@@ -271,7 +268,7 @@
   /* 拜訪朋友：兩隻寶可夢一起顯示在同一個房間——left/top由JS各自獨立控制走位，transform只負責置中在該座標上 */
   .visit-pet-sprite{position:absolute;transform:translate(-50%,-50%);width:72px;height:72px;image-rendering:pixelated;z-index:4;filter:drop-shadow(0 6px 8px rgba(0,0,0,0.4));transition:left 1.8s ease-in-out, top 1.8s ease-in-out}
   .visit-pet-label{position:absolute;transform:translate(-50%,0);font-size:0.68rem;color:var(--muted);white-space:nowrap;z-index:4;text-shadow:0 1px 3px rgba(0,0,0,0.8);transition:left 1.8s ease-in-out, top 1.8s ease-in-out}
-  .visit-badge{position:absolute;right:10px;top:10px;width:44px;height:44px;border-radius:50%;object-fit:cover;box-shadow:0 0 12px rgba(248,208,48,0.6),0 0 0 2px rgba(248,208,48,0.75);z-index:5}
+  .visit-badge{position:absolute;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:50%;object-fit:cover;box-shadow:0 0 12px rgba(248,208,48,0.6),0 0 0 2px rgba(248,208,48,0.75);z-index:5}
 </style>
 </head>
 <body>
@@ -324,6 +321,8 @@
         <div class="pet-action-btn" onclick="openVisitModal()"><span class="icon">🚪</span>拜訪朋友</div>
         <div class="pet-action-btn" onclick="openFishingScene()"><span class="icon">🎣</span>釣魚</div>
         <div class="pet-action-btn" onclick="openCatchScene()"><img class="icon-img" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png" alt="">捕捉</div>
+        <div class="pet-action-btn" id="decorate-toggle-btn" onclick="toggleDecorateMode()"><span class="icon">🛠️</span>裝潢模式</div>
+        <div class="pet-action-btn" id="decorate-add-btn" onclick="openAddPickModal()" style="display:none"><span class="icon">➕</span>加入房間</div>
       </div>
       <p style="font-size:0.68rem;color:var(--muted);text-align:center">動作素材來源：<a href="https://github.com/PMDCollab/SpriteCollab" target="_blank" rel="noopener" style="color:var(--muted)">PMDCollab/SpriteCollab</a>（CC BY-NC）</p>
       <a class="back" href="/">← 返回主選單</a>
@@ -345,11 +344,11 @@
     <div class="modal-close" onclick="closeShopModal()">關閉</div>
   </div>
 </div>
-<div id="slot-modal" class="modal-overlay" onclick="closeSlotModal()">
+<div id="slot-modal" class="modal-overlay" onclick="closeAddPickModal()">
   <div class="modal-box" onclick="event.stopPropagation()">
-    <h2>選擇擺放的道具</h2>
+    <h2>加入房間</h2>
     <div id="slot-pick-list"></div>
-    <div class="modal-close" onclick="closeSlotModal()">關閉</div>
+    <div class="modal-close" onclick="closeAddPickModal()">關閉</div>
   </div>
 </div>
 <div id="collection-modal" class="modal-overlay" onclick="closeCollectionModal()">
@@ -690,12 +689,21 @@ function spriteUrls(sp) {
 let myToken = localStorage.getItem('pvpToken') || null;
 let pet = null; // { speciesId, happiness, coins, hunger, ballNormal, ballGreat, ballUltra } | null
 const BALL_FIELD_TO_PET_KEY = { ball_normal: 'ballNormal', ball_great: 'ballGreat', ball_ultra: 'ballUltra' };
-let badge = null; // { id, name, image } | null —— 目前只能由GM後台手動指定，還沒有自動判定機制
-let decorations = []; // [{ itemId, slot }] —— slot為null代表在道具欄裡還沒擺放
+let badges = []; // [{ id, name, image, x, y }] —— 目前只能由GM後台手動指定，還沒有自動判定機制；x/y為null代表擁有但沒展示在房間裡
+let decorations = []; // [{ itemId, x, y }] —— x/y為null代表在道具欄裡還沒擺放
 let shopItems = null; // 從 /api/shop 抓一次快取起來，跟BADGES一樣是純資料registry
 let caughtFish = []; // [{ id, fishType, name, speciesId, shiny, caughtAt }]
 let displayFishData = null; // { id, fishType, name, speciesId, shiny } | null —— 目前魚缸展示的那隻
-const DECOR_SLOTS = ['slot-wall', 'slot-floor-mid', 'slot-floor-right'];
+let decorateMode = false; // 裝潢模式：開啟時房間裡已擺放的道具/徽章/魚缸/魚圖鑑icon都能拖曳
+// 房間裝飾/徽章的自由拖曳座標是0~1標準化分數(相對#pet-stage寬高)，跟setupVisitSprite()的
+// placeAt(fracX,fracY)同一套模型。上限數字跟server.js的DECOR_PLACE_LIMIT/BADGE_PLACE_LIMIT保持一致，
+// 這裡純粹用來提早顯示提示文字，真正的驗證在伺服器端。
+const DECOR_PLACE_LIMIT = 6;
+const BADGE_PLACE_LIMIT = 4;
+// 魚缸／魚圖鑑聲納一開始沒有存過座標時的預設位置（大致對應舊版固定CSS的視覺位置：
+// 徽章在右上角、魚缸在下方、聲納再下方）
+const DEFAULT_FISH_TANK_POS = { x: 0.90, y: 0.24 };
+const DEFAULT_FISH_DEX_POS  = { x: 0.90, y: 0.42 };
 
 function showScreen(id) {
   ['gate-screen','pick-screen','stage-screen'].forEach(s => {
@@ -712,7 +720,7 @@ async function init() {
     if (!petRes.ok) { showScreen('gate-screen'); return; }
     const data = await petRes.json();
     pet = data.pet;
-    badge = data.badge || null;
+    badges = data.badges || [];
     decorations = data.decorations || [];
     caughtFish = data.fish || [];
     displayFishData = data.displayFish || null;
@@ -790,6 +798,7 @@ let walkAnimRevertTimer = null;
 let currentSpUrls = null;
 function startStage() {
   showScreen('stage-screen');
+  decorateMode = false; // 每次重新進畫面都從非裝潢模式開始，避免殘留上次的拖曳狀態
   const species = PET_SPECIES.find(s => s.id === pet.speciesId);
   document.getElementById('pet-name-label').textContent = species ? species.name : '寶可夢';
   updateHappinessUI(pet.happiness);
@@ -801,27 +810,28 @@ function startStage() {
   stage.className = species ? `room-${species.type}` : '';
   renderRoomDecor(stage, species ? species.type : null);
 
-  const badgeSlot = document.createElement('div');
-  badgeSlot.id = 'badge-slot';
-  stage.appendChild(badgeSlot);
-  renderBadgeSlot();
   renderBadgeMini();
   loadMyTeamForCollection();
 
   const fishTankSlot = document.createElement('div');
   fishTankSlot.id = 'fish-tank-slot';
-  fishTankSlot.onclick = openFishTankModal;
+  fishTankSlot.onclick = () => { if (!decorateMode) openFishTankModal(); };
   stage.appendChild(fishTankSlot);
+  positionFreeform(fishTankSlot, pet.fishTankPos || DEFAULT_FISH_TANK_POS);
+  makeDraggable(fishTankSlot, stage, (x, y) => saveFixturePosition('fish_tank', x, y));
   renderFishTank();
 
   const fishDexSlot = document.createElement('div');
   fishDexSlot.id = 'fish-dex-slot';
   fishDexSlot.title = '魚圖鑑';
   fishDexSlot.textContent = '🔊';
-  fishDexSlot.onclick = openFishDexModal;
+  fishDexSlot.onclick = () => { if (!decorateMode) openFishDexModal(); };
   stage.appendChild(fishDexSlot);
+  positionFreeform(fishDexSlot, pet.fishDexPos || DEFAULT_FISH_DEX_POS);
+  makeDraggable(fishDexSlot, stage, (x, y) => saveFixturePosition('fish_dex', x, y));
 
-  renderDecorSlots(stage);
+  renderPlacedBadges(stage);
+  renderPlacedDecor(stage);
 
   const spUrls = spriteUrls(species || { id: pet.speciesId });
   currentSpUrls = spUrls;
@@ -946,34 +956,213 @@ async function claimDailyCoins() {
 }
 
 /* ─────────────────────────────────────────
-   房間裝飾插槽——固定3個擺放點，點擊開啟「選擇道具」彈窗
+   房間自由裝潢——道具/徽章/魚缸/魚圖鑑icon都用「標準化座標(0~1分數)+可拖曳」同一套模型
+   （跟setupVisitSprite()既有的placeAt(fracX,fracY)手法一致）。裝潢模式關閉時，
+   makeDraggable()裡的pointerdown在最上面就直接return，完全不影響原本的點擊互動。
 ───────────────────────────────────────── */
-function renderDecorSlots(stage) {
-  DECOR_SLOTS.forEach(slot => {
-    const el = document.createElement('div');
-    el.id = slot;
-    el.className = 'decor-slot ' + slot;
-    el.onclick = () => openSlotModal(slot);
-    stage.appendChild(el);
-  });
-  updateDecorSlotsUI();
+function positionFreeform(el, pos) {
+  el.style.left = (pos.x * 100) + '%';
+  el.style.top = (pos.y * 100) + '%';
 }
 
-function updateDecorSlotsUI() {
-  DECOR_SLOTS.forEach(slot => {
-    const el = document.getElementById(slot);
-    if (!el) return;
-    const placed = decorations.find(d => d.slot === slot);
-    if (placed && shopItems && shopItems[placed.itemId]) {
-      el.className = 'decor-slot ' + slot;
-      el.textContent = shopItems[placed.itemId].icon;
-      el.title = shopItems[placed.itemId].name;
-    } else {
-      el.className = 'decor-slot empty ' + slot;
-      el.textContent = '＋';
-      el.title = '點擊擺放道具';
-    }
+function makeDraggable(el, stage, onDrop) {
+  let dragging = false, startX, startY, origLeft, origTop;
+  el.addEventListener('pointerdown', (e) => {
+    if (!decorateMode) return;
+    e.preventDefault();
+    dragging = true;
+    el.setPointerCapture(e.pointerId);
+    startX = e.clientX; startY = e.clientY;
+    const rect = el.getBoundingClientRect(), stageRect = stage.getBoundingClientRect();
+    origLeft = rect.left - stageRect.left + rect.width / 2;
+    origTop = rect.top - stageRect.top + rect.height / 2;
+    el.style.zIndex = 50;
   });
+  el.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const stageRect = stage.getBoundingClientRect();
+    let newLeft = origLeft + (e.clientX - startX);
+    let newTop = origTop + (e.clientY - startY);
+    newLeft = Math.max(0, Math.min(stageRect.width, newLeft));
+    newTop = Math.max(0, Math.min(stageRect.height, newTop));
+    el.style.left = newLeft + 'px';
+    el.style.top = newTop + 'px';
+  });
+  const endDrag = () => {
+    if (!dragging) return;
+    dragging = false;
+    el.style.zIndex = '';
+    const stageRect = stage.getBoundingClientRect();
+    const fracX = Math.max(0, Math.min(1, parseFloat(el.style.left) / stageRect.width));
+    const fracY = Math.max(0, Math.min(1, parseFloat(el.style.top) / stageRect.height));
+    onDrop(fracX, fracY);
+  };
+  el.addEventListener('pointerup', endDrag);
+  el.addEventListener('pointercancel', endDrag);
+}
+
+function makeRemoveBtn(onRemove) {
+  const btn = document.createElement('div');
+  btn.className = 'room-item-remove';
+  btn.textContent = '✕';
+  btn.title = '收回道具欄';
+  btn.onclick = (e) => { e.stopPropagation(); onRemove(); };
+  return btn;
+}
+
+function toggleDecorateMode() {
+  decorateMode = !decorateMode;
+  const stage = document.getElementById('pet-stage');
+  if (stage) stage.classList.toggle('decorate-mode', decorateMode);
+  const toggleBtn = document.getElementById('decorate-toggle-btn');
+  if (toggleBtn) toggleBtn.classList.toggle('active', decorateMode);
+  const addBtn = document.getElementById('decorate-add-btn');
+  if (addBtn) addBtn.style.display = decorateMode ? '' : 'none';
+  renderPlacedBadges(stage);
+  renderPlacedDecor(stage);
+  showToast(decorateMode ? '裝潢模式：拖曳道具/徽章/魚缸調整位置' : '已離開裝潢模式');
+}
+
+function renderPlacedDecor(stage) {
+  if (!stage) return;
+  stage.querySelectorAll('.decor-room-item').forEach(el => el.remove());
+  decorations.filter(d => d.x != null && shopItems && shopItems[d.itemId]).forEach(d => {
+    const item = shopItems[d.itemId];
+    const el = document.createElement('div');
+    el.className = 'decor-room-item';
+    el.title = item.name;
+    el.textContent = item.icon;
+    positionFreeform(el, { x: d.x, y: d.y });
+    if (decorateMode) el.appendChild(makeRemoveBtn(() => placeDecor(d.itemId, null, null)));
+    stage.appendChild(el);
+    makeDraggable(el, stage, (x, y) => placeDecor(d.itemId, x, y));
+  });
+}
+
+function renderPlacedBadges(stage) {
+  if (!stage) return;
+  stage.querySelectorAll('.badge-room-item').forEach(el => el.remove());
+  badges.filter(b => b.x != null).forEach(b => {
+    const el = document.createElement('div');
+    el.className = 'badge-room-item';
+    el.title = `${b.name}（點擊放大）`;
+    el.innerHTML = `<img src="${b.image}" alt="${b.name}">`;
+    positionFreeform(el, { x: b.x, y: b.y });
+    el.onclick = () => { if (!decorateMode) openBadgeModal(b.id); };
+    if (decorateMode) el.appendChild(makeRemoveBtn(() => setBadgePosition(b.id, null, null)));
+    stage.appendChild(el);
+    makeDraggable(el, stage, (x, y) => setBadgePosition(b.id, x, y));
+  });
+}
+
+async function placeDecor(itemId, x, y) {
+  try {
+    const res = await fetch('/api/pet/place', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${myToken}` },
+      body: JSON.stringify({ itemId, x, y }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      showToast(err.error === 'limit_reached' ? `最多只能同時擺放 ${DECOR_PLACE_LIMIT} 件裝飾，請先收回一件` : '操作失敗，請再試一次');
+      renderPlacedDecor(document.getElementById('pet-stage')); // 拖曳可能已視覺上移動，這裡照DB實際狀態還原畫面
+      return;
+    }
+    const entry = decorations.find(d => d.itemId === itemId);
+    if (entry) { entry.x = x; entry.y = y; }
+    renderPlacedDecor(document.getElementById('pet-stage'));
+    renderAddPickList();
+  } catch (e) {
+    showToast('連線失敗，請再試一次');
+    renderPlacedDecor(document.getElementById('pet-stage'));
+  }
+}
+
+async function setBadgePosition(badgeId, x, y) {
+  try {
+    const res = await fetch('/api/pet/badge/position', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${myToken}` },
+      body: JSON.stringify({ badgeId, x, y }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      showToast(err.error === 'limit_reached' ? `最多只能同時展示 ${BADGE_PLACE_LIMIT} 個徽章，請先收回一個` : '操作失敗，請再試一次');
+      renderPlacedBadges(document.getElementById('pet-stage'));
+      return;
+    }
+    const entry = badges.find(b => b.id === badgeId);
+    if (entry) { entry.x = x; entry.y = y; }
+    renderPlacedBadges(document.getElementById('pet-stage'));
+    renderAddPickList();
+  } catch (e) {
+    showToast('連線失敗，請再試一次');
+    renderPlacedBadges(document.getElementById('pet-stage'));
+  }
+}
+
+async function saveFixturePosition(fixture, x, y) {
+  try {
+    const res = await fetch('/api/pet/fixture/position', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${myToken}` },
+      body: JSON.stringify({ fixture, x, y }),
+    });
+    if (!res.ok) return; // 沒存到的話下次重新整理會拿回舊位置，不影響這次畫面顯示
+    if (fixture === 'fish_tank') pet.fishTankPos = { x, y };
+    else pet.fishDexPos = { x, y };
+  } catch (e) { /* 網路失敗，暫時保留視覺位置就好 */ }
+}
+
+/* ─────────────────────────────────────────
+   加入房間彈窗——裝潢模式下列出「擁有但還沒擺進房間」的道具/徽章，
+   點擊後在房間正中央給預設座標，玩家自己再拖去想要的位置
+───────────────────────────────────────── */
+async function openAddPickModal() {
+  await ensureShopItems();
+  renderAddPickList();
+  document.getElementById('slot-modal').classList.add('open');
+}
+
+function closeAddPickModal() {
+  document.getElementById('slot-modal').classList.remove('open');
+}
+
+function renderAddPickList() {
+  const list = document.getElementById('slot-pick-list');
+  if (!list) return;
+  const placedDecorCount = decorations.filter(d => d.x != null).length;
+  const placedBadgeCount = badges.filter(b => b.x != null).length;
+  const availableBadges = badges.filter(b => b.x == null);
+  const availableDecor = decorations.filter(d => d.x == null && shopItems && shopItems[d.itemId]);
+  let html = '';
+  if (availableBadges.length) {
+    html += `<div class="shop-group-title">徽章${placedBadgeCount >= BADGE_PLACE_LIMIT ? `（已達上限 ${BADGE_PLACE_LIMIT}）` : ''}</div>`
+      + availableBadges.map(b => `
+      <div class="slot-pick-item" onclick="addBadgeToRoom('${b.id}')">
+        <img src="${b.image}" alt="${b.name}" style="width:36px;height:36px;border-radius:50%;object-fit:cover">
+        <div class="info"><div class="name">${b.name}</div></div>
+      </div>`).join('');
+  }
+  if (availableDecor.length) {
+    html += `<div class="shop-group-title">房間裝飾${placedDecorCount >= DECOR_PLACE_LIMIT ? `（已達上限 ${DECOR_PLACE_LIMIT}）` : ''}</div>`
+      + availableDecor.map(d => {
+        const item = shopItems[d.itemId];
+        return `<div class="slot-pick-item" onclick="addDecorToRoom('${d.itemId}')">
+          <span class="icon">${item.icon}</span>
+          <div class="info"><div class="name">${item.name}</div></div>
+        </div>`;
+      }).join('');
+  }
+  list.innerHTML = html || `<p style="color:var(--muted);font-size:0.82rem">道具欄跟徽章收藏目前沒有可加入房間的東西。</p>`;
+}
+
+function addDecorToRoom(itemId) {
+  placeDecor(itemId, 0.5, 0.5).then(() => renderAddPickList());
+}
+
+function addBadgeToRoom(badgeId) {
+  setBadgePosition(badgeId, 0.5, 0.5).then(() => renderAddPickList());
 }
 
 /* ─────────────────────────────────────────
@@ -1051,94 +1240,23 @@ async function buyItem(itemId) {
       // 不然要等下一次丟球失敗才會重新渲染，畫面會跟剛買到的球數兜不起來
       if (document.getElementById('catch-scene-modal').classList.contains('open')) renderBallPicker();
     } else {
-      decorations.push({ itemId, slot: null });
+      decorations.push({ itemId, x: null, y: null });
     }
     renderShopList();
   } catch (e) { /* 網路失敗，維持原狀讓玩家再試一次 */ }
 }
 
 /* ─────────────────────────────────────────
-   插槽選擇彈窗——列出已購買但還沒擺放的道具；若這個插槽已經有東西，額外提供「收回」選項
+   徽章展示——目前徽章只能由GM後台手動頒發（週排行榜還沒有自動結算機制），玩家可以擁有多個，
+   點擊房間裡已擺放的徽章放大檢視；「加入房間」/拖曳移動的邏輯在上面的自由裝潢章節
 ───────────────────────────────────────── */
-let activeSlot = null;
-async function openSlotModal(slot) {
-  await ensureShopItems();
-  activeSlot = slot;
-  renderSlotPickList();
-  document.getElementById('slot-modal').classList.add('open');
-}
-
-function closeSlotModal() {
-  document.getElementById('slot-modal').classList.remove('open');
-  activeSlot = null;
-}
-
-function renderSlotPickList() {
-  const list = document.getElementById('slot-pick-list');
-  const current = decorations.find(d => d.slot === activeSlot);
-  const available = decorations.filter(d => d.slot === null && shopItems[d.itemId] && shopItems[d.itemId].category !== 'wearable');
-  let html = '';
-  if (current && shopItems[current.itemId]) {
-    html += `<div class="slot-pick-item" onclick="placeItem('${current.itemId}', null)">
-      <span class="icon">${shopItems[current.itemId].icon}</span>
-      <div class="info"><div class="name">收回「${shopItems[current.itemId].name}」</div></div>
-    </div>`;
-  }
-  if (!available.length) {
-    html += `<p style="color:var(--muted);font-size:0.82rem">道具欄目前沒有可擺放的道具，先去商城買一些吧！</p>`;
-  } else {
-    html += available.map(d => {
-      const item = shopItems[d.itemId];
-      if (!item) return '';
-      return `<div class="slot-pick-item" onclick="placeItem('${d.itemId}', '${activeSlot}')">
-        <span class="icon">${item.icon}</span>
-        <div class="info"><div class="name">${item.name}</div></div>
-      </div>`;
-    }).join('');
-  }
-  list.innerHTML = html;
-}
-
-async function placeItem(itemId, slot) {
-  try {
-    const res = await fetch('/api/pet/place', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${myToken}` },
-      body: JSON.stringify({ itemId, slot }),
-    });
-    if (!res.ok) return;
-    const entry = decorations.find(d => d.itemId === itemId);
-    if (entry) entry.slot = slot;
-    updateDecorSlotsUI();
-    closeSlotModal();
-  } catch (e) { /* 網路失敗，維持原狀讓玩家再試一次 */ }
-}
-
-/* ─────────────────────────────────────────
-   徽章展示位——目前徽章只能由GM後台手動指定（週排行榜還沒有自動結算機制），
-   有徽章就顯示圖片+可點擊放煙火，沒有就顯示空位鎖頭圖示
-───────────────────────────────────────── */
-function renderBadgeSlot() {
-  const slot = document.getElementById('badge-slot');
-  if (!slot) return;
-  if (badge) {
-    slot.className = '';
-    slot.title = `${badge.name}（點擊放大）`;
-    slot.innerHTML = `<img src="${badge.image}" alt="${badge.name}">`;
-    slot.onclick = () => openBadgeModal();
-  } else {
-    slot.className = 'empty';
-    slot.title = '尚未獲得徽章';
-    slot.innerHTML = '🔒';
-    slot.onclick = null;
-  }
-}
-
-function openBadgeModal() {
-  if (!badge) return;
-  document.getElementById('badge-modal-img').src = badge.image;
-  document.getElementById('badge-modal-img').alt = badge.name;
-  document.getElementById('badge-modal-name').textContent = badge.name;
+function openBadgeModal(badgeId) {
+  if (decorateMode) return;
+  const b = badges.find(x => x.id === badgeId);
+  if (!b) return;
+  document.getElementById('badge-modal-img').src = b.image;
+  document.getElementById('badge-modal-img').alt = b.name;
+  document.getElementById('badge-modal-name').textContent = b.name;
   document.getElementById('badge-modal').classList.add('open');
 }
 
@@ -1148,8 +1266,8 @@ function closeBadgeModal() {
 
 /* ─────────────────────────────────────────
    我的收藏——左側欄（桌面）/ 按鈕+彈窗（窄螢幕）共用同一份渲染邏輯，
-   徽章沿用 startStage() 已經載入的 badge 變數，寶可夢清單另外呼叫一次
-   GET /api/team（跟 pvp.html「我的隊伍」畫面同一支既有端點）。
+   徽章沿用 startStage() 已經載入的 badges 陣列（列出全部擁有的徽章，不只房間裡展示的那些），
+   寶可夢清單另外呼叫一次 GET /api/team（跟 pvp.html「我的隊伍」畫面同一支既有端點）。
 ───────────────────────────────────────── */
 let myTeam = [];
 
@@ -1157,12 +1275,13 @@ function renderBadgeMini() {
   ['collection-badge-mini', 'collection-modal-badge-mini'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
-    el.innerHTML = badge ? `<img src="${badge.image}" alt="${badge.name}">` : '🔒';
-    el.title = badge ? badge.name : '尚未獲得徽章';
+    el.innerHTML = badges.length
+      ? badges.map(b => `<img src="${b.image}" alt="${b.name}" title="${b.name}" onclick="openBadgeModal('${b.id}')">`).join('')
+      : '🔒';
   });
   ['collection-badge-name', 'collection-modal-badge-name'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.textContent = badge ? badge.name : '尚未獲得徽章';
+    if (el) el.textContent = badges.length ? `擁有 ${badges.length} 個徽章` : '尚未獲得徽章';
   });
 }
 
@@ -2126,14 +2245,16 @@ function renderVisitResult(data) {
   renderRoomDecor(stage, friendSpecies ? friendSpecies.type : null);
   renderReadOnlyDecor(stage, data.decorations || []);
 
-  if (data.badge) {
-    const b = document.createElement('img');
-    b.src = data.badge.image;
-    b.alt = data.badge.name;
-    b.title = data.badge.name;
-    b.className = 'visit-badge';
-    stage.appendChild(b);
-  }
+  (data.badges || []).forEach(b => {
+    const el = document.createElement('img');
+    el.src = b.image;
+    el.alt = b.name;
+    el.title = b.name;
+    el.className = 'visit-badge';
+    el.style.left = (b.x * 100) + '%';
+    el.style.top = (b.y * 100) + '%';
+    stage.appendChild(el);
+  });
 
   // 兩隻寶可夢一起顯示在朋友的房間裡：朋友的寶可夢（唯讀）+ 自己的寶可夢，各自獨立閒晃，
   // 純視覺上的「在一起」的感覺
@@ -2158,15 +2279,18 @@ function renderVisitResult(data) {
   resultEl.appendChild(backBtn);
 }
 
-/* 唯讀房間插槽（房間裝飾），穿搭改由setupVisitSprite掛在寶可夢本體上處理，這裡只剩房間3插槽 */
+/* 唯讀房間裝飾——朋友實際擺放的位置(x/y)直接換算成絕對定位，不需要拖曳，
+   穿搭則改由setupVisitSprite掛在寶可夢本體上處理 */
 function renderReadOnlyDecor(stage, decs) {
   decs.forEach(d => {
-    if (!shopItems || !shopItems[d.itemId] || !DECOR_SLOTS.includes(d.slot)) return;
+    if (!shopItems || !shopItems[d.itemId] || d.x == null) return;
     const item = shopItems[d.itemId];
     const el = document.createElement('div');
-    el.className = 'decor-slot ' + d.slot;
+    el.className = 'decor-room-item';
     el.textContent = item.icon;
     el.title = item.name;
+    el.style.left = (d.x * 100) + '%';
+    el.style.top = (d.y * 100) + '%';
     stage.appendChild(el);
   });
 }

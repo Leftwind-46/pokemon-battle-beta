@@ -216,7 +216,7 @@ function renderUsers() {
       <td>${created}</td>
       <td>${u.thisWeekWins}</td>
       <td>${u.isAdmin ? '<span class="badge badge-admin">管理員</span>' : ''} ${u.disabled ? '<span class="badge badge-disabled">已停用</span>' : ''}</td>
-      <td>${u.badgeId && badges[u.badgeId] ? `<span class="badge" style="background:rgba(144,202,249,0.15);color:#90caf9">${badges[u.badgeId].name}</span>` : '<span style="color:var(--muted)">無</span>'}</td>
+      <td>${(u.badgeIds || []).length ? u.badgeIds.filter(bid => badges[bid]).map(bid => `<span class="badge" style="background:rgba(144,202,249,0.15);color:#90caf9">${badges[bid].name}</span>`).join(' ') : '<span style="color:var(--muted)">無</span>'}</td>
       <td>
         <div class="row-actions">
           <button class="btn btn-secondary" onclick="toggleDisable(${u.id}, ${!u.disabled})">${u.disabled ? '啟用' : '停用'}</button>
@@ -236,11 +236,11 @@ function renderUsers() {
           <button class="btn btn-primary" onclick="updateStats(${u.id})">確認</button>
         </div>
         <div id="badge-${u.id}" class="inline-panel" style="display:none">
+          ${(u.badgeIds || []).filter(bid => badges[bid]).map(bid => `<span class="badge" style="background:rgba(144,202,249,0.15);color:#90caf9">${badges[bid].name} <a href="javascript:void(0)" onclick="revokeBadge(${u.id}, '${bid}')" style="color:#ef5350;text-decoration:none;margin-left:0.2rem">✕</a></span>`).join('') || '<span style="color:var(--muted);font-size:0.8rem">尚未擁有任何徽章</span>'}
           <select id="badge-select-${u.id}">
-            <option value="">（無徽章）</option>
-            ${Object.entries(badges).map(([bid, b]) => `<option value="${bid}" ${u.badgeId === bid ? 'selected' : ''}>${b.name}</option>`).join('')}
+            ${Object.entries(badges).filter(([bid]) => !(u.badgeIds || []).includes(bid)).map(([bid, b]) => `<option value="${bid}">${b.name}</option>`).join('')}
           </select>
-          <button class="btn btn-primary" onclick="setBadge(${u.id})">確認</button>
+          <button class="btn btn-primary" onclick="awardBadge(${u.id})">頒發</button>
         </div>
       </td>
     `;
@@ -302,13 +302,21 @@ async function resetPassword(id) {
   togglePanel(`pw-${id}`);
 }
 
-async function setBadge(id) {
-  const badgeId = document.getElementById(`badge-select-${id}`).value || null;
+async function awardBadge(id) {
+  const badgeId = document.getElementById(`badge-select-${id}`).value;
+  if (!badgeId) return;
   const errEl = document.getElementById('dash-err');
   errEl.textContent = '';
-  const { ok } = await api(`/api/admin/users/${id}/badge`, { method: 'POST', body: JSON.stringify({ badgeId }) });
-  if (!ok) { errEl.textContent = '設定徽章失敗，請稍後再試'; return; }
-  togglePanel(`badge-${id}`);
+  const { ok } = await api(`/api/admin/users/${id}/badges/award`, { method: 'POST', body: JSON.stringify({ badgeId }) });
+  if (!ok) { errEl.textContent = '頒發徽章失敗，請稍後再試'; return; }
+  loadUsers();
+}
+
+async function revokeBadge(id, badgeId) {
+  const errEl = document.getElementById('dash-err');
+  errEl.textContent = '';
+  const { ok } = await api(`/api/admin/users/${id}/badges/revoke`, { method: 'POST', body: JSON.stringify({ badgeId }) });
+  if (!ok) { errEl.textContent = '收回徽章失敗，請稍後再試'; return; }
   loadUsers();
 }
 
