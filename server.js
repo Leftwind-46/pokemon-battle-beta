@@ -34,7 +34,7 @@ const POKEMON = [
   // Tier 1
   { mega:{spriteId:10033, type:'grass', type2:'poison', ability:{id:'thick-fat', name:'厚脂肪', trigger:'onDefend', desc:'受到火／冰屬性攻擊傷害 ×0.92'}}, id:3,   name:'妙蛙花',     type:'grass',    type2:'poison',  hp:250, tier:1, ability:{id:'blaze-boost', name:'茂盛', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.1'}, attacks:[{name:'集氣',cost:3,type:'grass',support:true,effect:'focus-energy',bonusEnergy:9},{name:'毒粉刺',dmg:84,cost:7,type:'poison',status:{effect:'poison', chance:0.35},megaBoost:true,bonusEnergy:5},{name:'葉刃',dmg:83,cost:7,type:'grass',megaBoost:true,bonusEnergy:5},{name:'大地之力',dmg:124,cost:12,type:'ground',status:{effect:'burn', chance:0.25}}]},
   { mega:{spriteId:10038, type:'ghost', type2:'poison', ability:{id:'frisk-ward', name:'踩影', trigger:'onDefend', desc:'25% 機率將受到的傷害 ×0.9'}}, id:94,  name:'耿鬼',       type:'ghost',    type2:'poison',  hp:220, tier:1, ability:{id:'poison-heal', name:'毒療', trigger:'onStatus', desc:'中毒時每回合回復 1/8 最大HP，而非扣血'}, attacks:[{name:'催眠術',dmg:71,cost:3,type:'psychic',status:{effect:'sleep', chance:0.5},megaBoost:true,bonusEnergy:6},{name:'幽靈之爪',dmg:72,cost:3,type:'ghost',status:{effect:'poison', chance:0.2},megaBoost:true,bonusEnergy:6},{name:'暗影球',dmg:118,cost:9,type:'ghost',megaBoost:true,bonusEnergy:7},{name:'影舞',cost:2,type:'ghost',support:true,effect:'shadow-dance'}]},
-  { id:68,  name:'怪力',       type:'fighting', hp:260, tier:1, ability:{id:'guts', name:'毅力', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 +40'}, attacks:[{name:'動感拳',dmg:53,cost:2,type:'fighting',megaBoost:true,bonusEnergy:6},{name:'岩石滑落',dmg:92,cost:7,type:'rock',status:{effect:'paralysis', chance:0.15},megaBoost:true,bonusEnergy:5},{name:'詭計',cost:3,type:'fighting',support:true,effect:'trick'},{name:'超強衝擊',dmg:135,cost:12,type:'fighting',selfHeal:0.21}]},
+  { id:68,  name:'怪力',       type:'fighting', hp:260, tier:1, ability:{id:'fighting-domain', name:'鬥氣支配', trigger:'onEnter', desc:'上場時場地切換為羅馬鬥技場；格鬥屬性攻擊傷害額外 +40'}, attacks:[{name:'動感拳',dmg:53,cost:2,type:'fighting',megaBoost:true,bonusEnergy:6},{name:'岩石滑落',dmg:92,cost:7,type:'rock',status:{effect:'paralysis', chance:0.15},megaBoost:true,bonusEnergy:5},{name:'詭計',cost:3,type:'fighting',support:true,effect:'trick'},{name:'超強衝擊',dmg:135,cost:12,type:'fighting',selfHeal:0.21}]},
   { mega:{spriteId:10037, type:'psychic', type2:null, ability:{id:'trace', name:'複製', trigger:'onEnter', desc:'上場時複製對手當前的特性'}}, id:65,  name:'胡地',       type:'psychic',  hp:200, tier:1, ability:{id:'sync-status', name:'同步', trigger:'onDefend', desc:'陷入中毒／麻痺／燒傷時，會將該狀態傳染給攻擊者'}, attacks:[{name:'超能力',dmg:67,cost:1,type:'psychic',status:{effect:'confusion', chance:0.3},megaBoost:true,bonusEnergy:5},{name:'念力',dmg:66,cost:0,type:'psychic',status:{effect:'confusion', chance:0.25},megaBoost:true,bonusEnergy:4},{name:'暗影球',dmg:102,cost:6,type:'ghost',megaBoost:true,bonusEnergy:4},{name:'詭計',cost:3,type:'psychic',support:true,effect:'trick'}]},
   { mega:{spriteId:10304, type:'electric', type2:null, ability:{id:'motor-drive', name:'電氣場地', trigger:'onDefend', desc:'受到電屬性攻擊時完全免疫，並回復 3 點能量'}}, id:26,  name:'雷丘',       type:'electric', hp:200, tier:1, ability:{id:'static', name:'靜電', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者陷入麻痺'}, attacks:[{name:'衝撞',dmg:60,cost:0,type:'normal',megaBoost:true,bonusEnergy:4},{name:'十萬伏特',dmg:60,cost:1,type:'electric',status:{effect:'paralysis', chance:0.3},megaBoost:true,bonusEnergy:5},{name:'電磁衝浪',dmg:120,cost:6,type:'electric',status:{effect:'paralysis', chance:0.2},megaBoost:true,bonusEnergy:4},{name:'撐住',cost:5,type:'electric',support:true,effect:'brace'}]},
   { mega:{spriteId:10076, type:'steel', type2:'psychic', ability:{id:'tough-claws', name:'硬爪', trigger:'onAttack', desc:'攻擊傷害 +40'}}, id:376, name:'巨金怪',     type:'steel',    type2:'psychic', hp:260, tier:1, ability:{id:'solid-rock', name:'硬岩', trigger:'onDefend', desc:'受到剋制（×1.2以上）的攻擊傷害再減少 5%'}, attacks:[{name:'子彈拳',dmg:60,cost:3,type:'steel',megaBoost:true,bonusEnergy:6},{name:'劍舞',cost:4,type:'steel',support:true,effect:'sword-dance'},{name:'閃光炮',dmg:100,cost:8,type:'steel',megaBoost:true,bonusEnergy:6},{name:'隕石衝擊',dmg:143,cost:13,type:'rock',selfHeal:0.25}]},
@@ -42,7 +42,7 @@ const POKEMON = [
   { mega:{spriteId:10041, type:'water', type2:'dark', ability:{id:'mold-breaker', name:'破格', trigger:'onAttack', desc:'攻擊時無視對方的防禦型特性'}}, id:130, name:'暴鯉龍',     type:'water',    type2:'flying',  hp:260, tier:1, ability:{id:'no-weakness-dodge', name:'深淵支配', trigger:'onDefend', desc:'不會受到超效傷害；10% 機率完全閃避攻擊'}, attacks:[{name:'羽棲',cost:8,type:'flying',support:true,effect:'roost'},{name:'龍息',dmg:94,cost:8,type:'water',megaBoost:true,bonusEnergy:6},{name:'怒風',dmg:93,cost:8,type:'flying',megaBoost:true,bonusEnergy:6},{name:'咬碎',dmg:137,cost:13,type:'dark',status:{effect:'sleep', chance:0.2}}]},
   { id:87,  name:'白海獅',     type:'water',    type2:'ice',     hp:240, tier:1, ability:{id:'legacy-boost', name:'指揮', trigger:'onLeave', desc:'陣亡或被換下場時，下一隻上場的我方寶可夢首次攻擊：能量消耗×0.5、傷害+40'}, attacks:[{name:'冷凍光線',dmg:61,cost:3,type:'ice',status:{effect:'freeze', chance:0.15},megaBoost:true,bonusEnergy:5},{name:'集氣',cost:3,type:'water',support:true,effect:'focus-energy',bonusEnergy:9},{name:'大浪',dmg:100,cost:6,type:'water',megaBoost:true,bonusEnergy:4},{name:'衝浪',dmg:148,cost:11,type:'water',status:{effect:'confusion', chance:0.25}}]},
   { id:82,  name:'三合一磁怪',   type:'electric', type2:'steel',   hp:210, tier:1, ability:{id:'item-synergy', name:'機械之心', trigger:'onAttack', desc:'本回合使用過道具卡時，攻擊傷害 +40'}, attacks:[{name:'電磁炮',dmg:65,cost:2,type:'electric',status:{effect:'paralysis', chance:0.3},megaBoost:true,bonusEnergy:6},{name:'集氣',cost:3,type:'electric',support:true,effect:'focus-energy',bonusEnergy:9},{name:'電磁衝浪',dmg:108,cost:8,type:'electric',status:{effect:'paralysis', chance:0.2},megaBoost:true,bonusEnergy:6},{name:'閃光炮',dmg:157,cost:12,type:'steel',selfHeal:0.18}]},
-  { id:28,  name:'穿山王',     type:'ground',   hp:240, tier:1, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊傷害 ×0.9'}, attacks:[{name:'灼熱',cost:1,type:'ground',support:true,effect:'debuff',status:{effect:'burn', chance: 1}},{name:'地震',dmg:100,cost:6,type:'ground',megaBoost:true,bonusEnergy:4},{name:'岩石碎裂',dmg:96,cost:6,type:'rock',megaBoost:true,bonusEnergy:4},{name:'岩石滑落',dmg:144,cost:11,type:'rock',status:{effect:'sleep', chance:0.2}}]},
+  { id:28,  name:'穿山王',     type:'ground',   hp:240, tier:1, ability:{id:'ground-domain', name:'風沙支配', trigger:'onEnter', desc:'上場時場地切換為沙塵暴；地面屬性攻擊傷害額外 +40'}, attacks:[{name:'灼熱',cost:1,type:'ground',support:true,effect:'debuff',status:{effect:'burn', chance: 1}},{name:'地震',dmg:100,cost:6,type:'ground',megaBoost:true,bonusEnergy:4},{name:'岩石碎裂',dmg:96,cost:6,type:'rock',megaBoost:true,bonusEnergy:4},{name:'岩石滑落',dmg:144,cost:11,type:'rock',status:{effect:'sleep', chance:0.2}}]},
   { mega:{spriteId:10071, type:'water', type2:'psychic', ability:{id:'sturdy', name:'硬殼盔甲', trigger:'onDefend', desc:'HP 全滿時，受到會直接擊倒的攻擊會保留 1 HP'}}, id:80,  name:'呆殼獸',     type:'water',    type2:'psychic', hp:260, tier:1, ability:{id:'own-tempo', name:'我行我素', trigger:'onDefend', desc:'不會陷入混亂狀態'}, attacks:[{name:'衝浪',dmg:53,cost:2,type:'water',megaBoost:true,bonusEnergy:6},{name:'精神強擊',dmg:88,cost:7,type:'psychic',status:{effect:'confusion', chance:0.2},megaBoost:true,bonusEnergy:5},{name:'冰凍吐息',cost:3,type:'water',support:true,effect:'debuff',status:{effect:'freeze', chance:1}},{name:'念力',dmg:129,cost:13,type:'psychic',status:{effect:'confusion', chance:0.25}}]},
   { id:823, name:'鋼鎧鴉',     type:'steel',    type2:'flying',  hp:250, tier:1, ability:{id:'pressure', name:'壓迫感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[{name:'鐵翼',dmg:57,cost:1,type:'steel',megaBoost:true,bonusEnergy:5},{name:'鋼鐵身壓',dmg:84,cost:7,type:'steel',megaBoost:true,bonusEnergy:5},{name:'羽棲',cost:8,type:'flying',support:true,effect:'roost'},{name:'颶風飛翔',dmg:122,cost:12,type:'flying',selfHeal:0.28}]},
   { mega:{spriteId:10283, type:'water', type2:'dragon', ability:{id:'adaptability', name:'龍化', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×1.2（原本 ×1.1）'}}, id:160, name:'大力鱷',     type:'water',    hp:260, tier:1, ability:{id:'blaze-boost', name:'激流', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.1'}, attacks:[{name:'冥想',cost:3,type:'water',support:true,effect:'meditate'},{name:'冰凍拳',dmg:91,cost:8,type:'ice',status:{effect:'freeze', chance:0.1},megaBoost:true,bonusEnergy:6},{name:'衝浪',dmg:87,cost:7,type:'water',megaBoost:true,bonusEnergy:5},{name:'水砲',dmg:132,cost:12,type:'water',status:{effect:'paralysis', chance:0.2}}]},
@@ -57,39 +57,39 @@ const POKEMON = [
   { id:131, name:'拉普拉斯',   type:'water',    type2:'ice',     hp:290, tier:2, ability:{id:'drizzle-ocean', name:'海洋支配', trigger:'onEnter', desc:'上場時場地切換為海洋世界；水／冰屬性攻擊傷害額外 +40'}, attacks:[{name:'衝浪',dmg:52,cost:1,type:'water',megaBoost:true,bonusEnergy:5},{name:'冷凍光線',dmg:85,cost:7,type:'ice',status:{effect:'freeze', chance:0.15},megaBoost:true,bonusEnergy:5},{name:'雷電',dmg:132,cost:12,type:'electric',selfHeal:0.21},{name:'暴風雪',dmg:125,cost:13,type:'ice',selfHeal:0.17}]},
   { mega:{spriteId:10058, type:'dragon', type2:'ground', ability:{id:'blaze-boost', name:'沙之力', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.1'}}, id:445, name:'烈咬陸鯊',   type:'dragon',   type2:'ground',  hp:280, tier:2, ability:{id:'frisk-ward', name:'沙隱', trigger:'onDefend', desc:'25% 機率將受到的傷害 ×0.9'}, attacks:[{name:'龍爪',dmg:53,cost:1,type:'dragon',megaBoost:true,bonusEnergy:5},{name:'集氣',cost:3,type:'dragon',support:true,effect:'focus-energy',bonusEnergy:9},{name:'地震',dmg:125,cost:11,type:'ground',selfHeal:0.23},{name:'龍之隕星',dmg:123,cost:11,type:'dragon',status:{effect:'poison', chance:0.3}}]},
   { id:210, name:'布魯皇',     type:'fairy',    hp:300, tier:2, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊傷害 ×0.9'}, attacks:[{name:'仙女之力',dmg:61,cost:3,type:'fairy',megaBoost:true,bonusEnergy:6},{name:'雷電',dmg:94,cost:8,type:'electric',status:{effect:'paralysis', chance:0.15},megaBoost:true,bonusEnergy:6},{name:'咬碎',dmg:143,cost:14,type:'dark',status:{effect:'sleep', chance:0.2}},{name:'地震',dmg:138,cost:13,type:'ground',status:{effect:'confusion', chance:0.25}}]},
-  { id:700, name:'仙子伊布',   type:'fairy',    hp:300, tier:2, ability:{id:'frisk-ward', name:'迷人之軀', trigger:'onDefend', desc:'25% 機率將受到的傷害 ×0.9'}, attacks:[{name:'妖精風',dmg:61,cost:3,type:'fairy',megaBoost:true,bonusEnergy:6},{name:'冰凍光束',dmg:95,cost:9,type:'ice',status:{effect:'freeze', chance:0.15},megaBoost:true,bonusEnergy:7},{name:'月亮力量',dmg:141,cost:13,type:'fairy',status:{effect:'poison', chance:0.3}},{name:'暗影球',dmg:137,cost:14,type:'ghost',status:{effect:'freeze', chance:0.15}}]},
+  { id:700, name:'仙子伊布',   type:'fairy',    hp:300, tier:2, ability:{id:'fairy-domain', name:'妖精支配', trigger:'onEnter', desc:'上場時場地切換為妖精結界原野；妖精屬性攻擊傷害額外 +40'}, attacks:[{name:'妖精風',dmg:61,cost:3,type:'fairy',megaBoost:true,bonusEnergy:6},{name:'冰凍光束',dmg:95,cost:9,type:'ice',status:{effect:'freeze', chance:0.15},megaBoost:true,bonusEnergy:7},{name:'月亮力量',dmg:141,cost:13,type:'fairy',status:{effect:'poison', chance:0.3}},{name:'暗影球',dmg:137,cost:14,type:'ghost',status:{effect:'freeze', chance:0.15}}]},
   { mega:{spriteId:10285, type:'ice', type2:'ghost', ability:{id:'solid-rock', name:'降雪', trigger:'onDefend', desc:'受到剋制（×1.2以上）的攻擊傷害再減少 5%'}}, id:478, name:'雪妖女',     type:'ice',      type2:'ghost',   hp:280, tier:2, ability:{id:'frisk-ward', name:'雪隱', trigger:'onDefend', desc:'25% 機率將受到的傷害 ×0.9'}, attacks:[{name:'冰凍光束',dmg:51,cost:0,type:'ice',status:{effect:'freeze', chance:0.15},megaBoost:true,bonusEnergy:4},{name:'怒風',dmg:82,cost:6,type:'flying',megaBoost:true,bonusEnergy:4},{name:'冰耳光',dmg:122,cost:11,type:'ice',status:{effect:'sleep', chance:0.2}},{name:'冥想',cost:3,type:'ice',support:true,effect:'meditate'}]},
-  { id:614, name:'凍原熊',     type:'ice',      hp:320, tier:2, ability:{id:'frisk-ward', name:'雪隱', trigger:'onDefend', desc:'25% 機率將受到的傷害 ×0.9'}, attacks:[{name:'冰耳光',dmg:88,cost:7,type:'ice',status:{effect:'freeze', chance:0.15},megaBoost:true,bonusEnergy:5},{name:'大浪',dmg:126,cost:12,type:'water',status:{effect:'poison', chance:0.3}},{name:'暴風雪',dmg:126,cost:11,type:'ice',status:{effect:'burn', chance:0.25}},{name:'地震',dmg:128,cost:12,type:'ground',status:{effect:'poison', chance:0.3}}]},
+  { id:614, name:'凍原熊',     type:'ice',      hp:320, tier:2, ability:{id:'ice-domain', name:'冰霜支配', trigger:'onEnter', desc:'上場時場地切換為永凍冰原；冰屬性攻擊傷害額外 +40'}, attacks:[{name:'冰耳光',dmg:88,cost:7,type:'ice',status:{effect:'freeze', chance:0.15},megaBoost:true,bonusEnergy:5},{name:'大浪',dmg:126,cost:12,type:'water',status:{effect:'poison', chance:0.3}},{name:'暴風雪',dmg:126,cost:11,type:'ice',status:{effect:'burn', chance:0.25}},{name:'地震',dmg:128,cost:12,type:'ground',status:{effect:'poison', chance:0.3}}]},
   { id:430, name:'烏鴉頭頭',     type:'dark',     type2:'flying',  hp:300, tier:2, ability:{id:'insomnia', name:'不眠', trigger:'onDefend', desc:'不會陷入睡眠狀態'}, attacks:[{name:'夜斬',dmg:61,cost:3,type:'dark',megaBoost:true,bonusEnergy:6},{name:'夜騷動',dmg:100,cost:8,type:'dark',megaBoost:true,bonusEnergy:6},{name:'空氣斬',dmg:145,cost:14,type:'flying',selfHeal:0.22},{name:'怒風',dmg:139,cost:14,type:'flying',status:{effect:'poison', chance:0.3}}]},
-  { id:466, name:'電擊魔獸',   type:'electric', hp:300, tier:2, ability:{id:'motor-drive', name:'電氣引擎', trigger:'onDefend', desc:'受到電屬性攻擊時完全免疫，並回復 3 點能量'}, attacks:[{name:'電磁衝浪',dmg:56,cost:3,type:'electric',status:{effect:'paralysis', chance:0.25},megaBoost:true,bonusEnergy:6},{name:'動感拳',dmg:96,cost:8,type:'fighting',megaBoost:true,bonusEnergy:6},{name:'十萬伏特',dmg:138,cost:14,type:'electric',selfHeal:0.18},{name:'冰凍拳',dmg:138,cost:14,type:'ice',status:{effect:'poison', chance:0.3}}]},
+  { id:466, name:'電擊魔獸',   type:'electric', hp:300, tier:2, ability:{id:'electric-domain', name:'雷霆支配', trigger:'onEnter', desc:'上場時場地切換為雷雲庇護所；電屬性攻擊傷害額外 +40'}, attacks:[{name:'電磁衝浪',dmg:56,cost:3,type:'electric',status:{effect:'paralysis', chance:0.25},megaBoost:true,bonusEnergy:6},{name:'動感拳',dmg:96,cost:8,type:'fighting',megaBoost:true,bonusEnergy:6},{name:'十萬伏特',dmg:138,cost:14,type:'electric',selfHeal:0.18},{name:'冰凍拳',dmg:138,cost:14,type:'ice',status:{effect:'poison', chance:0.3}}]},
   { id:467, name:'鴨嘴炎獸',   type:'fire',     hp:300, tier:2, ability:{id:'flame-body', name:'火焰之軀', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者陷入燒傷'}, attacks:[{name:'火焰衝擊',dmg:63,cost:3,type:'fire',status:{effect:'burn', chance:0.25},megaBoost:true,bonusEnergy:6},{name:'地震',dmg:98,cost:9,type:'ground',megaBoost:true,bonusEnergy:7},{name:'噴射火焰',dmg:141,cost:14,type:'fire',status:{effect:'paralysis', chance:0.2}},{name:'雷電',dmg:143,cost:14,type:'electric',status:{effect:'poison', chance:0.3}}]},
-  { id:157, name:'火爆獸',     type:'fire',                      hp:260, tier:2, ability:{id:'blaze-boost', name:'猛火', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.1'}, attacks:[{name:'詭計',cost:3,type:'fire',support:true,effect:'trick'},{name:'地震',dmg:91,cost:9,type:'ground',megaBoost:true,bonusEnergy:7},{name:'爆炸火焰',dmg:94,cost:9,type:'fire',megaBoost:true,bonusEnergy:7},{name:'烈火強衝',dmg:136,cost:13,type:'fire',status:{effect:'poison', chance:0.3}}]},
+  { id:157, name:'火爆獸',     type:'fire',                      hp:260, tier:2, ability:{id:'drought-lava', name:'熔岩大地', trigger:'onEnter', desc:'上場時場地切換為熔岩火山；地面／火屬性攻擊傷害額外 +40'}, attacks:[{name:'詭計',cost:3,type:'fire',support:true,effect:'trick'},{name:'地震',dmg:91,cost:9,type:'ground',megaBoost:true,bonusEnergy:7},{name:'爆炸火焰',dmg:94,cost:9,type:'fire',megaBoost:true,bonusEnergy:7},{name:'烈火強衝',dmg:136,cost:13,type:'fire',status:{effect:'poison', chance:0.3}}]},
   { mega:{spriteId:10282, type:'grass', type2:'fairy', ability:{id:'huge-power', name:'太陽核心', trigger:'onAttack', desc:'攻擊傷害固定 +40'}}, id:154, name:'大竺葵',     type:'grass',                     hp:270, tier:2, ability:{id:'blaze-boost', name:'茂盛', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.1'}, attacks:[{name:'詭計',cost:3,type:'grass',support:true,effect:'trick'},{name:'大地之力',dmg:103,cost:10,type:'ground',megaBoost:true,bonusEnergy:8},{name:'花瓣風暴',dmg:102,cost:9,type:'grass',megaBoost:true,bonusEnergy:7},{name:'葉刃',dmg:145,cost:15,type:'grass',status:{effect:'paralysis', chance:0.2}}]},
   // Tier 3
   { id:383, name:'固拉多',     type:'ground',   hp:340, tier:3, ability:{id:'drought-lava', name:'熔岩大地', trigger:'onEnter', desc:'上場時場地切換為熔岩火山；地面／火屬性攻擊傷害額外 +40'}, attacks:[{name:'地震',dmg:67,cost:11,type:'ground',megaBoost:true,bonusEnergy:6},{name:'岩石碎裂',dmg:83,cost:10,type:'rock',selfHeal:0.22},{name:'火焰噴射',dmg:83,cost:10,type:'fire',status:{effect:'confusion', chance:0.25}},{name:'原始大地',dmg:83,cost:10,type:'fire',selfHeal:0.26}]},
   { id:382, name:'蓋歐卡',     type:'water',    hp:340, tier:3, ability:{id:'drizzle-ocean', name:'海洋支配', trigger:'onEnter', desc:'上場時場地切換為海洋世界；水／冰屬性攻擊傷害額外 +40'}, attacks:[{name:'源起之波',dmg:65,cost:10,type:'water',megaBoost:true,bonusEnergy:5},{name:'雷電',dmg:82,cost:10,type:'electric',status:{effect:'burn', chance:0.25}},{name:'大浪',dmg:80,cost:9,type:'water',selfHeal:0.16},{name:'原始海洋',dmg:80,cost:9,type:'ice',selfHeal:0.21}]},
   { mega:{spriteId:10079, type:'dragon', type2:'flying', ability:{id:'solid-rock', name:'德爾塔氣流', trigger:'onDefend', desc:'受到剋制（×1.2以上）的攻擊傷害再減少 5%'}}, id:384, name:'烈空坐',     type:'dragon',   type2:'flying',  hp:360, tier:3, ability:{id:'weaken-buffs', name:'威壓氣場', trigger:'onDefend', desc:'對手的攻擊力提升效果減半'}, attacks:[{name:'神速',dmg:74,cost:12,type:'normal',megaBoost:true,bonusEnergy:7},{name:'火焰噴射',dmg:86,cost:11,type:'fire',status:{effect:'freeze', chance:0.15}},{name:'怒風',dmg:86,cost:11,type:'flying',status:{effect:'poison', chance:0.3}},{name:'龍之隕星',dmg:86,cost:11,type:'dragon',status:{effect:'burn', chance:0.25}}]},
   { id:1008,name:'密勒頓',     type:'electric', type2:'dragon',  hp:360, tier:3, ability:{id:'blaze-boost', name:'強子引擎', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.1'}, attacks:[{name:'電磁衝浪',dmg:77,cost:12,type:'electric',status:{effect:'paralysis', chance:0.25},megaBoost:true,bonusEnergy:7},{name:'龍息',dmg:86,cost:11,type:'dragon',selfHeal:0.17},{name:'電磁炮',dmg:86,cost:11,type:'electric',status:{effect:'poison', chance:0.3}},{name:'未來雷霆',dmg:86,cost:11,type:'psychic',selfHeal:0.23}]},
-  { id:250, name:'鳳王',       type:'fire',     type2:'flying',  hp:340, tier:3, ability:{id:'pressure', name:'壓迫感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[{name:'聖焰',dmg:70,cost:11,type:'fire',status:{effect:'burn', chance:0.3},megaBoost:true,bonusEnergy:6},{name:'怒風',dmg:84,cost:9,type:'flying',status:{effect:'paralysis', chance:0.2}},{name:'超能力',dmg:84,cost:9,type:'psychic',selfHeal:0.27},{name:'神聖之焰',dmg:84,cost:9,type:'flying',selfHeal:0.2}]},
+  { id:250, name:'鳳王',       type:'fire',     type2:'flying',  hp:340, tier:3, ability:{id:'flying-domain', name:'疾風支配', trigger:'onEnter', desc:'上場時場地切換為疾風之翼；飛行屬性攻擊傷害額外 +40'}, attacks:[{name:'聖焰',dmg:70,cost:11,type:'fire',status:{effect:'burn', chance:0.3},megaBoost:true,bonusEnergy:6},{name:'怒風',dmg:84,cost:9,type:'flying',status:{effect:'paralysis', chance:0.2}},{name:'超能力',dmg:84,cost:9,type:'psychic',selfHeal:0.27},{name:'神聖之焰',dmg:84,cost:9,type:'flying',selfHeal:0.2}]},
   { id:249, name:'洛奇亞',     type:'psychic',  type2:'flying',  hp:340, tier:3, ability:{id:'psychic-domain', name:'幻境支配', trigger:'onEnter', desc:'上場時場地切換為魔幻空間；超能力屬性攻擊傷害額外 +40'}, attacks:[{name:'怒風',dmg:69,cost:11,type:'flying',megaBoost:true,bonusEnergy:6},{name:'冰凍光束',dmg:81,cost:12,type:'ice',status:{effect:'confusion', chance:0.25}},{name:'暴風',dmg:81,cost:12,type:'flying',status:{effect:'sleep', chance:0.2}},{name:'心靈衝擊',dmg:81,cost:12,type:'psychic',status:{effect:'freeze', chance:0.15}}]},
   { id:1007,name:'故勒頓',     type:'fighting', type2:'dragon',  hp:360, tier:3, ability:{id:'blaze-boost', name:'緋紅脈動', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.1'}, attacks:[{name:'決勝衝擊',dmg:74,cost:12,type:'fighting',megaBoost:true,bonusEnergy:7},{name:'火焰噴射',dmg:83,cost:10,type:'fire',status:{effect:'burn', chance:0.25}},{name:'地震',dmg:83,cost:10,type:'ground',status:{effect:'sleep', chance:0.2}},{name:'遠古之力',dmg:83,cost:10,type:'rock',selfHeal:0.3}]},
   { mega:{spriteId:10051, type:'psychic', type2:'fairy', ability:{id:'adaptability', name:'妖精皮膚', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×1.2（原本 ×1.1）'}}, id:282, name:'沙奈朵',     type:'psychic',  type2:'fairy',   hp:320, tier:3, ability:{id:'sync-status', name:'同步', trigger:'onDefend', desc:'陷入中毒／麻痺／燒傷時，會將該狀態傳染給攻擊者'}, attacks:[{name:'妖精之力',dmg:83,cost:6,type:'fairy',megaBoost:true,bonusEnergy:4},{name:'暗影球',dmg:120,cost:11,type:'ghost',selfHeal:0.26},{name:'月亮力量',dmg:124,cost:11,type:'fairy',status:{effect:'poison', chance:0.3}},{name:'精神強擊',dmg:123,cost:11,type:'psychic',selfHeal:0.24}]},
   { id:144, name:'急凍鳥',     type:'ice',      type2:'flying',  hp:340, tier:3, ability:{id:'pressure', name:'壓迫感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[{name:'暴風雪',dmg:72,cost:11,type:'ice',status:{effect:'freeze', chance:0.25},megaBoost:true,bonusEnergy:6},{name:'冷凍光線',dmg:86,cost:11,type:'ice',status:{effect:'sleep', chance:0.2}},{name:'暴風',dmg:86,cost:11,type:'flying',selfHeal:0.22},{name:'怒風',dmg:86,cost:11,type:'flying',selfHeal:0.25}]},
   { id:145, name:'閃電鳥',     type:'electric', type2:'flying',  hp:340, tier:3, ability:{id:'pressure', name:'壓迫感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[{name:'雷霆',dmg:66,cost:11,type:'electric',status:{effect:'paralysis', chance:0.3},megaBoost:true,bonusEnergy:6},{name:'電磁衝浪',dmg:89,cost:12,type:'electric',status:{effect:'sleep', chance:0.2}},{name:'雷電',dmg:73,cost:12,type:'electric',selfHeal:0.25},{name:'怒風',dmg:89,cost:8,type:'flying',status:{effect:'paralysis', chance:0.2}}]},
   { id:146, name:'火焰鳥',     type:'fire',     type2:'flying',  hp:340, tier:3, ability:{id:'pressure', name:'壓迫感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[{name:'火焰衝擊',dmg:72,cost:11,type:'fire',status:{effect:'burn', chance:0.3},megaBoost:true,bonusEnergy:6},{name:'超能力',dmg:76,cost:9,type:'psychic',selfHeal:0.16},{name:'噴射火焰',dmg:76,cost:9,type:'fire',status:{effect:'paralysis', chance:0.2}},{name:'怒風',dmg:76,cost:9,type:'flying',selfHeal:0.28}]},
-  { id:888,name:'蒼響',      type:'fairy',    type2:'steel',   hp:370, tier:3, ability:{id:'huge-power', name:'不撓之劍', trigger:'onAttack', desc:'攻擊傷害固定 +40'}, attacks:[{name:'鐵頭功',dmg:78,cost:13,type:'steel',megaBoost:true,bonusEnergy:8},{name:'剛劍',dmg:94,cost:11,type:'steel',selfHeal:0.19},{name:'接近戰',dmg:94,cost:11,type:'fighting',selfHeal:0.21},{name:'神秘劍',dmg:94,cost:11,type:'fairy',selfHeal:0.18}]},
+  { id:888,name:'蒼響',      type:'fairy',    type2:'steel',   hp:370, tier:3, ability:{id:'steel-domain', name:'鋼鐵支配', trigger:'onEnter', desc:'上場時場地切換為鋼鐵堡壘；鋼屬性攻擊傷害額外 +40'}, attacks:[{name:'鐵頭功',dmg:78,cost:13,type:'steel',megaBoost:true,bonusEnergy:8},{name:'剛劍',dmg:94,cost:11,type:'steel',selfHeal:0.19},{name:'接近戰',dmg:94,cost:11,type:'fighting',selfHeal:0.21},{name:'神秘劍',dmg:94,cost:11,type:'fairy',selfHeal:0.18}]},
   { id:716, name:'哲爾尼亞斯', type:'fairy',    hp:330, tier:3, ability:{id:'adaptability', name:'妖精氣場', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×1.2（原本 ×1.1）'}, attacks:[{name:'月亮力量',dmg:68,cost:10,type:'fairy',megaBoost:true,bonusEnergy:5},{name:'仙子之息',dmg:74,cost:11,type:'fairy',status:{effect:'paralysis', chance:0.2}},{name:'光之波動',dmg:74,cost:11,type:'fairy',status:{effect:'freeze', chance:0.15}},{name:'精神強擊',dmg:74,cost:11,type:'psychic',selfHeal:0.15}]},
   { id:378, name:'雷吉艾斯',   type:'ice',      hp:370, tier:3, ability:{id:'thick-fat', name:'厚脂肪', trigger:'onDefend', desc:'受到火／冰屬性攻擊傷害 ×0.92'}, attacks:[{name:'暴風雪',dmg:78,cost:13,type:'ice',status:{effect:'freeze', chance:0.2},megaBoost:true,bonusEnergy:8},{name:'閃光炮',dmg:84,cost:13,type:'steel',status:{effect:'paralysis', chance:0.2}},{name:'冰耳光',dmg:84,cost:13,type:'ice',status:{effect:'confusion', chance:0.25}},{name:'電磁砲',dmg:84,cost:13,type:'electric',status:{effect:'burn', chance:0.25}}]},
   { id:717, name:'伊裴爾塔爾', type:'dark',     type2:'flying',  hp:350, tier:3, ability:{id:'no-weakness-dodge', name:'深淵支配', trigger:'onDefend', desc:'不會受到超效傷害；10% 機率完全閃避攻擊'}, attacks:[{name:'羽棲',cost:11,type:'flying',support:true,effect:'roost'},{name:'朽滅之歌',dmg:93,cost:12,type:'flying',selfHeal:0.16},{name:'空氣斬',dmg:77,cost:12,type:'flying',status:{effect:'freeze', chance:0.15}},{name:'夜騷動',dmg:93,cost:12,type:'dark',selfHeal:0.26}]},
   { id:483, name:'帝牙盧卡',   type:'steel',    type2:'dragon',  hp:360, tier:3, ability:{id:'dragon-domain', name:'龍域降臨', trigger:'onEnter', desc:'上場時場地切換為龍之谷；龍屬性攻擊傷害額外 +40'}, attacks:[{name:'閃光炮',dmg:76,cost:12,type:'steel',megaBoost:true,bonusEnergy:7},{name:'鋼鐵翼',dmg:95,cost:10,type:'steel',selfHeal:0.19},{name:'龍爪',dmg:95,cost:10,type:'dragon',selfHeal:0.21},{name:'時間咆哮',dmg:95,cost:10,type:'dragon',selfHeal:0.2}]},
-  { id:484, name:'帕路奇亞',   type:'water',    type2:'dragon',  hp:360, tier:3, ability:{id:'pressure', name:'壓迫感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[{name:'衝浪',dmg:76,cost:12,type:'water',megaBoost:true,bonusEnergy:7},{name:'龍之脈動',dmg:82,cost:11,type:'dragon',status:{effect:'paralysis', chance:0.2}},{name:'水之脈動',dmg:82,cost:11,type:'water',selfHeal:0.25},{name:'空間扭曲',dmg:98,cost:11,type:'dragon',selfHeal:0.15}]},
-  { id:727, name:'熾焰咆哮虎', type:'fire',     type2:'dark',    hp:300, tier:2, ability:{id:'blaze-boost', name:'猛火', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.1'}, attacks:[{name:'火焰噴射',dmg:59,cost:3,type:'fire',status:{effect:'burn', chance:0.25},megaBoost:true,bonusEnergy:6},{name:'暗黑強打',dmg:95,cost:9,type:'dark',megaBoost:true,bonusEnergy:7},{name:'超強衝擊',dmg:135,cost:13,type:'fighting',status:{effect:'paralysis', chance:0.2}},{name:'赤焰衝擊',dmg:138,cost:13,type:'fire',selfHeal:0.2}]},
+  { id:484, name:'帕路奇亞',   type:'water',    type2:'dragon',  hp:360, tier:3, ability:{id:'dragon-domain', name:'龍域降臨', trigger:'onEnter', desc:'上場時場地切換為龍之谷；龍屬性攻擊傷害額外 +40'}, attacks:[{name:'衝浪',dmg:76,cost:12,type:'water',megaBoost:true,bonusEnergy:7},{name:'龍之脈動',dmg:82,cost:11,type:'dragon',status:{effect:'paralysis', chance:0.2}},{name:'水之脈動',dmg:82,cost:11,type:'water',selfHeal:0.25},{name:'空間扭曲',dmg:98,cost:11,type:'dragon',selfHeal:0.15}]},
+  { id:727, name:'熾焰咆哮虎', type:'fire',     type2:'dark',    hp:300, tier:2, ability:{id:'dark-domain', name:'暗夜支配', trigger:'onEnter', desc:'上場時場地切換為暗夜詛咒領域；惡屬性攻擊傷害額外 +40'}, attacks:[{name:'火焰噴射',dmg:59,cost:3,type:'fire',status:{effect:'burn', chance:0.25},megaBoost:true,bonusEnergy:6},{name:'暗黑強打',dmg:95,cost:9,type:'dark',megaBoost:true,bonusEnergy:7},{name:'超強衝擊',dmg:135,cost:13,type:'fighting',status:{effect:'paralysis', chance:0.2}},{name:'赤焰衝擊',dmg:138,cost:13,type:'fire',selfHeal:0.2}]},
   // 新增：補足各屬性
   { id:128, name:'肯泰羅',     type:'normal',                    hp:240, tier:1, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊傷害 ×0.9'}, attacks:[{name:'橫衝直撞',dmg:62,cost:1,type:'normal',status:{effect:'confusion', chance:0.2},megaBoost:true,bonusEnergy:5},{name:'撐住',cost:5,type:'normal',support:true,effect:'brace'},{name:'地震',dmg:97,cost:7,type:'ground',megaBoost:true,bonusEnergy:5},{name:'強力碰撞',dmg:151,cost:12,type:'normal',selfHeal:0.21}]},
   { id:295, name:'爆音怪',     type:'normal',                    hp:240, tier:1, ability:{id:'true-damage', name:'不動如山', trigger:'onAttack', desc:'攻擊傷害不會被對方的防禦特性、閃避或撐住效果影響'}, attacks:[{name:'冥想',cost:3,type:'normal',support:true,effect:'meditate'},{name:'噴火',dmg:98,cost:6,type:'fire',status:{effect:'burn', chance:0.2},megaBoost:true,bonusEnergy:4},{name:'衝浪',dmg:96,cost:6,type:'water',megaBoost:true,bonusEnergy:4},{name:'破壞光線',dmg:144,cost:11,type:'normal',status:{effect:'paralysis', chance:0.2}}]},
   { mega:{spriteId:10065, type:'grass', type2:'dragon', ability:{id:'motor-drive', name:'避雷針', trigger:'onDefend', desc:'受到電屬性攻擊時完全免疫，並回復 3 點能量'}}, id:254, name:'蜥蜴王',     type:'grass',                     hp:260, tier:2, ability:{id:'blaze-boost', name:'茂盛', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.1'}, attacks:[{name:'電球',dmg:59,cost:2,type:'electric',status:{effect:'paralysis', chance:0.15},megaBoost:true,bonusEnergy:6},{name:'能量球',dmg:91,cost:8,type:'grass',status:{effect:'confusion', chance:0.15},megaBoost:true,bonusEnergy:6},{name:'大地之力',dmg:89,cost:7,type:'ground',megaBoost:true,bonusEnergy:5},{name:'冥想',cost:3,type:'grass',support:true,effect:'meditate'}]},
-  { id:24,  name:'阿柏怪',     type:'poison',                    hp:200, tier:1, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊傷害 ×0.9'}, attacks:[{name:'纏繞',dmg:66,cost:0,type:'normal',status:{effect:'sleep', chance:0.25},megaBoost:true,bonusEnergy:4},{name:'毒牙',dmg:64,cost:0,type:'poison',status:{effect:'poison', chance:0.35},megaBoost:true,bonusEnergy:4},{name:'甩尾',dmg:96,cost:6,type:'normal',megaBoost:true,bonusEnergy:4},{name:'撐住',cost:5,type:'poison',support:true,effect:'brace'}]},
-  { id:73,  name:'毒刺水母',   type:'water',    type2:'poison',  hp:220, tier:1, ability:{id:'poison-point', name:'毒刺', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者中毒'}, attacks:[{name:'集氣',cost:3,type:'water',support:true,effect:'focus-energy',bonusEnergy:9},{name:'毒液',dmg:74,cost:4,type:'poison',status:{effect:'poison', chance:0.3},megaBoost:true,bonusEnergy:7},{name:'衝浪',dmg:120,cost:9,type:'water',megaBoost:true,bonusEnergy:7},{name:'水砲',dmg:170,cost:14,type:'water',status:{effect:'burn', chance:0.25}}]},
+  { id:24,  name:'阿柏怪',     type:'poison',                    hp:200, tier:1, ability:{id:'poison-domain', name:'劇毒支配', trigger:'onEnter', desc:'上場時場地切換為劇毒領域；毒屬性攻擊傷害額外 +40'}, attacks:[{name:'纏繞',dmg:66,cost:0,type:'normal',status:{effect:'sleep', chance:0.25},megaBoost:true,bonusEnergy:4},{name:'毒牙',dmg:64,cost:0,type:'poison',status:{effect:'poison', chance:0.35},megaBoost:true,bonusEnergy:4},{name:'甩尾',dmg:96,cost:6,type:'normal',megaBoost:true,bonusEnergy:4},{name:'撐住',cost:5,type:'poison',support:true,effect:'brace'}]},
+  { id:73,  name:'毒刺水母',   type:'water',    type2:'poison',  hp:220, tier:1, ability:{id:'drizzle-ocean', name:'海洋支配', trigger:'onEnter', desc:'上場時場地切換為海洋世界；水／冰屬性攻擊傷害額外 +40'}, attacks:[{name:'集氣',cost:3,type:'water',support:true,effect:'focus-energy',bonusEnergy:9},{name:'毒液',dmg:74,cost:4,type:'poison',status:{effect:'poison', chance:0.3},megaBoost:true,bonusEnergy:7},{name:'衝浪',dmg:120,cost:9,type:'water',megaBoost:true,bonusEnergy:7},{name:'水砲',dmg:170,cost:14,type:'water',status:{effect:'burn', chance:0.25}}]},
   { id:454, name:'毒骷蛙',     type:'fighting', type2:'poison',  hp:230, tier:1, ability:{id:'water-absorb', name:'乾燥皮膚', trigger:'onDefend', desc:'受到水屬性攻擊時完全免疫，並回復最大HP的1/4'}, attacks:[{name:'毒粉',cost:1,type:'fighting',support:true,effect:'debuff',status:{effect:'poison', chance: 1}},{name:'突擊',dmg:83,cost:4,type:'dark',megaBoost:true,bonusEnergy:7},{name:'十字劈',dmg:125,cost:9,type:'fighting',megaBoost:true,bonusEnergy:7},{name:'近身戰',dmg:179,cost:14,type:'fighting',selfHeal:0.27}]},
   { id:553, name:'流氓鱷',     type:'ground',   type2:'dark',    hp:270, tier:2, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊傷害 ×0.9'}, attacks:[{name:'岩石滑落',dmg:69,cost:4,type:'rock',status:{effect:'paralysis', chance:0.15},megaBoost:true,bonusEnergy:7},{name:'集氣',cost:3,type:'ground',support:true,effect:'focus-energy',bonusEnergy:9},{name:'地震',dmg:102,cost:9,type:'ground',megaBoost:true,bonusEnergy:7},{name:'夜斬',dmg:147,cost:14,type:'dark',selfHeal:0.24}]},
   { id:641, name:'龍捲雲',     type:'flying',                    hp:290, tier:2, ability:{id:'item-synergy', name:'機械之心', trigger:'onAttack', desc:'本回合使用過道具卡時，攻擊傷害 +40'}, attacks:[{name:'空氣斬',dmg:50,cost:1,type:'flying',status:{effect:'confusion', chance:0.2},megaBoost:true,bonusEnergy:5},{name:'雷電',dmg:86,cost:8,type:'electric',status:{effect:'paralysis', chance:0.2},megaBoost:true,bonusEnergy:6},{name:'颶風',dmg:128,cost:12,type:'flying',selfHeal:0.22},{name:'暴風',dmg:132,cost:12,type:'flying',selfHeal:0.18}]},
@@ -101,7 +101,7 @@ const POKEMON = [
   { mega:{spriteId:10049, type:'rock', type2:'dark', ability:{id:'solid-rock', name:'揚沙', trigger:'onDefend', desc:'受到剋制（×1.2以上）的攻擊傷害再減少 5%'}}, id:248, name:'班基拉斯',   type:'rock',     type2:'dark',    hp:300, tier:2, ability:{id:'solid-rock', name:'揚沙', trigger:'onDefend', desc:'受到剋制（×1.2以上）的攻擊傷害再減少 5%'}, attacks:[{name:'碎岩',dmg:68,cost:5,type:'rock',status:{effect:'paralysis', chance:0.15},megaBoost:true,bonusEnergy:8},{name:'咬碎',dmg:103,cost:9,type:'dark',status:{effect:'confusion', chance:0.2},megaBoost:true,bonusEnergy:7},{name:'地震',dmg:145,cost:15,type:'ground',selfHeal:0.21},{name:'岩石炮',dmg:147,cost:14,type:'rock',status:{effect:'sleep', chance:0.2}}]},
   { mega:{spriteId:10042, type:'rock', type2:'flying', ability:{id:'tough-claws', name:'硬爪', trigger:'onAttack', desc:'攻擊傷害 +40'}}, id:142, name:'化石翼龍',   type:'rock',     type2:'flying',  hp:260, tier:2, ability:{id:'no-weakness-dodge', name:'深淵支配', trigger:'onDefend', desc:'不會受到超效傷害；10% 機率完全閃避攻擊'}, attacks:[{name:'咬碎',dmg:62,cost:4,type:'dark',status:{effect:'confusion', chance:0.15},megaBoost:true,bonusEnergy:7},{name:'翼擊',dmg:99,cost:8,type:'flying',megaBoost:true,bonusEnergy:6},{name:'羽棲',cost:8,type:'flying',support:true,effect:'roost'},{name:'岩石炮',dmg:140,cost:14,type:'rock',selfHeal:0.2}]},
   { id:526, name:'龐岩怪',     type:'rock',                      hp:280, tier:2, ability:{id:'rock-domain', name:'磐岩支配', trigger:'onEnter', desc:'上場時場地切換為岩石地帶；岩石屬性攻擊傷害額外 +40'}, attacks:[{name:'閃光炮',dmg:52,cost:1,type:'steel',megaBoost:true,bonusEnergy:5},{name:'冥想',cost:3,type:'rock',support:true,effect:'meditate'},{name:'地震',dmg:121,cost:12,type:'ground',status:{effect:'freeze', chance:0.15}},{name:'岩石炮',dmg:120,cost:11,type:'rock',status:{effect:'poison', chance:0.3}}]},
-  { id:477, name:'黑夜魔靈',   type:'ghost',                     hp:220, tier:1, ability:{id:'shield-invert', name:'顛倒之心', trigger:'onDefend', desc:'對手的防禦加成效果對自己反而變成傷害加成'}, attacks:[{name:'暗影爪',dmg:72,cost:3,type:'ghost',status:{effect:'paralysis', chance:0.2},megaBoost:true,bonusEnergy:6},{name:'冰凍拳',dmg:72,cost:3,type:'ice',status:{effect:'freeze', chance:0.1},megaBoost:true,bonusEnergy:6},{name:'幽靈球',dmg:113,cost:8,type:'ghost',megaBoost:true,bonusEnergy:6},{name:'詭計',cost:3,type:'ghost',support:true,effect:'trick'}]},
+  { id:477, name:'黑夜魔靈',   type:'ghost',                     hp:220, tier:1, ability:{id:'ghost-domain', name:'亡靈支配', trigger:'onEnter', desc:'上場時場地切換為亡靈墓園；幽靈屬性攻擊傷害額外 +40'}, attacks:[{name:'暗影爪',dmg:72,cost:3,type:'ghost',status:{effect:'paralysis', chance:0.2},megaBoost:true,bonusEnergy:6},{name:'冰凍拳',dmg:72,cost:3,type:'ice',status:{effect:'freeze', chance:0.1},megaBoost:true,bonusEnergy:6},{name:'幽靈球',dmg:113,cost:8,type:'ghost',megaBoost:true,bonusEnergy:6},{name:'詭計',cost:3,type:'ghost',support:true,effect:'trick'}]},
   { mega:{spriteId:10291, type:'ghost', type2:'fire', ability:{id:'frisk-ward', name:'穿透', trigger:'onDefend', desc:'25% 機率將受到的傷害 ×0.9'}}, id:609, name:'水晶燈火靈', type:'ghost',    type2:'fire',    hp:260, tier:2, ability:{id:'flash-fire', name:'引火', trigger:'onDefend', desc:'受到火屬性攻擊時完全免疫，下次攻擊威力 +20'}, attacks:[{name:'小偷',cost:5,type:'ghost',support:true,effect:'thief'},{name:'噴火',dmg:86,cost:7,type:'fire',status:{effect:'burn', chance:0.25},megaBoost:true,bonusEnergy:5},{name:'火焰漩渦',dmg:89,cost:8,type:'fire',status:{effect:'burn', chance:0.2},megaBoost:true,bonusEnergy:6},{name:'暗影球',dmg:128,cost:12,type:'ghost',status:{effect:'confusion', chance:0.25}}]},
   { mega:{spriteId:10057, type:'dark', type2:null, ability:{id:'frisk-ward', name:'魔法鏡', trigger:'onDefend', desc:'25% 機率將受到的傷害 ×0.9'}}, id:359, name:'阿勃梭魯',   type:'dark',                      hp:220, tier:1, ability:{id:'huge-power', name:'超幸運', trigger:'onAttack', desc:'攻擊傷害固定 +40'}, attacks:[{name:'夜斬',dmg:70,cost:4,type:'dark',megaBoost:true,bonusEnergy:7},{name:'追影斬',dmg:68,cost:4,type:'dark',megaBoost:true,bonusEnergy:7},{name:'冥想',cost:3,type:'dark',support:true,effect:'meditate'},{name:'暗黑脈衝',dmg:163,cost:14,type:'dark',selfHeal:0.26}]},
   // ── +30 新增（最終進化型，非幻獸/神獸，無龍/妖精屬性）──
@@ -109,18 +109,18 @@ const POKEMON = [
   { id:297, name:'鐵掌力士', type:'fighting',  hp:250, tier:1, ability:{id:'fighting-domain', name:'鬥氣支配', trigger:'onEnter', desc:'上場時場地切換為羅馬鬥技場；格鬥屬性攻擊傷害額外 +40'}, attacks:[{name:'壓制',dmg:55,cost:1,type:'normal',megaBoost:true,bonusEnergy:5},{name:'近身戰',dmg:84,cost:7,type:'fighting',megaBoost:true,bonusEnergy:5},{name:'豪腕',dmg:125,cost:12,type:'fighting',selfHeal:0.22},{name:'集氣',cost:3,type:'fighting',support:true,effect:'focus-energy',bonusEnergy:9}]},
   { id:342, name:'鐵螯龍蝦', type:'water', type2:'dark', hp:210, tier:1, ability:{id:'adaptability', name:'適應力', trigger:'onAttack', desc:'本系加成（STAB）提升為 ×1.2（原本 ×1.1）'}, attacks:[{name:'冥想',cost:3,type:'water',support:true,effect:'meditate'},{name:'夜斬',dmg:70,cost:1,type:'dark',megaBoost:true,bonusEnergy:5},{name:'亂爪',dmg:104,cost:8,type:'dark',megaBoost:true,bonusEnergy:6},{name:'泥巴射擊',dmg:158,cost:13,type:'ground',status:{effect:'burn', chance:0.25}}]},
   { id:660, name:'掘地兔', type:'normal', type2:'ground', hp:230, tier:1, ability:{id:'true-damage', name:'不動如山', trigger:'onAttack', desc:'攻擊傷害不會被對方的防禦特性、閃避或撐住效果影響'}, attacks:[{name:'砂子攻擊',dmg:79,cost:5,type:'ground',megaBoost:true,bonusEnergy:8},{name:'小偷',cost:5,type:'normal',support:true,effect:'thief'},{name:'地震',dmg:125,cost:9,type:'ground',megaBoost:true,bonusEnergy:7},{name:'岩崩',dmg:175,cost:14,type:'rock',selfHeal:0.21}]},
-  { id:632, name:'鐵蟻', type:'steel', type2:'bug', hp:200, tier:1, ability:{id:'status-immune-once', name:'淬鍊之心', trigger:'onStatus', desc:'首次被施加異常狀態時解除並免疫，之後攻擊傷害永久 +40'}, attacks:[{name:'撐住',cost:5,type:'steel',support:true,effect:'brace'},{name:'金屬爪',dmg:70,cost:1,type:'steel',megaBoost:true,bonusEnergy:5},{name:'鋼鐵頭',dmg:100,cost:7,type:'steel',megaBoost:true,bonusEnergy:5},{name:'蟲之抵抗',dmg:150,cost:12,type:'bug',status:{effect:'paralysis', chance:0.2}}]},
+  { id:632, name:'鐵蟻', type:'steel', type2:'bug', hp:200, tier:1, ability:{id:'bug-domain', name:'蟲群支配', trigger:'onEnter', desc:'上場時場地切換為蟲群巢穴；蟲屬性攻擊傷害額外 +40'}, attacks:[{name:'撐住',cost:5,type:'steel',support:true,effect:'brace'},{name:'金屬爪',dmg:70,cost:1,type:'steel',megaBoost:true,bonusEnergy:5},{name:'鋼鐵頭',dmg:100,cost:7,type:'steel',megaBoost:true,bonusEnergy:5},{name:'蟲之抵抗',dmg:150,cost:12,type:'bug',status:{effect:'paralysis', chance:0.2}}]},
   { id:558, name:'岩殿居蟹', type:'bug', type2:'rock', hp:240, tier:1, ability:{id:'status-immune-once', name:'淬鍊之心', trigger:'onStatus', desc:'首次被施加異常狀態時解除並免疫，之後攻擊傷害永久 +40'}, attacks:[{name:'蟲咬',dmg:64,cost:0,type:'bug',megaBoost:true,bonusEnergy:4},{name:'灼熱',cost:1,type:'bug',support:true,effect:'debuff',status:{effect:'burn', chance: 1}},{name:'岩石封鎖',dmg:102,cost:7,type:'rock',megaBoost:true,bonusEnergy:5},{name:'X 剪刀',dmg:150,cost:12,type:'bug',status:{effect:'burn', chance:0.25}}]},
   { id:105, name:'嘎啦嘎啦', type:'ground',  hp:220, tier:1, ability:{id:'guts', name:'堅韌', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 +40'}, attacks:[{name:'集氣',cost:3,type:'ground',support:true,effect:'focus-energy',bonusEnergy:9},{name:'喊叫',dmg:66,cost:2,type:'normal',megaBoost:true,bonusEnergy:6},{name:'地震',dmg:115,cost:8,type:'ground',megaBoost:true,bonusEnergy:6},{name:'骨棒',dmg:160,cost:14,type:'ground',selfHeal:0.25}]},
-  { id:338, name:'太陽岩', type:'rock', type2:'psychic', hp:230, tier:1, ability:{id:'chance-debuff', name:'穿透', trigger:'onAttack', desc:'攻擊命中後 25% 機率讓對方下次攻擊傷害 ×0.9'}, attacks:[{name:'夜襲',dmg:77,cost:4,type:'dark',megaBoost:true,bonusEnergy:7},{name:'念力',dmg:77,cost:4,type:'psychic',megaBoost:true,bonusEnergy:7},{name:'岩石炮',dmg:125,cost:10,type:'rock',megaBoost:true,bonusEnergy:8},{name:'灼熱',cost:1,type:'rock',support:true,effect:'debuff',status:{effect:'burn', chance: 1}}]},
-  { id:53, name:'貓老大', type:'normal',  hp:210, tier:1, ability:{id:'legacy-boost', name:'指揮', trigger:'onLeave', desc:'陣亡或被換下場時，下一隻上場的我方寶可夢首次攻擊：能量消耗×0.5、傷害+40'}, attacks:[{name:'冥想',cost:3,type:'normal',support:true,effect:'meditate'},{name:'音爆拳',dmg:68,cost:1,type:'fighting',megaBoost:true,bonusEnergy:5},{name:'惡意突刺',dmg:107,cost:7,type:'dark',megaBoost:true,bonusEnergy:5},{name:'連續切',dmg:154,cost:12,type:'normal',status:{effect:'confusion', chance:0.25}}]},
+  { id:338, name:'太陽岩', type:'rock', type2:'psychic', hp:230, tier:1, ability:{id:'psychic-domain', name:'幻境支配', trigger:'onEnter', desc:'上場時場地切換為魔幻空間；超能力屬性攻擊傷害額外 +40'}, attacks:[{name:'夜襲',dmg:77,cost:4,type:'dark',megaBoost:true,bonusEnergy:7},{name:'念力',dmg:77,cost:4,type:'psychic',megaBoost:true,bonusEnergy:7},{name:'岩石炮',dmg:125,cost:10,type:'rock',megaBoost:true,bonusEnergy:8},{name:'灼熱',cost:1,type:'rock',support:true,effect:'debuff',status:{effect:'burn', chance: 1}}]},
+  { id:53, name:'貓老大', type:'normal',  hp:210, tier:1, ability:{id:'normal-domain', name:'神域支配', trigger:'onEnter', desc:'上場時場地切換為莊嚴神社；一般屬性攻擊傷害額外 +40'}, attacks:[{name:'冥想',cost:3,type:'normal',support:true,effect:'meditate'},{name:'音爆拳',dmg:68,cost:1,type:'fighting',megaBoost:true,bonusEnergy:5},{name:'惡意突刺',dmg:107,cost:7,type:'dark',megaBoost:true,bonusEnergy:5},{name:'連續切',dmg:154,cost:12,type:'normal',status:{effect:'confusion', chance:0.25}}]},
   { id:508, name:'長毛狗', type:'normal',  hp:240, tier:1, ability:{id:'desperate-blade', name:'背水之刃', trigger:'onAttack', desc:'HP 低於 50% 時，攻擊傷害 +40'}, attacks:[{name:'咬住',dmg:61,cost:0,type:'normal',megaBoost:true,bonusEnergy:4},{name:'吼叫',dmg:96,cost:6,type:'normal',megaBoost:true,bonusEnergy:4},{name:'詭計',cost:3,type:'normal',support:true,effect:'trick'},{name:'火焰牙',dmg:98,cost:7,type:'fire',status:{effect:'burn', chance:0.15},megaBoost:true,bonusEnergy:5}]},
   { id:134, name:'水伊布', type:'water',  hp:260, tier:1, ability:{id:'drizzle-ocean', name:'海洋支配', trigger:'onEnter', desc:'上場時場地切換為海洋世界；水／冰屬性攻擊傷害額外 +40'}, attacks:[{name:'水槍',dmg:54,cost:3,type:'water',megaBoost:true,bonusEnergy:6},{name:'迴旋踢',dmg:95,cost:8,type:'fighting',megaBoost:true,bonusEnergy:6},{name:'撐住',cost:5,type:'water',support:true,effect:'brace'},{name:'冰凍光束',dmg:97,cost:9,type:'ice',status:{effect:'freeze', chance:0.15},megaBoost:true,bonusEnergy:7}]},
   { mega:{spriteId:10090, type:'bug', type2:'poison', ability:{id:'adaptability', name:'適應力', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×1.2（原本 ×1.1）'}}, id:15, name:'大針蜂', type:'bug', type2:'poison', hp:200, tier:1, ability:{id:'poison-point', name:'毒刺', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者中毒'}, attacks:[{name:'針刺',dmg:60,cost:1,type:'bug',megaBoost:true,bonusEnergy:5},{name:'毒針',dmg:68,cost:1,type:'poison',megaBoost:true,bonusEnergy:5},{name:'十字剪',dmg:103,cost:7,type:'bug',megaBoost:true,bonusEnergy:5},{name:'撐住',cost:5,type:'bug',support:true,effect:'brace'}]},
-  { id:411, name:'護城龍', type:'rock', type2:'steel', hp:220, tier:1, ability:{id:'retaliate-boost', name:'反骨', trigger:'onDefend', desc:'受到攻擊後，下次攻擊傷害 ×1.1'}, attacks:[{name:'金屬音',dmg:67,cost:3,type:'steel',megaBoost:true,bonusEnergy:6},{name:'頭槌',dmg:68,cost:2,type:'normal',megaBoost:true,bonusEnergy:6},{name:'岩崩',dmg:108,cost:8,type:'rock',megaBoost:true,bonusEnergy:6},{name:'撐住',cost:5,type:'rock',support:true,effect:'brace'}]},
+  { id:411, name:'護城龍', type:'rock', type2:'steel', hp:220, tier:1, ability:{id:'rock-domain', name:'磐岩支配', trigger:'onEnter', desc:'上場時場地切換為岩石地帶；岩石屬性攻擊傷害額外 +40'}, attacks:[{name:'金屬音',dmg:67,cost:3,type:'steel',megaBoost:true,bonusEnergy:6},{name:'頭槌',dmg:68,cost:2,type:'normal',megaBoost:true,bonusEnergy:6},{name:'岩崩',dmg:108,cost:8,type:'rock',megaBoost:true,bonusEnergy:6},{name:'撐住',cost:5,type:'rock',support:true,effect:'brace'}]},
   { mega:{spriteId:10064, type:'water', type2:'ground', ability:{id:'huge-power', name:'飛毛腿', trigger:'onAttack', desc:'攻擊傷害固定 +40'}}, id:260, name:'巨沼怪', type:'water', type2:'ground', hp:300, tier:2, ability:{id:'blaze-boost', name:'激流', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.1'}, attacks:[{name:'水槍',dmg:59,cost:3,type:'water',megaBoost:true,bonusEnergy:6},{name:'泥巴射擊',dmg:92,cost:8,type:'ground',megaBoost:true,bonusEnergy:6},{name:'地震',dmg:136,cost:13,type:'ground',status:{effect:'confusion', chance:0.25}},{name:'冰凍拳',dmg:135,cost:13,type:'ice',status:{effect:'confusion', chance:0.25}}]},
   { id:407, name:'羅絲雷朵', type:'grass', type2:'poison', hp:270, tier:2, ability:{id:'poison-point', name:'毒刺', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者中毒'}, attacks:[{name:'劍舞',cost:4,type:'grass',support:true,effect:'sword-dance'},{name:'魔法葉',dmg:99,cost:9,type:'grass',megaBoost:true,bonusEnergy:7},{name:'花瓣舞',dmg:99,cost:9,type:'grass',megaBoost:true,bonusEnergy:7},{name:'污泥炸彈',dmg:141,cost:14,type:'poison',status:{effect:'burn', chance:0.25}}]},
-  { id:724, name:'狙射樹梟', type:'grass', type2:'ghost', hp:290, tier:2, ability:{id:'item-synergy', name:'機械之心', trigger:'onAttack', desc:'本回合使用過道具卡時，攻擊傷害 +40'}, attacks:[{name:'飛葉快刀',dmg:50,cost:1,type:'grass',megaBoost:true,bonusEnergy:5},{name:'影子偷襲',dmg:90,cost:8,type:'ghost',megaBoost:true,bonusEnergy:6},{name:'幽靈箭',dmg:133,cost:12,type:'ghost',status:{effect:'burn', chance:0.25}},{name:'光合作用強擊',dmg:128,cost:13,type:'grass',selfHeal:0.25}]},
+  { id:724, name:'狙射樹梟', type:'grass', type2:'ghost', hp:290, tier:2, ability:{id:'grass-domain', name:'密林支配', trigger:'onEnter', desc:'上場時場地切換為邪惡森林；草屬性攻擊傷害額外 +40'}, attacks:[{name:'飛葉快刀',dmg:50,cost:1,type:'grass',megaBoost:true,bonusEnergy:5},{name:'影子偷襲',dmg:90,cost:8,type:'ghost',megaBoost:true,bonusEnergy:6},{name:'幽靈箭',dmg:133,cost:12,type:'ghost',status:{effect:'burn', chance:0.25}},{name:'光合作用強擊',dmg:128,cost:13,type:'grass',selfHeal:0.25}]},
   { id:452, name:'龍王蠍', type:'poison', type2:'dark', hp:280, tier:2, ability:{id:'poison-domain', name:'劇毒支配', trigger:'onEnter', desc:'上場時場地切換為劇毒領域；毒屬性攻擊傷害額外 +40'}, attacks:[{name:'毒針',dmg:54,cost:0,type:'poison',status:{effect:'poison', chance:0.3},megaBoost:true,bonusEnergy:4},{name:'夜斬',dmg:80,cost:6,type:'dark',megaBoost:true,bonusEnergy:4},{name:'撐住',cost:5,type:'poison',support:true,effect:'brace'},{name:'惡意突刺',dmg:120,cost:11,type:'dark',status:{effect:'sleep', chance:0.2}}]},
   { id:862, name:'堵攔熊', type:'dark', type2:'normal', hp:300, tier:2, ability:{id:'guts', name:'堅韌', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 +40'}, attacks:[{name:'夜斬',dmg:62,cost:4,type:'dark',megaBoost:true,bonusEnergy:7},{name:'連續切',dmg:98,cost:8,type:'normal',megaBoost:true,bonusEnergy:6},{name:'惡意突刺',dmg:141,cost:14,type:'dark',status:{effect:'confusion', chance:0.25}},{name:'蠻力',dmg:142,cost:14,type:'normal',selfHeal:0.2}]},
   { id:738, name:'鍬農炮蟲', type:'bug', type2:'electric', hp:270, tier:2, ability:{id:'desperate-blade', name:'背水之刃', trigger:'onAttack', desc:'HP 低於 50% 時，攻擊傷害 +40'}, attacks:[{name:'蟲咬',dmg:64,cost:4,type:'bug',megaBoost:true,bonusEnergy:7},{name:'電擊',dmg:99,cost:10,type:'electric',megaBoost:true,bonusEnergy:8},{name:'蟲鳴',dmg:96,cost:9,type:'bug',megaBoost:true,bonusEnergy:7},{name:'撐住',cost:5,type:'bug',support:true,effect:'brace'}]},
@@ -341,6 +341,15 @@ const TRAINERS = [
   // ── stadium：屬性分類新卡 ──
   {id:'stadium-sandstorm',   name:'沙塵暴',   cat:'stadium', type:'ground', weight:10, desc:'非地面／岩石／鋼屬性寶可夢，每回合結束損失最大HP的12%'},
   {id:'stadium-rock-field',  name:'岩石地帶', cat:'stadium', type:'rock', weight:10, desc:'岩石／地面／鋼屬性寶可夢，受到的攻擊傷害 -150'},
+  // ── 競技場牌：8種先前沒有專屬場地的屬性（2026-07-23新增，各自搭配一個獨特玩法，不只是傷害數值）──
+  {id:'stadium-electric-storm', name:'雷雲庇護所', cat:'stadium', type:'electric', weight:10, desc:'電屬性招式傷害 +70；每回合結束，雙方上場寶可夢若無異常狀態，20% 機率陷入麻痺'},
+  {id:'stadium-ice-tundra',     name:'永凍冰原',   cat:'stadium', type:'ice',      weight:10, desc:'冰屬性招式傷害 +70；每回合結束，雙方上場寶可夢若無異常狀態，15% 機率陷入結凍'},
+  {id:'stadium-dark-curse',     name:'暗夜詛咒領域', cat:'stadium', type:'dark',   weight:10, desc:'惡屬性招式傷害 ×1.6；此場地啟用中，雙方的所有恢復效果全部失效'},
+  {id:'stadium-steel-fortress', name:'鋼鐵堡壘',   cat:'stadium', type:'steel',    weight:10, desc:'鋼屬性招式傷害 +70；此場地下，雙方受到的攻擊傷害固定減少 20'},
+  {id:'stadium-flying-wind',    name:'疾風之翼',   cat:'stadium', type:'flying',   weight:10, desc:'飛行屬性招式傷害 ×1.6；此場地下，雙方換人都不會結束回合'},
+  {id:'stadium-bug-hive',       name:'蟲群巢穴',   cat:'stadium', type:'bug',      weight:10, desc:'蟲屬性招式傷害 +70；此場地下，抽牌／搶奪對方手牌類卡片不受每回合1次限制'},
+  {id:'stadium-ghost-curse',    name:'亡靈墓園',   cat:'stadium', type:'ghost',    weight:10, desc:'幽靈屬性招式傷害 ×1.6；此場地下，異常狀態無法被解除'},
+  {id:'stadium-fairy-ward',     name:'妖精結界原野', cat:'stadium', type:'fairy',  weight:10, desc:'妖精屬性招式傷害 +70；此場地下，雙方招式的異常狀態附加機率降低 10%（下限0%）'},
 ];
 
 // 2026-07-22應使用者要求：抽牌／搶奪對方手牌效果太強（隨機應變/換氣追擊/群聚共鳴抽牌，
@@ -744,8 +753,19 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     (['rock','ground','steel'].includes(defender.type) || ['rock','ground','steel'].includes(defender.type2))) ? 150 : 0;
   // 反轉世界：反轉後如果仍然是「克制」（mult>1），額外+25固定傷害
   const invertBonus = (G.activeStadium?.id === 'stadium-invert' && mult > 1) ? 25 : 0;
-  const stadiumMult = colosseumMult * mysticSpaceMult * lavaMult * oceanMult;
-  const stadiumFlatBonus = stadiumBonus + reversalBonus + lavaBonus + dragonValleyBonus + invertBonus;
+  // 2026-07-23新增8張場地卡的傷害加成部分（獨特玩法另外在別處實作）
+  const electricStormBonus = (G.activeStadium?.id === 'stadium-electric-storm' && atkType === 'electric') ? 70 : 0;
+  const iceTundraBonus = (G.activeStadium?.id === 'stadium-ice-tundra' && atkType === 'ice') ? 70 : 0;
+  const steelFortressBonus = (G.activeStadium?.id === 'stadium-steel-fortress' && atkType === 'steel') ? 70 : 0;
+  const bugHiveBonus = (G.activeStadium?.id === 'stadium-bug-hive' && atkType === 'bug') ? 70 : 0;
+  const fairyWardBonus = (G.activeStadium?.id === 'stadium-fairy-ward' && atkType === 'fairy') ? 70 : 0;
+  const darkCurseMult = (G.activeStadium?.id === 'stadium-dark-curse' && atkType === 'dark') ? 1.6 : 1;
+  const flyingWindMult = (G.activeStadium?.id === 'stadium-flying-wind' && atkType === 'flying') ? 1.6 : 1;
+  const ghostCurseMult = (G.activeStadium?.id === 'stadium-ghost-curse' && atkType === 'ghost') ? 1.6 : 1;
+  const steelFortressReduction = G.activeStadium?.id === 'stadium-steel-fortress' ? 20 : 0;
+  const stadiumMult = colosseumMult * mysticSpaceMult * lavaMult * oceanMult * darkCurseMult * flyingWindMult * ghostCurseMult;
+  const stadiumFlatBonus = stadiumBonus + reversalBonus + lavaBonus + dragonValleyBonus + invertBonus +
+    electricStormBonus + iceTundraBonus + steelFortressBonus + bugHiveBonus + fairyWardBonus;
   // 龍之波動／順風：只在下次攻擊剛好符合指定屬性時才加成，不論有沒有命中屬性都會被這次攻擊消耗掉
   // typeBoost可以是倍率(mult，≥1.1維持原寫法)或固定加成(bonus，2026-07-22起<1.1的一律改成這種)
   const typeBoostMatch = aBuff.typeBoost && atkType === aBuff.typeBoost.type;
@@ -766,7 +786,7 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     // 烏賊王「顛倒之心」：對手的防禦加成（shield）對它反而變成傷害加成
     // 直搗黃龍：無視對方的shield（受傷減少）效果，這次攻擊當它不存在
     const shieldTerm = aBuff.ignoreShield ? 0 : (defenderAbility?.id === 'shield-invert' ? -dBuff.shield : dBuff.shield);
-    damage = Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumFlatBonus + legacyDmgBonus + abilityDmgBonus + megaBoostBonus + typeBoostBonus) * effectiveAtkMult * burnMult * mult * stabMult * switchGuardMult * abilityDmgMult * defAbilityMult * stadiumMult * typeBoostMult) - shieldTerm - rockFieldReduction);
+    damage = Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumFlatBonus + legacyDmgBonus + abilityDmgBonus + megaBoostBonus + typeBoostBonus) * effectiveAtkMult * burnMult * mult * stabMult * switchGuardMult * abilityDmgMult * defAbilityMult * stadiumMult * typeBoostMult) - shieldTerm - rockFieldReduction - steelFortressReduction);
     // 影舞：下一次受到攻擊擲硬幣，正面完全免傷——一次性旗標，這次攻擊到來就消耗掉（不論正反面）。true-damage系特性無視此效果。
     if (!moldBreaker && G[`${dRole}CoinShield`]) {
       G[`${dRole}CoinShield`] = false;
@@ -837,7 +857,9 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
         return;
       }
       // 心靈感應：下次攻擊的異常狀態機率視為 100%
-      if (damage > 0 && atk.status && !defender.status && defender.cur > 0 && (aBuff.guaranteedStatus || Math.random() < atk.status.chance)) {
+      // 妖精結界原野：招式自帶的異常狀態機率降低10%（下限0%），guaranteed效果不受影響
+      const fairyWardChance1 = G.activeStadium?.id === 'stadium-fairy-ward' ? Math.max(0, (atk.status?.chance || 0) - 0.1) : (atk.status?.chance || 0);
+      if (damage > 0 && atk.status && !defender.status && defender.cur > 0 && (aBuff.guaranteedStatus || Math.random() < fairyWardChance1)) {
         const effect = atk.status.effect;
         if (effect === 'confusion' && defenderAbility?.id === 'own-tempo') {
           log.push({ text: `${defender.name} 的我行我素抵消了混亂！`, cls: 'special' });
@@ -928,7 +950,9 @@ function executeSupportMoveSrv(attacker, defender, atk, role, op, G, log) {
         log.push({ text: `${defender.name} 的淬鍊之心發動，免疫了異常狀態並提升了攻擊力！`, cls: 'special' });
         break;
       }
-      if (atk.status && !defender.status && defender.cur > 0 && (guaranteed || Math.random() < atk.status.chance)) {
+      // 妖精結界原野：招式自帶的異常狀態機率降低10%（下限0%），guaranteed效果不受影響
+      const fairyWardChance2 = G.activeStadium?.id === 'stadium-fairy-ward' ? Math.max(0, (atk.status?.chance || 0) - 0.1) : (atk.status?.chance || 0);
+      if (atk.status && !defender.status && defender.cur > 0 && (guaranteed || Math.random() < fairyWardChance2)) {
         const effect = atk.status.effect;
         if (effect === 'confusion' && defender.ability?.id === 'own-tempo') {
           log.push({ text: `${defender.name} 的我行我素抵消了混亂！`, cls: 'special' });
@@ -1020,6 +1044,15 @@ const DOMAIN_ABILITY_STADIUM = {
   'normal-domain':   { stadium: 'stadium-shrine',        type: 'normal' },
   'ground-domain':   { stadium: 'stadium-sandstorm',     type: 'ground' },
   'rock-domain':     { stadium: 'stadium-rock-field',    type: 'rock' },
+  // 2026-07-23新增：8張新場地卡對應的8個新領域特性id
+  'electric-domain': { stadium: 'stadium-electric-storm', type: 'electric' },
+  'ice-domain':      { stadium: 'stadium-ice-tundra',      type: 'ice' },
+  'dark-domain':     { stadium: 'stadium-dark-curse',      type: 'dark' },
+  'steel-domain':    { stadium: 'stadium-steel-fortress',  type: 'steel' },
+  'flying-domain':   { stadium: 'stadium-flying-wind',     type: 'flying' },
+  'bug-domain':      { stadium: 'stadium-bug-hive',        type: 'bug' },
+  'ghost-domain':    { stadium: 'stadium-ghost-curse',     type: 'ghost' },
+  'fairy-domain':    { stadium: 'stadium-fairy-ward',      type: 'fairy' },
 };
 function triggerOnEnterSrv(poke, role, G, log, isFieldEntry = true) {
   if (isFieldEntry) triggerTrapStadiumSrv(poke, role, G, log);
@@ -1155,21 +1188,26 @@ function applyTrainer(card, role, G, log, chosenType) {
       break;
     }
     case 'antidote':
-      if (active.status) {
+      if (G.activeStadium?.id === 'stadium-ghost-curse') {
+        log.push({ text: `異常狀態被亡靈墓園封印，無法解除！`, cls: 'system' });
+      } else if (active.status) {
         const st = STATUS_ZH[active.status.type] || active.status.type;
         active.status = null;
         log.push({ text: `萬能藥解除了 ${active.name} 的${st}！`, cls: 'system' });
       }
       break;
-    case 'nurse':
+    case 'nurse': {
+      const ghostCursed = G.activeStadium?.id === 'stadium-ghost-curse';
       if (isHealSealedSrv(role, G)) {
-        active.status = null;
-        log.push({ text: `治療師解除了 ${active.name} 的異常狀態，但恢復效果被詛咒封印中，HP 沒有回復！`, cls: 'system' });
+        if (!ghostCursed) active.status = null;
+        log.push({ text: ghostCursed ? `異常狀態被亡靈墓園封印，恢復效果也被詛咒封印！` : `治療師解除了 ${active.name} 的異常狀態，但恢復效果被詛咒封印中，HP 沒有回復！`, cls: 'system' });
       } else {
-        active.cur = active.hp; active.status = null;
-        log.push({ text: `治療師讓 ${active.name} 完全回復！`, cls: 'system' });
+        active.cur = active.hp;
+        if (!ghostCursed) active.status = null;
+        log.push({ text: `治療師讓 ${active.name} 完全回復${ghostCursed ? 'HP，但異常狀態被亡靈墓園封印，無法解除' : ''}！`, cls: 'system' });
       }
       break;
+    }
     case 'all-out':
       buff.atkMult *= 1.2;
       G[`${role}EnergyBlockedNextTurn`] = true;
@@ -1816,7 +1854,15 @@ function applyTrainer(card, role, G, log, chosenType) {
     case 'stadium-ocean':
     case 'stadium-shrine':
     case 'stadium-sandstorm':
-    case 'stadium-rock-field': {
+    case 'stadium-rock-field':
+    case 'stadium-electric-storm':
+    case 'stadium-ice-tundra':
+    case 'stadium-dark-curse':
+    case 'stadium-steel-fortress':
+    case 'stadium-flying-wind':
+    case 'stadium-bug-hive':
+    case 'stadium-ghost-curse':
+    case 'stadium-fairy-ward': {
       const old = G.activeStadium;
       G.activeStadium = card;
       if (old) log.push({ text: `新競技場【${card.name}】取代了【${old.name}】！`, cls: 'special' });
@@ -1834,6 +1880,7 @@ function drawForRole(G, role) {
   G[`${role}SupporterLockedThisTurn`] = G[`${role}SupporterLocked`];
   G[`${role}SupporterLocked`] = false;
   G[`${role}UsedItemThisTurn`] = false; // 龍捲雲系特性「機械之心」的旗標，每回合開始重置
+  G[`${role}StadiumTradeCount`] = 0; // 棄1張換競技場卡的每回合上限，這裡是該角色回合真正開始的地方
   if (G.activeStadium?.id === 'stadium-spring') {
     for (const r of ['p1', 'p2']) {
       const poke = G[`${r}Deck`][G[`${r}Idx`]];
@@ -1850,6 +1897,19 @@ function drawForRole(G, role) {
         const dmg = Math.max(1, Math.round(poke.hp * 0.12));
         poke.cur = Math.max(0, poke.cur - dmg);
       }
+    }
+  }
+  // 雷雲庇護所／永凍冰原：每回合結束，雙方若無異常狀態，一定機率陷入麻痺／結凍
+  if (G.activeStadium?.id === 'stadium-electric-storm') {
+    for (const r of ['p1', 'p2']) {
+      const poke = G[`${r}Deck`][G[`${r}Idx`]];
+      if (poke.cur > 0 && !poke.status && Math.random() < 0.2) poke.status = { type: 'paralysis', turnsLeft: 999 };
+    }
+  }
+  if (G.activeStadium?.id === 'stadium-ice-tundra') {
+    for (const r of ['p1', 'p2']) {
+      const poke = G[`${r}Deck`][G[`${r}Idx`]];
+      if (poke.cur > 0 && !poke.status && Math.random() < 0.15) poke.status = { type: 'freeze', turnsLeft: 2 };
     }
   }
   // 全力出擊：上回合使用時「下回合無法回復能量」的代價，這裡直接跳過能量回復並清掉旗標
@@ -1938,7 +1998,8 @@ function freshBuff() { return { atkBonus:0, atkMult:1, shield:0, typeOverride:nu
 // 封印特性（ability-seal）／詛咒（heal-seal，2026-07-22新增）：G沒有全域state（每個room各自一份），
 // 所以跟其他判斷一樣要把G/role明確傳進來，不能像單人版那樣直接讀模組層級的G。
 function isAbilitySealedSrv(role, G) { return (G[`${role}AbilitySealedTurns`] || 0) > 0; }
-function isHealSealedSrv(role, G) { return (G[`${role}HealSealedTurns`] || 0) > 0; }
+// 2026-07-23：暗夜詛咒領域場地啟用時，雙方都視為被封印
+function isHealSealedSrv(role, G) { return G.activeStadium?.id === 'stadium-dark-curse' || (G[`${role}HealSealedTurns`] || 0) > 0; }
 
 function buildG(room, startLog) {
   const firstTurn = Math.random() < 0.5 ? 'p1' : 'p2';
@@ -3188,7 +3249,7 @@ async function handleMessage(ws, msg) {
       if (card.cat === 'supporter' && G[`${role}SupporterLockedThisTurn`]) {
         send(ws, { type: 'error', message: '通訊封印中，這回合無法使用支援者卡！' }); return;
       }
-      if (HAND_MANIPULATION_CARDS.includes(card.id) && G[`${role}HandCardUsed`]) {
+      if (HAND_MANIPULATION_CARDS.includes(card.id) && G[`${role}HandCardUsed`] && G.activeStadium?.id !== 'stadium-bug-hive') {
         send(ws, { type: 'error', message: '這回合已經用過抽牌／搶牌類的卡了！' }); return;
       }
       // 屬性轉換：先驗證 client 送來的屬性是合法值再消耗手牌，不信任隨便傳的字串
@@ -3521,7 +3582,10 @@ async function handleMessage(ws, msg) {
       const newIdx = msg.deckIdx;
       if (newIdx === curIdx || !deck[newIdx] || deck[newIdx].cur <= 0) return;
 
-      const usedFreeSwitch = G[`${role}FreeSwitch`];
+      // 疾風之翼場地啟用時，換人也視同撤退背心的免費換場——不結束回合，但G[role+SwitchedThisTurn]
+      // 沒有跟著解除，「每回合限換1次」的既有上限自動繼承
+      const usedRetreatVest = G[`${role}FreeSwitch`];
+      const usedFreeSwitch = usedRetreatVest || G.activeStadium?.id === 'stadium-flying-wind';
       const outPoke = deck[curIdx];
       if (outPoke.status?.type === 'confusion') outPoke.status = null;
       G[`${role}Idx`] = newIdx;
@@ -3531,7 +3595,8 @@ async function handleMessage(ws, msg) {
       G[`${role}SwitchedThisTurn`] = true;
 
       if (usedFreeSwitch) {
-        const log = [{ text: `換上了 ${deck[newIdx].name}！（撤退背心：不消耗回合）本回合傷害減免中…`, cls: 'player' }];
+        const freeReason = usedRetreatVest ? '撤退背心' : '疾風之翼';
+        const log = [{ text: `換上了 ${deck[newIdx].name}！（${freeReason}：不消耗回合）本回合傷害減免中…`, cls: 'player' }];
         triggerOnLeaveSrv(outPoke, role, G, log);
         triggerOnEnterSrv(deck[newIdx], role, G, log);
         broadcast(room, { type: 'update', state: G, log, actor: role }); return;
@@ -3588,8 +3653,14 @@ async function handleMessage(ws, msg) {
       const cardType = msg.cardType;
       const allowedTypes = indices.length === 1 ? ['stadium', 'energy'] : ['item', 'cure'];
       if (!allowedTypes.includes(cardType)) return;
+      // 2026-07-23應使用者要求：棄1張換競技場卡每回合上限3次——驗證放在真的splice手牌之前，
+      // 免得被拒絕的請求還是白白扣了牌
+      if (cardType === 'stadium' && (G[`${role}StadiumTradeCount`] || 0) >= 3) {
+        send(ws, { type: 'error', message: '這回合已經換過3次競技場卡了！' }); return;
+      }
       const sorted = [...indices].sort((a,b) => b-a);
       sorted.forEach(i => hand.splice(i, 1));
+      if (cardType === 'stadium') G[`${role}StadiumTradeCount`] = (G[`${role}StadiumTradeCount`] || 0) + 1;
       if (cardType === 'energy') {
         const gain = Math.min(20 - G[`${role}Energy`], 5);
         G[`${role}Energy`] = Math.min(20, G[`${role}Energy`] + 5);
@@ -3600,7 +3671,9 @@ async function handleMessage(ws, msg) {
       if (cardType === 'cure') {
         const active = G[`${role}Deck`][G[`${role}Idx`]];
         let log;
-        if (active.status) {
+        if (G.activeStadium?.id === 'stadium-ghost-curse') {
+          log = [{ text: `亡靈墓園場地啟用中，異常狀態無法被解除！`, cls: 'system' }];
+        } else if (active.status) {
           const effectName = STATUS_ZH[active.status.type] || active.status.type;
           active.status = null;
           log = [{ text: `棄牌解除了${active.name}的${effectName}！`, cls: 'system' }];
@@ -3609,7 +3682,10 @@ async function handleMessage(ws, msg) {
         }
         broadcast(room, { type: 'update', state: G, log, actor: role }); return;
       }
-      const pool = TRAINERS.filter(c => c.cat === cardType);
+      // 2026-07-23應使用者要求修復：原本沒有依場上寶可夢屬性過濾
+      const activeForTrade = G[`${role}Deck`][G[`${role}Idx`]];
+      const pool = TRAINERS.filter(c => c.cat === cardType &&
+        (!c.type || c.type === activeForTrade.type || c.type === activeForTrade.type2));
       const newCard = weightedPick(pool);
       hand.push(newCard);
       G[`${role}NeedsDiscard`] = hand.length > 7;
