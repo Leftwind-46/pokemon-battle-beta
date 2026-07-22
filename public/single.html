@@ -249,6 +249,23 @@
         border-radius: 50% !important;
         background: linear-gradient(135deg, #e040fb, #7b1fa2) !important;
       }
+      /* 查閱效果：跟log-drawer-btn/hand-drawer-btn同一套手機版FAB pattern，放在兩者中間避免重疊 */
+      #battle-guide-btn {
+        display: flex !important;
+        align-items: center; justify-content: center;
+        position: fixed !important;
+        bottom: 1rem !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        width: 48px !important; height: 48px !important;
+        border-radius: 50% !important;
+        padding: 0 !important;
+        font-size: 1.3rem;
+        background: linear-gradient(135deg, #f8d030, #f05030) !important;
+        border: none !important;
+        box-shadow: 0 4px 16px rgba(248,208,48,0.4);
+        z-index: 91 !important;
+      }
       #battle-log {
         display: none !important;
         position: fixed !important;
@@ -510,6 +527,25 @@
     }
     #log-drawer-btn:hover { background: rgba(255,255,255,0.12); }
     #log-drawer-btn.open { background: rgba(121,134,203,0.18); border-color: rgba(121,134,203,0.5); }
+    /* 查閱效果：桌面版直接常駐顯示在戰報側欄上方（不像log-drawer-btn預設display:none只在手機版才出現），
+       手機版樣式改在下面900px媒體查詢裡以FAB圓鈕呈現，見該處註解 */
+    #battle-guide-btn {
+      display: flex;
+      align-items: center; justify-content: center;
+      gap: 0.3rem;
+      background: rgba(248,208,48,0.1);
+      border: 1px solid rgba(248,208,48,0.35);
+      border-radius: 12px;
+      padding: 0.55rem 0.85rem;
+      color: var(--text);
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      width: 100%;
+      margin-bottom: 0.5rem;
+    }
+    #battle-guide-btn:hover { background: rgba(248,208,48,0.18); }
     #log-drawer-close {
       background: rgba(255,255,255,0.1);
       border: 1px solid var(--border);
@@ -1318,11 +1354,11 @@
     .dex-mega-sprite { width:40px; height:40px; image-rendering:pixelated; flex-shrink:0; }
     #discard-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
     #discard-modal.open { display:flex; }
-    #trade-modal, #trade-choose-modal, #switch-confirm-modal, #mad-scientist-modal, #type-orb-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
+    #trade-modal, #trade-choose-modal, #switch-confirm-modal, #mad-scientist-modal, #type-orb-modal, #hunt-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
     #type-orb-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:0.5rem; margin-top:0.8rem; max-width:360px; }
     .type-orb-btn { padding:0.5rem 0.3rem; border:none; border-radius:8px; color:#fff; font-size:0.78rem; font-weight:700; cursor:pointer; transition:transform 0.12s, opacity 0.12s; }
     .type-orb-btn:hover { transform:scale(1.06); opacity:0.9; }
-    #trade-modal.open, #trade-choose-modal.open, #switch-confirm-modal.open, #mad-scientist-modal.open, #type-orb-modal.open { display:flex; }
+    #trade-modal.open, #trade-choose-modal.open, #switch-confirm-modal.open, #mad-scientist-modal.open, #type-orb-modal.open, #hunt-modal.open { display:flex; }
     #trade-modal .t-card { cursor:pointer; transition:box-shadow 0.15s; }
     #trade-modal .t-card.selected { box-shadow: 0 0 0 2px #ffd740; }
     .btn-modal-ok { background:rgba(99,102,241,0.25); border:1px solid rgba(99,102,241,0.5); color:#c5cae9; border-radius:8px; padding:0.55rem 1.2rem; cursor:pointer; font-size:0.9rem; }
@@ -1500,7 +1536,7 @@
       <ul>
         <li><b>道具牌</b>（綠框）每回合可使用多張，但抽牌／搶奪對方手牌類的卡（隨機應變、換氣追擊、群聚共鳴、掠奪、夜襲、暗夜掠奪）每回合只能用其中 1 張。開局後每回合只會抽到道具牌：</li>
         <ul>
-          <li>傷藥（小／中／大／特大）— 回復上場寶可夢 60／80／100／120 HP</li>
+          <li>傷藥（中／大／特大）— 回復上場寶可夢 40／60／80 HP</li>
           <li>攻擊強化 — 下次攻擊 +40 傷害</li>
           <li>防禦強化 — 下次承受傷害 −40</li>
           <li>能量強化 — 下次攻擊傷害 ×1.2，但自身損失 50 HP</li>
@@ -1521,6 +1557,8 @@
           <li>連擊 — 下次攻擊傷害 +40，異常狀態機率額外判定一次</li>
           <li>掠奪 — 隨機搶奪對手一張手牌</li>
           <li>通訊封印 — 下回合對手不能使用支援者卡</li>
+          <li>封印特性 — 封印對手的特性 2 回合，期間視為沒有特性</li>
+          <li>詛咒 — 對手的恢復效果 2 回合內全部失效（道具回血／特性回血／招式回血皆無效）</li>
           <li>電擊誘餌（電屬性） — 讓對手上場寶可夢陷入麻痺</li>
           <li>詛咒波動（幽靈屬性） — 讓對方損失 8 點能量，自身回復 20 HP</li>
           <li>鋼鐵裝甲（鋼屬性） — 下次受到傷害減少 70</li>
@@ -1588,31 +1626,32 @@
         </ul>
         <li><b>支援者牌</b>（藍框）每回合限用 1 張，沒有場次上限。僅開局手牌中會出現：</li>
         <ul>
-          <li>復活藥 — 復活備戰欄第一隻倒下的寶可夢（回復 80 HP，每場限用一次）</li>
+          <li>復活藥 — 復活備戰欄第一隻倒下的寶可夢（回復 40 HP，每場限用一次）</li>
           <li>治療師 — 上場寶可夢完全回復 HP 並解除異常狀態</li>
           <li>全力出擊 — 下次攻擊傷害 ×1.2，但下回合無法回復能量</li>
           <li>搏命 — 我方與對方上場寶可夢同歸於盡，雙方各自選下一隻上場</li>
           <li>瘋狂博士 — 選我方一隻寶可夢，變身成我方或對方一隻陣亡的寶可夢（回復變身後 50% HP）</li>
           <li>啦啦隊 — 將能量補滿到 20</li>
+          <li>獵捕 — 指定對手一隻備戰寶可夢強制上場（不觸發上場特性），並造成 40 點固定傷害（會計算屬性相剋）</li>
         </ul>
         <li><b>競技場牌</b>（橘框）效果持續整場，放置新競技場會取代舊的：</li>
         <ul>
-          <li>訓練場 — 場上所有技能威力 +20（雙方均有效）</li>
-          <li>地熱溫泉 — 每回合結束，雙方上場寶可夢各回復 15 HP</li>
-          <li>逆轉鬥技場 — HP 低於 50% 時，攻擊威力 +30</li>
-          <li>反轉世界 — 場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×1.2）</li>
-          <li>龍之谷（龍屬性） — 龍屬性寶可夢對妖精、冰系招式最多×1效果；龍屬性攻擊不會被減免或無效</li>
-          <li>邪惡森林（草屬性） — 原本克制草屬性的寶可夢（火／冰／飛行／毒／蟲），全部變成弱草屬性（草屬性攻擊 ×1.2）</li>
-          <li>Mega 稜鏡塔 — 雙方每個自己的回合開始時，獲得 10 點 Mega 能量</li>
-          <li>尖峰陷阱 — 寶可夢上場時，受到最大HP 15% 的傷害（雙方對等）</li>
-          <li>劇毒領域（毒屬性） — 寶可夢上場時，陷入中毒（雙方對等）</li>
-          <li>羅馬鬥技場（格鬥屬性） — 格鬥屬性招式傷害 ×1.1；格鬥屬性攻擊不再被幽靈屬性完全免疫</li>
-          <li>魔幻空間（超能力屬性） — 超能力屬性寶可夢受到的傷害 ×0.98；弱點消失（不受超效傷害影響）</li>
-          <li>熔岩火山（火屬性） — 火屬性招式傷害 +40；水屬性招式傷害 ×0.9</li>
-          <li>海洋世界（水屬性） — 水屬性招式消耗能量減半；電屬性招式傷害 ×1.1</li>
-          <li>莊嚴神社（一般屬性） — 一般屬性招式一律視為剋制對手（效果拉滿 ×1.2）</li>
-          <li>沙塵暴（地面屬性） — 非地面／岩石／鋼屬性寶可夢，每回合結束損失最大HP的6%</li>
-          <li>岩石地帶（岩石屬性） — 岩石／地面／鋼屬性寶可夢，受到的攻擊傷害 -80</li>
+          <li>訓練場 — 場上所有技能威力 +45（雙方均有效）</li>
+          <li>地熱溫泉 — 每回合結束，雙方上場寶可夢各回復 30 HP</li>
+          <li>逆轉鬥技場 — HP 低於 50% 時，攻擊威力 +65</li>
+          <li>反轉世界 — 場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×1.2）；反轉後仍是克制的攻擊額外 +25 固定傷害</li>
+          <li>龍之谷（龍屬性） — 龍屬性寶可夢對妖精、冰系招式最多×1效果；龍屬性攻擊不會被減免或無效，且額外 +35 固定傷害</li>
+          <li>邪惡森林（草屬性） — 原本克制草屬性的寶可夢（火／冰／飛行／毒／蟲），全部變成弱草屬性（草屬性攻擊 ×1.6）</li>
+          <li>Mega 稜鏡塔 — 雙方每個自己的回合開始時，獲得 16 點 Mega 能量</li>
+          <li>尖峰陷阱 — 寶可夢上場時，受到最大HP 25% 的傷害（雙方對等）</li>
+          <li>劇毒領域（毒屬性） — 寶可夢上場時，陷入中毒（雙方對等）；此場地下中毒傷害 ×2</li>
+          <li>羅馬鬥技場（格鬥屬性） — 格鬥屬性招式傷害 ×1.4；格鬥屬性攻擊不再被幽靈屬性完全免疫</li>
+          <li>魔幻空間（超能力屬性） — 超能力屬性寶可夢受到的傷害 ×0.75；弱點消失（不受超效傷害影響）</li>
+          <li>熔岩火山（火屬性） — 火屬性招式傷害 +75；水屬性招式傷害 ×0.65</li>
+          <li>海洋世界（水屬性） — 水屬性招式消耗能量 ×0.3；電屬性招式傷害 ×1.4</li>
+          <li>莊嚴神社（一般屬性） — 一般屬性招式一律視為剋制對手（效果拉滿 ×1.8）</li>
+          <li>沙塵暴（地面屬性） — 非地面／岩石／鋼屬性寶可夢，每回合結束損失最大HP的12%</li>
+          <li>岩石地帶（岩石屬性） — 岩石／地面／鋼屬性寶可夢，受到的攻擊傷害 -150</li>
         </ul>
       </ul>
 
@@ -1625,31 +1664,39 @@
         <li>堅韌／毅力（路卡利歐、嘎啦嘎啦、堵攔熊、劈斬司令、怪力、赫拉克羅斯、老翁龍、戟脊龍）— 自身帶有異常狀態時，攻擊傷害 +40</li>
         <li>粗糙皮膚（甲賀忍蛙、巨牙鯊）— 受到攻擊傷害時，反彈攻擊者 1/8 最大HP 傷害</li>
         <li>毒刺（毒刺水母、大針蜂、羅絲雷朵、蜈蚣王、毒藻龍、晶光花）— 受到攻擊後 20% 機率讓攻擊者中毒</li>
-        <li>厚脂肪（鐵掌力士、卡比獸、雷吉艾斯、冰鬼護、差不多娃娃）— 受到火／冰屬性攻擊傷害 ×0.92</li>
+        <li>厚脂肪（雷吉艾斯、冰鬼護、差不多娃娃）— 受到火／冰屬性攻擊傷害 ×0.92</li>
         <li>頑強（波士可多拉、盔甲鳥、列陣兵）— HP 全滿時，受到會直接擊倒的攻擊會保留 1 HP</li>
         <li>硬岩／揚沙（巨金怪、班基拉斯、噴火駝、暴雪王、蒂安希、基格爾德）— 受到剋制（×1.2以上）的攻擊傷害再減少 5%</li>
         <li>多重鱗片（快龍）— HP 全滿時，受到的攻擊傷害 ×0.9</li>
         <li>激流／摘取／猛火／茂盛／強子引擎／緋紅脈動／蟲之預感（妙蛙花、大力鱷、噴火龍、水箭龜、火爆獸、大竺葵、密勒頓、故勒頓、熾焰咆哮虎、蜥蜴王、巨鉗螳螂、巨沼怪、黑魯加、火焰雞、大食花、炎武王、龍頭地鼠、布里卡隆、妖火紅狐）— HP 低於 1/3 時，本系招式傷害 ×1.1</li>
         <li>大力士／超幸運／日照／氣閘／不撓之劍（固拉多、蒼響、阿勃梭魯、恰雷姆、瑪機雅娜）— 攻擊傷害固定 +40</li>
-        <li>妖精氣場（哲爾尼亞斯、鐵螯龍蝦、巨蔓藤）— 屬性加成（STAB）提升為 ×1.2（原本 ×1.1）</li>
+        <li>妖精氣場（哲爾尼亞斯、鐵螯龍蝦）— 屬性加成（STAB）提升為 ×1.2（原本 ×1.1）</li>
         <li>儲水／乾燥皮膚（毒骷蛙）— 受到水屬性攻擊時完全免疫，並回復最大HP的1/4</li>
         <li>神秘之守／隔音／沙隱／迷人之軀／雪隱（烈咬陸鯊、仙子伊布、雪妖女、凍原熊、寶石海星、大比鳥、七夕青鳥、長耳兔、花葉蒂）— 25% 機率將受到的傷害 ×0.9</li>
         <li>背水之刃（蔥遊兵、長毛狗、鍬農炮蟲、摔角鷹人）— HP 低於 50% 時，攻擊傷害 +40</li>
         <li>同步（胡地、沙奈朵）— 陷入中毒／麻痺／燒傷時，會將該狀態傳染給攻擊者</li>
         <li>我行我素（呆殼獸）— 不會陷入混亂狀態</li>
-        <li>壓迫感（鋼鎧鴉、超夢、鳳王、洛奇亞、急凍鳥、閃電鳥、火焰鳥、帝牙盧卡、帕路奇亞、火炎獅）— 上場時讓對方損失 3 點能量</li>
+        <li>壓迫感（鋼鎧鴉、超夢、鳳王、急凍鳥、閃電鳥、火焰鳥、帕路奇亞、火炎獅）— 上場時讓對方損失 3 點能量</li>
         <li>不眠（烏鴉頭頭、狠辣椒）— 不會陷入睡眠狀態</li>
-        <li>指揮（米立龍、白海獅、貓老大、龍王蠍）— 陣亡或被換下場時，下一隻上場的我方寶可夢首次攻擊：能量消耗 ×0.5、傷害 +40</li>
+        <li>指揮（米立龍、白海獅、貓老大）— 陣亡或被換下場時，下一隻上場的我方寶可夢首次攻擊：能量消耗 ×0.5、傷害 +40</li>
         <li>穿透（超能妙喵、太陽岩、哥德小姐、風鈴鈴）— 攻擊命中後 25% 機率讓對方下次攻擊傷害 ×0.9</li>
         <li>不動如山（遠古巨蜓、爆音怪、艾路雷朵、掘地兔、好勝毛蟹）— 攻擊傷害不會被對方的防禦特性、閃避或撐住效果影響</li>
         <li>淬鍊之心（頭巾混混、袋獸、鐵蟻、岩殿居蟹）— 首次被施加異常狀態時解除並免疫，之後攻擊傷害永久 +40</li>
         <li>顛倒之心（烏賊王、黑夜魔靈、勾魂眼、詛咒娃娃）— 對手的防禦加成效果對自己反而變成傷害加成</li>
         <li>機械之心（龍捲雲、狙射樹梟、三合一磁怪、大鋼蛇）— 本回合使用過道具卡時，攻擊傷害 +40</li>
-        <li>反骨（具甲武者、龐岩怪、護城龍、泥偶巨人）— 受到攻擊後，下次攻擊傷害 ×1.1</li>
+        <li>反骨（具甲武者、護城龍、泥偶巨人）— 受到攻擊後，下次攻擊傷害 ×1.1</li>
         <li>海洋支配（蓋歐卡、拉普拉斯、水伊布）— 上場時場地切換為海洋世界；水／冰屬性攻擊傷害額外 +40</li>
         <li>熔岩大地（固拉多）— 上場時場地切換為熔岩火山；地面／火屬性攻擊傷害額外 +40</li>
+        <li>龍域降臨（帝牙盧卡）— 上場時場地切換為龍之谷；龍屬性攻擊傷害額外 +40</li>
+        <li>密林支配（巨蔓藤）— 上場時場地切換為邪惡森林；草屬性攻擊傷害額外 +40</li>
+        <li>劇毒支配（龍王蠍）— 上場時場地切換為劇毒領域；毒屬性攻擊傷害額外 +40</li>
+        <li>鬥氣支配（鐵掌力士）— 上場時場地切換為羅馬鬥技場；格鬥屬性攻擊傷害額外 +40</li>
+        <li>幻境支配（洛奇亞）— 上場時場地切換為魔幻空間；超能力屬性攻擊傷害額外 +40</li>
+        <li>神域支配（卡比獸）— 上場時場地切換為莊嚴神社；一般屬性攻擊傷害額外 +40</li>
+        <li>風沙支配（超甲狂犀）— 上場時場地切換為沙塵暴；地面屬性攻擊傷害額外 +40</li>
+        <li>磐岩支配（龐岩怪）— 上場時場地切換為岩石地帶；岩石屬性攻擊傷害額外 +40</li>
         <li>深淵支配（伊裴爾塔爾、暴鯉龍、化石翼龍、冰岩怪）— 不會受到超效傷害；10% 機率完全閃避攻擊</li>
-        <li>威壓氣場（烈空坐、超甲狂犀、象牙豬）— 對手的攻擊力提升效果減半</li>
+        <li>威壓氣場（烈空坐、象牙豬）— 對手的攻擊力提升效果減半</li>
         <li>電氣引擎（電擊魔獸、拉帝亞斯、拉帝歐斯、麻麻鰻魚王、捷拉奧拉）— 受到電屬性攻擊時完全免疫，並回復 3 點能量</li>
         <li>火焰之軀（鴨嘴炎獸、烈箭鷹）— 受到攻擊後 20% 機率讓攻擊者陷入燒傷</li>
         <li>引火（水晶燈火靈、席多藍恩）— 受到火屬性攻擊時完全免疫，下次攻擊威力 +20</li>
@@ -1705,6 +1752,7 @@
   <!-- Battle Log (left panel on desktop; toggled popup on mobile) -->
   <div id="log-drawer">
     <button id="log-drawer-btn" onclick="toggleLogPanel()">📜<span class="drawer-btn-label"> 戰報</span></button>
+    <button id="battle-guide-btn" onclick="openGuide()" title="查閱規則／卡片效果／寶可夢圖鑑">📖<span class="drawer-btn-label"> 查閱效果</span></button>
     <button id="log-drawer-close" onclick="toggleLogPanel()">✕ 關閉</button>
     <div id="battle-log"></div>
   </div>
@@ -2029,7 +2077,7 @@ const POKEMON = [
   { mega:{spriteId:10036, type:'water', type2:null, ability:{id:'huge-power', name:'超級發射器', trigger:'onAttack', desc:'攻擊傷害固定 +40'}}, id:9,   name:'水箭龜',     type:'water',    hp:280, tier:2, ability:{id:'blaze-boost', name:'激流', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.1'}, attacks:[{name:'水砲',dmg:50,cost:0,type:'water',megaBoost:true,bonusEnergy:4},{name:'影舞',cost:2,type:'water',support:true,effect:'shadow-dance'},{name:'衝浪',dmg:120,cost:11,type:'water',selfHeal:0.28},{name:'冰凍光束',dmg:123,cost:11,type:'ice',selfHeal:0.29}]},
   { mega:{spriteId:10043, type:'psychic', type2:'fighting', ability:{id:'guts', name:'不屈之心', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 +40'}}, id:150, name:'超夢',       type:'psychic',  hp:320, tier:2, ability:{id:'pressure', name:'壓迫感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[{name:'念力衝擊',dmg:80,cost:6,type:'psychic',status:{effect:'confusion', chance:0.3},megaBoost:true,bonusEnergy:4},{name:'氣功拳',dmg:120,cost:11,type:'fighting',selfHeal:0.19},{name:'閃電拳',dmg:120,cost:11,type:'electric',status:{effect:'sleep', chance:0.2}},{name:'暗影球',dmg:123,cost:11,type:'ghost',status:{effect:'poison', chance:0.3}}]},
   { mega:{spriteId:10281, type:'dragon', type2:'flying', ability:{id:'multiscale', name:'多重鱗片', trigger:'onDefend', desc:'HP 全滿時，受到的攻擊傷害 ×0.9'}}, id:149, name:'快龍',       type:'dragon',   type2:'flying',  hp:320, tier:2, ability:{id:'multiscale', name:'多重鱗片', trigger:'onDefend', desc:'HP 全滿時，受到的攻擊傷害 ×0.9'}, attacks:[{name:'龍息',dmg:82,cost:6,type:'dragon',megaBoost:true,bonusEnergy:4},{name:'雷電',dmg:124,cost:12,type:'electric',status:{effect:'paralysis', chance:0.25}},{name:'羽棲',cost:8,type:'flying',support:true,effect:'roost'},{name:'破壞光線',dmg:126,cost:11,type:'normal',status:{effect:'paralysis', chance:0.3}}]},
-  { id:143, name:'卡比獸',     type:'normal',   hp:380, tier:2, ability:{id:'thick-fat', name:'厚脂肪', trigger:'onDefend', desc:'受到火／冰屬性攻擊傷害 ×0.92'}, attacks:[{name:'磚塊',dmg:78,cost:13,type:'rock',megaBoost:true,bonusEnergy:8},{name:'連踢',dmg:110,cost:19,type:'normal',selfHeal:0.25},{name:'地震',dmg:109,cost:19,type:'ground',status:{effect:'freeze', chance:0.15}},{name:'破壞光線',dmg:110,cost:19,type:'normal',selfHeal:0.29}]},
+  { id:143, name:'卡比獸',     type:'normal',   hp:380, tier:2, ability:{id:'normal-domain', name:'神域支配', trigger:'onEnter', desc:'上場時場地切換為莊嚴神社；一般屬性攻擊傷害額外 +40'}, attacks:[{name:'磚塊',dmg:78,cost:13,type:'rock',megaBoost:true,bonusEnergy:8},{name:'連踢',dmg:110,cost:19,type:'normal',selfHeal:0.25},{name:'地震',dmg:109,cost:19,type:'ground',status:{effect:'freeze', chance:0.15}},{name:'破壞光線',dmg:110,cost:19,type:'normal',selfHeal:0.29}]},
   { id:59,  name:'風速狗',     type:'fire',     hp:260, tier:2, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊傷害 ×0.9'}, attacks:[{name:'夜斬',dmg:52,cost:1,type:'dark',megaBoost:true,bonusEnergy:5},{name:'影舞',cost:2,type:'fire',support:true,effect:'shadow-dance'},{name:'衝撞',dmg:90,cost:7,type:'normal',megaBoost:true,bonusEnergy:5},{name:'噴射火焰',dmg:127,cost:12,type:'fire',status:{effect:'burn', chance:0.25}}]},
   { id:131, name:'拉普拉斯',   type:'water',    type2:'ice',     hp:290, tier:2, ability:{id:'drizzle-ocean', name:'海洋支配', trigger:'onEnter', desc:'上場時場地切換為海洋世界；水／冰屬性攻擊傷害額外 +40'}, attacks:[{name:'衝浪',dmg:52,cost:1,type:'water',megaBoost:true,bonusEnergy:5},{name:'冷凍光線',dmg:85,cost:7,type:'ice',status:{effect:'freeze', chance:0.15},megaBoost:true,bonusEnergy:5},{name:'雷電',dmg:132,cost:12,type:'electric',selfHeal:0.21},{name:'暴風雪',dmg:125,cost:13,type:'ice',selfHeal:0.17}]},
   { mega:{spriteId:10058, type:'dragon', type2:'ground', ability:{id:'blaze-boost', name:'沙之力', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.1'}}, id:445, name:'烈咬陸鯊',   type:'dragon',   type2:'ground',  hp:280, tier:2, ability:{id:'frisk-ward', name:'沙隱', trigger:'onDefend', desc:'25% 機率將受到的傷害 ×0.9'}, attacks:[{name:'龍爪',dmg:53,cost:1,type:'dragon',megaBoost:true,bonusEnergy:5},{name:'集氣',cost:3,type:'dragon',support:true,effect:'focus-energy',bonusEnergy:9},{name:'地震',dmg:125,cost:11,type:'ground',selfHeal:0.23},{name:'龍之隕星',dmg:123,cost:11,type:'dragon',status:{effect:'poison', chance:0.3}}]},
@@ -2049,7 +2097,7 @@ const POKEMON = [
   { mega:{spriteId:10079, type:'dragon', type2:'flying', ability:{id:'solid-rock', name:'德爾塔氣流', trigger:'onDefend', desc:'受到剋制（×1.2以上）的攻擊傷害再減少 5%'}}, id:384, name:'烈空坐',     type:'dragon',   type2:'flying',  hp:360, tier:3, ability:{id:'weaken-buffs', name:'威壓氣場', trigger:'onDefend', desc:'對手的攻擊力提升效果減半'}, attacks:[{name:'神速',dmg:74,cost:12,type:'normal',megaBoost:true,bonusEnergy:7},{name:'火焰噴射',dmg:102,cost:18,type:'fire',status:{effect:'freeze', chance:0.15}},{name:'怒風',dmg:102,cost:18,type:'flying',status:{effect:'poison', chance:0.3}},{name:'龍之隕星',dmg:102,cost:18,type:'dragon',status:{effect:'burn', chance:0.25}}]},
   { id:1008,name:'密勒頓',     type:'electric', type2:'dragon',  hp:360, tier:3, ability:{id:'blaze-boost', name:'強子引擎', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.1'}, attacks:[{name:'電磁衝浪',dmg:77,cost:12,type:'electric',status:{effect:'paralysis', chance:0.25},megaBoost:true,bonusEnergy:7},{name:'龍息',dmg:109,cost:18,type:'dragon',selfHeal:0.17},{name:'電磁炮',dmg:109,cost:18,type:'electric',status:{effect:'poison', chance:0.3}},{name:'未來雷霆',dmg:106,cost:19,type:'psychic',selfHeal:0.23}]},
   { id:250, name:'鳳王',       type:'fire',     type2:'flying',  hp:340, tier:3, ability:{id:'pressure', name:'壓迫感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[{name:'聖焰',dmg:70,cost:11,type:'fire',status:{effect:'burn', chance:0.3},megaBoost:true,bonusEnergy:6},{name:'怒風',dmg:99,cost:17,type:'flying',status:{effect:'paralysis', chance:0.2}},{name:'超能力',dmg:102,cost:17,type:'psychic',selfHeal:0.27},{name:'神聖之焰',dmg:97,cost:17,type:'flying',selfHeal:0.2}]},
-  { id:249, name:'洛奇亞',     type:'psychic',  type2:'flying',  hp:340, tier:3, ability:{id:'pressure', name:'壓迫感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[{name:'怒風',dmg:69,cost:11,type:'flying',megaBoost:true,bonusEnergy:6},{name:'冰凍光束',dmg:101,cost:17,type:'ice',status:{effect:'confusion', chance:0.25}},{name:'暴風',dmg:101,cost:17,type:'flying',status:{effect:'sleep', chance:0.2}},{name:'心靈衝擊',dmg:99,cost:17,type:'psychic',status:{effect:'freeze', chance:0.15}}]},
+  { id:249, name:'洛奇亞',     type:'psychic',  type2:'flying',  hp:340, tier:3, ability:{id:'psychic-domain', name:'幻境支配', trigger:'onEnter', desc:'上場時場地切換為魔幻空間；超能力屬性攻擊傷害額外 +40'}, attacks:[{name:'怒風',dmg:69,cost:11,type:'flying',megaBoost:true,bonusEnergy:6},{name:'冰凍光束',dmg:101,cost:17,type:'ice',status:{effect:'confusion', chance:0.25}},{name:'暴風',dmg:101,cost:17,type:'flying',status:{effect:'sleep', chance:0.2}},{name:'心靈衝擊',dmg:99,cost:17,type:'psychic',status:{effect:'freeze', chance:0.15}}]},
   { id:1007,name:'故勒頓',     type:'fighting', type2:'dragon',  hp:360, tier:3, ability:{id:'blaze-boost', name:'緋紅脈動', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.1'}, attacks:[{name:'決勝衝擊',dmg:74,cost:12,type:'fighting',megaBoost:true,bonusEnergy:7},{name:'火焰噴射',dmg:105,cost:18,type:'fire',status:{effect:'burn', chance:0.25}},{name:'地震',dmg:105,cost:18,type:'ground',status:{effect:'sleep', chance:0.2}},{name:'遠古之力',dmg:107,cost:18,type:'rock',selfHeal:0.3}]},
   { mega:{spriteId:10051, type:'psychic', type2:'fairy', ability:{id:'adaptability', name:'妖精皮膚', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×1.2（原本 ×1.1）'}}, id:282, name:'沙奈朵',     type:'psychic',  type2:'fairy',   hp:320, tier:3, ability:{id:'sync-status', name:'同步', trigger:'onDefend', desc:'陷入中毒／麻痺／燒傷時，會將該狀態傳染給攻擊者'}, attacks:[{name:'妖精之力',dmg:83,cost:6,type:'fairy',megaBoost:true,bonusEnergy:4},{name:'暗影球',dmg:120,cost:11,type:'ghost',selfHeal:0.26},{name:'月亮力量',dmg:124,cost:11,type:'fairy',status:{effect:'poison', chance:0.3}},{name:'精神強擊',dmg:123,cost:11,type:'psychic',selfHeal:0.24}]},
   { id:144, name:'急凍鳥',     type:'ice',      type2:'flying',  hp:340, tier:3, ability:{id:'pressure', name:'壓迫感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[{name:'暴風雪',dmg:72,cost:11,type:'ice',status:{effect:'freeze', chance:0.25},megaBoost:true,bonusEnergy:6},{name:'冷凍光線',dmg:99,cost:17,type:'ice',status:{effect:'sleep', chance:0.2}},{name:'暴風',dmg:102,cost:17,type:'flying',selfHeal:0.22},{name:'怒風',dmg:102,cost:18,type:'flying',selfHeal:0.25}]},
@@ -2060,7 +2108,7 @@ const POKEMON = [
   { id:378, name:'雷吉艾斯',   type:'ice',      hp:370, tier:3, ability:{id:'thick-fat', name:'厚脂肪', trigger:'onDefend', desc:'受到火／冰屬性攻擊傷害 ×0.92'}, attacks:[{name:'暴風雪',dmg:78,cost:13,type:'ice',status:{effect:'freeze', chance:0.2},megaBoost:true,bonusEnergy:8},{name:'閃光炮',dmg:109,cost:19,type:'steel',status:{effect:'paralysis', chance:0.2}},{name:'冰耳光',dmg:109,cost:18,type:'ice',status:{effect:'confusion', chance:0.25}},{name:'電磁砲',dmg:106,cost:19,type:'electric',status:{effect:'burn', chance:0.25}}]},
   /* ── Tier 3 新 ── */
   { id:717, name:'伊裴爾塔爾', type:'dark',     type2:'flying',  hp:350, tier:3, ability:{id:'no-weakness-dodge', name:'深淵支配', trigger:'onDefend', desc:'不會受到超效傷害；10% 機率完全閃避攻擊'}, attacks:[{name:'羽棲',cost:11,type:'flying',support:true,effect:'roost'},{name:'朽滅之歌',dmg:104,cost:18,type:'flying',selfHeal:0.16},{name:'空氣斬',dmg:102,cost:18,type:'flying',status:{effect:'freeze', chance:0.15}},{name:'夜騷動',dmg:104,cost:18,type:'dark',selfHeal:0.26}]},
-  { id:483, name:'帝牙盧卡',   type:'steel',    type2:'dragon',  hp:360, tier:3, ability:{id:'pressure', name:'壓迫感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[{name:'閃光炮',dmg:76,cost:12,type:'steel',megaBoost:true,bonusEnergy:7},{name:'鋼鐵翼',dmg:106,cost:18,type:'steel',selfHeal:0.19},{name:'龍爪',dmg:106,cost:18,type:'dragon',selfHeal:0.21},{name:'時間咆哮',dmg:106,cost:18,type:'dragon',selfHeal:0.2}]},
+  { id:483, name:'帝牙盧卡',   type:'steel',    type2:'dragon',  hp:360, tier:3, ability:{id:'dragon-domain', name:'龍域降臨', trigger:'onEnter', desc:'上場時場地切換為龍之谷；龍屬性攻擊傷害額外 +40'}, attacks:[{name:'閃光炮',dmg:76,cost:12,type:'steel',megaBoost:true,bonusEnergy:7},{name:'鋼鐵翼',dmg:106,cost:18,type:'steel',selfHeal:0.19},{name:'龍爪',dmg:106,cost:18,type:'dragon',selfHeal:0.21},{name:'時間咆哮',dmg:106,cost:18,type:'dragon',selfHeal:0.2}]},
   { id:484, name:'帕路奇亞',   type:'water',    type2:'dragon',  hp:360, tier:3, ability:{id:'pressure', name:'壓迫感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[{name:'衝浪',dmg:76,cost:12,type:'water',megaBoost:true,bonusEnergy:7},{name:'龍之脈動',dmg:105,cost:18,type:'dragon',status:{effect:'paralysis', chance:0.2}},{name:'水之脈動',dmg:104,cost:18,type:'water',selfHeal:0.25},{name:'空間扭曲',dmg:108,cost:18,type:'dragon',selfHeal:0.15}]},
   { id:727, name:'熾焰咆哮虎', type:'fire',     type2:'dark',    hp:300, tier:2, ability:{id:'blaze-boost', name:'猛火', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.1'}, attacks:[{name:'火焰噴射',dmg:59,cost:3,type:'fire',status:{effect:'burn', chance:0.25},megaBoost:true,bonusEnergy:6},{name:'暗黑強打',dmg:95,cost:9,type:'dark',megaBoost:true,bonusEnergy:7},{name:'超強衝擊',dmg:135,cost:13,type:'fighting',status:{effect:'paralysis', chance:0.2}},{name:'赤焰衝擊',dmg:138,cost:13,type:'fire',selfHeal:0.2}]},
   /* ── 新增：補足各屬性 ── */
@@ -2086,7 +2134,7 @@ const POKEMON = [
   /* 岩石 */
   { mega:{spriteId:10049, type:'rock', type2:'dark', ability:{id:'solid-rock', name:'揚沙', trigger:'onDefend', desc:'受到剋制（×1.2以上）的攻擊傷害再減少 5%'}}, id:248, name:'班基拉斯',     type:'rock',     type2:'dark',    hp:300, tier:2, ability:{id:'solid-rock', name:'揚沙', trigger:'onDefend', desc:'受到剋制（×1.2以上）的攻擊傷害再減少 5%'}, attacks:[{name:'碎岩',dmg:68,cost:5,type:'rock',status:{effect:'paralysis', chance:0.15},megaBoost:true,bonusEnergy:8},{name:'咬碎',dmg:103,cost:9,type:'dark',status:{effect:'confusion', chance:0.2},megaBoost:true,bonusEnergy:7},{name:'地震',dmg:145,cost:15,type:'ground',selfHeal:0.21},{name:'岩石炮',dmg:147,cost:14,type:'rock',status:{effect:'sleep', chance:0.2}}]},
   { mega:{spriteId:10042, type:'rock', type2:'flying', ability:{id:'tough-claws', name:'硬爪', trigger:'onAttack', desc:'攻擊傷害 +40'}}, id:142, name:'化石翼龍',     type:'rock',     type2:'flying',  hp:260, tier:2, ability:{id:'no-weakness-dodge', name:'深淵支配', trigger:'onDefend', desc:'不會受到超效傷害；10% 機率完全閃避攻擊'}, attacks:[{name:'咬碎',dmg:62,cost:4,type:'dark',status:{effect:'confusion', chance:0.15},megaBoost:true,bonusEnergy:7},{name:'翼擊',dmg:99,cost:8,type:'flying',megaBoost:true,bonusEnergy:6},{name:'羽棲',cost:8,type:'flying',support:true,effect:'roost'},{name:'岩石炮',dmg:140,cost:14,type:'rock',selfHeal:0.2}]},
-  { id:526, name:'龐岩怪',       type:'rock',                      hp:280, tier:2, ability:{id:'retaliate-boost', name:'反骨', trigger:'onDefend', desc:'受到攻擊後，下次攻擊傷害 ×1.1'}, attacks:[{name:'閃光炮',dmg:52,cost:1,type:'steel',megaBoost:true,bonusEnergy:5},{name:'冥想',cost:3,type:'rock',support:true,effect:'meditate'},{name:'地震',dmg:121,cost:12,type:'ground',status:{effect:'freeze', chance:0.15}},{name:'岩石炮',dmg:120,cost:11,type:'rock',status:{effect:'poison', chance:0.3}}]},
+  { id:526, name:'龐岩怪',       type:'rock',                      hp:280, tier:2, ability:{id:'rock-domain', name:'磐岩支配', trigger:'onEnter', desc:'上場時場地切換為岩石地帶；岩石屬性攻擊傷害額外 +40'}, attacks:[{name:'閃光炮',dmg:52,cost:1,type:'steel',megaBoost:true,bonusEnergy:5},{name:'冥想',cost:3,type:'rock',support:true,effect:'meditate'},{name:'地震',dmg:121,cost:12,type:'ground',status:{effect:'freeze', chance:0.15}},{name:'岩石炮',dmg:120,cost:11,type:'rock',status:{effect:'poison', chance:0.3}}]},
   /* 幽靈 */
   { id:477, name:'黑夜魔靈',     type:'ghost',                     hp:220, tier:1, ability:{id:'shield-invert', name:'顛倒之心', trigger:'onDefend', desc:'對手的防禦加成效果對自己反而變成傷害加成'}, attacks:[{name:'暗影爪',dmg:72,cost:3,type:'ghost',status:{effect:'paralysis', chance:0.2},megaBoost:true,bonusEnergy:6},{name:'冰凍拳',dmg:72,cost:3,type:'ice',status:{effect:'freeze', chance:0.1},megaBoost:true,bonusEnergy:6},{name:'幽靈球',dmg:113,cost:8,type:'ghost',megaBoost:true,bonusEnergy:6},{name:'詭計',cost:3,type:'ghost',support:true,effect:'trick'}]},
   { mega:{spriteId:10291, type:'ghost', type2:'fire', ability:{id:'frisk-ward', name:'穿透', trigger:'onDefend', desc:'25% 機率將受到的傷害 ×0.9'}}, id:609, name:'水晶燈火靈',   type:'ghost',    type2:'fire',    hp:260, tier:2, ability:{id:'flash-fire', name:'引火', trigger:'onDefend', desc:'受到火屬性攻擊時完全免疫，下次攻擊威力 +20'}, attacks:[{name:'小偷',cost:5,type:'ghost',support:true,effect:'thief'},{name:'噴火',dmg:86,cost:7,type:'fire',status:{effect:'burn', chance:0.25},megaBoost:true,bonusEnergy:5},{name:'火焰漩渦',dmg:89,cost:8,type:'fire',status:{effect:'burn', chance:0.2},megaBoost:true,bonusEnergy:6},{name:'暗影球',dmg:128,cost:12,type:'ghost',status:{effect:'confusion', chance:0.25}}]},
@@ -2094,7 +2142,7 @@ const POKEMON = [
   { mega:{spriteId:10057, type:'dark', type2:null, ability:{id:'frisk-ward', name:'魔法鏡', trigger:'onDefend', desc:'25% 機率將受到的傷害 ×0.9'}}, id:359, name:'阿勃梭魯',     type:'dark',                      hp:220, tier:1, ability:{id:'huge-power', name:'超幸運', trigger:'onAttack', desc:'攻擊傷害固定 +40'}, attacks:[{name:'夜斬',dmg:70,cost:4,type:'dark',megaBoost:true,bonusEnergy:7},{name:'追影斬',dmg:68,cost:4,type:'dark',megaBoost:true,bonusEnergy:7},{name:'冥想',cost:3,type:'dark',support:true,effect:'meditate'},{name:'暗黑脈衝',dmg:163,cost:14,type:'dark',selfHeal:0.26}]},
   // ── +30 新增（最終進化型，非幻獸/神獸，無龍/妖精屬性）──
   { id:865, name:'蔥遊兵', type:'fighting', hp:220, tier:1, ability:{id:'desperate-blade', name:'背水之刃', trigger:'onAttack', desc:'HP 低於 50% 時，攻擊傷害 +40'}, attacks:[{name:'連續攻擊',dmg:67,cost:3,type:'normal',megaBoost:true,bonusEnergy:6},{name:'影舞',cost:2,type:'fighting',support:true,effect:'shadow-dance'},{name:'居合斬',dmg:112,cost:8,type:'fighting',status:{effect:'paralysis', chance:0.15},megaBoost:true,bonusEnergy:6},{name:'近身戰',dmg:157,cost:13,type:'fighting',selfHeal:0.18}]},
-  { id:297, name:'鐵掌力士', type:'fighting', hp:250, tier:1, ability:{id:'thick-fat', name:'厚脂肪', trigger:'onDefend', desc:'受到火／冰屬性攻擊傷害 ×0.92'}, attacks:[{name:'壓制',dmg:55,cost:1,type:'normal',megaBoost:true,bonusEnergy:5},{name:'近身戰',dmg:84,cost:7,type:'fighting',megaBoost:true,bonusEnergy:5},{name:'豪腕',dmg:125,cost:12,type:'fighting',selfHeal:0.22},{name:'集氣',cost:3,type:'fighting',support:true,effect:'focus-energy',bonusEnergy:9}]},
+  { id:297, name:'鐵掌力士', type:'fighting', hp:250, tier:1, ability:{id:'fighting-domain', name:'鬥氣支配', trigger:'onEnter', desc:'上場時場地切換為羅馬鬥技場；格鬥屬性攻擊傷害額外 +40'}, attacks:[{name:'壓制',dmg:55,cost:1,type:'normal',megaBoost:true,bonusEnergy:5},{name:'近身戰',dmg:84,cost:7,type:'fighting',megaBoost:true,bonusEnergy:5},{name:'豪腕',dmg:125,cost:12,type:'fighting',selfHeal:0.22},{name:'集氣',cost:3,type:'fighting',support:true,effect:'focus-energy',bonusEnergy:9}]},
   { id:342, name:'鐵螯龍蝦', type:'water', type2:'dark', hp:210, tier:1, ability:{id:'adaptability', name:'適應力', trigger:'onAttack', desc:'本系加成（STAB）提升為 ×1.2（原本 ×1.1）'}, attacks:[{name:'冥想',cost:3,type:'water',support:true,effect:'meditate'},{name:'夜斬',dmg:70,cost:1,type:'dark',megaBoost:true,bonusEnergy:5},{name:'亂爪',dmg:104,cost:8,type:'dark',megaBoost:true,bonusEnergy:6},{name:'泥巴射擊',dmg:158,cost:13,type:'ground',status:{effect:'burn', chance:0.25}}]},
   { id:660, name:'掘地兔', type:'normal', type2:'ground', hp:230, tier:1, ability:{id:'true-damage', name:'不動如山', trigger:'onAttack', desc:'攻擊傷害不會被對方的防禦特性、閃避或撐住效果影響'}, attacks:[{name:'砂子攻擊',dmg:79,cost:5,type:'ground',megaBoost:true,bonusEnergy:8},{name:'小偷',cost:5,type:'normal',support:true,effect:'thief'},{name:'地震',dmg:125,cost:9,type:'ground',megaBoost:true,bonusEnergy:7},{name:'岩崩',dmg:175,cost:14,type:'rock',selfHeal:0.21}]},
   { id:632, name:'鐵蟻', type:'steel', type2:'bug', hp:200, tier:1, ability:{id:'status-immune-once', name:'淬鍊之心', trigger:'onStatus', desc:'首次被施加異常狀態時解除並免疫，之後攻擊傷害永久 +40'}, attacks:[{name:'撐住',cost:5,type:'steel',support:true,effect:'brace'},{name:'金屬爪',dmg:70,cost:1,type:'steel',megaBoost:true,bonusEnergy:5},{name:'鋼鐵頭',dmg:100,cost:7,type:'steel',megaBoost:true,bonusEnergy:5},{name:'蟲之抵抗',dmg:150,cost:12,type:'bug',status:{effect:'paralysis', chance:0.2}}]},
@@ -2109,18 +2157,18 @@ const POKEMON = [
   { mega:{spriteId:10064, type:'water', type2:'ground', ability:{id:'huge-power', name:'飛毛腿', trigger:'onAttack', desc:'攻擊傷害固定 +40'}}, id:260, name:'巨沼怪', type:'water', type2:'ground', hp:300, tier:2, ability:{id:'blaze-boost', name:'激流', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.1'}, attacks:[{name:'水槍',dmg:59,cost:3,type:'water',megaBoost:true,bonusEnergy:6},{name:'泥巴射擊',dmg:92,cost:8,type:'ground',megaBoost:true,bonusEnergy:6},{name:'地震',dmg:136,cost:13,type:'ground',status:{effect:'confusion', chance:0.25}},{name:'冰凍拳',dmg:135,cost:13,type:'ice',status:{effect:'confusion', chance:0.25}}]},
   { id:407, name:'羅絲雷朵', type:'grass', type2:'poison', hp:270, tier:2, ability:{id:'poison-point', name:'毒刺', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者中毒'}, attacks:[{name:'劍舞',cost:4,type:'grass',support:true,effect:'sword-dance'},{name:'魔法葉',dmg:99,cost:9,type:'grass',megaBoost:true,bonusEnergy:7},{name:'花瓣舞',dmg:99,cost:9,type:'grass',megaBoost:true,bonusEnergy:7},{name:'污泥炸彈',dmg:141,cost:14,type:'poison',status:{effect:'burn', chance:0.25}}]},
   { id:724, name:'狙射樹梟', type:'grass', type2:'ghost', hp:290, tier:2, ability:{id:'item-synergy', name:'機械之心', trigger:'onAttack', desc:'本回合使用過道具卡時，攻擊傷害 +40'}, attacks:[{name:'飛葉快刀',dmg:50,cost:1,type:'grass',megaBoost:true,bonusEnergy:5},{name:'影子偷襲',dmg:90,cost:8,type:'ghost',megaBoost:true,bonusEnergy:6},{name:'幽靈箭',dmg:133,cost:12,type:'ghost',status:{effect:'burn', chance:0.25}},{name:'光合作用強擊',dmg:128,cost:13,type:'grass',selfHeal:0.25}]},
-  { id:452, name:'龍王蠍', type:'poison', type2:'dark', hp:280, tier:2, ability:{id:'legacy-boost', name:'指揮', trigger:'onLeave', desc:'陣亡或被換下場時，下一隻上場的我方寶可夢首次攻擊：能量消耗×0.5、傷害+40'}, attacks:[{name:'毒針',dmg:54,cost:0,type:'poison',status:{effect:'poison', chance:0.3},megaBoost:true,bonusEnergy:4},{name:'夜斬',dmg:80,cost:6,type:'dark',megaBoost:true,bonusEnergy:4},{name:'撐住',cost:5,type:'poison',support:true,effect:'brace'},{name:'惡意突刺',dmg:120,cost:11,type:'dark',status:{effect:'sleep', chance:0.2}}]},
+  { id:452, name:'龍王蠍', type:'poison', type2:'dark', hp:280, tier:2, ability:{id:'poison-domain', name:'劇毒支配', trigger:'onEnter', desc:'上場時場地切換為劇毒領域；毒屬性攻擊傷害額外 +40'}, attacks:[{name:'毒針',dmg:54,cost:0,type:'poison',status:{effect:'poison', chance:0.3},megaBoost:true,bonusEnergy:4},{name:'夜斬',dmg:80,cost:6,type:'dark',megaBoost:true,bonusEnergy:4},{name:'撐住',cost:5,type:'poison',support:true,effect:'brace'},{name:'惡意突刺',dmg:120,cost:11,type:'dark',status:{effect:'sleep', chance:0.2}}]},
   { id:862, name:'堵攔熊', type:'dark', type2:'normal', hp:300, tier:2, ability:{id:'guts', name:'堅韌', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 +40'}, attacks:[{name:'夜斬',dmg:62,cost:4,type:'dark',megaBoost:true,bonusEnergy:7},{name:'連續切',dmg:98,cost:8,type:'normal',megaBoost:true,bonusEnergy:6},{name:'惡意突刺',dmg:141,cost:14,type:'dark',status:{effect:'confusion', chance:0.25}},{name:'蠻力',dmg:142,cost:14,type:'normal',selfHeal:0.2}]},
   { id:738, name:'鍬農炮蟲', type:'bug', type2:'electric', hp:270, tier:2, ability:{id:'desperate-blade', name:'背水之刃', trigger:'onAttack', desc:'HP 低於 50% 時，攻擊傷害 +40'}, attacks:[{name:'蟲咬',dmg:64,cost:4,type:'bug',megaBoost:true,bonusEnergy:7},{name:'電擊',dmg:99,cost:10,type:'electric',megaBoost:true,bonusEnergy:8},{name:'蟲鳴',dmg:96,cost:9,type:'bug',megaBoost:true,bonusEnergy:7},{name:'撐住',cost:5,type:'bug',support:true,effect:'brace'}]},
   { mega:{spriteId:10313, type:'ground', type2:'ghost', ability:{id:'tough-claws', name:'隱形拳', trigger:'onAttack', desc:'攻擊傷害 +40'}}, id:623, name:'泥偶巨人', type:'ground', type2:'ghost', hp:310, tier:2, ability:{id:'retaliate-boost', name:'反骨', trigger:'onDefend', desc:'受到攻擊後，下次攻擊傷害 ×1.1'}, attacks:[{name:'泥巴射擊',dmg:68,cost:5,type:'ground',megaBoost:true,bonusEnergy:8},{name:'影子偷襲',dmg:105,cost:10,type:'ghost',megaBoost:true,bonusEnergy:8},{name:'地震',dmg:150,cost:15,type:'ground',selfHeal:0.22},{name:'惡靈波動',dmg:146,cost:15,type:'ghost',status:{effect:'freeze', chance:0.15}}]},
   { mega:{spriteId:10280, type:'water', type2:'psychic', ability:{id:'huge-power', name:'大力士', trigger:'onAttack', desc:'攻擊傷害固定 +40'}}, id:121, name:'寶石海星', type:'water', type2:'psychic', hp:270, tier:2, ability:{id:'frisk-ward', name:'神秘之守', trigger:'onDefend', desc:'25% 機率將受到的傷害 ×0.9'}, attacks:[{name:'水槍',dmg:70,cost:5,type:'water',megaBoost:true,bonusEnergy:8},{name:'念力',dmg:104,cost:10,type:'psychic',megaBoost:true,bonusEnergy:8},{name:'集氣',cost:3,type:'water',support:true,effect:'focus-energy',bonusEnergy:9},{name:'精神強擊',dmg:150,cost:15,type:'psychic',selfHeal:0.15}]},
   { mega:{spriteId:10045, type:'electric', type2:'dragon', ability:{id:'mold-breaker', name:'破格', trigger:'onAttack', desc:'攻擊時無視對方的防禦型特性'}}, id:181, name:'電龍', type:'electric', hp:300, tier:2, ability:{id:'static', name:'靜電', trigger:'onDefend', desc:'受到攻擊後 20% 機率讓攻擊者陷入麻痺'}, attacks:[{name:'電擊',dmg:55,cost:2,type:'electric',megaBoost:true,bonusEnergy:6},{name:'電光一閃',dmg:90,cost:8,type:'normal',megaBoost:true,bonusEnergy:6},{name:'十萬伏特',dmg:134,cost:13,type:'electric',status:{effect:'freeze', chance:0.15}},{name:'雷電',dmg:138,cost:13,type:'electric',status:{effect:'confusion', chance:0.25}}]},
   { mega:{spriteId:10316, type:'bug', type2:'steel', ability:{id:'solid-rock', name:'重甲化', trigger:'onDefend', desc:'受到剋制（×1.2以上）的攻擊傷害再減少 5%'}}, id:768, name:'具甲武者', type:'bug', type2:'water', hp:290, tier:2, ability:{id:'retaliate-boost', name:'反骨', trigger:'onDefend', desc:'受到攻擊後，下次攻擊傷害 ×1.1'}, attacks:[{name:'水流手裏劍',dmg:51,cost:2,type:'water',megaBoost:true,bonusEnergy:6},{name:'蟲咬',dmg:88,cost:7,type:'bug',megaBoost:true,bonusEnergy:5},{name:'X 剪刀',dmg:128,cost:13,type:'bug',selfHeal:0.17},{name:'水炮',dmg:131,cost:13,type:'water',status:{effect:'paralysis', chance:0.2}}]},
-  { id:465, name:'巨蔓藤', type:'grass', hp:310, tier:2, ability:{id:'adaptability', name:'適應力', trigger:'onAttack', desc:'本系加成（STAB）提升為 ×1.2（原本 ×1.1）'}, attacks:[{name:'魔法葉',dmg:68,cost:4,type:'grass',megaBoost:true,bonusEnergy:7},{name:'藤鞭',dmg:100,cost:10,type:'grass',megaBoost:true,bonusEnergy:8},{name:'實力全開',dmg:149,cost:15,type:'normal',status:{effect:'confusion', chance:0.25}},{name:'能量球',dmg:144,cost:15,type:'grass',status:{effect:'poison', chance:0.3}}]},
+  { id:465, name:'巨蔓藤', type:'grass', hp:310, tier:2, ability:{id:'grass-domain', name:'密林支配', trigger:'onEnter', desc:'上場時場地切換為邪惡森林；草屬性攻擊傷害額外 +40'}, attacks:[{name:'魔法葉',dmg:68,cost:4,type:'grass',megaBoost:true,bonusEnergy:7},{name:'藤鞭',dmg:100,cost:10,type:'grass',megaBoost:true,bonusEnergy:8},{name:'實力全開',dmg:149,cost:15,type:'normal',status:{effect:'confusion', chance:0.25}},{name:'能量球',dmg:144,cost:15,type:'grass',status:{effect:'poison', chance:0.3}}]},
   { id:713, name:'冰岩怪', type:'ice', hp:320, tier:2, ability:{id:'no-weakness-dodge', name:'深淵支配', trigger:'onDefend', desc:'不會受到超效傷害；10% 機率完全閃避攻擊'}, attacks:[{name:'冰凍拳',dmg:85,cost:6,type:'ice',status:{effect:'freeze', chance:0.15},megaBoost:true,bonusEnergy:4},{name:'碎岩',dmg:122,cost:11,type:'rock',selfHeal:0.24},{name:'暴風雪',dmg:126,cost:11,type:'ice',status:{effect:'poison', chance:0.3}},{name:'雪崩',dmg:122,cost:11,type:'ice',selfHeal:0.17}]},
   { id:576, name:'哥德小姐', type:'psychic', hp:280, tier:2, ability:{id:'chance-debuff', name:'穿透', trigger:'onAttack', desc:'攻擊命中後 25% 機率讓對方下次攻擊傷害 ×0.9'}, attacks:[{name:'念力',dmg:58,cost:1,type:'psychic',megaBoost:true,bonusEnergy:5},{name:'擾亂精神',cost:1,type:'psychic',support:true,effect:'debuff',status:{effect:'confusion', chance:1}},{name:'精神強擊',dmg:124,cost:11,type:'psychic',selfHeal:0.2},{name:'未來預知',dmg:129,cost:12,type:'psychic',status:{effect:'freeze', chance:0.15}}]},
   { mega:{spriteId:10048, type:'dark', type2:'fire', ability:{id:'blaze-boost', name:'太陽之力', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.1'}}, id:229, name:'黑魯加', type:'fire', type2:'dark', hp:280, tier:2, ability:{id:'blaze-boost', name:'猛火', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.1'}, attacks:[{name:'夜斬',dmg:59,cost:1,type:'dark',megaBoost:true,bonusEnergy:5},{name:'火焰牙',dmg:85,cost:7,type:'fire',status:{effect:'burn', chance:0.2},megaBoost:true,bonusEnergy:5},{name:'惡意突刺',dmg:125,cost:12,type:'dark',selfHeal:0.26},{name:'詭計',cost:3,type:'fire',support:true,effect:'trick'}]},
-  { id:464, name:'超甲狂犀', type:'ground', type2:'rock', hp:360, tier:3, ability:{id:'weaken-buffs', name:'威壓氣場', trigger:'onDefend', desc:'對手的攻擊力提升效果減半'}, attacks:[{name:'角撞',dmg:75,cost:13,type:'normal',megaBoost:true,bonusEnergy:8},{name:'泥巴射擊',dmg:107,cost:18,type:'ground',selfHeal:0.18},{name:'岩崩',dmg:107,cost:18,type:'rock',status:{effect:'confusion', chance:0.25}},{name:'地震',dmg:104,cost:18,type:'ground',status:{effect:'poison', chance:0.3}}]},
+  { id:464, name:'超甲狂犀', type:'ground', type2:'rock', hp:360, tier:3, ability:{id:'ground-domain', name:'風沙支配', trigger:'onEnter', desc:'上場時場地切換為沙塵暴；地面屬性攻擊傷害額外 +40'}, attacks:[{name:'角撞',dmg:75,cost:13,type:'normal',megaBoost:true,bonusEnergy:8},{name:'泥巴射擊',dmg:107,cost:18,type:'ground',selfHeal:0.18},{name:'岩崩',dmg:107,cost:18,type:'rock',status:{effect:'confusion', chance:0.25}},{name:'地震',dmg:104,cost:18,type:'ground',status:{effect:'poison', chance:0.3}}]},
   { id:473, name:'象牙豬', type:'ice', type2:'ground', hp:350, tier:3, ability:{id:'weaken-buffs', name:'威壓氣場', trigger:'onDefend', desc:'對手的攻擊力提升效果減半'}, attacks:[{name:'冰凍拳',dmg:72,cost:11,type:'ice',status:{effect:'freeze', chance:0.15},megaBoost:true,bonusEnergy:6},{name:'地震',dmg:102,cost:18,type:'ground',selfHeal:0.28},{name:'雪崩',dmg:102,cost:18,type:'ice',selfHeal:0.25},{name:'冰牙',dmg:102,cost:18,type:'ice',status:{effect:'poison', chance:0.3}}]},
   { id:625, name:'劈斬司令', type:'dark', type2:'steel', hp:330, tier:3, ability:{id:'guts', name:'堅韌', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 +40'}, attacks:[{name:'金屬爪',dmg:64,cost:10,type:'steel',megaBoost:true,bonusEnergy:5},{name:'夜斬',dmg:94,cost:17,type:'dark',selfHeal:0.16},{name:'惡意突刺',dmg:92,cost:16,type:'dark',selfHeal:0.23},{name:'鐵頭功',dmg:96,cost:16,type:'steel',selfHeal:0.3}]},
   /* ── Mega 進化擴充（Legends Z-A / 原有 46 種缺漏補完） ── */
@@ -2261,8 +2309,9 @@ function effActive(atkType, defType, defType2) {
     if (eAtk === 'dragon' && m < 1) m = 1;
   }
   // Evil Forest: 原本克制草屬性的寶可夢（火／冰／飛行／毒／蟲），全部變成弱草屬性
+  // 2026-07-22應使用者要求「場地卡全面加強」，把原本壓縮後只有×1.2的m=2提高到m=4（compressMult(4)=1.6）
   if (G.activeStadium?.id === 'stadium-evil-forest' && eAtk === 'grass') {
-    if (GRASS_COUNTER_TYPES.includes(defType) || GRASS_COUNTER_TYPES.includes(defType2)) m = 2;
+    if (GRASS_COUNTER_TYPES.includes(defType) || GRASS_COUNTER_TYPES.includes(defType2)) m = 4;
   }
   // Roman Colosseum: fighting-type attacks are no longer immune against ghost-type (treated as neutral)
   if (G.activeStadium?.id === 'stadium-colosseum') {
@@ -2273,8 +2322,9 @@ function effActive(atkType, defType, defType2) {
     if ((defType === 'psychic' || defType2 === 'psychic') && m > 1) m = 1;
   }
   // Solemn Shrine: normal-type moves are always treated as super-effective against the target
+  // 2026-07-22應使用者要求「場地卡全面加強」，把原本壓縮後只有×1.2的m=2提高到m=5（compressMult(5)=1.8）
   if (G.activeStadium?.id === 'stadium-shrine' && eAtk === 'normal') {
-    m = 2;
+    m = 5;
   }
   return compressMult(m);
 }
@@ -2313,6 +2363,8 @@ const TRAINERS = [
   {id:'double-strike', name:'連擊',     cat:'item',    desc:'下次攻擊傷害 +40，異常狀態機率額外判定一次'},
   {id:'plunder',    name:'掠奪',       cat:'item',      desc:'隨機搶奪對手一張手牌'},
   {id:'comm-seal',  name:'通訊封印',   cat:'item',      desc:'下回合對手不能使用支援者卡'},
+  {id:'ability-seal', name:'封印特性', cat:'item',      desc:'封印對手的特性 2 回合，期間視為沒有特性'},
+  {id:'heal-seal',  name:'詛咒',       cat:'item',      desc:'對手的恢復效果 2 回合內全部失效（道具回血／特性回血／招式回血皆無效）'},
   // ── 道具牌：屬性分類卡（依場上寶可夢屬性抽取，優先補之前完全沒有主題卡的屬性）──
   {id:'paralyze-trap', name:'電擊誘餌', cat:'item', type:'electric', weight:10, desc:'讓對手上場寶可夢陷入麻痺'},
   {id:'curse-drain',   name:'詛咒波動', cat:'item', type:'ghost', weight:10,    desc:'讓對方損失 8 點能量，自身回復 20 HP'},
@@ -2331,6 +2383,7 @@ const TRAINERS = [
   {id:'sacrifice',      name:'搏命',       cat:'supporter', desc:'我方與對方上場寶可夢同歸於盡'},
   {id:'mad-scientist',  name:'瘋狂博士',   cat:'supporter', desc:'選我方一隻寶可夢，變身成我方或對方一隻陣亡的寶可夢（回復變身後 50% HP）'},
   {id:'cheerleader',    name:'啦啦隊',     cat:'supporter', desc:'將能量補滿到 20'},
+  {id:'hunt',           name:'獵捕',       cat:'supporter', desc:'指定對手一隻備戰寶可夢強制上場（不觸發上場特性），並造成 40 點固定傷害（會計算屬性相剋）'},
   // ── 支援者牌：屬性分類新卡（18種屬性各一張，補齊「每種屬性都有專屬支援者卡」的空缺；
   //   刻意少放補血、多放幽靈/惡這兩張封印Mega進化——使用者原話「補血卡少一點，多一些封印」）──
   {id:'fire-nova',      name:'灼焒爆發',   cat:'item', type:'fire', weight:10,     desc:'下次攻擊威力 +60，30% 機率讓對手灼傷'},
@@ -2389,23 +2442,23 @@ const TRAINERS = [
   {id:'bug-web',          name:'蟲網束縛',   cat:'item', type:'bug',      weight:10, desc:'讓對手損失 6 點能量，自身下次攻擊威力 +20'},
   {id:'bug-swarm',        name:'群聚共鳴',   cat:'item', type:'bug',      weight:10, desc:'立即回復 6 點能量，並抽 1 張手牌'},
   // ── 競技場牌 ──
-  {id:'stadium-training',      name:'訓練場',     cat:'stadium', desc:'場上所有技能威力 +20（雙方）'},
-  {id:'stadium-spring',        name:'地熱溫泉',   cat:'stadium', desc:'每回合結束，雙方上場寶可夢各回復 15 HP'},
-  {id:'stadium-reversal',      name:'逆轉鬥技場', cat:'stadium', desc:'HP 低於 50% 時，攻擊威力 +30'},
-  {id:'stadium-invert',        name:'反轉世界',   cat:'stadium', desc:'場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×1.2）'},
-  {id:'stadium-dragon-valley', name:'龍之谷',     cat:'stadium', type:'dragon', weight:10, desc:'龍屬性寶可夢對妖精、冰系招式不受克制（效果最多×1）；龍屬性攻擊不會被減免或無效'},
-  {id:'stadium-evil-forest',   name:'邪惡森林',   cat:'stadium', type:'grass', weight:10, desc:'原本克制草屬性的寶可夢（火／冰／飛行／毒／蟲），全部變成弱草屬性（草屬性攻擊 ×1.2）'},
-  {id:'stadium-mega-prism',    name:'Mega 稜鏡塔', cat:'stadium', desc:'雙方每個自己的回合開始時，獲得 10 點 Mega 能量'},
-  {id:'stadium-spikes',        name:'尖峰陷阱',   cat:'stadium', desc:'寶可夢上場時，受到最大HP 15% 的傷害（雙方對等）'},
-  {id:'stadium-toxic-field',   name:'劇毒領域',   cat:'stadium', type:'poison', weight:10, desc:'寶可夢上場時，陷入中毒（雙方對等）'},
-  {id:'stadium-colosseum',     name:'羅馬鬥技場', cat:'stadium', type:'fighting', weight:10, desc:'格鬥屬性招式傷害 ×1.1；格鬥屬性攻擊不再被幽靈屬性完全免疫'},
-  {id:'stadium-mystic-space',  name:'魔幻空間',   cat:'stadium', type:'psychic', weight:10, desc:'超能力屬性寶可夢受到的傷害 ×0.98；弱點消失（不受超效傷害影響）'},
-  {id:'stadium-lava',          name:'熔岩火山',   cat:'stadium', type:'fire', weight:10, desc:'火屬性招式傷害 +40；水屬性招式傷害 ×0.9'},
-  {id:'stadium-ocean',         name:'海洋世界',   cat:'stadium', type:'water', weight:10, desc:'水屬性招式消耗能量減半；電屬性招式傷害 ×1.1'},
-  {id:'stadium-shrine',        name:'莊嚴神社',   cat:'stadium', type:'normal', weight:10, desc:'一般屬性招式一律視為剋制對手（效果拉滿 ×1.2）'},
+  {id:'stadium-training',      name:'訓練場',     cat:'stadium', desc:'場上所有技能威力 +45（雙方）'},
+  {id:'stadium-spring',        name:'地熱溫泉',   cat:'stadium', desc:'每回合結束，雙方上場寶可夢各回復 30 HP'},
+  {id:'stadium-reversal',      name:'逆轉鬥技場', cat:'stadium', desc:'HP 低於 50% 時，攻擊威力 +65'},
+  {id:'stadium-invert',        name:'反轉世界',   cat:'stadium', desc:'場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×1.2）；反轉後仍是克制的攻擊，額外 +25 固定傷害'},
+  {id:'stadium-dragon-valley', name:'龍之谷',     cat:'stadium', type:'dragon', weight:10, desc:'龍屬性寶可夢對妖精、冰系招式不受克制（效果最多×1）；龍屬性攻擊不會被減免或無效，且額外 +35 固定傷害'},
+  {id:'stadium-evil-forest',   name:'邪惡森林',   cat:'stadium', type:'grass', weight:10, desc:'原本克制草屬性的寶可夢（火／冰／飛行／毒／蟲），全部變成弱草屬性（草屬性攻擊 ×1.6）'},
+  {id:'stadium-mega-prism',    name:'Mega 稜鏡塔', cat:'stadium', desc:'雙方每個自己的回合開始時，獲得 16 點 Mega 能量'},
+  {id:'stadium-spikes',        name:'尖峰陷阱',   cat:'stadium', desc:'寶可夢上場時，受到最大HP 25% 的傷害（雙方對等）'},
+  {id:'stadium-toxic-field',   name:'劇毒領域',   cat:'stadium', type:'poison', weight:10, desc:'寶可夢上場時，陷入中毒（雙方對等）；此場地下中毒傷害 ×2'},
+  {id:'stadium-colosseum',     name:'羅馬鬥技場', cat:'stadium', type:'fighting', weight:10, desc:'格鬥屬性招式傷害 ×1.4；格鬥屬性攻擊不再被幽靈屬性完全免疫'},
+  {id:'stadium-mystic-space',  name:'魔幻空間',   cat:'stadium', type:'psychic', weight:10, desc:'超能力屬性寶可夢受到的傷害 ×0.75；弱點消失（不受超效傷害影響）'},
+  {id:'stadium-lava',          name:'熔岩火山',   cat:'stadium', type:'fire', weight:10, desc:'火屬性招式傷害 +75；水屬性招式傷害 ×0.65'},
+  {id:'stadium-ocean',         name:'海洋世界',   cat:'stadium', type:'water', weight:10, desc:'水屬性招式消耗能量 ×0.3；電屬性招式傷害 ×1.4'},
+  {id:'stadium-shrine',        name:'莊嚴神社',   cat:'stadium', type:'normal', weight:10, desc:'一般屬性招式一律視為剋制對手（效果拉滿 ×1.8）'},
   // ── 競技場牌：屬性分類新卡 ──
-  {id:'stadium-sandstorm',   name:'沙塵暴',   cat:'stadium', type:'ground', weight:10, desc:'非地面／岩石／鋼屬性寶可夢，每回合結束損失最大HP的6%'},
-  {id:'stadium-rock-field',  name:'岩石地帶', cat:'stadium', type:'rock', weight:10, desc:'岩石／地面／鋼屬性寶可夢，受到的攻擊傷害 -80'},
+  {id:'stadium-sandstorm',   name:'沙塵暴',   cat:'stadium', type:'ground', weight:10, desc:'非地面／岩石／鋼屬性寶可夢，每回合結束損失最大HP的12%'},
+  {id:'stadium-rock-field',  name:'岩石地帶', cat:'stadium', type:'rock', weight:10, desc:'岩石／地面／鋼屬性寶可夢，受到的攻擊傷害 -150'},
 ];
 
 // 2026-07-22應使用者要求：抽牌／搶奪對方手牌效果太強（隨機應變/換氣追擊/群聚共鳴抽牌，
@@ -3387,6 +3440,16 @@ function useTrainer(idx) {
     return;
   }
 
+  /* 獵捕：需要選對手備戰寶可夢，確認前不消耗手牌 */
+  if (card.id === 'hunt') {
+    if (!G.cpuDeck.some((p, i) => i !== G.cpuIdx && p.cur > 0)) {
+      showWarn('對手目前沒有可以獵捕的備戰寶可夢！');
+      return;
+    }
+    openHuntModal(idx);
+    return;
+  }
+
   /* 屬性轉換：需要先選屬性，確認前不消耗手牌 */
   if (card.id === 'type-orb') {
     openTypeOrbModal(idx);
@@ -3429,6 +3492,7 @@ function applyTrainer(card, side, chosenType) {
 
   switch (card.id) {
     case 'potion-m': case 'potion-l': case 'potion-xl': {
+      if (isHealSealed(side)) { log(`${pron}使用了【${card.name}】，但恢復效果被詛咒封印中，沒有任何效果！`, 'system'); break; }
       const healAmt = { 'potion-m':40, 'potion-l':60, 'potion-xl':80 }[card.id];
       const gain = Math.min(active.hp - active.cur, healAmt);
       active.cur = Math.min(active.hp, active.cur + healAmt);
@@ -3453,6 +3517,7 @@ function applyTrainer(card, side, chosenType) {
       break;
     case 'revive': {
       if (G[`${side}ReviveUsed`]) { log(`${pron}的復活藥每場只能使用一次，已經用過了！`, 'system'); break; }
+      if (isHealSealed(side)) { log(`${pron}使用了【${card.name}】，但恢復效果被詛咒封印中，沒有任何效果！`, 'system'); break; }
       const fainted = deck.find(p => p.cur <= 0);
       if (fainted) {
         fainted.cur = 40;
@@ -3465,11 +3530,16 @@ function applyTrainer(card, side, chosenType) {
       break;
     }
     case 'nurse':
-      active.cur = active.hp;
-      active.status = null;
-      log(`${pron}使用了【${card.name}】，${active.name} 完全回復！（HP ${active.hp}/${active.hp}）`, tag);
-      playSfx('heal');
-      updateHp(side, active);
+      if (isHealSealed(side)) {
+        active.status = null;
+        log(`${pron}使用了【${card.name}】，解除了異常狀態，但恢復效果被詛咒封印中，HP 沒有回復！`, tag);
+      } else {
+        active.cur = active.hp;
+        active.status = null;
+        log(`${pron}使用了【${card.name}】，${active.name} 完全回復！（HP ${active.hp}/${active.hp}）`, tag);
+        playSfx('heal');
+        updateHp(side, active);
+      }
       break;
     case 'antidote': {
       if (active.status) {
@@ -3757,6 +3827,18 @@ function applyTrainer(card, side, chosenType) {
       buff.ignoreShield = true;
       log(`${pron}使用了【${card.name}】，下次攻擊威力 +40，且無視對方的受傷減少效果！`, tag);
       break;
+    case 'ability-seal': {
+      const sealKey = opSide === 'player' ? 'playerAbilitySealedTurns' : 'cpuAbilitySealedTurns';
+      G[sealKey] = 2;
+      log(`${pron}使用了【${card.name}】，封印了對方的特性 2 回合！`, tag);
+      break;
+    }
+    case 'heal-seal': {
+      const sealKey = opSide === 'player' ? 'playerHealSealedTurns' : 'cpuHealSealedTurns';
+      G[sealKey] = 2;
+      log(`${pron}使用了【${card.name}】，讓對方的恢復效果 2 回合內全部失效！`, tag);
+      break;
+    }
     case 'wraith-curse': {
       const sealKey = opSide === 'player' ? 'playerMegaSealedTurns' : 'cpuMegaSealedTurns';
       G[sealKey] = 2;
@@ -4291,6 +4373,61 @@ function confirmMadScientist(targetSide, targetIdx) {
   renderBattle();
 }
 
+/* 獵捕：單步選擇對手一隻備戰寶可夢，強制其上場（不觸發上場特性／進場陷阱，比照Mega進化／瘋狂博士
+   既有的isFieldEntry=false旗標），並立即造成40點固定傷害（用attacker.type/effActive計算屬性相剋）。
+   強制換人的部分抄交換器(switcher)的寫法：重置對方buff/撐住/硬幣護盾，觸發triggerOnLeave+triggerOnEnter。 */
+let _huntHandIdx = null;
+function openHuntModal(handIdx) {
+  _huntHandIdx = handIdx;
+  renderHuntPicker();
+  document.getElementById('hunt-modal').classList.add('open');
+}
+function closeHuntModal() {
+  _huntHandIdx = null;
+  document.getElementById('hunt-modal').classList.remove('open');
+}
+function renderHuntPicker() {
+  const row = document.getElementById('hunt-cards-row');
+  row.innerHTML = '';
+  G.cpuDeck.forEach((p, i) => {
+    if (i === G.cpuIdx || p.cur <= 0) return; // 只能選對手備戰欄裡還活著的寶可夢
+    row.appendChild(renderSelCard(p, false, () => confirmHunt(i)));
+  });
+}
+function confirmHunt(targetIdx) {
+  const handIdx = _huntHandIdx;
+  const card = G.playerHand[handIdx];
+  closeHuntModal();
+  if (!card || card.id !== 'hunt') return;
+
+  if (card.cat === 'supporter') { G.playerSuppUsed = true; G.playerSuppStageUsed++; }
+  G.playerHand.splice(handIdx, 1);
+  G.playerCardsUsed++;
+
+  const attacker = G.playerDeck[G.playerIdx];
+  const outPoke = G.cpuDeck[G.cpuIdx];
+  const target = G.cpuDeck[targetIdx];
+  triggerOnLeave(outPoke, 'cpu');
+  G.cpuIdx = targetIdx;
+  G.cpuBuff = { atkBonus:0, atkMult:1, shield:0, typeOverride:null, reflect:false, doubleStrike:false, typeBoost:null };
+  G.cpuBraced = false; G.cpuCoinShield = false;
+  log(`你使用了【${card.name}】，強制讓 ${target.name} 上場！`, 'player');
+  triggerOnEnter(target, 'cpu', false); // 不觸發上場特性／進場陷阱
+  renderBattle();
+
+  const mult = effActive(attacker.type, target.type, target.type2);
+  const dmg = Math.max(1, Math.round(40 * mult));
+  target.cur = Math.max(0, target.cur - dmg);
+  log(`${target.name} 受到了獵捕的 ${dmg} 點傷害！`, 'special');
+  updateHp('cpu', target);
+
+  if (target.cur <= 0) {
+    handleKO('cpu', () => renderBattle());
+  } else {
+    renderBattle();
+  }
+}
+
 /* ─────────────────────────────────────────
    BATTLE LOG
 ───────────────────────────────────────── */
@@ -4552,6 +4689,8 @@ function cpuUseTrainers() {
   /* Disruption */
   useCard('energy-drain');
   if (G.playerHand.length) useCard('hand-wreck');
+  if (P().ability) useCard('ability-seal');
+  useCard('heal-seal');
   /* Shield if player has big hitter */
   if (P().attacks.some(a => a.dmg >= 60)) useCard('x-def');
 }
@@ -4576,10 +4715,12 @@ function cpuAttack() {
     G.cpuBonusEnergyNextTurn = 0;
   }
   if (G.activeStadium?.id === 'stadium-mega-prism' && !G.cpuMegaUsed) {
-    G.cpuMegaEnergy = Math.min(20, G.cpuMegaEnergy + 10);
-    log('【Mega 稜鏡塔】對手獲得了 10 點 Mega 能量！', 'special');
+    G.cpuMegaEnergy = Math.min(20, G.cpuMegaEnergy + 16);
+    log('【Mega 稜鏡塔】對手獲得了 16 點 Mega 能量！', 'special');
   }
   if (G.cpuMegaSealedTurns > 0) G.cpuMegaSealedTurns--;
+  if (G.cpuAbilitySealedTurns > 0) G.cpuAbilitySealedTurns--;
+  if (G.cpuHealSealedTurns > 0) G.cpuHealSealedTurns--;
   if (G.cpuLeechTurns > 0) {
     const amt = Math.min(3, G.playerEnergy);
     G.playerEnergy -= amt;
@@ -4750,14 +4891,15 @@ function applyEndOfTurnStatus(poke, side, onSurvive, onKO) {
   const st = poke.status;
   if (!st || (st.type !== 'poison' && st.type !== 'burn')) { onSurvive(); return; }
   const label = side === 'player' ? '你的' : '對手的';
+  const ability = isAbilitySealed(side) ? null : poke.ability; // 封印特性中視為沒有特性
 
-  if (poke.ability?.id === 'magic-guard') {
+  if (ability?.id === 'magic-guard') {
     log(`${label}${poke.name} 的魔法防守抵消了${st.type === 'poison' ? '中毒' : '燒傷'}傷害！`, 'special');
     onSurvive();
     return;
   }
 
-  if (st.type === 'poison' && poke.ability?.id === 'poison-heal') {
+  if (st.type === 'poison' && ability?.id === 'poison-heal' && !isHealSealed(side)) {
     const heal = Math.max(1, Math.floor(poke.hp / 8));
     poke.cur = Math.min(poke.hp, poke.cur + heal);
     log(`${label}${poke.name} 的毒療發動，中毒回復了 ${heal} 點HP！`, 'special');
@@ -4766,7 +4908,9 @@ function applyEndOfTurnStatus(poke, side, onSurvive, onKO) {
     return;
   }
 
-  const dmg = st.type === 'poison' ? Math.max(1, Math.floor(poke.hp / 8)) : Math.max(1, Math.floor(poke.hp / 16));
+  // 劇毒領域場地啟用時，中毒傷害×2（2026-07-22場地卡全面加強）
+  const toxicFieldActive = G.activeStadium?.id === 'stadium-toxic-field';
+  const dmg = st.type === 'poison' ? Math.max(1, Math.floor(poke.hp / 8 * (toxicFieldActive ? 2 : 1))) : Math.max(1, Math.floor(poke.hp / 16));
   const label2 = st.type === 'poison' ? '中毒' : '燒傷';
   poke.cur = Math.max(0, poke.cur - dmg);
   log(`${label}${poke.name} 因${label2}受到了 ${dmg} 點傷害！`, 'special');
@@ -4799,8 +4943,8 @@ function effectiveCost(atk, opponentPoke, side) {
   // 電光石火：本回合這次攻擊不消耗能量，直接蓋過其他所有能量計算，用完即消
   if (buff?.costFree) return 0;
   let cost = atk.cost;
-  // Ocean World: water-type moves cost half as much energy
-  if (G.activeStadium?.id === 'stadium-ocean' && atk.type === 'water') cost = Math.floor(cost / 2);
+  // Ocean World: water-type moves cost ×0.3（2026-07-22場地卡全面加強，從減半再放大折扣）
+  if (G.activeStadium?.id === 'stadium-ocean' && atk.type === 'water') cost = Math.floor(cost * 0.3);
   // 深海之力：下次攻擊消耗能量減半（跟海洋世界的水屬性減半疊加計算，各自算各自的一半）
   if (buff?.costHalved) cost = Math.floor(cost / 2);
   return cost;
@@ -4810,6 +4954,8 @@ function tryInflictStatus(atk, target, targetSide, attacker, guaranteed) {
   if (!atk.status) return;
   if (target.status) return;
   if (target.cur <= 0) return;
+  // 封印特性生效中，target的特性視為不存在——後面一律讀targetAbility，不要直接讀target.ability
+  const targetAbility = isAbilitySealed(targetSide) ? null : target.ability;
   // 妖精結界：接下來N回合對異常狀態免疫，比淬鍊之心早判斷（不消耗淬鍊之心的一次性免疫額度）
   if (G[`${targetSide}StatusImmuneTurns`] > 0) {
     const label = targetSide === 'player' ? '你的' : '對手的';
@@ -4817,7 +4963,7 @@ function tryInflictStatus(atk, target, targetSide, attacker, guaranteed) {
     return;
   }
   // 頭巾混混系特性「淬鍊之心」：第一次被施加異常狀態時，完全免疫（不看機率）並永久提升攻擊力
-  if (target.ability?.id === 'status-immune-once' && !target._temperedHeart) {
+  if (targetAbility?.id === 'status-immune-once' && !target._temperedHeart) {
     target._temperedHeart = true;
     const label = targetSide === 'player' ? '你的' : '對手的';
     log(`${label}${target.name} 的淬鍊之心發動，免疫了異常狀態並提升了攻擊力！`, 'special');
@@ -4826,13 +4972,13 @@ function tryInflictStatus(atk, target, targetSide, attacker, guaranteed) {
   // 心靈感應：下次攻擊的異常狀態機率視為100%，跳過機率骰
   if (!guaranteed && Math.random() >= atk.status.chance) return;
   const effect = atk.status.effect;
-  if (effect === 'confusion' && target.ability?.id === 'own-tempo') {
+  if (effect === 'confusion' && targetAbility?.id === 'own-tempo') {
     const label = targetSide === 'player' ? '你的' : '對手的';
     log(`${label}${target.name} 的我行我素抵消了混亂！`, 'special');
     renderBattle();
     return;
   }
-  if (effect === 'sleep' && target.ability?.id === 'insomnia') {
+  if (effect === 'sleep' && targetAbility?.id === 'insomnia') {
     const label = targetSide === 'player' ? '你的' : '對手的';
     log(`${label}${target.name} 的不眠抵消了睡眠！`, 'special');
     renderBattle();
@@ -4847,7 +4993,7 @@ function tryInflictStatus(atk, target, targetSide, attacker, guaranteed) {
   const effectVerb = { poison:'中毒', burn:'燒傷', paralysis:'麻痺', sleep:'進入睡眠', freeze:'結凍', confusion:'陷入混亂' };
   log(`${label}${target.name} ${effectVerb[effect]}了！`, 'special');
   playSfx('status');
-  if (['poison','burn','paralysis'].includes(effect) && target.ability?.id === 'sync-status' && attacker && !attacker.status && attacker.cur > 0) {
+  if (['poison','burn','paralysis'].includes(effect) && targetAbility?.id === 'sync-status' && attacker && !attacker.status && attacker.cur > 0) {
     attacker.status = { type: effect, turnsLeft: 999 };
     const aLabel = targetSide === 'player' ? '對手的' : '你的';
     log(`${label}${target.name} 的同步將${effectVerb[effect]}傳染給了${aLabel}${attacker.name}！`, 'special');
@@ -4858,6 +5004,10 @@ function tryInflictStatus(atk, target, targetSide, attacker, guaranteed) {
 function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   const aBuff    = aSide === 'player' ? G.playerBuff : G.cpuBuff;
   const dBuff    = dSide === 'player' ? G.playerBuff : G.cpuBuff;
+  // 封印特性卡生效中的那一側，特性視為不存在——後面整個function一律讀attackerAbility/defenderAbility
+  // 這兩個local變數，不要直接讀attacker.ability/defender.ability（那樣會繞過封印判定）
+  const attackerAbility = isAbilitySealed(aSide) ? null : attacker.ability;
+  const defenderAbility = isAbilitySealed(dSide) ? null : defender.ability;
   const atkType  = aBuff.typeOverride || atk.type;
   const burnMult = attacker.status?.type === 'burn' ? 0.94 : 1;
   const aLabel   = aSide === 'player' ? '你的' : '對手的';
@@ -4892,20 +5042,24 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
     return;
   }
 
-  /* Water Absorb: full immunity to water-type moves, heals instead */
-  if (defender.ability?.id === 'water-absorb' && atkType === 'water') {
-    const heal = Math.floor(defender.hp / 4);
-    const actualHeal = Math.min(heal, defender.hp - defender.cur);
+  /* Water Absorb: full immunity to water-type moves, heals instead
+     （詛咒生效中：免疫依然有效，但回血部分被封印） */
+  if (defenderAbility?.id === 'water-absorb' && atkType === 'water') {
+    const dHealSealed = isHealSealed(dSide);
+    const heal = dHealSealed ? 0 : Math.floor(defender.hp / 4);
+    const actualHeal = dHealSealed ? 0 : Math.min(heal, defender.hp - defender.cur);
     defender.cur = Math.min(defender.hp, defender.cur + heal);
     log(`${aLabel}${attacker.name} 使用了【${atk.name}】！`, aSide);
-    log(`${dLabel}${defender.name} 的儲水吸收了攻擊，回復了 ${actualHeal} HP！`, 'special');
+    log(dHealSealed
+      ? `${dLabel}${defender.name} 的儲水吸收了攻擊，但恢復效果被詛咒封印中，沒有回復 HP！`
+      : `${dLabel}${defender.name} 的儲水吸收了攻擊，回復了 ${actualHeal} HP！`, 'special');
     updateHp(dSide, defender);
     setTimeout(onDone, 600);
     return;
   }
 
   /* Motor Drive: full immunity to electric-type moves, gains energy instead */
-  if (defender.ability?.id === 'motor-drive' && atkType === 'electric') {
+  if (defenderAbility?.id === 'motor-drive' && atkType === 'electric') {
     const energyKey = dSide === 'player' ? 'playerEnergy' : 'cpuEnergy';
     G[energyKey] = Math.min(20, G[energyKey] + 3);
     log(`${aLabel}${attacker.name} 使用了【${atk.name}】！`, aSide);
@@ -4916,7 +5070,7 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   }
 
   /* Flash Fire: full immunity to fire-type moves, boosts own next attack instead */
-  if (defender.ability?.id === 'flash-fire' && atkType === 'fire') {
+  if (defenderAbility?.id === 'flash-fire' && atkType === 'fire') {
     dBuff.atkBonus += 20;
     log(`${aLabel}${attacker.name} 使用了【${atk.name}】！`, aSide);
     log(`${dLabel}${defender.name} 的引火吸收了攻擊，下次攻擊威力提升！`, 'special');
@@ -4926,19 +5080,21 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
 
   let mult = effActive(atkType, defender.type, defender.type2);
   // 破格系特性：既有的mold-breaker（Mega限定）+ true-damage（不動如山，攻擊無視對方防禦特性/閃避/撐住）共用同一個布林
-  const moldBreaker = attacker.ability?.id === 'mold-breaker' || attacker.ability?.id === 'true-damage';
+  const moldBreaker = attackerAbility?.id === 'mold-breaker' || attackerAbility?.id === 'true-damage';
   // 深淵支配：不會受到超效傷害（型效乘數封頂在1，只降不升，不影響自己剋制對方時的正常效果）
-  if (!moldBreaker && defender.ability?.id === 'no-weakness-dodge') mult = Math.min(mult, 1);
+  if (!moldBreaker && defenderAbility?.id === 'no-weakness-dodge') mult = Math.min(mult, 1);
   // 屬性轉換 (type-orb) makes the overridden type count as the attacker's own for STAB purposes —
   // it's a pure upside card, no penalty for picking a type that isn't your species' real type.
   const isOwnType = aBuff.typeOverride ? true : (atkType === attacker.type || (attacker.type2 && atkType === attacker.type2));
-  const isAdaptability = isOwnType && attacker.ability?.id === 'adaptability';
+  const isAdaptability = isOwnType && attackerAbility?.id === 'adaptability';
   const stabMult = isOwnType ? (isAdaptability ? 1.2 : 1.1) : 1;
-  const stadiumBonus = G.activeStadium?.id === 'stadium-training' ? 20 : 0;
-  const reversalBonus = G.activeStadium?.id === 'stadium-reversal' && attacker.cur <= attacker.hp * 0.5 ? 30 : 0;
+  // 2026-07-22應使用者要求「場地卡全面加強，成為對戰核心策略」，16張場地卡數值全面上調
+  const stadiumBonus = G.activeStadium?.id === 'stadium-training' ? 45 : 0;
+  const reversalBonus = G.activeStadium?.id === 'stadium-reversal' && attacker.cur <= attacker.hp * 0.5 ? 65 : 0;
+  const dragonValleyBonus = G.activeStadium?.id === 'stadium-dragon-valley' && atkType === 'dragon' ? 35 : 0;
   const lowHpSelf = attacker.cur <= attacker.hp / 3;
   const halfHpSelf = attacker.cur <= attacker.hp / 2;
-  const tintedLensProc = attacker.ability?.id === 'tinted-lens' && mult > 0 && mult < 1;
+  const tintedLensProc = attackerAbility?.id === 'tinted-lens' && mult > 0 && mult < 1;
   const tintedLensMult = tintedLensProc ? (1 / mult) : 1; // cancels out resisted (but not immune) hits
   // 米立龍系特性「指揮」：上一隻我方寶可夢離場時留下的一次性buff，被這次攻擊消耗（能量折扣已在playerAttack/cpuAttack處理，這裡只處理傷害）
   const legacyBuff = G[`${aSide}LegacyBuff`];
@@ -4947,41 +5103,43 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   const legacyDmgBonus = legacyBuff ? 40 : 0;
   if (legacyBuff) G[`${aSide}LegacyBuff`] = null;
   // 以下弱倍率特性（原本1.02~1.06）全部改成固定+40傷害；仍≥1.1的（猛火/技術高手）維持原本倍率寫法不變
-  const abilityDmgBonus = (attacker.ability?.id === 'guts' && attacker.status) ? 40
-    : (attacker.ability?.id === 'huge-power') ? 40
-    : (attacker.ability?.id === 'tough-claws') ? 40
-    : (attacker.ability?.id === 'desperate-blade' && halfHpSelf) ? 40
-    : (attacker.ability?.id === 'status-immune-once' && attacker._temperedHeart) ? 40
-    : (attacker.ability?.id === 'item-synergy' && G[`${aSide}UsedItemThisTurn`]) ? 40
-    : (attacker.ability?.id === 'drizzle-ocean' && (atkType === 'water' || atkType === 'ice')) ? 40
-    : (attacker.ability?.id === 'drought-lava' && (atkType === 'ground' || atkType === 'fire')) ? 40
+  const abilityDmgBonus = (attackerAbility?.id === 'guts' && attacker.status) ? 40
+    : (attackerAbility?.id === 'huge-power') ? 40
+    : (attackerAbility?.id === 'tough-claws') ? 40
+    : (attackerAbility?.id === 'desperate-blade' && halfHpSelf) ? 40
+    : (attackerAbility?.id === 'status-immune-once' && attacker._temperedHeart) ? 40
+    : (attackerAbility?.id === 'item-synergy' && G[`${aSide}UsedItemThisTurn`]) ? 40
+    : (attackerAbility?.id === 'drizzle-ocean' && (atkType === 'water' || atkType === 'ice')) ? 40
+    : (attackerAbility?.id === 'drought-lava' && (atkType === 'ground' || atkType === 'fire')) ? 40
+    : (DOMAIN_ABILITY_STADIUM[attackerAbility?.id]?.type === atkType) ? 40
     : 0;
-  const abilityDmgMult = ((attacker.ability?.id === 'blaze-boost' && lowHpSelf && isOwnType) ? 1.1
-    : (attacker.ability?.id === 'technician' && atk.dmg <= 60) ? 1.1
+  const abilityDmgMult = ((attackerAbility?.id === 'blaze-boost' && lowHpSelf && isOwnType) ? 1.1
+    : (attackerAbility?.id === 'technician' && atk.dmg <= 60) ? 1.1
     : 1) * tintedLensMult;
-  const thickFatMult  = (!moldBreaker && defender.ability?.id === 'thick-fat' && (atkType === 'fire' || atkType === 'ice')) ? 0.92 : 1;
-  const solidRockMult = (!moldBreaker && defender.ability?.id === 'solid-rock' && mult >= 1.2) ? 0.95 : 1;
-  const friskWardProc = !moldBreaker && defender.ability?.id === 'frisk-ward' && Math.random() < 0.25;
+  const thickFatMult  = (!moldBreaker && defenderAbility?.id === 'thick-fat' && (atkType === 'fire' || atkType === 'ice')) ? 0.92 : 1;
+  const solidRockMult = (!moldBreaker && defenderAbility?.id === 'solid-rock' && mult >= 1.2) ? 0.95 : 1;
+  const friskWardProc = !moldBreaker && defenderAbility?.id === 'frisk-ward' && Math.random() < 0.25;
   const friskWardMult = friskWardProc ? 0.9 : 1;
   const wasFullHp = defender.cur === defender.hp;
-  const multiscaleMult = (!moldBreaker && defender.ability?.id === 'multiscale' && wasFullHp) ? 0.9 : 1;
+  const multiscaleMult = (!moldBreaker && defenderAbility?.id === 'multiscale' && wasFullHp) ? 0.9 : 1;
   const defAbilityMult = thickFatMult * solidRockMult * friskWardMult * multiscaleMult;
   // 2026-07-22應使用者要求：Mega進化通用加成原本×1.02，改成固定+40傷害
   const megaBoostBonus = attacker.megaEvolved ? 40 : 0;
-  const colosseumMult = (G.activeStadium?.id === 'stadium-colosseum' && atkType === 'fighting') ? 1.1 : 1;
-  // Mystic Space: psychic-type defenders additionally take ×0.98 damage (on top of the weakness removal in effActive)
-  const mysticSpaceMult = (G.activeStadium?.id === 'stadium-mystic-space' && (defender.type === 'psychic' || defender.type2 === 'psychic')) ? 0.98 : 1;
-  // Lava Volcano: fire-type moves原本×1.02，2026-07-22應使用者要求改成固定+40傷害；water-type moves ×0.9維持倍率（這是削弱不是加成，不受這次調整影響）
-  const lavaBonus = (G.activeStadium?.id === 'stadium-lava' && atkType === 'fire') ? 40 : 0;
-  const lavaMult = (G.activeStadium?.id === 'stadium-lava' && atkType === 'water') ? 0.9 : 1;
-  // Ocean World: electric-type moves ×1.1 (water-type cost reduction handled in effectiveCost)
-  const oceanMult = (G.activeStadium?.id === 'stadium-ocean' && atkType === 'electric') ? 1.1 : 1;
-  // 岩石地帶：岩石／地面／鋼屬性寶可夢，受到攻擊固定減傷80（原本×0.97太弱幾乎無感，
-  // 2026-07-22應使用者要求改成固定減傷，比照iron-guard等道具卡「受到傷害-N」的既有寫法）
+  const colosseumMult = (G.activeStadium?.id === 'stadium-colosseum' && atkType === 'fighting') ? 1.4 : 1;
+  // Mystic Space: psychic-type defenders additionally take reduced damage (on top of the weakness removal in effActive)
+  const mysticSpaceMult = (G.activeStadium?.id === 'stadium-mystic-space' && (defender.type === 'psychic' || defender.type2 === 'psychic')) ? 0.75 : 1;
+  // Lava Volcano: fire-type moves固定加成；water-type moves ×0.65（削弱，同樣這次一起加大幅度）
+  const lavaBonus = (G.activeStadium?.id === 'stadium-lava' && atkType === 'fire') ? 75 : 0;
+  const lavaMult = (G.activeStadium?.id === 'stadium-lava' && atkType === 'water') ? 0.65 : 1;
+  // Ocean World: electric-type moves ×1.4 (water-type cost reduction handled in effectiveCost)
+  const oceanMult = (G.activeStadium?.id === 'stadium-ocean' && atkType === 'electric') ? 1.4 : 1;
+  // 岩石地帶：岩石／地面／鋼屬性寶可夢，受到攻擊固定減傷150（2026-07-22場地卡全面加強，從-80再放大）
   const rockFieldReduction = (G.activeStadium?.id === 'stadium-rock-field' &&
-    (['rock','ground','steel'].includes(defender.type) || ['rock','ground','steel'].includes(defender.type2))) ? 80 : 0;
+    (['rock','ground','steel'].includes(defender.type) || ['rock','ground','steel'].includes(defender.type2))) ? 150 : 0;
+  // 反轉世界：反轉後如果仍然是「克制」（mult>1），額外+25固定傷害，讓這張場地卡的強度不只停留在「換算」而已
+  const invertBonus = (G.activeStadium?.id === 'stadium-invert' && mult > 1) ? 25 : 0;
   const stadiumMult = colosseumMult * mysticSpaceMult * lavaMult * oceanMult;
-  const stadiumFlatBonus = stadiumBonus + reversalBonus + lavaBonus;
+  const stadiumFlatBonus = stadiumBonus + reversalBonus + lavaBonus + dragonValleyBonus + invertBonus;
   // 龍之波動／順風：只在下次攻擊剛好符合指定屬性時才加成，不論有沒有命中屬性都會被這次攻擊消耗掉
   // typeBoost可以是倍率(mult，≥1.1的維持原本寫法，例如龍之波動×1.12)或固定加成(bonus，2026-07-22起
   // <1.1的一律改成這種，例如順風原本×1.04太弱，改成命中對應屬性時+40固定傷害)
@@ -4989,11 +5147,11 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   const typeBoostMult = typeBoostMatch && aBuff.typeBoost.mult ? aBuff.typeBoost.mult : 1;
   const typeBoostBonus = typeBoostMatch && aBuff.typeBoost.bonus ? aBuff.typeBoost.bonus : 0;
   // 烈空坐系特性「威壓氣場」：對手的攻擊力提升效果（atkMult超過1的部分）減半，只影響防守方是這隻寶可夢的情況
-  const effectiveAtkMult = defender.ability?.id === 'weaken-buffs' ? (1 + Math.max(0, aBuff.atkMult - 1) * 0.5) : aBuff.atkMult;
+  const effectiveAtkMult = defenderAbility?.id === 'weaken-buffs' ? (1 + Math.max(0, aBuff.atkMult - 1) * 0.5) : aBuff.atkMult;
   // 烏賊王「顛倒之心」：對手的防禦加成（shield）對它反而變成傷害加成
   // 直搗黃龍：無視對方的shield（受傷減少）效果，這次攻擊當它不存在——shield本身照樣在這次攻擊後歸零，
   // 不是「留到下次」，只是這一下不吃防禦減免
-  const shieldTerm = aBuff.ignoreShield ? 0 : (defender.ability?.id === 'shield-invert' ? -dBuff.shield : dBuff.shield);
+  const shieldTerm = aBuff.ignoreShield ? 0 : (defenderAbility?.id === 'shield-invert' ? -dBuff.shield : dBuff.shield);
   // 冰凍護甲：對方這次攻擊若剛好是冰屬性，無視前面所有計算直接完全無效（比一般shield更強的針對性防禦）
   const frostArmorProc = !!dBuff.iceImmune && atkType === 'ice';
   let dmg = (mult === 0 || frostArmorProc) ? 0
@@ -5009,7 +5167,7 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   }
   // 深淵支配：被動10%機率完全閃避攻擊（每次受擊都會骰，不是一次性旗標）。true-damage系特性無視此效果。
   let abyssDodgeProc = false;
-  if (!moldBreaker && dmg > 0 && defender.ability?.id === 'no-weakness-dodge' && Math.random() < 0.1) {
+  if (!moldBreaker && dmg > 0 && defenderAbility?.id === 'no-weakness-dodge' && Math.random() < 0.1) {
     abyssDodgeProc = true;
     dmg = 0;
   }
@@ -5018,14 +5176,14 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   log(`${aLabel}${attacker.name} 使用了【${atk.name}】！`, aSide);
   if (isAdaptability) log(`${aLabel}${attacker.name} 的適應力發動！屬性加成提升為 ×1.2！`, 'special');
   else if (stabMult > 1) log(`屬性加成！ ×1.1（${atkTypeName} = 自身屬性）`, 'special');
-  if (attacker.ability?.id === 'guts' && attacker.status) log(`${aLabel}${attacker.name} 的堅韌發動，攻擊威力提升！`, 'special');
-  if (attacker.ability?.id === 'huge-power') log(`${aLabel}${attacker.name} 的大力士發動，攻擊威力提升！`, 'special');
-  if (attacker.ability?.id === 'blaze-boost' && lowHpSelf && isOwnType) log(`${aLabel}${attacker.name} 瀕危爆發，本系招式威力大幅提升！`, 'special');
-  if (attacker.ability?.id === 'tough-claws') log(`${aLabel}${attacker.name} 的硬爪發動，攻擊威力提升！`, 'special');
-  if (attacker.ability?.id === 'technician' && atk.dmg <= 60) log(`${aLabel}${attacker.name} 的技術高手發動，攻擊威力提升！`, 'special');
-  if (attacker.ability?.id === 'desperate-blade' && halfHpSelf) log(`${aLabel}${attacker.name} 的${attacker.ability.name}發動，攻擊威力提升！`, 'special');
+  if (attackerAbility?.id === 'guts' && attacker.status) log(`${aLabel}${attacker.name} 的堅韌發動，攻擊威力提升！`, 'special');
+  if (attackerAbility?.id === 'huge-power') log(`${aLabel}${attacker.name} 的大力士發動，攻擊威力提升！`, 'special');
+  if (attackerAbility?.id === 'blaze-boost' && lowHpSelf && isOwnType) log(`${aLabel}${attacker.name} 瀕危爆發，本系招式威力大幅提升！`, 'special');
+  if (attackerAbility?.id === 'tough-claws') log(`${aLabel}${attacker.name} 的硬爪發動，攻擊威力提升！`, 'special');
+  if (attackerAbility?.id === 'technician' && atk.dmg <= 60) log(`${aLabel}${attacker.name} 的技術高手發動，攻擊威力提升！`, 'special');
+  if (attackerAbility?.id === 'desperate-blade' && halfHpSelf) log(`${aLabel}${attacker.name} 的${attackerAbility.name}發動，攻擊威力提升！`, 'special');
   if (tintedLensProc) log(`${aLabel}${attacker.name} 的有色眼鏡發動，抵消了效果不佳！`, 'special');
-  if (moldBreaker && defender.ability && ['thick-fat','solid-rock','frisk-ward','multiscale','sturdy'].includes(defender.ability.id)) log(`${aLabel}${attacker.name} 的破格無視了${dLabel}${defender.name}的特性！`, 'special');
+  if (moldBreaker && defenderAbility && ['thick-fat','solid-rock','frisk-ward','multiscale','sturdy'].includes(defenderAbility.id)) log(`${aLabel}${attacker.name} 的破格無視了${dLabel}${defender.name}的特性！`, 'special');
   if (thickFatMult < 1) log(`${dLabel}${defender.name} 的厚脂肪減輕了傷害！`, 'special');
   if (solidRockMult < 1) log(`${dLabel}${defender.name} 的硬岩減輕了剋制傷害！`, 'special');
   if (friskWardProc) log(`${dLabel}${defender.name} 的神秘之守發動，傷害降低！`, 'special');
@@ -5065,7 +5223,7 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
     if (frostArmorProc) log(`${dLabel}${defender.name} 的冰凍護甲抵擋了冰屬性攻擊，完全無效！`, 'special');
     if (dmg > 0) playSfx('attack-hit');
     defender.cur = Math.max(0, defender.cur - dmg);
-    if (!moldBreaker && defender.ability?.id === 'sturdy' && wasFullHp && defender.cur <= 0) {
+    if (!moldBreaker && defenderAbility?.id === 'sturdy' && wasFullHp && defender.cur <= 0) {
       defender.cur = 1;
       log(`${dLabel}${defender.name} 靠著頑強保住了 1 HP！`, 'special');
     }
@@ -5098,7 +5256,7 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
     }
     if (dmg > 0) tryInflictStatus(atk, defender, dSide, attacker, guaranteedStatusThisHit);
     if (dmg > 0 && wasDoubleStrike) tryInflictStatus(atk, defender, dSide, attacker, guaranteedStatusThisHit);
-    if (dmg > 0 && atk.selfHeal && attacker.cur > 0) {
+    if (dmg > 0 && atk.selfHeal && attacker.cur > 0 && !isHealSealed(aSide)) {
       const heal = Math.round((attacker.hp - attacker.cur) * atk.selfHeal);
       if (heal > 0) {
         attacker.cur = Math.min(attacker.hp, attacker.cur + heal);
@@ -5195,6 +5353,10 @@ function executeSupportMove(attacker, defender, atk, aSide, dSide, onDone) {
       break;
     case 'roost': {
       // 唯一「立即生效」的輔助技能，不是下回合promise-then-consume模式
+      if (isHealSealed(aSide)) {
+        log(`${aLabel}${attacker.name} 使用了羽棲，但恢復效果被詛咒封印中，沒有回復 HP！`, 'special');
+        break;
+      }
       const heal = Math.round(attacker.hp * 0.5);
       const actualHeal = Math.min(heal, attacker.hp - attacker.cur);
       attacker.cur = Math.min(attacker.hp, attacker.cur + heal);
@@ -5217,7 +5379,7 @@ function triggerTrapStadium(poke, side) {
   if (!poke || poke.cur <= 0) return;
   const label = side === 'player' ? '你的' : '對手的';
   if (G.activeStadium?.id === 'stadium-spikes') {
-    const dmg = Math.max(1, Math.round(poke.hp * 0.15));
+    const dmg = Math.max(1, Math.round(poke.hp * 0.25));
     poke.cur = Math.max(0, poke.cur - dmg); // 扣血效果應該能讓寶可夢陣亡，不該保留1HP
     log(`${label}${poke.name} 受到了尖峰陷阱的傷害！（-${dmg} HP，剩 ${poke.cur}/${poke.hp}）`, 'special');
     updateHp(side, poke);
@@ -5227,11 +5389,31 @@ function triggerTrapStadium(poke, side) {
     log(`${label}${poke.name} 踏入了劇毒領域，陷入了中毒！`, 'special');
   }
 }
+// 8種「屬性領域」特性（2026-07-22新增，僅限不能Mega進化的寶可夢）：上場時自動把場地切換成
+// 對應的屬性場地卡，比照既有的海洋支配（drizzle-ocean）／熔岩大地（drought-lava）同一套pattern。
+const DOMAIN_ABILITY_STADIUM = {
+  'dragon-domain':   { stadium: 'stadium-dragon-valley', type: 'dragon' },
+  'grass-domain':    { stadium: 'stadium-evil-forest',   type: 'grass' },
+  'poison-domain':   { stadium: 'stadium-toxic-field',   type: 'poison' },
+  'fighting-domain': { stadium: 'stadium-colosseum',     type: 'fighting' },
+  'psychic-domain':  { stadium: 'stadium-mystic-space',  type: 'psychic' },
+  'normal-domain':   { stadium: 'stadium-shrine',        type: 'normal' },
+  'ground-domain':   { stadium: 'stadium-sandstorm',     type: 'ground' },
+  'rock-domain':     { stadium: 'stadium-rock-field',    type: 'rock' },
+};
+// 封印特性（ability-seal，2026-07-22新增）：該側的特性視為不存在，直到G[side+'AbilitySealedTurns']倒數到0。
+function isAbilitySealed(side) {
+  return (side === 'player' ? G.playerAbilitySealedTurns : G.cpuAbilitySealedTurns) > 0;
+}
+// 詛咒（heal-seal，2026-07-22新增）：該側的所有恢復效果（道具回血／特性回血／招式回血／地熱溫泉被動回血）失效。
+function isHealSealed(side) {
+  return (side === 'player' ? G.playerHealSealedTurns : G.cpuHealSealedTurns) > 0;
+}
 // `isFieldEntry=false` for in-place transforms (瘋狂博士/Mega 進化) — those never "switch in"
 // from the bench, so trap stadiums (which punish entering the field) shouldn't fire for them.
 function triggerOnEnter(poke, side, isFieldEntry = true) {
   if (isFieldEntry) triggerTrapStadium(poke, side);
-  if (!poke?.ability) return;
+  if (!poke?.ability || isAbilitySealed(side)) return;
   if (poke.ability.id === 'intimidate') {
     const opBuff  = side === 'player' ? G.cpuBuff : G.playerBuff;
     const opLabel = side === 'player' ? '對手' : '你的';
@@ -5266,6 +5448,13 @@ function triggerOnEnter(poke, side, isFieldEntry = true) {
       log(`${poke.name} 的熔岩大地發動，場地切換成了熔岩火山！`, 'special');
     }
   }
+  if (DOMAIN_ABILITY_STADIUM[poke.ability.id]) {
+    const domainCard = TRAINERS.find(c => c.id === DOMAIN_ABILITY_STADIUM[poke.ability.id].stadium);
+    if (domainCard) {
+      G.activeStadium = { ...domainCard };
+      log(`${poke.name} 的${poke.ability.name}發動，場地切換成了${domainCard.name}！`, 'special');
+    }
+  }
 }
 
 // 米立龍系特性「指揮」：寶可夢離場（陣亡或被換下場）時觸發，把buff留給下一隻上場的我方寶可夢首次攻擊使用。
@@ -5281,7 +5470,7 @@ function triggerOnLeave(poke, side) {
 }
 
 function triggerAttackerAbility(attacker, aSide, defender, dSide) {
-  if (!attacker.ability) return;
+  if (!attacker.ability || isAbilitySealed(aSide)) return;
   const aLabel = aSide === 'player' ? '你的' : '對手的';
   const dLabel = dSide === 'player' ? '你的' : '對手的';
   if (attacker.ability.id === 'static-trail' && defender.cur > 0 && !defender.status && Math.random() < 0.15) {
@@ -5297,7 +5486,7 @@ function triggerAttackerAbility(attacker, aSide, defender, dSide) {
 }
 
 function triggerDefenderAbility(defender, dSide, attacker, aSide) {
-  if (!defender.ability) return;
+  if (!defender.ability || isAbilitySealed(dSide)) return;
   const aLabel = aSide === 'player' ? '你的' : '對手的';
   const dLabel = dSide === 'player' ? '你的' : '對手的';
   if (defender.ability.id === 'static' && !attacker.status && Math.random() < 0.20) {
@@ -5642,8 +5831,8 @@ function drawAfterTurn(onDone) {
   // Hot Springs stadium: both active heal 15 HP each turn
   if (G.activeStadium?.id === 'stadium-spring') {
     [{ poke:P(), side:'player' }, { poke:CP(), side:'cpu' }].forEach(({poke, side}) => {
-      if (poke.cur > 0 && poke.cur < poke.hp) {
-        const heal = Math.min(15, poke.hp - poke.cur);
+      if (poke.cur > 0 && poke.cur < poke.hp && !isHealSealed(side)) { // 詛咒：只跳過被封印的那一側，不整段短路掉
+        const heal = Math.min(30, poke.hp - poke.cur);
         poke.cur += heal;
         log(`【地熱溫泉】${poke.name} 回復了 ${heal} HP！`, 'special');
         updateHp(side, poke);
@@ -5655,7 +5844,7 @@ function drawAfterTurn(onDone) {
     [{ poke:P(), side:'player' }, { poke:CP(), side:'cpu' }].forEach(({poke, side}) => {
       const immune = ['ground','rock','steel'].includes(poke.type) || ['ground','rock','steel'].includes(poke.type2);
       if (poke.cur > 0 && !immune) {
-        const dmg = Math.max(1, Math.round(poke.hp * 0.06));
+        const dmg = Math.max(1, Math.round(poke.hp * 0.12));
         poke.cur = Math.max(0, poke.cur - dmg);
         log(`【沙塵暴】${poke.name} 受到了傷害！（-${dmg} HP）`, 'special');
         updateHp(side, poke);
@@ -5676,12 +5865,14 @@ function drawAfterTurn(onDone) {
     G.playerBonusEnergyNextTurn = 0;
   }
   if (G.activeStadium?.id === 'stadium-mega-prism' && !G.playerMegaUsed) {
-    G.playerMegaEnergy = Math.min(20, G.playerMegaEnergy + 10);
-    log('【Mega 稜鏡塔】你獲得了 10 點 Mega 能量！', 'special');
+    G.playerMegaEnergy = Math.min(20, G.playerMegaEnergy + 16);
+    log('【Mega 稜鏡塔】你獲得了 16 點 Mega 能量！', 'special');
   }
   // 封印Mega進化（亡靈詛咒/暗影封鎖）：輪到被封印的一方自己回合開始才倒數一次，
   // 跟其他「下N回合」倒數的位置一致（不是設卡當下就開始扣，而是從下一次真的輪到那回合才算）
   if (G.playerMegaSealedTurns > 0) G.playerMegaSealedTurns--;
+  if (G.playerAbilitySealedTurns > 0) G.playerAbilitySealedTurns--;
+  if (G.playerHealSealedTurns > 0) G.playerHealSealedTurns--;
   // 寄生種子：接下來N回合，每回合開始吸取對方能量轉為自己的
   if (G.playerLeechTurns > 0) {
     const amt = Math.min(3, G.cpuEnergy);
@@ -6013,6 +6204,17 @@ function renderDex() {
     <div class="sel-cards-row" id="ms-cards-row"></div>
     <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.8rem">
       <button class="btn-modal-cancel" onclick="closeMadScientistModal()">取消</button>
+    </div>
+  </div>
+</div>
+
+<div id="hunt-modal">
+  <div class="discard-inner">
+    <div class="discard-title">選擇要獵捕的寶可夢</div>
+    <div class="discard-sub">強制對方選中的寶可夢上場（不觸發上場特性），並造成 40 點固定傷害</div>
+    <div class="sel-cards-row" id="hunt-cards-row"></div>
+    <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.8rem">
+      <button class="btn-modal-cancel" onclick="closeHuntModal()">取消</button>
     </div>
   </div>
 </div>

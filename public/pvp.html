@@ -152,6 +152,21 @@
         border-radius: 50% !important;
         background: linear-gradient(135deg, #e040fb, #7b1fa2) !important;
       }
+      /* 查閱效果：疊在log-drawer-btn上方（左側），跟右側hand-drawer-btn疊在chat-btn上方對稱 */
+      #battle-guide-btn {
+        display: flex !important;
+        align-items: center; justify-content: center;
+        position: fixed !important;
+        left: 1rem !important; bottom: 4.5rem !important;
+        width: 48px !important; height: 48px !important;
+        border-radius: 50% !important;
+        padding: 0 !important;
+        font-size: 1.3rem;
+        background: linear-gradient(135deg, #f8d030, #f05030) !important;
+        border: none !important;
+        box-shadow: 0 4px 16px rgba(248,208,48,0.4);
+        z-index: 91 !important;
+      }
       #battle-log {
         display: none !important; position: fixed !important; inset: 0 !important; width: auto !important;
         max-height: none !important; top: 0 !important; z-index: 92 !important; border-radius: 0 !important;
@@ -303,6 +318,24 @@
     }
     #log-drawer-btn:hover { background: rgba(255,255,255,0.12); }
     #log-drawer-btn.open { background: rgba(121,134,203,0.18); border-color: rgba(121,134,203,0.5); }
+    /* 查閱效果：桌面版常駐顯示在戰報側欄上方，手機版樣式在上面900px媒體查詢裡改成FAB圓鈕 */
+    #battle-guide-btn {
+      display: flex;
+      align-items: center; justify-content: center;
+      gap: 0.3rem;
+      background: rgba(248,208,48,0.1);
+      border: 1px solid rgba(248,208,48,0.35);
+      border-radius: 12px;
+      padding: 0.55rem 0.85rem;
+      color: var(--text);
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      width: 100%;
+      margin-bottom: 0.5rem;
+    }
+    #battle-guide-btn:hover { background: rgba(248,208,48,0.18); }
     #log-drawer-close {
       display: none;
       background: rgba(255,255,255,0.1);
@@ -527,8 +560,8 @@
     /* ── Discard Modal ── */
     #discard-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
     #discard-modal.open { display:flex; }
-    #trade-modal, #trade-choose-modal, #switch-confirm-modal, #mad-scientist-modal, #type-orb-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
-    #trade-modal.open, #trade-choose-modal.open, #switch-confirm-modal.open, #mad-scientist-modal.open, #type-orb-modal.open { display:flex; }
+    #trade-modal, #trade-choose-modal, #switch-confirm-modal, #mad-scientist-modal, #type-orb-modal, #hunt-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
+    #trade-modal.open, #trade-choose-modal.open, #switch-confirm-modal.open, #mad-scientist-modal.open, #type-orb-modal.open, #hunt-modal.open { display:flex; }
     #type-orb-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:0.5rem; margin-top:0.8rem; max-width:360px; }
     .type-orb-btn { padding:0.5rem 0.3rem; border:none; border-radius:8px; color:#fff; font-size:0.78rem; font-weight:700; cursor:pointer; transition:transform 0.12s, opacity 0.12s; }
     .type-orb-btn:hover { transform:scale(1.06); opacity:0.9; }
@@ -712,6 +745,7 @@
 <div id="battle-screen" class="screen">
   <div id="log-drawer">
     <button id="log-drawer-btn" onclick="toggleLogPanel()">📜<span class="drawer-btn-label"> 戰報</span></button>
+    <button id="battle-guide-btn" onclick="openGuide()" title="查閱規則／卡片效果／寶可夢圖鑑">📖<span class="drawer-btn-label"> 查閱效果</span></button>
     <button id="log-drawer-close" onclick="toggleLogPanel()">✕ 關閉</button>
     <div id="battle-log"></div>
   </div>
@@ -877,11 +911,12 @@
     <ul>
       <li><b>道具牌</b>（綠框）每回合可用多張，每回合開始時補抽 2 張：</li>
       <ul>
-        <li>傷藥（小／中／大／特大）— 回復 60／80／100／120 HP ／ 攻擊強化 — 下次 +40 傷害 ／ 防禦強化 — 下次受傷 -40</li>
+        <li>傷藥（中／大／特大）— 回復 40／60／80 HP ／ 攻擊強化 — 下次 +40 傷害 ／ 防禦強化 — 下次受傷 -40</li>
         <li>能量強化 — 下次攻擊 ×1.2，但自損 50 HP</li>
         <li>萬能藥 — 解除異常狀態</li>
         <li>火焰彈（火屬性） — 讓對手燒傷 ／ 瓦斯攻擊（毒屬性） — 讓對手中毒</li>
         <li>交換器 — 強制換出對手備戰寶可夢 ／ 反彈鏡 — 下次對手攻擊反彈回自身</li>
+        <li>封印特性 — 封印對手特性 2 回合 ／ 詛咒 — 對手恢復效果 2 回合內全部失效</li>
         <li>屬性寶珠（火／水／電／冰／惡／妖精／草／格鬥／毒／蟲／幽靈／鋼／地面）— 本回合攻擊改為對應屬性</li>
         <li>撤退背心 — 下次換場不會結束回合 ／ 混亂藥（超能力屬性） — 讓對手混亂 ／ 絕對零度（冰屬性） — 讓對手結凍</li>
         <li>能量補丁 — 回復 4 點能量</li>
@@ -894,31 +929,32 @@
       <li>棄牌兌換按鈕：棄 1 張手牌可換 1 張競技場卡或 +5 能量；棄 2 張可換 1 張道具卡或解除上場寶可夢的異常狀態。</li>
       <li><b>支援者牌</b>（藍框）僅開局手牌中出現，每回合限用 1 張，沒有場次上限，也可用待機抽到：</li>
       <ul>
-        <li>復活藥 — 復活備戰欄第一隻倒下的寶可夢（80 HP，每場限用一次）</li>
+        <li>復活藥 — 復活備戰欄第一隻倒下的寶可夢（40 HP，每場限用一次）</li>
         <li>治療師 — 完全回復 HP 並解除異常狀態</li>
         <li>全力出擊 — 下次攻擊傷害 ×1.2，但下回合無法回復能量</li>
         <li>搏命 — 我方與對方上場寶可夢同歸於盡，雙方各自選下一隻上場</li>
         <li>瘋狂博士 — 選我方一隻寶可夢，變身成我方或對方一隻陣亡的寶可夢（回復變身後 50% HP）</li>
         <li>啦啦隊 — 將能量補滿到 20</li>
+        <li>獵捕 — 指定對手一隻備戰寶可夢強制上場（不觸發上場特性），並造成 40 點固定傷害（會計算屬性相剋）</li>
       </ul>
       <li><b>競技場牌</b>（橘框）效果持續整場，放置新競技場會取代舊的：</li>
       <ul>
-        <li>訓練場 — 場上所有技能威力 +20（雙方）</li>
-        <li>地熱溫泉 — 每回合結束，雙方上場寶可夢各回復 15 HP</li>
-        <li>逆轉鬥技場 — HP 低於 50% 時，攻擊威力 +30</li>
-        <li>反轉世界 — 場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×1.2）</li>
-        <li>龍之谷（龍屬性） — 龍屬性寶可夢對妖精、冰系招式最多×1效果；龍屬性攻擊不會被減免或無效</li>
-        <li>邪惡森林（草屬性） — 原本克制草屬性的寶可夢（火／冰／飛行／毒／蟲），全部變成弱草屬性（草屬性攻擊 ×1.2）</li>
-        <li>Mega 稜鏡塔 — 雙方每個自己的回合開始時，獲得 10 點 Mega 能量</li>
-        <li>尖峰陷阱 — 寶可夢上場時，受到最大HP 15% 的傷害（雙方對等）</li>
-        <li>劇毒領域（毒屬性） — 寶可夢上場時，陷入中毒（雙方對等）</li>
-        <li>羅馬鬥技場（格鬥屬性） — 格鬥屬性招式傷害 ×1.1；不再被幽靈屬性完全免疫</li>
-        <li>魔幻空間（超能力屬性） — 超能力屬性寶可夢受到的傷害 ×0.98；弱點消失</li>
-        <li>熔岩火山（火屬性） — 火屬性招式傷害 +40；水屬性招式傷害 ×0.9</li>
-        <li>海洋世界（水屬性） — 水屬性招式消耗能量減半；電屬性招式傷害 ×1.1</li>
-        <li>莊嚴神社（一般屬性） — 一般屬性招式一律視為剋制對手（效果拉滿 ×1.2）</li>
-        <li>沙塵暴（地面屬性） — 非地面／岩石／鋼屬性寶可夢，每回合結束損失最大HP的6%</li>
-        <li>岩石地帶（岩石屬性） — 岩石／地面／鋼屬性寶可夢，受到的攻擊傷害 -80</li>
+        <li>訓練場 — 場上所有技能威力 +45（雙方）</li>
+        <li>地熱溫泉 — 每回合結束，雙方上場寶可夢各回復 30 HP</li>
+        <li>逆轉鬥技場 — HP 低於 50% 時，攻擊威力 +65</li>
+        <li>反轉世界 — 場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×1.2）；反轉後仍是克制的攻擊額外 +25 固定傷害</li>
+        <li>龍之谷（龍屬性） — 龍屬性寶可夢對妖精、冰系招式最多×1效果；龍屬性攻擊不會被減免或無效，且額外 +35 固定傷害</li>
+        <li>邪惡森林（草屬性） — 原本克制草屬性的寶可夢（火／冰／飛行／毒／蟲），全部變成弱草屬性（草屬性攻擊 ×1.6）</li>
+        <li>Mega 稜鏡塔 — 雙方每個自己的回合開始時，獲得 16 點 Mega 能量</li>
+        <li>尖峰陷阱 — 寶可夢上場時，受到最大HP 25% 的傷害（雙方對等）</li>
+        <li>劇毒領域（毒屬性） — 寶可夢上場時，陷入中毒（雙方對等）；此場地下中毒傷害 ×2</li>
+        <li>羅馬鬥技場（格鬥屬性） — 格鬥屬性招式傷害 ×1.4；不再被幽靈屬性完全免疫</li>
+        <li>魔幻空間（超能力屬性） — 超能力屬性寶可夢受到的傷害 ×0.75；弱點消失</li>
+        <li>熔岩火山（火屬性） — 火屬性招式傷害 +75；水屬性招式傷害 ×0.65</li>
+        <li>海洋世界（水屬性） — 水屬性招式消耗能量 ×0.3；電屬性招式傷害 ×1.4</li>
+        <li>莊嚴神社（一般屬性） — 一般屬性招式一律視為剋制對手（效果拉滿 ×1.8）</li>
+        <li>沙塵暴（地面屬性） — 非地面／岩石／鋼屬性寶可夢，每回合結束損失最大HP的12%</li>
+        <li>岩石地帶（岩石屬性） — 岩石／地面／鋼屬性寶可夢，受到的攻擊傷害 -150</li>
       </ul>
     </ul>
     <h3>特性</h3>
@@ -929,31 +965,39 @@
       <li>堅韌／毅力（路卡利歐、嘎啦嘎啦、堵攔熊、劈斬司令、怪力、赫拉克羅斯、老翁龍、戟脊龍）— 自身帶有異常狀態時，攻擊傷害 +40</li>
       <li>粗糙皮膚（甲賀忍蛙、巨牙鯊）— 受到攻擊傷害時，反彈攻擊者 1/8 最大HP 傷害</li>
       <li>毒刺（毒刺水母、大針蜂、羅絲雷朵、蜈蚣王、毒藻龍、晶光花）— 受到攻擊後 20% 機率讓攻擊者中毒</li>
-      <li>厚脂肪（鐵掌力士、卡比獸、雷吉艾斯、冰鬼護、差不多娃娃）— 受到火／冰屬性攻擊傷害 ×0.92</li>
+      <li>厚脂肪（雷吉艾斯、冰鬼護、差不多娃娃）— 受到火／冰屬性攻擊傷害 ×0.92</li>
       <li>頑強（波士可多拉、盔甲鳥、列陣兵）— HP 全滿時，受到會直接擊倒的攻擊會保留 1 HP</li>
       <li>硬岩／揚沙（巨金怪、班基拉斯、噴火駝、暴雪王、蒂安希、基格爾德）— 受到剋制（×1.2以上）的攻擊傷害再減少 5%</li>
       <li>多重鱗片（快龍）— HP 全滿時，受到的攻擊傷害 ×0.9</li>
       <li>激流／摘取／猛火／茂盛／強子引擎／緋紅脈動／蟲之預感（妙蛙花、大力鱷、噴火龍、水箭龜、火爆獸、大竺葵、密勒頓、故勒頓、熾焰咆哮虎、蜥蜴王、巨鉗螳螂、巨沼怪、黑魯加、火焰雞、大食花、炎武王、龍頭地鼠、布里卡隆、妖火紅狐）— HP 低於 1/3 時，本系招式傷害 ×1.1</li>
       <li>大力士／超幸運／日照／氣閘／不撓之劍（固拉多、蒼響、阿勃梭魯、恰雷姆、瑪機雅娜）— 攻擊傷害固定 +40</li>
-      <li>妖精氣場（哲爾尼亞斯、鐵螯龍蝦、巨蔓藤）— 屬性加成（STAB）提升為 ×1.2（原本 ×1.1）</li>
+      <li>妖精氣場（哲爾尼亞斯、鐵螯龍蝦）— 屬性加成（STAB）提升為 ×1.2（原本 ×1.1）</li>
       <li>儲水／乾燥皮膚（毒骷蛙）— 受到水屬性攻擊時完全免疫，並回復最大HP的1/4</li>
       <li>神秘之守／隔音／沙隱／迷人之軀／雪隱（烈咬陸鯊、仙子伊布、雪妖女、凍原熊、寶石海星、大比鳥、七夕青鳥、長耳兔、花葉蒂）— 25% 機率將受到的傷害 ×0.9</li>
       <li>背水之刃（蔥遊兵、長毛狗、鍬農炮蟲、摔角鷹人）— HP 低於 50% 時，攻擊傷害 +40</li>
       <li>同步（胡地、沙奈朵）— 陷入中毒／麻痺／燒傷時，會將該狀態傳染給攻擊者</li>
       <li>我行我素（呆殼獸）— 不會陷入混亂狀態</li>
-      <li>壓迫感（鋼鎧鴉、超夢、鳳王、洛奇亞、急凍鳥、閃電鳥、火焰鳥、帝牙盧卡、帕路奇亞、火炎獅）— 上場時讓對方損失 3 點能量</li>
+      <li>壓迫感（鋼鎧鴉、超夢、鳳王、急凍鳥、閃電鳥、火焰鳥、帕路奇亞、火炎獅）— 上場時讓對方損失 3 點能量</li>
       <li>不眠（烏鴉頭頭、狠辣椒）— 不會陷入睡眠狀態</li>
-      <li>指揮（米立龍、白海獅、貓老大、龍王蠍）— 陣亡或被換下場時，下一隻上場的我方寶可夢首次攻擊：能量消耗 ×0.5、傷害 +40</li>
+      <li>指揮（米立龍、白海獅、貓老大）— 陣亡或被換下場時，下一隻上場的我方寶可夢首次攻擊：能量消耗 ×0.5、傷害 +40</li>
       <li>穿透（超能妙喵、太陽岩、哥德小姐、風鈴鈴）— 攻擊命中後 25% 機率讓對方下次攻擊傷害 ×0.9</li>
       <li>不動如山（遠古巨蜓、爆音怪、艾路雷朵、掘地兔、好勝毛蟹）— 攻擊傷害不會被對方的防禦特性、閃避或撐住效果影響</li>
       <li>淬鍊之心（頭巾混混、袋獸、鐵蟻、岩殿居蟹）— 首次被施加異常狀態時解除並免疫，之後攻擊傷害永久 +40</li>
       <li>顛倒之心（烏賊王、黑夜魔靈、勾魂眼、詛咒娃娃）— 對手的防禦加成效果對自己反而變成傷害加成</li>
       <li>機械之心（龍捲雲、狙射樹梟、三合一磁怪、大鋼蛇）— 本回合使用過道具卡時，攻擊傷害 +40</li>
-      <li>反骨（具甲武者、龐岩怪、護城龍、泥偶巨人）— 受到攻擊後，下次攻擊傷害 ×1.1</li>
+      <li>反骨（具甲武者、護城龍、泥偶巨人）— 受到攻擊後，下次攻擊傷害 ×1.1</li>
       <li>海洋支配（蓋歐卡、拉普拉斯、水伊布）— 上場時場地切換為海洋世界；水／冰屬性攻擊傷害額外 +40</li>
       <li>熔岩大地（固拉多）— 上場時場地切換為熔岩火山；地面／火屬性攻擊傷害額外 +40</li>
+      <li>龍域降臨（帝牙盧卡）— 上場時場地切換為龍之谷；龍屬性攻擊傷害額外 +40</li>
+      <li>密林支配（巨蔓藤）— 上場時場地切換為邪惡森林；草屬性攻擊傷害額外 +40</li>
+      <li>劇毒支配（龍王蠍）— 上場時場地切換為劇毒領域；毒屬性攻擊傷害額外 +40</li>
+      <li>鬥氣支配（鐵掌力士）— 上場時場地切換為羅馬鬥技場；格鬥屬性攻擊傷害額外 +40</li>
+      <li>幻境支配（洛奇亞）— 上場時場地切換為魔幻空間；超能力屬性攻擊傷害額外 +40</li>
+      <li>神域支配（卡比獸）— 上場時場地切換為莊嚴神社；一般屬性攻擊傷害額外 +40</li>
+      <li>風沙支配（超甲狂犀）— 上場時場地切換為沙塵暴；地面屬性攻擊傷害額外 +40</li>
+      <li>磐岩支配（龐岩怪）— 上場時場地切換為岩石地帶；岩石屬性攻擊傷害額外 +40</li>
       <li>深淵支配（伊裴爾塔爾、暴鯉龍、化石翼龍、冰岩怪）— 不會受到超效傷害；10% 機率完全閃避攻擊</li>
-      <li>威壓氣場（烈空坐、超甲狂犀、象牙豬）— 對手的攻擊力提升效果減半</li>
+      <li>威壓氣場（烈空坐、象牙豬）— 對手的攻擊力提升效果減半</li>
       <li>電氣引擎（電擊魔獸、拉帝亞斯、拉帝歐斯、麻麻鰻魚王、捷拉奧拉）— 受到電屬性攻擊時完全免疫，並回復 3 點能量</li>
       <li>火焰之軀（鴨嘴炎獸、烈箭鷹）— 受到攻擊後 20% 機率讓攻擊者陷入燒傷</li>
       <li>引火（水晶燈火靈、席多藍恩）— 受到火屬性攻擊時完全免疫，下次攻擊威力 +20</li>
@@ -1031,6 +1075,18 @@
     <div class="sel-cards-row" id="ms-cards-row"></div>
     <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.8rem">
       <button class="btn-modal-cancel" onclick="closeMadScientistModal()">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- Hunt (獵捕) modal -->
+<div id="hunt-modal">
+  <div class="discard-inner">
+    <div class="discard-title">選擇要獵捕的寶可夢</div>
+    <div class="discard-sub">強制對方選中的寶可夢上場（不觸發上場特性），並造成 40 點固定傷害</div>
+    <div class="sel-cards-row" id="hunt-cards-row"></div>
+    <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.8rem">
+      <button class="btn-modal-cancel" onclick="closeHuntModal()">取消</button>
     </div>
   </div>
 </div>
@@ -2333,7 +2389,42 @@ function useTrainer(handIdx) {
     openTypeOrbModal(handIdx);
     return;
   }
+  if (card.id === 'hunt') {
+    if (!G.cpuDeck.some((p, i) => i !== G.cpuIdx && p.cur > 0)) {
+      showWarn('對手目前沒有可以獵捕的備戰寶可夢！'); return;
+    }
+    openHuntModal(handIdx);
+    return;
+  }
   send({ type: 'use_trainer', handIdx });
+}
+
+/* ─────────────────────────────────────────
+   HUNT (獵捕) — single-step target picker
+───────────────────────────────────────── */
+let _huntHandIdx = null;
+function openHuntModal(handIdx) {
+  _huntHandIdx = handIdx;
+  renderHuntPicker();
+  document.getElementById('hunt-modal').classList.add('open');
+}
+function closeHuntModal() {
+  _huntHandIdx = null;
+  document.getElementById('hunt-modal').classList.remove('open');
+}
+function renderHuntPicker() {
+  const row = document.getElementById('hunt-cards-row');
+  row.innerHTML = '';
+  G.cpuDeck.forEach((p, i) => {
+    if (i === G.cpuIdx || p.cur <= 0) return;
+    row.appendChild(renderMsCard(p, () => confirmHunt(i)));
+  });
+}
+function confirmHunt(targetIdx) {
+  const handIdx = _huntHandIdx;
+  closeHuntModal();
+  if (handIdx === null) return;
+  send({ type: 'use_trainer', handIdx, targetIdx });
 }
 
 function openTypeOrbModal(handIdx) {
@@ -2524,8 +2615,8 @@ function showResult(iWon, isDraw, winnerDeck, winnerRole) {
 ───────────────────────────────────────── */
 function effectiveCost(atk, opponentPoke) {
   let cost = atk.cost;
-  // Ocean World: water-type moves cost half as much energy
-  if (G.activeStadium?.id === 'stadium-ocean' && atk.type === 'water') cost = Math.floor(cost / 2);
+  // Ocean World: water-type moves cost ×0.3（2026-07-22場地卡全面加強）
+  if (G.activeStadium?.id === 'stadium-ocean' && atk.type === 'water') cost = Math.floor(cost * 0.3);
   return cost;
 }
 
