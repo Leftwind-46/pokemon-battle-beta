@@ -2284,7 +2284,8 @@ app.get('/api/pet', requireAuth, async (req, res) => {
               fish_tank_pos_x, fish_tank_pos_y, fish_dex_pos_x, fish_dex_pos_y,
               display_poke1_id, display_poke2_id, display_poke3_id,
               poke_display1_pos_x, poke_display1_pos_y, poke_display2_pos_x, poke_display2_pos_y,
-              poke_display3_pos_x, poke_display3_pos_y
+              poke_display3_pos_x, poke_display3_pos_y,
+              poke_display1_flip, poke_display2_flip, poke_display3_flip
        FROM pets WHERE user_id = $1`, [req.user.id]
     );
     const { rows: badgeRows } = await pool.query('SELECT badge_id, pos_x, pos_y FROM user_badges WHERE user_id = $1', [req.user.id]);
@@ -2307,8 +2308,9 @@ app.get('/api/pet', requireAuth, async (req, res) => {
       rows[0].poke_display2_pos_x != null ? { x: rows[0].poke_display2_pos_x, y: rows[0].poke_display2_pos_y } : null,
       rows[0].poke_display3_pos_x != null ? { x: rows[0].poke_display3_pos_x, y: rows[0].poke_display3_pos_y } : null,
     ];
+    const pokeDisplayFlipped = [rows[0].poke_display1_flip, rows[0].poke_display2_flip, rows[0].poke_display3_flip];
     res.json({
-      pet: { speciesId: rows[0].species_id, happiness: rows[0].happiness, coins: rows[0].coins, hunger, ...balls, fishTankPos, fishDexPos, pokeDisplayIds, pokeDisplayPos },
+      pet: { speciesId: rows[0].species_id, happiness: rows[0].happiness, coins: rows[0].coins, hunger, ...balls, fishTankPos, fishDexPos, pokeDisplayIds, pokeDisplayPos, pokeDisplayFlipped },
       badges, decorations, fish, displayFish,
     });
   } catch (e) {
@@ -2713,6 +2715,21 @@ app.post('/api/pet/display/set', requireAuth, async (req, res) => {
     res.json({});
   } catch (e) {
     console.error('pet display set error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 展示位水平翻轉——純視覺偏好，不用驗證pokemonId，跟哪隻寶可夢在展示無關，
+   翻轉狀態就算展示位目前是空的也可以先設定好（下次選寶可夢進來就直接套用）。 */
+app.post('/api/pet/display/flip', requireAuth, async (req, res) => {
+  const slot = Number(req.body?.slot);
+  if (![1, 2, 3].includes(slot)) return res.status(400).json({ error: 'invalid_slot' });
+  const flip = !!req.body?.flip;
+  try {
+    await pool.query(`UPDATE pets SET poke_display${slot}_flip = $1 WHERE user_id = $2`, [flip, req.user.id]);
+    res.json({});
+  } catch (e) {
+    console.error('pet display flip error:', e.message);
     res.status(503).json({ error: 'db_error' });
   }
 });
@@ -3883,6 +3900,10 @@ async function initDB() {
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS poke_display2_pos_y REAL`);
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS poke_display3_pos_x REAL`);
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS poke_display3_pos_y REAL`);
+    // 展示台每個展示位可以獨立決定要不要水平翻轉（純視覺偏好，不影響任何數值）
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS poke_display1_flip BOOLEAN NOT NULL DEFAULT false`);
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS poke_display2_flip BOOLEAN NOT NULL DEFAULT false`);
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS poke_display3_flip BOOLEAN NOT NULL DEFAULT false`);
     // 多徽章擁有——跟pet_decorations同一套「擁有+可選擺放位置」語意（pos_x/y為NULL=擁有但沒展示在房間裡）。
     // 取代舊的users.badge_id單一欄位（一人只能有一個、指定新的會整個覆蓋掉舊的）；badge_id欄位保留不刪。
     await pool.query(`CREATE TABLE IF NOT EXISTS user_badges (
