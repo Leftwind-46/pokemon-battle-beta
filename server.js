@@ -518,6 +518,14 @@ function dealHand(n) {
   return [...TRAINERS].sort(() => Math.random() - 0.5).slice(0, n);
 }
 
+// 2026-07-23應使用者要求：待機／換人／詭計等「隨機抽1張支援者卡」的地方盡量避開手牌裡已經有的
+function pickSupporterAvoidingDupes(hand) {
+  const all = TRAINERS.filter(c => c.cat === 'supporter');
+  const avail = all.filter(c => !hand.some(h => h.id === c.id));
+  const pool = avail.length ? avail : all;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 // 依場上寶可夢屬性過濾抽卡池：沒有type欄位的卡（通用卡）永遠都在池子裡，
 // 有type欄位的卡只有在符合當前寶可夢的其中一個屬性時才會出現在池子裡（雙屬性=聯集）
 function getDrawPool(type1, type2) {
@@ -1957,8 +1965,7 @@ function drawForRole(G, role) {
   }
   // 詭計：上回合使用時承諾的額外支援者抽牌（刻意破例——平常支援者卡只會在開局手牌出現）
   if (G[`${role}BonusSupporterDrawNextTurn`]) {
-    const supporters = TRAINERS.filter(c => c.cat === 'supporter');
-    G[`${role}Hand`].push(supporters[Math.floor(Math.random() * supporters.length)]);
+    G[`${role}Hand`].push(pickSupporterAvoidingDupes(G[`${role}Hand`]));
     G[`${role}BonusSupporterDrawNextTurn`] = false;
   }
   G[`${role}NeedsDiscard`] = G[`${role}Hand`].length > 7;
@@ -3546,11 +3553,12 @@ async function handleMessage(ws, msg) {
       const log = [];
       tickNonAttackStatusSrv(active, log); // sleep/freeze/confusion still count down even when standing by
       applyEndOfTurnStatusSrv(active, log, G, role); // poison/burn still ticks even when standing by
-      const supporters = TRAINERS.filter(c => c.cat === 'supporter');
-      const card = supporters[Math.floor(Math.random() * supporters.length)];
+      const card = pickSupporterAvoidingDupes(G[`${role}Hand`]);
       G[`${role}Hand`].push(card);
       G[`${role}NeedsDiscard`] = G[`${role}Hand`].length > 7;
-      log.push({ text: `選擇待機，${role === 'p1' ? 'P1' : 'P2'} 抽到【${card.name}】！`, cls: 'system' });
+      // 2026-07-23應使用者要求：待機額外獲得5點Mega能量，提升待機的強度
+      if (!G[`${role}MegaUsed`]) G[`${role}MegaEnergy`] = Math.min(20, (G[`${role}MegaEnergy`] || 0) + 5);
+      log.push({ text: `選擇待機，${role === 'p1' ? 'P1' : 'P2'} 抽到【${card.name}】，並獲得了 5 點 Mega 能量！`, cls: 'system' });
 
       if (active.cur <= 0) {
         const alive = G[`${role}Deck`].filter(p => p.cur > 0).length;
@@ -3595,9 +3603,14 @@ async function handleMessage(ws, msg) {
       G[`${role}FreeSwitch`] = false;
       G[`${role}SwitchedThisTurn`] = true;
 
+      // 2026-07-23應使用者要求：換寶可夢也能抽到1張支援者卡，提升換人的強度
+      const drawnCard = pickSupporterAvoidingDupes(G[`${role}Hand`]);
+      G[`${role}Hand`].push(drawnCard);
+      G[`${role}NeedsDiscard`] = G[`${role}Hand`].length > 7;
+
       if (usedFreeSwitch) {
         const freeReason = usedRetreatVest ? '撤退背心' : '疾風之翼';
-        const log = [{ text: `換上了 ${deck[newIdx].name}！（${freeReason}：不消耗回合）本回合傷害減免中…`, cls: 'player' }];
+        const log = [{ text: `換上了 ${deck[newIdx].name}！（${freeReason}：不消耗回合）本回合傷害減免中…抽到了【${drawnCard.name}】！`, cls: 'player' }];
         triggerOnLeaveSrv(outPoke, role, G, log);
         triggerOnEnterSrv(deck[newIdx], role, G, log);
         broadcast(room, { type: 'update', state: G, log, actor: role }); return;
@@ -3610,7 +3623,7 @@ async function handleMessage(ws, msg) {
       G.round++;
       G[`${op}Buff`].reflect = false; G[`${op}Braced`] = false; G[`${op}CoinShield`] = false; // all expire if opponent never attacked (switched instead)
       drawForRole(G, op);
-      const log = [{ text: `換上了 ${deck[newIdx].name}！本回合傷害減免中…`, cls: 'player' }];
+      const log = [{ text: `換上了 ${deck[newIdx].name}！本回合傷害減免中…抽到了【${drawnCard.name}】！`, cls: 'player' }];
       triggerOnLeaveSrv(outPoke, role, G, log);
       triggerOnEnterSrv(deck[newIdx], role, G, log);
       broadcast(room, { type: 'update', state: G, log, actor: role }); return;

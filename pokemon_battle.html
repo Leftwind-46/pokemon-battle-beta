@@ -1473,8 +1473,8 @@
 
       <h3>對戰規則</h3>
       <ul>
-        <li>每回合限換場一次；換場會直接結束本回合，新上場的寶可夢該回合受到的傷害減少 4%（使用撤退背心後的換場不會結束回合）。</li>
-        <li><b>💤 待機</b>：跳過攻擊，抽 1 張支援者牌進入手牌。</li>
+        <li>每回合限換場一次；換場會直接結束本回合，新上場的寶可夢該回合受到的傷害減少 4%，並額外抽 1 張支援者牌（使用撤退背心後的換場不會結束回合）。</li>
+        <li><b>💤 待機</b>：跳過攻擊，抽 1 張支援者牌進入手牌，並獲得 5 點 Mega 能量。</li>
         <li>每個回合開始時，抽 2 張道具牌，手牌上限 7 張。</li>
         <li>若抽牌後超過 7 張，可選擇丟棄一張。</li>
         <li>棄牌兌換按鈕：棄 1 張手牌可換 1 張競技場卡或 +5 能量（換競技場卡每回合最多 3 次）；棄 2 張可換 1 張道具卡或解除上場寶可夢的異常狀態。換到的競技場卡／道具卡會依上場寶可夢的屬性過濾。</li>
@@ -1889,7 +1889,7 @@
           </button>
           <button class="btn-atk" id="btn-standby" onclick="playerStandby()" style="grid-column:span 2">
             <div class="atk-name">💤 待機</div>
-            <div class="atk-meta"><span style="font-size:0.72rem;color:var(--muted)">跳過攻擊，抽 1 張支援者牌</span></div>
+            <div class="atk-meta"><span style="font-size:0.72rem;color:var(--muted)">跳過攻擊，抽 1 張支援者牌＋5 點Mega能量</span></div>
           </button>
           <button class="btn-atk" id="btn-trade" onclick="playerDiscardTrade()" style="grid-column:span 2">
             <div class="atk-name">🔄 棄牌兌換</div>
@@ -2493,6 +2493,16 @@ const HAND_MANIPULATION_CARDS = ['plunder', 'night-raid', 'dark-heist', 'quick-t
 
 function dealHand(n) {
   return [...TRAINERS].sort(() => Math.random() - 0.5).slice(0, n);
+}
+
+// 2026-07-23應使用者要求：待機／詭計等「隨機抽1張支援者卡」的地方盡量避開手牌裡已經有的
+// （抽到重複的支援者卡意義不大）。如果支援者卡全部都已經在手牌裡了（理論上手牌上限跟支援者
+// 卡種類數打平才會發生），退回原本可能重複的完整池子，不要讓抽卡直接噴錯。
+function pickSupporterAvoidingDupes(hand) {
+  const all = TRAINERS.filter(c => c.cat === 'supporter');
+  const avail = all.filter(c => !hand.some(h => h.id === c.id));
+  const pool = avail.length ? avail : all;
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 // 依場上寶可夢屬性過濾抽卡池：沒有type欄位的卡（通用卡）永遠都在池子裡，
@@ -4627,28 +4637,38 @@ function executeSwitch(deckIdx) {
   G.playerIdx = deckIdx;
   triggerOnEnter(P(), 'player');
 
+  // 2026-07-23應使用者要求：換寶可夢也能抽到1張支援者卡，提升換人的強度（跟待機共用同一套
+  // 避免重複的抽卡邏輯）
+  const drawnCard = pickSupporterAvoidingDupes(G.playerHand);
+  G.playerHand.push(drawnCard);
+
   if (usedFreeSwitch) {
     const freeReason = usedRetreatVest ? '撤退背心' : '疾風之翼';
-    log(`你將 ${outName} 換回，派出了 ${P().name}！（${freeReason}：不消耗回合）本回合傷害減免中…`, 'player');
+    log(`你將 ${outName} 換回，派出了 ${P().name}！（${freeReason}：不消耗回合）本回合傷害減免中…抽到了【${drawnCard.name}】！`, 'player');
     renderBattle();
     hideBenchPopup();
     const nc = document.getElementById('player-bcard');
     nc.classList.add('anim-slidein');
     nc.addEventListener('animationend', () => nc.classList.remove('anim-slidein'), {once:true});
+    if (G.playerHand.length > 7) showDiscardModal(() => {});
     return; // no turn end — player can still act
   }
 
   G.busy = true;
   G.round++;
   G.cpuBuff.reflect = false; G.cpuBraced = false; G.cpuCoinShield = false; // all expire if opponent never attacked (switched instead)
-  log(`你將 ${outName} 換回，派出了 ${P().name}！本回合傷害減免中…`, 'player');
+  log(`你將 ${outName} 換回，派出了 ${P().name}！本回合傷害減免中…抽到了【${drawnCard.name}】！`, 'player');
 
   renderBattle();
   hideBenchPopup();
   const nc = document.getElementById('player-bcard');
   nc.classList.add('anim-slidein');
   nc.addEventListener('animationend', () => nc.classList.remove('anim-slidein'), {once:true});
-  setTimeout(cpuAttack, 700); // switching ends the turn
+  if (G.playerHand.length > 7) {
+    showDiscardModal(() => setTimeout(cpuAttack, 500));
+  } else {
+    setTimeout(cpuAttack, 700); // switching ends the turn
+  }
 }
 
 function playerStandby() {
@@ -4659,10 +4679,12 @@ function playerStandby() {
   G.cpuBuff.reflect = false; G.cpuBraced = false; G.cpuCoinShield = false; // all expire if opponent never attacked
   G.playerBuff.typeOverride = null; // orb effect expires at turn end if unused
   tickNonAttackStatus(P(), 'player'); // sleep/freeze/confusion still count down even when standing by
-  const supporters = TRAINERS.filter(c => c.cat === 'supporter');
-  const card = supporters[Math.floor(Math.random() * supporters.length)];
+  const card = pickSupporterAvoidingDupes(G.playerHand);
   G.playerHand.push(card);
-  log(`你選擇待機，抽到了【${card.name}】！`, 'player');
+  // 2026-07-23應使用者要求：待機額外獲得5點Mega能量，提升待機的強度（跟其他Mega能量來源一樣，
+  // 整場只要用過一次Mega進化就不再累積，反正也沒地方用）
+  if (!G.playerMegaUsed) G.playerMegaEnergy = Math.min(20, G.playerMegaEnergy + 5);
+  log(`你選擇待機，抽到了【${card.name}】，並獲得了 5 點 Mega 能量！`, 'player');
 
   const proceedToCpu = () => {
     if (G.playerHand.length > 7) {
@@ -5994,8 +6016,7 @@ function drawAfterTurn(onDone) {
   }
   // 詭計：上回合使用時承諾的額外支援者抽牌（刻意破例——平常支援者卡只會在開局手牌出現）
   if (G.playerBonusSupporterDrawNextTurn) {
-    const supporters = TRAINERS.filter(c => c.cat === 'supporter');
-    newCards.push(supporters[Math.floor(Math.random() * supporters.length)]);
+    newCards.push(pickSupporterAvoidingDupes([...G.playerHand, ...newCards]));
     G.playerBonusSupporterDrawNextTurn = false;
   }
   G.playerHand.push(...newCards);
