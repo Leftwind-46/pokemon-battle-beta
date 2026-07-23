@@ -608,7 +608,7 @@ const PET_GIF_OVERRIDE = {
   // 不是猜的。
   25: {
     Idle:   { w: 144, h: 124, src: '/pet-art/25/idle.gif' },
-    Walk:   { w: 118, h: 112, src: '/pet-art/25/walk.gif' },
+    Walk:   { w: 118, h: 112, src: '/pet-art/25/walk.gif', facesLeft: true }, // 用PIL拆幀確認這份GIF的6格畫的都是「面向左」走路，不是本專案素材預設的「面向右」
     Eat:    { w: 123, h: 111, src: '/pet-art/25/eat.gif', holdMs: 1560 },
     Sleep:  { w: 142, h: 135, src: '/pet-art/25/sleep.gif' },
     Attack: { w: 136, h: 124, src: '/pet-art/25/touch_pet.gif', holdMs: 1560 },
@@ -893,12 +893,23 @@ function startStage() {
 }
 
 /* facingLeft跟currentAnimScale都要寫進同一個img.style.transform，兩邊(走位鏡像/動作動畫縮放)
-   都呼叫applySpriteTransform()合併寫入，不要各自直接寫transform，否則會互相蓋掉對方 */
+   都呼叫applySpriteTransform()合併寫入，不要各自直接寫transform，否則會互相蓋掉對方。
+   currentArtFacesLeft：PMDCollab素材全部是「預設面向右」畫的（見pet-sprite-calibration
+   skill），facingLeft=true(往左走)時scaleX(-1)翻成面向左，這個假設對所有PMDCollab/AI插圖
+   素材都成立。但使用者提供的PET_GIF_OVERRIDE現成GIF不一定遵守這個畫風慣例——皮卡丘的
+   walk.gif本身畫的就是「面向左」在走（用PIL拆幀確認過6格全部朝左），如果照舊只看
+   facingLeft，會變成「往右走時(facingLeft=false，不翻轉)反而顯示牠面向左走」，跟使用者
+   回報的「走路方向跟牠面朝方向反了」完全吻合。修法：讓每個PET_GIF_OVERRIDE素材自己標記
+   `facesLeft:true/false(預設)`，實際要不要翻轉看facingLeft跟這個素材原生朝向是否一致
+   (XOR)，而不是只看facingLeft本身。PMDCollab/AI靜態插圖路徑維持假設一律面向右，
+   currentArtFacesLeft重置回false即可。 */
 let facingLeft = false;
+let currentArtFacesLeft = false;
 function applySpriteTransform() {
   const img = document.getElementById('pet-sprite');
   if (!img) return;
-  img.style.transform = `scaleX(${facingLeft ? -1 : 1}) scale(${currentAnimScale})`;
+  const flip = facingLeft !== currentArtFacesLeft;
+  img.style.transform = `scaleX(${flip ? -1 : 1}) scale(${currentAnimScale})`;
 }
 
 function scheduleWalk() {
@@ -2096,6 +2107,7 @@ function playPetAnim(speciesId, animName, loop) {
       if (walkTimer) { clearTimeout(walkTimer); walkTimer = null; }
     }
     if (walkAnimRevertTimer) { clearTimeout(walkAnimRevertTimer); walkAnimRevertTimer = null; }
+    currentArtFacesLeft = false; // PMDCollab素材一律假設預設面向右
     currentAnimScale = ANIM_DISPLAY_TARGET / Math.max(w, h);
     img.classList.add('pet-anim-playing');
     img.style.backgroundImage = `url("${url}")`;
@@ -2134,6 +2146,7 @@ function playStaticPoseArt(art, animName, loop) {
     clearTimeout(walkTimer); walkTimer = null; // 吃東西/攻擊播放期間先別亂走位，播完由stopPetAnim()重新排
   }
   if (walkAnimRevertTimer) { clearTimeout(walkAnimRevertTimer); walkAnimRevertTimer = null; }
+  currentArtFacesLeft = false; // AI靜態插圖比照PMDCollab慣例，一律假設預設面向右
   currentAnimScale = ANIM_DISPLAY_TARGET / Math.max(art.w, art.h);
   img.classList.remove('pet-anim-playing');
   img.style.backgroundImage = '';
@@ -2174,6 +2187,7 @@ function playGifArt(art, animName, loop) {
       clearTimeout(walkTimer); walkTimer = null; // 吃東西/攻擊播放期間先別亂走位，播完由stopPetAnim()重新排
     }
     if (walkAnimRevertTimer) { clearTimeout(walkAnimRevertTimer); walkAnimRevertTimer = null; }
+    currentArtFacesLeft = !!art.facesLeft; // 這份GIF本身原生朝向哪邊，見facingLeft宣告處的說明
     currentAnimScale = ANIM_DISPLAY_TARGET / Math.max(art.w, art.h);
     img.classList.remove('pet-anim-playing');
     img.style.backgroundImage = '';
