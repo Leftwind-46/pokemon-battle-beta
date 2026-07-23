@@ -2281,7 +2281,10 @@ app.get('/api/pet', requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT species_id, happiness, coins, display_fish_id, ball_normal, ball_great, ball_ultra,
-              fish_tank_pos_x, fish_tank_pos_y, fish_dex_pos_x, fish_dex_pos_y
+              fish_tank_pos_x, fish_tank_pos_y, fish_dex_pos_x, fish_dex_pos_y,
+              display_poke1_id, display_poke2_id, display_poke3_id,
+              poke_display1_pos_x, poke_display1_pos_y, poke_display2_pos_x, poke_display2_pos_y,
+              poke_display3_pos_x, poke_display3_pos_y
        FROM pets WHERE user_id = $1`, [req.user.id]
     );
     const { rows: badgeRows } = await pool.query('SELECT badge_id, pos_x, pos_y FROM user_badges WHERE user_id = $1', [req.user.id]);
@@ -2298,8 +2301,14 @@ app.get('/api/pet', requireAuth, async (req, res) => {
     const balls = { ballNormal: rows[0].ball_normal, ballGreat: rows[0].ball_great, ballUltra: rows[0].ball_ultra };
     const fishTankPos = rows[0].fish_tank_pos_x != null ? { x: rows[0].fish_tank_pos_x, y: rows[0].fish_tank_pos_y } : null;
     const fishDexPos = rows[0].fish_dex_pos_x != null ? { x: rows[0].fish_dex_pos_x, y: rows[0].fish_dex_pos_y } : null;
+    const pokeDisplayIds = [rows[0].display_poke1_id, rows[0].display_poke2_id, rows[0].display_poke3_id];
+    const pokeDisplayPos = [
+      rows[0].poke_display1_pos_x != null ? { x: rows[0].poke_display1_pos_x, y: rows[0].poke_display1_pos_y } : null,
+      rows[0].poke_display2_pos_x != null ? { x: rows[0].poke_display2_pos_x, y: rows[0].poke_display2_pos_y } : null,
+      rows[0].poke_display3_pos_x != null ? { x: rows[0].poke_display3_pos_x, y: rows[0].poke_display3_pos_y } : null,
+    ];
     res.json({
-      pet: { speciesId: rows[0].species_id, happiness: rows[0].happiness, coins: rows[0].coins, hunger, ...balls, fishTankPos, fishDexPos },
+      pet: { speciesId: rows[0].species_id, happiness: rows[0].happiness, coins: rows[0].coins, hunger, ...balls, fishTankPos, fishDexPos, pokeDisplayIds, pokeDisplayPos },
       badges, decorations, fish, displayFish,
     });
   } catch (e) {
@@ -2559,6 +2568,16 @@ app.post('/api/pet/catch/resolve-release', requireAuth, async (req, res) => {
        ON CONFLICT (user_id) DO UPDATE SET pokemon_ids = $2, updated_at = NOW()`,
       [req.user.id, newIds]
     );
+    // 放生的這隻如果剛好正在寶可夢展示台上，展示欄位沒有外鍵可以自動清空（不像魚缸的
+    // display_fish_id有ON DELETE SET NULL），手動清掉避免展示台留著已經不在隊伍裡的寶可夢
+    await pool.query(
+      `UPDATE pets SET
+         display_poke1_id = CASE WHEN display_poke1_id = $1 THEN NULL ELSE display_poke1_id END,
+         display_poke2_id = CASE WHEN display_poke2_id = $1 THEN NULL ELSE display_poke2_id END,
+         display_poke3_id = CASE WHEN display_poke3_id = $1 THEN NULL ELSE display_poke3_id END
+       WHERE user_id = $2`,
+      [releasePokemonId, req.user.id]
+    );
     pendingCatchReleases.delete(req.user.id);
     res.json({ released: true, releasedPokemonId: releasePokemonId, addedPokemonId: newPokemonId });
   } catch (e) {
@@ -2632,6 +2651,9 @@ app.post('/api/pet/badge/position', requireAuth, async (req, res) => {
 const FIXTURE_POS_FIELDS = {
   fish_tank: ['fish_tank_pos_x', 'fish_tank_pos_y'],
   fish_dex: ['fish_dex_pos_x', 'fish_dex_pos_y'],
+  poke_display1: ['poke_display1_pos_x', 'poke_display1_pos_y'],
+  poke_display2: ['poke_display2_pos_x', 'poke_display2_pos_y'],
+  poke_display3: ['poke_display3_pos_x', 'poke_display3_pos_y'],
 };
 app.post('/api/pet/fixture/position', requireAuth, async (req, res) => {
   const { fixture } = req.body || {};
@@ -2644,6 +2666,26 @@ app.post('/api/pet/fixture/position', requireAuth, async (req, res) => {
     res.json({});
   } catch (e) {
     console.error('pet fixture position error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 寶可夢展示台——設定3個展示位其中一個要放哪隻（或null=清空）。跟魚缸的display_fish_id不同，
+   teams.pokemon_ids是陣列欄位沒有資料表列可以外鍵約束，只能手動查隊伍陣列確認pokemonId
+   真的在玩家目前隊伍裡，擋掉偽造不屬於自己隊伍的id。 */
+app.post('/api/pet/display/set', requireAuth, async (req, res) => {
+  const slot = Number(req.body?.slot);
+  if (![1, 2, 3].includes(slot)) return res.status(400).json({ error: 'invalid_slot' });
+  const pokemonId = req.body?.pokemonId == null ? null : Number(req.body.pokemonId);
+  try {
+    if (pokemonId != null) {
+      const { rows } = await pool.query('SELECT pokemon_ids FROM teams WHERE user_id = $1', [req.user.id]);
+      if (!(rows[0]?.pokemon_ids || []).includes(pokemonId)) return res.status(400).json({ error: 'not_in_team' });
+    }
+    await pool.query(`UPDATE pets SET display_poke${slot}_id = $1 WHERE user_id = $2`, [pokemonId, req.user.id]);
+    res.json({});
+  } catch (e) {
+    console.error('pet display set error:', e.message);
     res.status(503).json({ error: 'db_error' });
   }
 });
@@ -3801,6 +3843,18 @@ async function initDB() {
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS fish_tank_pos_y REAL`);
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS fish_dex_pos_x REAL`);
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS fish_dex_pos_y REAL`);
+    // 寶可夢展示台——3個獨立展示位，取代「我的收藏」側欄。display_poke{n}_id只存POKEMON靜態
+    // 陣列的id（跟teams.pokemon_ids本身的存法一致），不是外鍵；隊伍是陣列欄位沒有資料表列可以
+    // 外鍵約束，展示中的寶可夢被放生時改成在resolve-release端點手動UPDATE清空（見該端點）。
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS display_poke1_id INTEGER`);
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS display_poke2_id INTEGER`);
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS display_poke3_id INTEGER`);
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS poke_display1_pos_x REAL`);
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS poke_display1_pos_y REAL`);
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS poke_display2_pos_x REAL`);
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS poke_display2_pos_y REAL`);
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS poke_display3_pos_x REAL`);
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS poke_display3_pos_y REAL`);
     // 多徽章擁有——跟pet_decorations同一套「擁有+可選擺放位置」語意（pos_x/y為NULL=擁有但沒展示在房間裡）。
     // 取代舊的users.badge_id單一欄位（一人只能有一個、指定新的會整個覆蓋掉舊的）；badge_id欄位保留不刪。
     await pool.query(`CREATE TABLE IF NOT EXISTS user_badges (
