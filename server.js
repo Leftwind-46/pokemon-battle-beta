@@ -303,7 +303,7 @@ const TRAINERS = [
   {id:'fighting-ironfist',name:'鋼鐵之拳',   cat:'item', type:'fighting', weight:10, desc:'讓對手下次攻擊威力 ×0.85'},
   {id:'ghost-drain',      name:'幽冥追跡',   cat:'item', type:'ghost',    weight:10, desc:'讓對手損失 8 點能量，並讓對方隨機棄掉 1 張手牌'},
   {id:'ghost-obsession',  name:'怨念集中',   cat:'item', type:'ghost',    weight:10, desc:'下次攻擊異常狀態機率視為 100%；若對手為 Mega 型態額外 +40 威力'},
-  {id:'dragon-fang',      name:'逆鱗',       cat:'item', type:'dragon',   weight:10, desc:'下次攻擊威力 +90，自身損失 10 點能量'},
+  {id:'dragon-fang',      name:'逆鱗',       cat:'item', type:'dragon',   weight:10, desc:'下次攻擊威力 +90，自身損失 5 點能量'},
   {id:'dragon-cleanse',   name:'龍息滌蕩',   cat:'item', type:'dragon',   weight:10, desc:'解除自身異常狀態，並回復 5 HP'},
   {id:'steel-resolve',    name:'鋼鐵意志',   cat:'item', type:'steel',    weight:10, desc:'下次受到攻擊傷害減少 50，並立即回復 5 點能量'},
   {id:'steel-flash',      name:'鎂光反射',   cat:'item', type:'steel',    weight:10, desc:'下次受到攻擊傷害減少 40，並讓對手下次攻擊威力 ×0.9'},
@@ -1678,9 +1678,10 @@ function applyTrainer(card, role, G, log, chosenType) {
       break;
     }
     case 'dragon-fang':
-      G[`${role}Energy`] = Math.max(0, (G[`${role}Energy`] || 0) - 10);
+      // 2026-07-23應使用者要求：原本-10點能量副作用太傷，改成-5
+      G[`${role}Energy`] = Math.max(0, (G[`${role}Energy`] || 0) - 5);
       buff.atkBonus += 90;
-      log.push({ text: `使用了${card.name}，損失 10 點能量，下次攻擊威力 +90！`, cls: 'special' });
+      log.push({ text: `使用了${card.name}，損失 5 點能量，下次攻擊威力 +90！`, cls: 'special' });
       break;
     case 'dragon-cleanse': {
       if (active.status) {
