@@ -110,7 +110,7 @@
   /* z-index必須高於#pet-sprite(4)——寶可夢會在房間裡走來走去，「加入房間」預設把新物件放在
      正中央(0.5,0.5)，剛好很容易跟寶可夢走位重疊；原本這裡是3(低於寶可夢)，導致物件被走過去的
      寶可夢擋住時完全點不到、拖不動、也按不到收回鈕（回報為「新增的東西無法移動/關掉」）。 */
-  .decor-room-item{position:absolute;transform:translate(-50%,-50%);z-index:6;width:52px;height:52px;border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.7rem;background:rgba(0,0,0,0.15);touch-action:none}
+  .decor-room-item{position:absolute;z-index:6;width:52px;height:52px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.7rem;touch-action:none}
 
   /* ── 裝潢模式：可拖曳的物件套上金色虛線外框提示、拖曳手勢游標；收回按鈕只在此模式下出現 ── */
   .decorate-mode .badge-room-item,.decorate-mode .decor-room-item,.decorate-mode #fish-tank-slot,.decorate-mode #fish-dex-slot,.decorate-mode .poke-display-slot{cursor:grab;outline:2px dashed rgba(248,208,48,0.65);outline-offset:2px}
@@ -133,11 +133,13 @@
   .fish-dex-item .name{font-size:0.75rem;font-weight:700;text-align:center}
   .fish-dex-item.undiscovered .name{color:var(--muted)}
 
-  /* ── 寶可夢展示台：3個各自獨立、可拖曳的展示位，取代原本的「我的收藏」側欄 ── */
-  .poke-display-slot{position:absolute;transform:translate(-50%,-50%);z-index:6;width:64px;height:64px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:rgba(104,144,240,0.18);border:2px solid rgba(104,144,240,0.4);transition:transform 0.15s;overflow:hidden;touch-action:none}
+  /* ── 寶可夢展示台：3個各自獨立、可拖曳的展示位，取代原本的「我的收藏」側欄。
+     展示中(有寶可夢)不套背景方塊，讓寶可夢像站在房間裡一樣(只加陰影)；只有空位才顯示
+     淡淡的虛線方塊當作可點擊提示，不然使用者會找不到空展示位在哪 ── */
+  .poke-display-slot{position:absolute;transform:translate(-50%,-50%);z-index:6;width:64px;height:64px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform 0.15s;touch-action:none}
   .poke-display-slot:hover{transform:translate(-50%,-50%) scale(1.08)}
-  .poke-display-slot img{width:80%;height:80%;object-fit:contain;image-rendering:pixelated}
-  .poke-display-slot.empty{font-size:1.5rem;opacity:0.45}
+  .poke-display-slot img{width:100%;height:100%;object-fit:contain;image-rendering:pixelated;filter:drop-shadow(0 4px 6px rgba(0,0,0,0.4))}
+  .poke-display-slot.empty{font-size:1.5rem;opacity:0.45;border-radius:10px;background:rgba(104,144,240,0.18);border:2px dashed rgba(104,144,240,0.4)}
   .fish-dex-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:0.6rem}
 
   /* ── 賣魚清單：最愛切換 + 一鍵賣魚 ── */
@@ -483,6 +485,14 @@ const TEAM_TYPE_COLOR = {
 };
 function teamSpriteUrl(id) { return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`; }
 function teamOfficialArtworkUrl(id) { return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`; }
+// 動態圖來源是PokeAPI的Gen5 B/W動圖集，只涵蓋到某個世代——隊伍名單裡較新的寶可夢
+// （例如密勒頓/故勒頓這類第九世代）沒有對應動圖會404，逐層退回：動圖→靜態圖→官方原畫，
+// 用data-fallback記錄目前退到第幾層，而不是inline重新指定onerror（比較好讀）。
+function teamAnimatedSpriteUrl(id) { return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${id}.gif`; }
+function handleTeamSpriteError(img, id) {
+  if (img.dataset.fallback === 'static') { img.src = teamOfficialArtworkUrl(id); }
+  else { img.dataset.fallback = 'static'; img.src = teamSpriteUrl(id); }
+}
 // 圖鑑用的18種屬性中文名稱——跟pokemon_battle.html的TYPE_ZH是同一份對照表
 const TYPE_ZH = {
   fire:'火', water:'水', grass:'草', electric:'電', psychic:'超能',
@@ -702,7 +712,8 @@ let myToken = localStorage.getItem('pvpToken') || null;
 let pet = null; // { speciesId, happiness, coins, hunger, ballNormal, ballGreat, ballUltra } | null
 const BALL_FIELD_TO_PET_KEY = { ball_normal: 'ballNormal', ball_great: 'ballGreat', ball_ultra: 'ballUltra' };
 let badges = []; // [{ id, name, image, x, y }] —— 目前只能由GM後台手動指定，還沒有自動判定機制；x/y為null代表擁有但沒展示在房間裡
-let decorations = []; // [{ itemId, x, y }] —— x/y為null代表在道具欄裡還沒擺放
+let decorations = []; // [{ id, itemId, x, y, scale }] —— x/y為null代表在道具欄裡還沒擺放，id是實體id
+                       // （同一種itemId現在可以有多份，2026-07-23起不再是「每種最多一份」）
 let shopItems = null; // 從 /api/shop 抓一次快取起來，跟BADGES一樣是純資料registry
 let caughtFish = []; // [{ id, fishType, name, speciesId, shiny, caughtAt }]
 let displayFishData = null; // { id, fishType, name, speciesId, shiny } | null —— 目前魚缸展示的那隻
@@ -1083,9 +1094,11 @@ function renderPlacedDecor(stage) {
     el.title = item.name;
     el.textContent = item.icon;
     positionFreeform(el, { x: d.x, y: d.y });
-    if (decorateMode) el.appendChild(makeRemoveBtn(() => placeDecor(d.itemId, null, null)));
+    el.style.transform = `translate(-50%,-50%) scale(${d.scale || 1})`;
+    if (decorateMode) el.appendChild(makeRemoveBtn(() => placeDecor(d.id, null, null)));
     stage.appendChild(el);
-    makeDraggable(el, stage, (x, y) => placeDecor(d.itemId, x, y));
+    makeDraggable(el, stage, (x, y) => placeDecor(d.id, x, y));
+    attachDecorResize(el, d.id, d.scale || 1);
   });
 }
 
@@ -1105,12 +1118,12 @@ function renderPlacedBadges(stage) {
   });
 }
 
-async function placeDecor(itemId, x, y) {
+async function placeDecor(decorId, x, y) {
   try {
     const res = await fetch('/api/pet/place', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${myToken}` },
-      body: JSON.stringify({ itemId, x, y }),
+      body: JSON.stringify({ id: decorId, x, y }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -1118,7 +1131,7 @@ async function placeDecor(itemId, x, y) {
       renderPlacedDecor(document.getElementById('pet-stage')); // 拖曳可能已視覺上移動，這裡照DB實際狀態還原畫面
       return;
     }
-    const entry = decorations.find(d => d.itemId === itemId);
+    const entry = decorations.find(d => d.id === decorId);
     if (entry) { entry.x = x; entry.y = y; }
     renderPlacedDecor(document.getElementById('pet-stage'));
     renderAddPickList();
@@ -1126,6 +1139,36 @@ async function placeDecor(itemId, x, y) {
     showToast('連線失敗，請再試一次');
     renderPlacedDecor(document.getElementById('pet-stage'));
   }
+}
+
+/* 裝潢模式下對著已擺放的裝飾滾滾輪即時縮放（0.4~2.5，跟伺服器端驗證同一組邊界）。
+   非裝潢模式完全不掛這個行為，滾輪照常捲動整個頁面（wheel監聽器最上面就return，
+   不會呼叫preventDefault）。放開滾輪後debounce 400ms才真的呼叫API存檔，避免每個
+   wheel tick都打一次後端。 */
+function attachDecorResize(el, decorId, initialScale) {
+  let scale = initialScale || 1;
+  let saveTimer = null;
+  el.addEventListener('wheel', (e) => {
+    if (!decorateMode) return;
+    e.preventDefault();
+    scale = Math.max(0.4, Math.min(2.5, scale + (e.deltaY < 0 ? 0.1 : -0.1)));
+    el.style.transform = `translate(-50%,-50%) scale(${scale})`;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => saveDecorScale(decorId, scale), 400);
+  }, { passive: false });
+}
+
+async function saveDecorScale(decorId, scale) {
+  try {
+    const res = await fetch('/api/pet/decor/scale', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${myToken}` },
+      body: JSON.stringify({ id: decorId, scale }),
+    });
+    if (!res.ok) return;
+    const entry = decorations.find(d => d.id === decorId);
+    if (entry) entry.scale = scale;
+  } catch (e) { /* 網路失敗，暫時保留視覺縮放就好，跟saveFixturePosition同樣的容錯邏輯 */ }
 }
 
 async function setBadgePosition(badgeId, x, y) {
@@ -1200,20 +1243,25 @@ function renderAddPickList() {
       </div>`).join('');
   }
   if (availableDecor.length) {
+    // 同一種裝飾現在可能有多份未擺放，外觀完全相同、擺進去哪一份都無所謂——分組顯示成
+    // 一列＋持有份數，而不是重複列出好幾列一模一樣的東西
+    const decorGroups = {};
+    availableDecor.forEach(d => { (decorGroups[d.itemId] ||= []).push(d.id); });
     html += `<div class="shop-group-title">房間裝飾${placedDecorCount >= DECOR_PLACE_LIMIT ? `（已達上限 ${DECOR_PLACE_LIMIT}）` : ''}</div>`
-      + availableDecor.map(d => {
-        const item = shopItems[d.itemId];
-        return `<div class="slot-pick-item" onclick="addDecorToRoom('${d.itemId}')">
+      + Object.entries(decorGroups).map(([itemId, ids]) => {
+        const item = shopItems[itemId];
+        const countLabel = ids.length > 1 ? `（持有 ${ids.length} 份未擺放）` : '';
+        return `<div class="slot-pick-item" onclick="addDecorToRoom(${ids[0]})">
           <span class="icon">${item.icon}</span>
-          <div class="info"><div class="name">${item.name}</div></div>
+          <div class="info"><div class="name">${item.name}${countLabel}</div></div>
         </div>`;
       }).join('');
   }
   list.innerHTML = html || `<p style="color:var(--muted);font-size:0.82rem">道具欄跟徽章收藏目前沒有可加入房間的東西。</p>`;
 }
 
-function addDecorToRoom(itemId) {
-  placeDecor(itemId, 0.5, 0.5).then(() => renderAddPickList());
+function addDecorToRoom(decorId) {
+  placeDecor(decorId, 0.5, 0.5).then(() => renderAddPickList());
 }
 
 function addBadgeToRoom(badgeId) {
@@ -1244,7 +1292,8 @@ function closeShopModal() {
 
 function renderShopList() {
   const list = document.getElementById('shop-list');
-  // 球是消耗品可以一直買，跟裝飾品的一次性擁有邏輯不同——分兩組個別渲染
+  // 球跟房間裝飾現在都是可以一直買、囤貨的消耗性道具（2026-07-23起裝飾也拿掉了「每種
+  // 最多一份」的限制），純粹分兩組個別渲染，不是因為購買規則不同
   const balls = Object.entries(shopItems).filter(([, item]) => item.category === 'ball');
   const decor = Object.entries(shopItems).filter(([, item]) => item.category !== 'ball');
   const ballHtml = balls.map(([itemId, item]) => {
@@ -1262,16 +1311,16 @@ function renderShopList() {
     `;
   }).join('');
   const decorHtml = decor.map(([itemId, item]) => {
-    const owned = decorations.some(d => d.itemId === itemId);
+    const ownedCount = decorations.filter(d => d.itemId === itemId).length;
     const affordable = (pet.coins || 0) >= item.price;
     return `
       <div class="shop-item">
         <span class="icon">${item.icon}</span>
         <div class="info">
-          <div class="name">${item.name}</div>
+          <div class="name">${item.name}${ownedCount ? `（持有 ${ownedCount}）` : ''}</div>
           <div class="price">🪙 ${item.price}</div>
         </div>
-        <button ${owned || !affordable ? 'disabled' : ''} onclick="buyItem('${itemId}')">${owned ? '已擁有' : '購買'}</button>
+        <button ${!affordable ? 'disabled' : ''} onclick="buyItem('${itemId}')">購買</button>
       </div>
     `;
   }).join('');
@@ -1295,7 +1344,7 @@ async function buyItem(itemId) {
       // 不然要等下一次丟球失敗才會重新渲染，畫面會跟剛買到的球數兜不起來
       if (document.getElementById('catch-scene-modal').classList.contains('open')) renderBallPicker();
     } else {
-      decorations.push({ itemId, x: null, y: null });
+      decorations.push({ id: data.decorId, itemId, x: null, y: null, scale: 1 });
     }
     renderShopList();
   } catch (e) { /* 網路失敗，維持原狀讓玩家再試一次 */ }
@@ -1363,7 +1412,7 @@ function renderPokeDisplaySlot(n) {
   if (mon) {
     slot.className = 'poke-display-slot';
     slot.title = `${mon.name}（點擊更換展示）`;
-    slot.innerHTML = `<img src="${teamSpriteUrl(mon.id)}" alt="${mon.name}" onerror="this.onerror=null;this.src='${teamOfficialArtworkUrl(mon.id)}'">`;
+    slot.innerHTML = `<img src="${teamAnimatedSpriteUrl(mon.id)}" alt="${mon.name}" onerror="handleTeamSpriteError(this, ${mon.id})">`;
   } else {
     slot.className = 'poke-display-slot empty';
     slot.title = '尚無展示寶可夢（點擊挑選）';
@@ -2388,6 +2437,7 @@ function renderReadOnlyDecor(stage, decs) {
     el.title = item.name;
     el.style.left = (d.x * 100) + '%';
     el.style.top = (d.y * 100) + '%';
+    el.style.transform = `translate(-50%,-50%) scale(${d.scale || 1})`;
     stage.appendChild(el);
   });
 }

@@ -2290,8 +2290,8 @@ app.get('/api/pet', requireAuth, async (req, res) => {
     const { rows: badgeRows } = await pool.query('SELECT badge_id, pos_x, pos_y FROM user_badges WHERE user_id = $1', [req.user.id]);
     const badges = badgeRows.filter(r => BADGES[r.badge_id]).map(r => ({ id: r.badge_id, ...BADGES[r.badge_id], x: r.pos_x, y: r.pos_y }));
     if (!rows.length) return res.json({ pet: null, badges });
-    const { rows: decorRows } = await pool.query('SELECT item_id, pos_x, pos_y FROM pet_decorations WHERE user_id = $1', [req.user.id]);
-    const decorations = decorRows.map(r => ({ itemId: r.item_id, x: r.pos_x, y: r.pos_y }));
+    const { rows: decorRows } = await pool.query('SELECT id, item_id, pos_x, pos_y, scale FROM pet_decorations WHERE user_id = $1', [req.user.id]);
+    const decorations = decorRows.map(r => ({ id: r.id, itemId: r.item_id, x: r.pos_x, y: r.pos_y, scale: r.scale }));
     const hunger = await decayHunger(req.user.id);
     const { rows: fishRows } = await pool.query(
       'SELECT id, fish_type, caught_at, is_favorite FROM pet_fish WHERE user_id = $1 ORDER BY caught_at DESC', [req.user.id]
@@ -2384,14 +2384,16 @@ app.post('/api/pet/buy', requireAuth, async (req, res) => {
     }
     const { rows: coinRows } = await pool.query('SELECT coins FROM pets WHERE user_id = $1', [req.user.id]);
     if (coinRows[0].coins < item.price) return res.status(400).json({ error: 'not_enough_coins' });
-    const { rows: ownedRows } = await pool.query(
-      'SELECT 1 FROM pet_decorations WHERE user_id = $1 AND item_id = $2', [req.user.id, itemId]
-    );
-    if (ownedRows.length) return res.status(409).json({ error: 'already_owned' });
+    // 2026-07-23：房間裝飾改成可以買多份、同時擺多個（跟球一樣沒有「已擁有就不能再買」的限制），
+    // 拿掉原本的already_owned擋下，INSERT一律新增一列（pet_decorations現在是SERIAL id當PK，
+    // 不再是(user_id,item_id)複合PK，同一種裝飾可以有很多列）。RETURNING id讓前端能記住這一份
+    // 的實體id，之後擺放/收回/縮放都要靠這個id定址，不能再用item_id（itemId不再唯一）。
     const coins = coinRows[0].coins - item.price;
     await pool.query('UPDATE pets SET coins = $1 WHERE user_id = $2', [coins, req.user.id]);
-    await pool.query('INSERT INTO pet_decorations (user_id, item_id) VALUES ($1, $2)', [req.user.id, itemId]);
-    res.status(201).json({ coins });
+    const { rows: insRows } = await pool.query(
+      'INSERT INTO pet_decorations (user_id, item_id) VALUES ($1, $2) RETURNING id', [req.user.id, itemId]
+    );
+    res.status(201).json({ coins, decorId: insRows[0].id });
   } catch (e) {
     console.error('pet buy error:', e.message);
     res.status(503).json({ error: 'db_error' });
@@ -2591,28 +2593,53 @@ app.post('/api/pet/catch/resolve-release', requireAuth, async (req, res) => {
    使用者明確要求維持上限、不要取消（見規劃討論）。座標是相對#pet-stage寬高的0~1標準化分數，
    跟setupVisitSprite()既有的placeAt(fracX,fracY)手法同一套模型。 */
 app.post('/api/pet/place', requireAuth, async (req, res) => {
-  const { itemId } = req.body || {};
+  // 2026-07-23：改用pet_decorations的實體id定址，不再用itemId——同一種裝飾現在可以有多份，
+  // itemId不再唯一，沒辦法用它指定「是哪一份」。
+  const id = Number(req.body?.id);
   let { x, y } = req.body || {};
   x = (x === null || x === undefined) ? null : Number(x);
   y = (y === null || y === undefined) ? null : Number(y);
+  if (!Number.isInteger(id)) return res.status(400).json({ error: 'invalid_request' });
   if (x !== null && (Number.isNaN(x) || x < 0 || x > 1)) return res.status(400).json({ error: 'invalid_position' });
   if (y !== null && (Number.isNaN(y) || y < 0 || y > 1)) return res.status(400).json({ error: 'invalid_position' });
   try {
     const { rows } = await pool.query(
-      'SELECT 1 FROM pet_decorations WHERE user_id = $1 AND item_id = $2', [req.user.id, itemId]
+      'SELECT 1 FROM pet_decorations WHERE id = $1 AND user_id = $2', [id, req.user.id]
     );
     if (!rows.length) return res.status(404).json({ error: 'not_owned' });
     if (x !== null) {
+      // 排除的是「正在移動的這一份自己」（用id），不是整個item_id——同一種裝飾的其他份
+      // 仍然要算進同時擺放的數量上限，跟以前「每種最多一份」時代排除整個item_id的寫法不同
       const { rows: countRows } = await pool.query(
-        'SELECT COUNT(*)::int AS n FROM pet_decorations WHERE user_id = $1 AND pos_x IS NOT NULL AND item_id != $2',
-        [req.user.id, itemId]
+        'SELECT COUNT(*)::int AS n FROM pet_decorations WHERE user_id = $1 AND pos_x IS NOT NULL AND id != $2',
+        [req.user.id, id]
       );
       if (countRows[0].n >= DECOR_PLACE_LIMIT) return res.status(400).json({ error: 'limit_reached' });
     }
-    await pool.query('UPDATE pet_decorations SET pos_x = $1, pos_y = $2 WHERE user_id = $3 AND item_id = $4', [x, y, req.user.id, itemId]);
+    await pool.query('UPDATE pet_decorations SET pos_x = $1, pos_y = $2 WHERE id = $3', [x, y, id]);
     res.json({});
   } catch (e) {
     console.error('pet place error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 裝潢模式下滾滾輪調整已擺放裝飾的大小。範圍0.4~2.5是前端滾輪縮放時同一組clamp邊界，
+   兩邊要保持一致（伺服器這裡是最終驗證，前端只是即時視覺回饋）。 */
+app.post('/api/pet/decor/scale', requireAuth, async (req, res) => {
+  const id = Number(req.body?.id);
+  const scale = Number(req.body?.scale);
+  if (!Number.isInteger(id) || Number.isNaN(scale) || scale < 0.4 || scale > 2.5) {
+    return res.status(400).json({ error: 'invalid_request' });
+  }
+  try {
+    const { rowCount } = await pool.query(
+      'UPDATE pet_decorations SET scale = $1 WHERE id = $2 AND user_id = $3', [scale, id, req.user.id]
+    );
+    if (!rowCount) return res.status(404).json({ error: 'not_owned' });
+    res.json({});
+  } catch (e) {
+    console.error('pet decor scale error:', e.message);
     res.status(503).json({ error: 'db_error' });
   }
 });
@@ -2885,9 +2912,9 @@ app.get('/api/pet/visit/:username', requireAuth, async (req, res) => {
     const { rows: petRows } = await pool.query('SELECT species_id, happiness FROM pets WHERE user_id = $1', [targetId]);
     if (!petRows.length) return res.status(404).json({ error: 'no_pet' });
     const { rows: decorRows } = await pool.query(
-      'SELECT item_id, pos_x, pos_y FROM pet_decorations WHERE user_id = $1 AND pos_x IS NOT NULL', [targetId]
+      'SELECT item_id, pos_x, pos_y, scale FROM pet_decorations WHERE user_id = $1 AND pos_x IS NOT NULL', [targetId]
     );
-    const decorations = decorRows.map(r => ({ itemId: r.item_id, x: r.pos_x, y: r.pos_y }));
+    const decorations = decorRows.map(r => ({ itemId: r.item_id, x: r.pos_x, y: r.pos_y, scale: r.scale }));
     const { rows: badgeRows } = await pool.query(
       'SELECT badge_id, pos_x, pos_y FROM user_badges WHERE user_id = $1 AND pos_x IS NOT NULL', [targetId]
     );
@@ -3814,6 +3841,7 @@ async function initDB() {
     )`);
     await pool.query(`ALTER TABLE pet_decorations ADD COLUMN IF NOT EXISTS pos_x REAL`);
     await pool.query(`ALTER TABLE pet_decorations ADD COLUMN IF NOT EXISTS pos_y REAL`);
+    await pool.query(`ALTER TABLE pet_decorations ADD COLUMN IF NOT EXISTS scale REAL NOT NULL DEFAULT 1`);
     // 釣魚——用SERIAL PRIMARY KEY而不是像pet_decorations那樣用(user_id,item_id)複合主鍵，
     // 因為魚可以重複釣到同一種，每次都是新的一列，不是「擁有一件獨特道具」那種語意。
     // 必須排在下面ALTER TABLE pets之前，因為display_fish_id的外鍵參照到這張表。
@@ -3919,6 +3947,15 @@ async function initDB() {
           [x, y, slot]
         );
       }
+    });
+    // 房間裝飾從「每種最多擁有一份」改成可以買多份、同時擺多個——(user_id,item_id)複合主鍵
+    // 沒辦法表達同一種裝飾的多份實體，改成跟pet_fish一樣的SERIAL id單獨當PK。這個PK swap本身
+    // 不是「加欄位」那種天生可重複執行的操作（ADD PRIMARY KEY 在已經有PK的表上重跑會直接報錯），
+    // 所以放進runMigrationOnce裡只跑一次，不是跟其他ALTER COLUMN IF NOT EXISTS放在一起。
+    await runMigrationOnce('2026-07-23-decor-multi-instance-pk', async () => {
+      await pool.query(`ALTER TABLE pet_decorations ADD COLUMN IF NOT EXISTS id SERIAL`);
+      await pool.query(`ALTER TABLE pet_decorations DROP CONSTRAINT IF EXISTS pet_decorations_pkey`);
+      await pool.query(`ALTER TABLE pet_decorations ADD PRIMARY KEY (id)`);
     });
     console.log('PostgreSQL connected');
   } catch (e) {
