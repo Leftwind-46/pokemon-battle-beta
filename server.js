@@ -395,6 +395,11 @@ const SHOP_ITEMS = {
   'plant-pot':     { name: '觀葉植物', price: 20, icon: '🪴', category: 'decor' },
   'picture-frame': { name: '掛畫',     price: 35, icon: '🖼️', category: 'decor' },
   'toy-ball':      { name: '玩具球',   price: 15, icon: '⚽', category: 'decor' },
+  // 單人模式冠軍獎盃——不能買，只能靠打贏「冠軍挑戰模式」三關核發（見 POST /api/pet/claim-champion-trophy），
+  // notForSale讓/api/pet/buy擋掉直接購買；price:0是雙重防呆，萬一notForSale漏檔也不會被免費買到還扣負數。
+  // 這筆仍要留在SHOP_ITEMS裡（不能整個抽掉/從/api/shop濾掉）——tamagotchi.html渲染「已擁有的裝飾」
+  // 一樣是查shopItems[itemId]拿icon/name，濾掉這筆會讓已核發的獎盃在房間裡直接不見。
+  'trophy-champion': { name: '單人模式冠軍獎盃', price: 0, icon: '🏆', category: 'decor', notForSale: true },
   // 寶可夢球——消耗品，跟上面裝飾品的一次性擁有邏輯不同，允許重複購買囤貨（見 /api/pet/buy 的 category==='ball' 分支）。
   // iconUrl 用PokeAPI真的道具sprite（不是emoji湊數），前端渲染時偵測到iconUrl就改用<img>
   'ball-normal': { name: '一般球', price: 1,  iconUrl: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png',   category: 'ball', ballField: 'ball_normal' },
@@ -2367,6 +2372,7 @@ app.post('/api/pet/buy', requireAuth, async (req, res) => {
   const itemId = req.body?.itemId;
   const item = SHOP_ITEMS[itemId];
   if (!item) return res.status(400).json({ error: 'invalid_item' });
+  if (item.notForSale) return res.status(400).json({ error: 'not_for_sale' });
   try {
     const { rows } = await pool.query('SELECT 1 FROM pets WHERE user_id = $1', [req.user.id]);
     if (!rows.length) return res.status(404).json({ error: 'no_pet' });
@@ -2399,6 +2405,28 @@ app.post('/api/pet/buy', requireAuth, async (req, res) => {
     res.status(201).json({ coins, decorId: insRows[0].id });
   } catch (e) {
     console.error('pet buy error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 單人模式「冠軍挑戰模式」打贏三關後核發冠軍獎盃——只驗證登入+尚未領過，不重新驗證整場戰鬥
+   （單人模式本來就完全跑在client端，沒有伺服器連線，這裡刻意比照那個既有信任模型，不做PvP
+   等級的server-authoritative重寫）。只能領一次：已經有這筆pet_decorations就直接回alreadyOwned，
+   不重複insert、不再扣錢（免費道具，price:0只是防呆，這裡本來就不走扣款流程）。 */
+app.post('/api/pet/claim-champion-trophy', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT 1 FROM pets WHERE user_id = $1', [req.user.id]);
+    if (!rows.length) return res.status(404).json({ error: 'no_pet' });
+    const { rows: existing } = await pool.query(
+      "SELECT 1 FROM pet_decorations WHERE user_id = $1 AND item_id = 'trophy-champion'", [req.user.id]
+    );
+    if (existing.length) return res.json({ alreadyOwned: true });
+    const { rows: insRows } = await pool.query(
+      "INSERT INTO pet_decorations (user_id, item_id) VALUES ($1, 'trophy-champion') RETURNING id", [req.user.id]
+    );
+    res.status(201).json({ alreadyOwned: false, decorId: insRows[0].id });
+  } catch (e) {
+    console.error('claim champion trophy error:', e.message);
     res.status(503).json({ error: 'db_error' });
   }
 });

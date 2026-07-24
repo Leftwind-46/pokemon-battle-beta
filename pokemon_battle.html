@@ -1441,7 +1441,10 @@
   </div>
   <div style="display:flex; flex-direction:column; gap:0.75rem; align-items:center;">
     <button class="btn btn-primary" onclick="startGame()">開始遊戲</button>
+    <button class="btn btn-secondary" onclick="startChallengeMode()">🏆 冠軍挑戰模式</button>
+    <button class="btn btn-secondary" onclick="startSandboxMode()">🧪 自由測試模式</button>
     <button class="btn btn-secondary" onclick="openGuide()">遊戲說明</button>
+    <div id="auth-status-line" style="font-size:0.78rem;color:var(--muted)"></div>
     <a href="/" style="font-size:0.82rem;color:var(--muted);text-decoration:none;margin-top:0.25rem">← 返回主選單</a>
   </div>
 </div>
@@ -1971,6 +1974,10 @@ function ensureAudioCtx() {
   if (audioCtx.state === 'suspended') audioCtx.resume();
   return audioCtx;
 }
+// 帳號/token沿用index.html/pvp.html同一把localStorage['pvpToken']——單人模式本身不需要登入，
+// 只有「冠軍挑戰模式」讀取帳號隊伍/核發獎盃時才用得到，見startChallengeMode()/claimChampionTrophy()
+let myToken = localStorage.getItem('pvpToken') || null;
+let myUsername = localStorage.getItem('pvpUsername') || null;
 let sfxMuted = localStorage.getItem('sfxMuted') === '1';
 function updateSfxMuteBtn() {
   const btn = document.getElementById('sfx-mute-btn');
@@ -1987,6 +1994,12 @@ function toggleSfxMuted() {
   }
 }
 updateSfxMuteBtn();
+function updateAuthStatusLine() {
+  const el = document.getElementById('auth-status-line');
+  if (!el) return;
+  el.textContent = myToken ? `已登入：${myUsername || ''}` : '未登入 — 冠軍挑戰模式需要先到首頁登入';
+}
+updateAuthStatusLine();
 
 // 底層音色產生器：一個方波/三角波音符，音量做指數衰減避免喀嚓聲
 function playTone(freq, dur, { type = 'square', vol = 0.15, delay = 0, ctx } = {}) {
@@ -2632,6 +2645,12 @@ let G = {
   playerRoster:    [],
   selectedIndices: [],
   activeStadium:   null,
+  challengeMode:   false,
+  sandboxMode:        false,
+  sandboxPickPhase:   null,
+  sandboxPlayerSelected: [],
+  sandboxCpuSelected:    [],
+  sandboxSearch:      '',
 };
 
 const P  = () => G.playerDeck[G.playerIdx];
@@ -2981,6 +3000,64 @@ function startGame() {
   launchStage();
 }
 
+/* 冠軍挑戰模式——用帳號在「我的寶可夢」捕捉累積的隊伍（teams.pokemon_ids，3-10隻）挑戰
+   既有的三關流程，其餘完全重用startGame()一樣的launchStage()鏈（CPU仍照tier產生）。
+   打贏三關由showFinalVictory()呼叫claimChampionTrophy()核發獎盃。 */
+async function startChallengeMode() {
+  if (!myToken) {
+    showWarn('這個模式需要先登入帳號，請回首頁登入後再來挑戰。');
+    return;
+  }
+  try {
+    const res = await fetch('/api/team', { headers: { Authorization: `Bearer ${myToken}` } });
+    if (!res.ok) {
+      showWarn('讀取你的隊伍失敗，請稍後再試。');
+      return;
+    }
+    const data = await res.json();
+    if (!data.team || data.team.length < 3) {
+      showWarn('你擁有的寶可夢不足3隻，請先到「我的寶可夢」捕捉更多寶可夢。');
+      return;
+    }
+    G.playerRoster = data.team.map(p => clone(p));
+    G.stage = 1;
+    G.challengeMode = true;
+    launchStage();
+  } catch (e) {
+    showWarn('連線失敗，請稍後再試。');
+  }
+}
+
+/* 核發冠軍獎盃——只在G.challengeMode且已登入時由showFinalVictory()呼叫，client-trusted
+   （單人模式本來就沒有伺服器連線，這裡不重新驗證整場戰鬥，只驗證登入+尚未領過，見server.js）。 */
+async function claimChampionTrophy() {
+  const mvpEl = document.getElementById('result-mvp');
+  if (!mvpEl) return;
+  const el = document.createElement('div');
+  el.id = 'champion-trophy-claim';
+  el.style.cssText = 'margin-top:1rem;font-size:0.9rem;color:var(--muted)';
+  el.textContent = '正在核發冠軍獎盃…';
+  mvpEl.appendChild(el);
+  try {
+    const res = await fetch('/api/pet/claim-champion-trophy', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${myToken}` },
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      el.textContent = data.error === 'no_pet'
+        ? '尚未建立「我的寶可夢」帳號，請先到首頁選一隻寶可夢才能領取獎盃。'
+        : '獎盃核發失敗，請稍後再試。';
+      return;
+    }
+    el.textContent = data.alreadyOwned
+      ? '🏆 你已經擁有冠軍獎盃了！'
+      : '🏆 恭喜！你獲得了「單人模式冠軍獎盃」，已加入你的寶可夢展示台裝飾清單！';
+  } catch (e) {
+    el.textContent = '連線失敗，獎盃核發失敗。';
+  }
+}
+
 function launchStage() {
   // Restore all playerRoster HP
   G.playerRoster.forEach(p => { p.cur = p.hp; p.dmgDealt = 0; p.status = null; });
@@ -3060,6 +3137,131 @@ function confirmTeamSelect() {
   startBattle();
 }
 
+/* 自由測試模式——雙方隊伍都從全部152隻寶可夢任選3隻，純粹單場測試不影響進度、不發獎勵。
+   借用既有 #team-select-screen 這個節點重畫兩次（先選我方，再選對手），跟showTeamSelectScreen()
+   一樣用closure管理選取狀態，但用G.sandboxPickPhase/G.sandbox*Selected存，方便resetGame()清空。 */
+function startSandboxMode() {
+  G.sandboxMode = true;
+  G.sandboxPlayerSelected = [];
+  G.sandboxCpuSelected = [];
+  G.sandboxPickPhase = 'player';
+  G.sandboxSearch = '';
+  renderSandboxPickScreen();
+}
+
+function renderSandboxPickScreen() {
+  const screen = document.getElementById('team-select-screen');
+  const isPlayerPhase = G.sandboxPickPhase === 'player';
+  const selected = isPlayerPhase ? G.sandboxPlayerSelected : G.sandboxCpuSelected;
+  let tsErr = '';
+
+  // 搜尋框本身只畫一次，之後只重畫卡片列跟footer——如果整個screen.innerHTML每次打字都重建，
+  // <input>會是全新DOM節點，打第二個字前就已經失焦，這是tamagotchi.html的pokedex搜尋框
+  // 已經踩過並修正的同一個坑（renderPokedexList()只重畫結果容器，不重畫搜尋框本身）。
+  screen.innerHTML = `
+    <h2>${isPlayerPhase ? '選擇你的隊伍' : '選擇對手隊伍'}</h2>
+    <div class="team-select-subtitle">自由測試模式 — 從全部 ${POKEMON.length} 隻寶可夢中選出3隻${isPlayerPhase ? '' : '當對手'}</div>
+    <input id="sandbox-search-input" placeholder="搜尋寶可夢名稱…" value="${G.sandboxSearch}"
+      style="padding:0.5rem 1rem;border-radius:999px;border:1px solid var(--border);background:rgba(255,255,255,0.07);color:var(--text);font-size:0.9rem;outline:none;width:220px;text-align:center">
+    <div class="sel-cards-row" id="sandbox-cards-row"></div>
+    <div style="font-size:0.88rem;color:var(--muted)" id="sandbox-count-line"></div>
+    <div style="font-size:0.82rem;color:#ef5350;min-height:1.2em" id="sandbox-err-line"></div>
+    <button class="btn btn-primary" id="sandbox-confirm-btn" onclick="confirmSandboxPick()">${isPlayerPhase ? '下一步：選對手' : '開始測試對戰！'}</button>
+  `;
+
+  function renderCards() {
+    const filtered = POKEMON.filter(p => p.name.includes(G.sandboxSearch.trim()));
+    const row = screen.querySelector('#sandbox-cards-row');
+    row.innerHTML = '';
+    const hasHighHp = selected.some(p => p.hp >= 300);
+    filtered.forEach(p => {
+      const isSelected = selected.includes(p);
+      const card = renderSelCard(p, isSelected, () => {
+        tsErr = '';
+        if (isSelected) {
+          selected.splice(selected.indexOf(p), 1);
+        } else if (selected.length < 3) {
+          if (p.hp >= 300 && hasHighHp) {
+            tsErr = '每場最多只能選 1 隻血量 ≥300 的寶可夢出戰';
+          } else {
+            selected.push(p);
+          }
+        }
+        renderCards();
+        updateFooter();
+      });
+      row.appendChild(card);
+    });
+  }
+
+  function updateFooter() {
+    screen.querySelector('#sandbox-count-line').innerHTML = `已選 <b style="color:#f8d030">${selected.length}</b> / 3`;
+    screen.querySelector('#sandbox-err-line').textContent = tsErr;
+    screen.querySelector('#sandbox-confirm-btn').disabled = selected.length < 3;
+  }
+
+  screen.querySelector('#sandbox-search-input').addEventListener('input', (e) => {
+    G.sandboxSearch = e.target.value;
+    renderCards();
+  });
+
+  renderCards();
+  updateFooter();
+  showScreen('team-select-screen');
+}
+
+function confirmSandboxPick() {
+  if (G.sandboxPickPhase === 'player') {
+    if (G.sandboxPlayerSelected.length < 3) return;
+    G.sandboxPickPhase = 'cpu';
+    G.sandboxSearch = '';
+    renderSandboxPickScreen();
+    return;
+  }
+  if (G.sandboxCpuSelected.length < 3) return;
+  playSfx('click');
+  G.playerDeck = G.sandboxPlayerSelected.map(p => clone(p));
+  G.cpuDeck = G.sandboxCpuSelected.map(p => clone(p));
+  startBattle();
+}
+
+function showSandboxResult(won) {
+  stopBgm();
+  playSfx(won ? 'victory' : 'defeat');
+  showScreen('result-screen');
+  const title = document.getElementById('result-title');
+  const sub   = document.getElementById('result-sub');
+  const mvpEl = document.getElementById('result-mvp');
+
+  title.textContent = won ? '測試完成！你獲勝了' : '測試完成！你落敗了';
+  title.className   = won ? 'win' : 'lose';
+  sub.innerHTML = `自由測試模式 — 共進行了 ${G.round} 回合<br>
+    造成傷害 <b style="color:#90caf9">${G.playerDmgDealt}</b> ／ 承受傷害 <b style="color:#ef9a9a">${G.cpuDmgDealt}</b>`;
+
+  function teamHtml(deck) {
+    return deck.map((p, i) => {
+      const col   = TYPE_COLOR[p.type] || '#888';
+      const delay = (i * 0.13).toFixed(2) + 's';
+      return `
+        <div class="vic-poke" style="--vi:${delay}">
+          <img src="${spriteUrl(p.id)}" alt="${p.name}" onerror="this.onerror=null;this.src='${officialArtworkUrl(p.id)}'">
+          <div class="vic-poke-name">${p.name}</div>
+          <div class="vic-poke-badge" style="background:${col}">${TYPE_ZH[p.type]||p.type}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  mvpEl.innerHTML = `
+    <div class="vic-wrapper">
+      <div class="vic-team-label">✦ 你的隊伍 ✦</div>
+      <div class="vic-roster">${teamHtml(G.playerDeck)}</div>
+      <div class="vic-team-label" style="margin-top:0.8rem">✦ 對手隊伍 ✦</div>
+      <div class="vic-roster">${teamHtml(G.cpuDeck)}</div>
+    </div>
+  `;
+}
+
 function showPickScreen() {
   stopBgm();
   playSfx('victory');
@@ -3131,6 +3333,8 @@ function showFinalVictory() {
       </div>
     </div>
   `;
+
+  if (G.challengeMode && myToken) claimChampionTrophy();
 }
 
 /* Legacy — kept for any internal references but no longer called from start */
@@ -3172,8 +3376,12 @@ function startBattle() {
   // Update stage label in battle screen
   const stageLabel = document.getElementById('stage-label');
   if (stageLabel) {
-    const tierNames = { 1:'第1關', 2:'第2關', 3:'第3關' };
-    stageLabel.textContent = tierNames[G.stage] || '';
+    if (G.sandboxMode) {
+      stageLabel.textContent = '自由測試模式';
+    } else {
+      const tierNames = { 1:'第1關', 2:'第2關', 3:'第3關' };
+      stageLabel.textContent = tierNames[G.stage] || '';
+    }
   }
   showScreen('battle-screen');
   renderBattle();
@@ -5832,6 +6040,10 @@ function resolveMutualKO() {
    RESULT
 ───────────────────────────────────────── */
 function showResult(winner) {
+  if (G.sandboxMode) {
+    showSandboxResult(winner === 'player');
+    return;
+  }
   if (winner === 'player') {
     if (G.stage < 3) {
       // Mid-game victory: pick a Pokémon from defeated CPU
@@ -5899,6 +6111,8 @@ function resetGame() {
     swapCandidates:[], swapDone:false,
     stage:1, playerRoster:[], selectedIndices:[],
     activeStadium:null,
+    challengeMode:false,
+    sandboxMode:false, sandboxPickPhase:null, sandboxPlayerSelected:[], sandboxCpuSelected:[], sandboxSearch:'',
   };
   showScreen('start-screen');
 }

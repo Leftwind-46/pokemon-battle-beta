@@ -1311,7 +1311,9 @@ function renderShopList() {
   // 球跟房間裝飾現在都是可以一直買、囤貨的消耗性道具（2026-07-23起裝飾也拿掉了「每種
   // 最多一份」的限制），純粹分兩組個別渲染，不是因為購買規則不同
   const balls = Object.entries(shopItems).filter(([, item]) => item.category === 'ball');
-  const decor = Object.entries(shopItems).filter(([, item]) => item.category !== 'ball');
+  // notForSale（例如冠軍獎盃）不列進可購買清單，但shopItems本身仍保留完整資料——
+  // 已擁有的裝飾渲染時還是要能查到這筆的icon/name，不能整個從/api/shop濾掉
+  const decor = Object.entries(shopItems).filter(([, item]) => item.category !== 'ball' && !item.notForSale);
   const ballHtml = balls.map(([itemId, item]) => {
     const affordable = (pet.coins || 0) >= item.price;
     const owned = pet[BALL_FIELD_TO_PET_KEY[item.ballField]] || 0;
