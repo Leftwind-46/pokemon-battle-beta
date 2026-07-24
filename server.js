@@ -1031,21 +1031,40 @@ function triggerTrapStadiumSrv(poke, role, G, log) {
 // Ability hooks — no-op for Pokémon without `ability` (see project memory for full list)
 // `isFieldEntry=false` for in-place transforms (瘋狂博士/Mega 進化) — those never "switch in"
 // from the bench, so trap stadiums (which punish entering the field) shouldn't fire for them.
-// Mega 進化後招式改造：4招消耗全部壓縮到 5~7（維持原本4招的相對強弱排名），
-// 傷害拉到tier對應的高傷害區間。跟 pokemon_battle.html 的同名函式邏輯一致。
+// 2026-07-24應使用者要求「四招太像，想拉開差距」重新設計，跟 pokemon_battle.html 的
+// 同名函式邏輯一致——真正的「2弱2強」成本/威力梯度 + 四招各自的額外手感（見下方註解）。
 const MEGA_MOVESET_BANDS = {
-  1: { dmgLo: 90,  dmgHi: 105 },
-  2: { dmgLo: 100, dmgHi: 120 },
-  3: { dmgLo: 115, dmgHi: 140 },
+  1: { dmgLo: 65,  dmgHi: 115 },
+  2: { dmgLo: 78,  dmgHi: 135 },
+  3: { dmgLo: 92,  dmgHi: 160 },
 };
-const MEGA_MOVESET_COSTS = [5, 6, 6, 7];
+const MEGA_MOVESET_COSTS = [4, 6, 9, 12];
+// rank3（最強招）沒有內建異常狀態時，依招式屬性補一個——沿用TRAINERS道具卡片
+// 已經在用的同一套屬性↔異常對應（fire-bomb→燒傷／gas-attack→中毒／confuse-potion→混亂／
+// absolute-zero→結凍／paralyze-trap→麻痺），不是另外發明新的對應規則。
+const MEGA_TYPE_STATUS = { fire: 'burn', poison: 'poison', psychic: 'confusion', ice: 'freeze', electric: 'paralysis' };
 function applyMegaMoveset(poke) {
   const band = MEGA_MOVESET_BANDS[poke.tier] || MEGA_MOVESET_BANDS[2];
   const order = poke.attacks.map((a, i) => i).sort((a, b) => poke.attacks[a].dmg - poke.attacks[b].dmg);
   order.forEach((moveIdx, rank) => {
     const frac = rank / (order.length - 1);
-    poke.attacks[moveIdx].dmg = Math.round(band.dmgLo + (band.dmgHi - band.dmgLo) * frac);
-    poke.attacks[moveIdx].cost = MEGA_MOVESET_COSTS[rank];
+    const move = poke.attacks[moveIdx];
+    move.dmg = Math.round(band.dmgLo + (band.dmgHi - band.dmgLo) * frac);
+    move.cost = MEGA_MOVESET_COSTS[rank];
+    // 四招各自的額外手感（全部重用引擎既有支援的欄位，不新增機制）：
+    // rank0最便宜的快招——命中後下回合+5能量；rank1——命中時額外回復自身20%最大HP
+    // （既有的通用回血欄位，詛咒/heal-seal生效時自動連這裡一起鎖住）；rank2/rank3——
+    // 把原本就有的異常狀態機率拉高，rank3若原本沒有異常狀態就依屬性補一個
+    if (rank === 0) {
+      move.bonusEnergy = 5;
+    } else if (rank === 1) {
+      move.selfHeal = 0.2;
+    } else if (rank === 2) {
+      if (move.status) move.status = { ...move.status, chance: Math.max(move.status.chance, 0.55) };
+    } else {
+      if (move.status) move.status = { ...move.status, chance: Math.max(move.status.chance, 0.65) };
+      else if (MEGA_TYPE_STATUS[move.type]) move.status = { effect: MEGA_TYPE_STATUS[move.type], chance: 0.35 };
+    }
   });
 }
 // 8種「屬性領域」特性（2026-07-22新增，僅限不能Mega進化的寶可夢），pattern同drizzle-ocean/drought-lava
