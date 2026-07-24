@@ -902,6 +902,20 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
         log.push({ text: `${attacker.name} 靠著攻擊回復了 ${heal} HP！`, cls: 'special' });
       }
     }
+    // Mega招式效果——rank2抽卡：重用quick-thinking同一套getDrawPool+weightedPick邏輯，
+    // 但只抽1張；rank3封鎖對手：重用comm-seal同一個旗標，命中時直接鎖對方下回合的支援者卡。
+    // 跟 pokemon_battle.html 的 doAttack 同一處理，見 applyMegaMoveset。
+    if (damage > 0 && atk.megaDraw) {
+      const hand = G[`${aRole}Hand`];
+      const drawn = [weightedPick(getDrawPool(attacker.type, attacker.type2))];
+      hand.push(...drawn);
+      log.push({ text: `${attacker.name} 的招式效果發動，抽到了：${drawn.map(c => c.name).join('、')}！`, cls: 'special' });
+      G[`${aRole}NeedsDiscard`] = hand.length > 7;
+    }
+    if (damage > 0 && atk.megaSeal) {
+      G[`${dRole}SupporterLocked`] = true;
+      log.push({ text: `${attacker.name} 的招式效果發動，對方下回合無法使用支援者卡！`, cls: 'special' });
+    }
     if (damage > 0) triggerAttackerAbilitySrv(attacker, defender, log, dBuff, G);
     if (damage > 0) triggerDefenderAbilitySrv(defender, attacker, log, dBuff, G);
   }
@@ -1051,17 +1065,18 @@ function applyMegaMoveset(poke) {
     const move = poke.attacks[moveIdx];
     move.dmg = Math.round(band.dmgLo + (band.dmgHi - band.dmgLo) * frac);
     move.cost = MEGA_MOVESET_COSTS[rank];
-    // 四招各自的額外手感（全部重用引擎既有支援的欄位，不新增機制）：
-    // rank0最便宜的快招——命中後下回合+5能量；rank1——命中時額外回復自身20%最大HP
-    // （既有的通用回血欄位，詛咒/heal-seal生效時自動連這裡一起鎖住）；rank2/rank3——
-    // 把原本就有的異常狀態機率拉高，rank3若原本沒有異常狀態就依屬性補一個
+    // 2026-07-25應使用者要求，把rank2/rank3原本的「提高異常機率」換成使用者一開始就
+    // 點名的「抽卡」「封鎖對手」——重用quick-thinking（抽卡）/comm-seal（鎖支援者卡）
+    // 這兩張既有道具卡的同一套邏輯，只是改成招式命中時觸發，見doAttack裡
+    // `atk.megaDraw`/`atk.megaSeal`的處理。rank0/rank1維持能量/回血不變。
     if (rank === 0) {
       move.bonusEnergy = 5;
     } else if (rank === 1) {
       move.selfHeal = 0.2;
     } else if (rank === 2) {
-      if (move.status) move.status = { ...move.status, chance: Math.max(move.status.chance, 0.55) };
+      move.megaDraw = true;
     } else {
+      move.megaSeal = true;
       if (move.status) move.status = { ...move.status, chance: Math.max(move.status.chance, 0.65) };
       else if (MEGA_TYPE_STATUS[move.type]) move.status = { effect: MEGA_TYPE_STATUS[move.type], chance: 0.35 };
     }

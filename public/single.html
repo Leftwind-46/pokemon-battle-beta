@@ -4723,18 +4723,18 @@ function applyMegaMoveset(poke) {
     const move = poke.attacks[moveIdx];
     move.dmg = Math.round(band.dmgLo + (band.dmgHi - band.dmgLo) * frac);
     move.cost = MEGA_MOVESET_COSTS[rank];
-    // 四招各自的額外手感（全部重用引擎既有支援的欄位，不新增機制）：
-    // rank0最便宜的快招——命中後下回合+5能量；rank1——命中時額外回復自身20%最大HP
-    // （這個selfHeal就是既有的通用回血欄位，詛咒/heal-seal生效時會自動連這裡一起鎖住，
-    // 不用額外處理）；rank2/rank3——把原本就有的異常狀態機率拉高，rank3若原本沒有異常
-    // 狀態就依屬性補一個（見上面的MEGA_TYPE_STATUS）
+    // 2026-07-25應使用者要求，把rank2/rank3原本的「提高異常機率」換成使用者一開始就
+    // 點名的「抽卡」「封鎖對手」——不是新機制，是重用quick-thinking（抽卡）/comm-seal
+    // （鎖支援者卡）這兩張既有道具卡的同一套邏輯，只是改成招式命中時觸發，見doAttack
+    // 裡`atk.megaDraw`/`atk.megaSeal`的處理。rank0/rank1維持能量/回血不變。
     if (rank === 0) {
       move.bonusEnergy = 5;
     } else if (rank === 1) {
       move.selfHeal = 0.2;
     } else if (rank === 2) {
-      if (move.status) move.status = { ...move.status, chance: Math.max(move.status.chance, 0.55) };
+      move.megaDraw = true;
     } else {
+      move.megaSeal = true;
       if (move.status) move.status = { ...move.status, chance: Math.max(move.status.chance, 0.65) };
       else if (MEGA_TYPE_STATUS[move.type]) move.status = { effect: MEGA_TYPE_STATUS[move.type], chance: 0.35 };
     }
@@ -5578,6 +5578,21 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
         log(`${aLabel}${attacker.name} 靠著攻擊回復了 ${heal} HP！`, 'special');
         updateHp(aSide, attacker);
       }
+    }
+    // Mega招式效果——rank2抽卡：重用quick-thinking同一套getDrawPool+weightedPick邏輯，
+    // 但只抽1張（quick-thinking本身是抽2張，這裡疊在完整傷害之上所以刻意少一點）
+    if (dmg > 0 && atk.megaDraw) {
+      const hand = aSide === 'player' ? G.playerHand : G.cpuHand;
+      const drawn = [weightedPick(getDrawPool(attacker.type, attacker.type2))];
+      hand.push(...drawn);
+      log(`${aLabel}${attacker.name} 的招式效果發動，抽到了：${drawn.map(c => c.name).join('、')}！`, 'special');
+      if (aSide === 'player' && G.playerHand.length > 7) showDiscardModal(() => {});
+    }
+    // rank3封鎖對手：重用comm-seal同一個旗標，命中時直接鎖對方下回合的支援者卡
+    if (dmg > 0 && atk.megaSeal) {
+      const lockKey = dSide === 'player' ? 'playerSupporterLocked' : 'cpuSupporterLocked';
+      G[lockKey] = true;
+      log(`${aLabel}${attacker.name} 的招式效果發動，對方下回合無法使用支援者卡！`, 'special');
     }
     if (dmg > 0) triggerAttackerAbility(attacker, aSide, defender, dSide);
     if (dmg > 0) triggerDefenderAbility(defender, dSide, attacker, aSide);
