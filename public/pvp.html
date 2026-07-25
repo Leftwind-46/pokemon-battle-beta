@@ -1322,6 +1322,14 @@ const SUPPORT_EFFECT_ZH = {
   'trick': '下回合額外抽 1 張支援者卡，下次攻擊傷害 +40（+下回合能量+5）',
   'focus-energy': '下回合額外 +14 能量',
 };
+// 屬性剋制招式的附加效果（取代原輔助技能）：命中時觸發，不影響本身的傷害計算
+const RIDER_EFFECT_ZH = {
+  'energy-steal': '命中時奪取對方 5 點能量，自身回復 3 點能量',
+  'guard-up': '命中時架起護盾，下次受到的攻擊傷害 -50',
+  'card-steal': '命中時隨機奪取對方一張手牌',
+  'life-drain': '命中時回復本次傷害 25% 的 HP',
+  'weaken': '命中時使對方下次攻擊傷害 ×0.85',
+};
 // 2026-07-22應使用者要求：抽牌／搶奪對方手牌效果太強，改成每回合限用一次（跟支援者卡一樣的鎖卡邏輯，
 // 只是這裡純粹是UI層面的按鈕disable提示——真正的驗證在server.js，這裡沒有就只是體驗較差不會出安全漏洞）
 const HAND_MANIPULATION_CARDS = ['plunder', 'night-raid', 'dark-heist', 'quick-thinking', 'normal-refresh', 'bug-swarm'];
@@ -2927,6 +2935,7 @@ function showMoveInfo(anchorEl, a, p, cp, cost, mult) {
     if (a.megaBoost) rows.push(`<div class="mip-row">Mega 能量 ×2</div>`);
     else if (a.bonusEnergy) rows.push(`<div class="mip-row">下回合 +${a.bonusEnergy} 能量</div>`);
     else if (a.selfHeal) rows.push(`<div class="mip-row">附帶回復自身 HP</div>`);
+    if (a.rider) rows.push(`<div class="mip-row">附加效果：<b>${RIDER_EFFECT_ZH[a.rider] || ''}</b></div>`);
   }
   popup.innerHTML = `
     <div class="mip-name">${a.name}</div>
