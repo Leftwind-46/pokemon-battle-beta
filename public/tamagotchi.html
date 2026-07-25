@@ -111,6 +111,7 @@
      正中央(0.5,0.5)，剛好很容易跟寶可夢走位重疊；原本這裡是3(低於寶可夢)，導致物件被走過去的
      寶可夢擋住時完全點不到、拖不動、也按不到收回鈕（回報為「新增的東西無法移動/關掉」）。 */
   .decor-room-item{position:absolute;z-index:6;width:52px;height:52px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.7rem;touch-action:none}
+  .decor-room-item img{width:100%;height:100%;object-fit:contain}
 
   /* ── 裝潢模式：可拖曳的物件套上金色虛線外框提示、拖曳手勢游標；收回按鈕只在此模式下出現 ── */
   .decorate-mode .badge-room-item,.decorate-mode .decor-room-item,.decorate-mode #fish-tank-slot,.decorate-mode #fish-dex-slot,.decorate-mode .poke-display-slot{cursor:grab;outline:2px dashed rgba(248,208,48,0.65);outline-offset:2px}
@@ -1108,7 +1109,8 @@ function renderPlacedDecor(stage) {
     const el = document.createElement('div');
     el.className = 'decor-room-item';
     el.title = item.name;
-    el.textContent = item.icon;
+    if (item.iconUrl) el.innerHTML = `<img src="${item.iconUrl}" alt="">`;
+    else el.textContent = item.icon;
     positionFreeform(el, { x: d.x, y: d.y });
     el.style.transform = `translate(-50%,-50%) scale(${d.scale || 1})`;
     if (decorateMode) el.appendChild(makeRemoveBtn(() => placeDecor(d.id, null, null)));
@@ -1267,8 +1269,11 @@ function renderAddPickList() {
       + Object.entries(decorGroups).map(([itemId, ids]) => {
         const item = shopItems[itemId];
         const countLabel = ids.length > 1 ? `（持有 ${ids.length} 份未擺放）` : '';
+        const iconHtml = item.iconUrl
+          ? `<img src="${item.iconUrl}" alt="" style="width:36px;height:36px;object-fit:contain">`
+          : `<span class="icon">${item.icon}</span>`;
         return `<div class="slot-pick-item" onclick="addDecorToRoom(${ids[0]})">
-          <span class="icon">${item.icon}</span>
+          ${iconHtml}
           <div class="info"><div class="name">${item.name}${countLabel}</div></div>
         </div>`;
       }).join('');
@@ -2469,7 +2474,8 @@ function renderReadOnlyDecor(stage, decs) {
     const item = shopItems[d.itemId];
     const el = document.createElement('div');
     el.className = 'decor-room-item';
-    el.textContent = item.icon;
+    if (item.iconUrl) el.innerHTML = `<img src="${item.iconUrl}" alt="">`;
+    else el.textContent = item.icon;
     el.title = item.name;
     el.style.left = (d.x * 100) + '%';
     el.style.top = (d.y * 100) + '%';

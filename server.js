@@ -399,7 +399,7 @@ const SHOP_ITEMS = {
   // notForSale讓/api/pet/buy擋掉直接購買；price:0是雙重防呆，萬一notForSale漏檔也不會被免費買到還扣負數。
   // 這筆仍要留在SHOP_ITEMS裡（不能整個抽掉/從/api/shop濾掉）——tamagotchi.html渲染「已擁有的裝飾」
   // 一樣是查shopItems[itemId]拿icon/name，濾掉這筆會讓已核發的獎盃在房間裡直接不見。
-  'trophy-champion': { name: '單人模式冠軍獎盃', price: 0, icon: '🏆', category: 'decor', notForSale: true },
+  'trophy-champion': { name: '單人模式冠軍獎盃', price: 0, icon: '🏆', iconUrl: '/decor/trophy-champion.gif', category: 'decor', notForSale: true },
   // 寶可夢球——消耗品，跟上面裝飾品的一次性擁有邏輯不同，允許重複購買囤貨（見 /api/pet/buy 的 category==='ball' 分支）。
   // iconUrl 用PokeAPI真的道具sprite（不是emoji湊數），前端渲染時偵測到iconUrl就改用<img>
   'ball-normal': { name: '一般球', price: 1,  iconUrl: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png',   category: 'ball', ballField: 'ball_normal' },
