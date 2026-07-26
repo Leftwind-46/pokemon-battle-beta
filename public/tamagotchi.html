@@ -140,13 +140,15 @@
 
   /* ── 鳥籠（彈弓小遊戲捕捉到的鳥類收藏展示，自由拖曳位置，跟魚缸同一套外觀慣例）── */
   /* 2026-07-26應使用者要求放大——原本跟魚缸一樣64px，鳥類sprite（尤其Showdown來源）看起來比魚小很多 */
-  /* 2026-07-26應使用者要求外框改成窗戶樣式：木框+十字窗櫺(4片天空窗格)，取代原本的純色圓角方塊。
-     窗櫺一樣用background多層疊加畫出來，保證畫在鳥圖片下方 */
+  /* 2026-07-26應使用者要求外框改成窗戶樣式：木框+天空，取代原本的純色圓角方塊。
+     2026-07-26稍晚應使用者要求把十字窗櫺拿掉、改成兩側窗簾+上方橫幔——窗簾抓皺用
+     repeating-linear-gradient畫直條紋，一樣是background多層疊加，保證畫在鳥圖片下方 */
   #birdcage-slot{position:absolute;transform:translate(-50%,-50%);z-index:6;width:104px;height:104px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;
     background:
+      repeating-linear-gradient(90deg, #7a2e2e 0 5px, #8f3b3b 5px 10px) 0 0 / 22% 100% no-repeat,
+      repeating-linear-gradient(90deg, #7a2e2e 0 5px, #8f3b3b 5px 10px) 100% 0 / 22% 100% no-repeat,
+      linear-gradient(180deg, #6e2929, #7a2e2e) 0 0 / 100% 16% no-repeat,
       linear-gradient(105deg, rgba(255,255,255,0.16) 6%, rgba(255,255,255,0) 22%),
-      linear-gradient(#8d5a34,#8d5a34) center / 6px 100% no-repeat,
-      linear-gradient(#8d5a34,#8d5a34) center / 100% 6px no-repeat,
       linear-gradient(180deg, #bfe0f7 0%, #5f95d1 100%);
     border:6px solid #8d5a34;box-shadow:inset 0 0 0 2px rgba(255,255,255,0.28),0 3px 8px rgba(0,0,0,0.35);transition:transform 0.15s;overflow:hidden;touch-action:none}
   #birdcage-slot:hover{transform:translate(-50%,-50%) scale(1.08)}
