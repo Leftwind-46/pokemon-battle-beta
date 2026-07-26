@@ -383,6 +383,7 @@ const BADGES = {
   'weekly-champion':    { name: '週排行榜冠軍',   image: '/badges/weekly-champion-01.png' },
   'weekly-participant': { name: '週排行榜參與徽章', image: '/badges/weekly-participant-01.png' },
   'sea-emperor':        { name: '海皇降臨',       image: '/badges/sea-emperor-01.gif' },
+  'kaobei':             { name: '靠杯',          image: '/badges/kaobei-01.gif' },
 };
 
 /* 商城道具——跟屬性無關的通用房間裝飾/穿搭，買了永久持有（不是消耗品），純資料registry，

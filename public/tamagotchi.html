@@ -245,7 +245,7 @@
   /* 2026-07-26錨點從bottom:14px上移到110px——拿掉overflow:hidden只解決了裁切問題，但滿拉90px
      還是會把彈丸拉到.modal-box本身的overflow-y:auto範圍外（modal-box的半透明背板疊在上面，
      整顆彈丸完全看不到也點不到），錨點上移讓滿拉的範圍能完整留在box內，才是真正解決 */
-  .sling-anchor{position:absolute;left:50%;bottom:110px;width:14px;height:14px;border-radius:50%;background:#5d4037;transform:translate(-50%,50%);box-shadow:0 0 0 3px rgba(93,64,55,0.35)}
+  .sling-anchor{position:absolute;left:50%;bottom:60px;width:14px;height:14px;border-radius:50%;background:#5d4037;transform:translate(-50%,50%);box-shadow:0 0 0 3px rgba(93,64,55,0.35)}
   /* 2026-07-26改成兩段點擊瞄準（角度→力道），取代原本的拖曳——箭頭在半圓範圍來回擺動，
      點一下鎖定角度；接著力道條來回填滿，再點一下鎖定力道並發射。兩個都用pointer-events:none，
      真正接收點擊的是#sling-stage本身（見setupSlingAim），這樣玩家不用精準點在小箭頭上。 */
@@ -2180,9 +2180,9 @@ async function openSlingshotScene() {
       wildX: rect.width * 0.5, wildY: 60, wildVX: 70 + Math.random() * 40,
       flying: false, vx: 0, vy: 0, ended: false,
       stageW: rect.width, stageH: rect.height,
-      // 錨點上移到bottom:110px（跟CSS的.sling-anchor對齊）——滿拉時彈道才不會
-      // 拉出.sling-scene自己的高度範圍，見.sling-anchor那則說明
-      anchorX: rect.width / 2, anchorY: rect.height - 110,
+      // 錨點位置跟CSS的.sling-anchor(bottom:60px)對齊——放在畫面中間偏下，
+      // 物理上仍在SLING_GRAVITY/SLING_MAX_SPEED的最大射程範圍內，見上方常數說明
+      anchorX: rect.width / 2, anchorY: rect.height - 60,
       wildDir: Math.random() < 0.5 ? 1 : -1, tBase: performance.now(),
       aimPhase: 'angle', aimAngle: SLING_ANGLE_MIN, aimPower: 0, aimPhaseStartTs: performance.now(), lockedAngle: null,
     };

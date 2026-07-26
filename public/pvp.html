@@ -616,8 +616,8 @@
     @keyframes bubbleIn  { from{opacity:0;transform:scale(0.3)} to{opacity:1;transform:scale(1)} }
     @keyframes bubbleOut { to{opacity:0;transform:scale(0.5) translateY(-30px)} }
 
-    /* 觀眾聊天泡泡——固定在畫面左邊（#log-drawer 附近），桌面版才顯示，同一時間多則訊息會往下疊放 */
-    .spectator-bubble { position:fixed; left:1rem; max-width:200px; padding:0.5rem 0.8rem; border-radius:12px; background:rgba(15,18,40,0.92); border:1px solid rgba(121,134,203,0.5); font-size:0.78rem; line-height:1.4; color:var(--text); pointer-events:none; z-index:71; animation:bubbleIn 0.3s ease, bubbleOut 0.5s ease 3.5s forwards; }
+    /* 觀眾聊天泡泡——固定在畫面中間偏左，桌面版才顯示，同一時間多則訊息會往下疊放 */
+    .spectator-bubble { position:fixed; left:8vw; max-width:260px; padding:0.6rem 1rem; border-radius:12px; background:rgba(15,18,40,0.92); border:1px solid rgba(121,134,203,0.5); font-size:1.05rem; line-height:1.5; color:var(--text); pointer-events:none; z-index:71; animation:bubbleIn 0.3s ease, bubbleOut 0.5s ease 3.5s forwards; }
     .spectator-bubble b { color:#90caf9; }
 
     /* ── Disconnected overlay ── */
@@ -3075,17 +3075,14 @@ function showStickerBubble(sticker, isMe) {
 }
 
 // 觀眾聊天泡泡——手機/窄螢幕直接跳過整個功能（沿用 #log-drawer 收合成FAB的900px斷點），
-// 桌面版錨定在 #log-drawer 附近（畫面最左邊），同一時間多則訊息往下疊放，不互相重疊
+// 桌面版錨定在畫面中間偏左、垂直置中，同一時間多則訊息往下疊放，不互相重疊
 let specBubbleCount = 0;
 function showSpectatorBubble(username, text) {
   if (matchMedia('(max-width:900px)').matches) return;
-  const drawer = document.getElementById('log-drawer');
-  const rect   = drawer?.getBoundingClientRect() || { left: 16, top: 16, width: 220 };
   const el = document.createElement('div');
   el.className = 'spectator-bubble';
   el.innerHTML = `<b>${username}：</b>${text}`;
-  el.style.left = (rect.left) + 'px';
-  el.style.top  = (rect.top + scrollY + specBubbleCount * 48) + 'px';
+  el.style.top = (innerHeight / 2 - 100 + specBubbleCount * 56) + 'px';
   document.body.appendChild(el);
   specBubbleCount++;
   setTimeout(() => { el.remove(); specBubbleCount = Math.max(0, specBubbleCount - 1); }, 4000);
