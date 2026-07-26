@@ -58,7 +58,11 @@
   .happiness-fill{height:100%;background:linear-gradient(90deg,#f8d030,#f05030);transition:width 0.4s ease}
   .hunger-fill{background:linear-gradient(90deg,#8bc34a,#4e9a2a)}
   #pet-stage{position:relative;width:100%;height:52vh;min-height:280px;border-radius:20px;border:2px solid var(--border);background:#141024;overflow:hidden}
-  #pet-sprite{position:absolute;z-index:4;width:96px;height:96px;image-rendering:pixelated;cursor:pointer;transition:left 1.8s ease-in-out, top 1.8s ease-in-out;filter:drop-shadow(0 6px 8px rgba(0,0,0,0.4))}
+  /* z-index:8——2026-07-26應使用者要求「選擇的寶可夢是主軸，應該在所有圖層的最上方」，
+     蓋過房間裡其他固定物件(z-index:6，見.decor-room-item等的說明)。取捨：寶可夢走到跟
+     某個裝飾/魚缸/鳥籠重疊的那一刻，該物件會短暫被寶可夢擋住點不到，等寶可夢走開就好，
+     跟改之前「裝飾永遠擋住寶可夢」比是可接受的權衡（使用者明確要求視覺上寶可夢優先）。 */
+  #pet-sprite{position:absolute;z-index:8;width:96px;height:96px;image-rendering:pixelated;cursor:pointer;transition:left 1.8s ease-in-out, top 1.8s ease-in-out;filter:drop-shadow(0 6px 8px rgba(0,0,0,0.4))}
 
   /* ── 動作動畫（吃東西/睡覺/使用招式）：暫時把#pet-sprite的src蓋成透明像素，
      改用background-image播放PMDCollab的sprite sheet，播完（或loop被打斷）再換回原本的靜態圖 ── */
@@ -96,7 +100,7 @@
   @keyframes reactionFloat{0%{transform:translateY(0);opacity:0}15%{opacity:1}100%{transform:translateY(-50px);opacity:0}}
   /* 餵食時在寶可夢旁邊出現的食物圖示——先pop進來、停留、再淡出，跟reaction-pop的「浮起消失」不同，
      是要有「食物還握在那邊」的感覺，停留時間跟吃東西動畫的播放時長對齊（見feedPet()） */
-  .food-pop{position:absolute;font-size:1.6rem;pointer-events:none;z-index:5;text-shadow:0 2px 6px rgba(0,0,0,0.5);animation:foodPop var(--food-pop-ms,1400ms) ease forwards}
+  .food-pop{position:absolute;font-size:1.6rem;pointer-events:none;z-index:9;text-shadow:0 2px 6px rgba(0,0,0,0.5);animation:foodPop var(--food-pop-ms,1400ms) ease forwards}
   @keyframes foodPop{0%{transform:scale(0.4);opacity:0}20%{transform:scale(1.1);opacity:1}30%{transform:scale(1)}85%{opacity:1}100%{opacity:0}}
   #pet-name-label{font-size:1rem;font-weight:700}
   #pet-reaction-text{font-size:0.82rem;color:var(--muted);min-height:1.2em}
@@ -107,9 +111,10 @@
   .badge-room-item img{width:100%;height:100%;border-radius:50%;object-fit:cover;box-shadow:0 0 18px rgba(248,208,48,0.6),0 0 0 3px rgba(248,208,48,0.75)}
 
   /* ── 房間裝飾（自由拖曳位置，取代舊版3個固定插槽）── */
-  /* z-index必須高於#pet-sprite(4)——寶可夢會在房間裡走來走去，「加入房間」預設把新物件放在
-     正中央(0.5,0.5)，剛好很容易跟寶可夢走位重疊；原本這裡是3(低於寶可夢)，導致物件被走過去的
-     寶可夢擋住時完全點不到、拖不動、也按不到收回鈕（回報為「新增的東西無法移動/關掉」）。 */
+  /* z-index:6——曾經刻意調到高於#pet-sprite，理由是寶可夢走位常跟「加入房間」預設置中(0.5,0.5)
+     的新物件重疊，物件被寶可夢擋住會點不到/拖不動/按不到收回鈕。2026-07-26應使用者要求把
+     #pet-sprite改回蓋在所有物件上面(z-index:8，見那裡的說明)，這裡維持6沒有再往上調——
+     裝飾被寶可夢短暫擋住時等它走開即可，比讓寶可夢被裝飾擋住更符合使用者現在的要求。 */
   .decor-room-item{position:absolute;z-index:6;width:52px;height:52px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.7rem;touch-action:none}
   .decor-room-item img{width:100%;height:100%;object-fit:contain}
 
@@ -120,7 +125,7 @@
   #decorate-toggle-btn.active{background:rgba(248,208,48,0.28);border-color:#f8d030}
 
   /* ── 魚缸（自由拖曳位置——用left/top(百分比)+transform置中，不再是固定right/top）── */
-  /* z-index同樣調到高於#pet-sprite(4)，理由同上面.decor-room-item的說明 */
+  /* z-index:6，理由同上面.decor-room-item的說明（含2026-07-26 #pet-sprite改回蓋在最上層那筆更新）*/
   /* 2026-07-26應使用者要求改成真的魚缸樣式：水體(藍)+底沙(棕)硬轉場、玻璃斜光澤、兩顆氣泡，
      全部用background多層疊加畫出來（不用額外的::before/::after元素），確保一定畫在魚圖片下方，不會蓋住內容 */
   #fish-tank-slot{position:absolute;transform:translate(-50%,-50%);z-index:6;width:74px;height:60px;border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;
