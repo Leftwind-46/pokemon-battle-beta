@@ -276,7 +276,9 @@
   .sling-power-wrap{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);width:70%;z-index:3;pointer-events:none}
   .sling-power-bar{width:100%;height:14px;border-radius:7px;background:rgba(0,0,0,0.35);overflow:hidden;border:1px solid rgba(255,255,255,0.35)}
   .sling-power-fill{height:100%;width:0%;background:linear-gradient(90deg,#78c850,#f8d030,#f05030)}
-  .sling-projectile{position:absolute;width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#e03030 60%,#902020);box-shadow:0 2px 4px rgba(0,0,0,0.4);pointer-events:none}
+  /* 2026-07-26應使用者要求把紅色圓形彈藥改成精靈球外觀——直接沿用專案已經在用的PokeAPI
+     items sprite（跟「捕捉」按鈕圖示同一張），不用另外畫CSS漸層 */
+  .sling-projectile{position:absolute;width:24px;height:24px;background:url('https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png') center/contain no-repeat;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));pointer-events:none}
   .sling-timer{position:absolute;left:50%;top:8px;transform:translateX(-50%);font-size:0.78rem;font-weight:700;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,0.5);background:rgba(0,0,0,0.25);padding:0.15rem 0.6rem;border-radius:10px;z-index:2}
   .sling-hint{position:absolute;left:50%;bottom:36px;transform:translateX(-50%);font-size:0.72rem;color:rgba(255,255,255,0.85);text-shadow:0 1px 3px rgba(0,0,0,0.5);white-space:nowrap;pointer-events:none}
   /* 命中血條——依BIRD_TYPES[birdType].hits顯示還要打幾次，Mega暴飛龍(rare)用金色，一般鳥用紅色 */
@@ -1061,6 +1063,21 @@ function applySpriteTransform() {
   if (!img) return;
   const flip = facingLeft !== currentArtFacesLeft;
   img.style.transform = `scaleX(${flip ? -1 : 1}) scale(${currentAnimScale})`;
+}
+
+/* 睡覺時該貼著磁磚地板（跟站立/走路的地板範圍一致），水平置中、垂直讓縮放後「玩家實際看到
+   的框」底邊貼齊地板。2026-07-26應使用者回報「睡覺時應該要貼著磁磚」修正：原本3個播放路徑
+   （playPetAnim/playStaticPoseArt/playGifArt）各自用stage.clientHeight/2把寶可夢放在整個房間
+   （牆面62%+地板38%）的正中央，落在牆面範圍、懸空沒踩地板；而且直接用「縮放前的原始框」
+   尺寸下去算，沒有像walkToRandomSpot()那樣換算成「玩家實際看到的可視框」——跟transform-origin
+   預設置中的scale()疊起來，尺寸差越大（例如呆火鱷的GIF原始尺寸208~301px）算出來的位置就越偏。 */
+function sleepFloorPos(stage, rawW, rawH, scale) {
+  const stageW = stage.clientWidth, stageH = stage.clientHeight;
+  const visW = rawW * scale, visH = rawH * scale;
+  const offsetX = rawW * (1 - scale) / 2, offsetY = rawH * (1 - scale) / 2;
+  const visLeft = (stageW - visW) / 2;
+  const visTop = stageH - visH;
+  return { left: visLeft - offsetX, top: visTop - offsetY };
 }
 
 function scheduleWalk() {
@@ -2174,7 +2191,7 @@ const SLING_ANGLE_MIN = 15 * Math.PI / 180;   // 半圓範圍：接近水平（�
 const SLING_ANGLE_MAX = 165 * Math.PI / 180;  // 到接近水平（左），中間掃過正上方
 const SLING_ANGLE_PERIOD_MS = 1600; // 角度來回擺動一次全程所需時間
 const SLING_POWER_PERIOD_MS = 1000; // 力道條來回填滿一次全程所需時間
-const SLING_PROJECTILE_SIZE = 20;
+const SLING_PROJECTILE_SIZE = 24; // 跟CSS .sling-projectile的實際width/height對齊
 const SLING_WILD_SIZE = 64;
 
 let slingState = null; // { birdType, name, speciesId, rare, hits, hitsRemaining, expiresAt, wildX, wildY, wildVX, flying, vx, vy, rafId, anchorX, anchorY, stageW, stageH, ended, aimPhase:'angle'|'power'|null, aimAngle, aimPower, aimPhaseStartTs, lockedAngle }
@@ -2190,7 +2207,6 @@ async function openSlingshotScene() {
   document.getElementById('sling-wild-img').src = '';
   document.getElementById('sling-wild-img').classList.remove('fled');
   document.getElementById('sling-timer').textContent = '30';
-  resetSlingProjectile();
   try {
     const res = await fetch('/api/pet/slingshot/encounter', { method: 'POST', headers: { Authorization: `Bearer ${myToken}` } });
     const data = await res.json();
@@ -2220,6 +2236,11 @@ async function openSlingshotScene() {
       wildDir: Math.random() < 0.5 ? 1 : -1, tBase: performance.now(),
       aimPhase: 'angle', aimAngle: SLING_ANGLE_MIN, aimPower: 0, aimPhaseStartTs: performance.now(), lockedAngle: null,
     };
+    // 一定要在slingState建立好之後才重置彈藥位置——2026-07-26應使用者回報「起始位置怪怪的」
+    // 修正：這裡原本呼叫的時間點在slingState賦值之前，resetSlingProjectile()當時只能套用
+    // 一個寫死的舊錨點座標(170px，還是改成bottom:60px之前的位置)，跟畫面上真正的錨點/箭頭
+    // 位置對不上，直到第一次沒命中觸發restartAiming()重算才會跳回正確位置。
+    resetSlingProjectile();
     const wildImg = document.getElementById('sling-wild-img');
     delete wildImg.dataset.fallback;
     wildImg.src = birdAnimatedSpriteUrl(data.showdownName);
@@ -2247,11 +2268,12 @@ function renderSlingHpBar() {
 }
 
 function resetSlingProjectile() {
+  if (!slingState) return; // 只在slingState已經建立好之後呼叫（見openSlingshotScene），不用猜測預設值
   const proj = document.getElementById('sling-projectile');
   proj.classList.remove('flying');
-  // 用slingState.anchorX/Y對齊錨點實際位置（跟.sling-anchor的bottom:110px一致）
-  proj.style.left = slingState ? (slingState.anchorX + 'px') : '50%';
-  proj.style.top = (slingState ? slingState.anchorY : 170) + 'px';
+  // 用slingState.anchorX/Y對齊錨點實際位置（跟.sling-anchor的bottom:60px一致）
+  proj.style.left = slingState.anchorX + 'px';
+  proj.style.top = slingState.anchorY + 'px';
   proj.style.transform = 'translate(-50%,-50%)';
 }
 
@@ -2871,12 +2893,13 @@ function playPetAnim(speciesId, animName, loop) {
     if (animTimer) { clearTimeout(animTimer); animTimer = null; }
     sleeping = (animName === 'Sleep' && !!loop);
     if (sleeping) {
-      // 睡覺時停在房間正中央、暫停走位計時器，直到下次互動（resetIdleTimer裡的stopPetAnim）才恢復閒晃
+      // 睡覺時貼著磁磚地板、暫停走位計時器，直到下次互動（resetIdleTimer裡的stopPetAnim）才恢復閒晃
       if (walkTimer) { clearTimeout(walkTimer); walkTimer = null; }
       const stage = document.getElementById('pet-stage');
       if (stage) {
-        img.style.left = (stage.clientWidth / 2 - w / 2) + 'px';
-        img.style.top = (stage.clientHeight / 2 - h / 2) + 'px';
+        const pos = sleepFloorPos(stage, w, h, ANIM_DISPLAY_TARGET / Math.max(w, h));
+        img.style.left = pos.left + 'px';
+        img.style.top = pos.top + 'px';
         facingLeft = false;
       }
     } else if (!loop) {
@@ -2916,8 +2939,9 @@ function playStaticPoseArt(art, animName, loop) {
     if (walkTimer) { clearTimeout(walkTimer); walkTimer = null; }
     const stage = document.getElementById('pet-stage');
     if (stage) {
-      img.style.left = (stage.clientWidth / 2 - art.w / 2) + 'px';
-      img.style.top = (stage.clientHeight / 2 - art.h / 2) + 'px';
+      const pos = sleepFloorPos(stage, art.w, art.h, ANIM_DISPLAY_TARGET / Math.max(art.w, art.h));
+      img.style.left = pos.left + 'px';
+      img.style.top = pos.top + 'px';
       facingLeft = false;
     }
   } else if (!loop && walkTimer) {
@@ -2957,8 +2981,9 @@ function playGifArt(art, animName, loop) {
       if (walkTimer) { clearTimeout(walkTimer); walkTimer = null; }
       const stage = document.getElementById('pet-stage');
       if (stage) {
-        img.style.left = (stage.clientWidth / 2 - art.w / 2) + 'px';
-        img.style.top = (stage.clientHeight / 2 - art.h / 2) + 'px';
+        const pos = sleepFloorPos(stage, art.w, art.h, ANIM_DISPLAY_TARGET / Math.max(art.w, art.h));
+        img.style.left = pos.left + 'px';
+        img.style.top = pos.top + 'px';
         facingLeft = false;
       }
     } else if (!loop && walkTimer) {
