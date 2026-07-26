@@ -465,19 +465,24 @@ const FISH_TYPES = {
    那樣連「有沒有咬餌」都要用一次weight抽獎決定。
    10隻一般鳥（先隨機挑，之後可以再調整名單）+ 1隻稀有的「Mega暴飛龍」（見POKEMON裡
    id:373的mega欄位，spriteId:10089）。weight用19×10+10=200，Mega暴飛龍抽中機率剛好10/200=5%。
-   hits＝需要命中幾次才能捕捉成功（依寶可夢設定，Mega暴飛龍要5次，其餘1~3次）。 */
+   hits＝需要命中幾次才能捕捉成功（依寶可夢設定，Mega暴飛龍要5次，其餘1~3次）。
+   sellPrice——鳥籠比照魚缸有賣出機制（2026-07-26應使用者要求補上），依hits訂價（打越多下越貴）。
+   showdownName——2026-07-26修正「鋼鎧鴉/Mega暴飛龍等等都不會動」的回報：PokeAPI的Gen5 B/W
+   動圖只涵蓋到第五世代，鋼鎧鴉(Gen8)/烈箭鷹/摔角鷹人(Gen6)/Mega表單完全沒有這份動圖，
+   一律靜態退回。改用Pokémon Showdown的動態sprite（play.pokemonshowdown.com/sprites/ani/
+   {name}.gif，這11隻全部都有curl驗證過，含Mega表單），前端optionsUrl見bird相關render函式。 */
 const BIRD_TYPES = {
-  'pidgeot':     { name: '大比鳥',   speciesId: 18,  weight: 19, hits: 1 },
-  'staraptor':   { name: '姆克鷹',   speciesId: 398, weight: 19, hits: 2 },
-  'corviknight': { name: '鋼鎧鴉',   speciesId: 823, weight: 19, hits: 2 },
-  'honchkrow':   { name: '烏鴉頭頭', speciesId: 430, weight: 19, hits: 2 },
-  'talonflame':  { name: '烈箭鷹',   speciesId: 663, weight: 19, hits: 2 },
-  'skarmory':    { name: '盔甲鳥',   speciesId: 227, weight: 19, hits: 3 },
-  'hawlucha':    { name: '摔角鷹人', speciesId: 701, weight: 19, hits: 1 },
-  'fearow':      { name: '大嘴雀',   speciesId: 22,  weight: 19, hits: 1 },
-  'swellow':     { name: '大王燕',   speciesId: 277, weight: 19, hits: 2 },
-  'dodrio':      { name: '多多利',   speciesId: 85,  weight: 19, hits: 3 },
-  'mega-salamence': { name: 'Mega暴飛龍', speciesId: 10089, weight: 10, hits: 5, rare: true },
+  'pidgeot':     { name: '大比鳥',   speciesId: 18,  weight: 19, hits: 1, sellPrice: 15,  showdownName: 'pidgeot' },
+  'staraptor':   { name: '姆克鷹',   speciesId: 398, weight: 19, hits: 2, sellPrice: 25,  showdownName: 'staraptor' },
+  'corviknight': { name: '鋼鎧鴉',   speciesId: 823, weight: 19, hits: 2, sellPrice: 25,  showdownName: 'corviknight' },
+  'honchkrow':   { name: '烏鴉頭頭', speciesId: 430, weight: 19, hits: 2, sellPrice: 25,  showdownName: 'honchkrow' },
+  'talonflame':  { name: '烈箭鷹',   speciesId: 663, weight: 19, hits: 2, sellPrice: 25,  showdownName: 'talonflame' },
+  'skarmory':    { name: '盔甲鳥',   speciesId: 227, weight: 19, hits: 3, sellPrice: 40,  showdownName: 'skarmory' },
+  'hawlucha':    { name: '摔角鷹人', speciesId: 701, weight: 19, hits: 1, sellPrice: 15,  showdownName: 'hawlucha' },
+  'fearow':      { name: '大嘴雀',   speciesId: 22,  weight: 19, hits: 1, sellPrice: 15,  showdownName: 'fearow' },
+  'swellow':     { name: '大王燕',   speciesId: 277, weight: 19, hits: 2, sellPrice: 25,  showdownName: 'swellow' },
+  'dodrio':      { name: '多多利',   speciesId: 85,  weight: 19, hits: 3, sellPrice: 40,  showdownName: 'dodrio' },
+  'mega-salamence': { name: 'Mega暴飛龍', speciesId: 10089, weight: 10, hits: 5, rare: true, sellPrice: 300, showdownName: 'salamence-mega' },
 };
 function rollBird() {
   const entries = Object.entries(BIRD_TYPES);
@@ -2429,9 +2434,9 @@ app.get('/api/pet', requireAuth, async (req, res) => {
     const fish = fishRows.map(r => ({ id: r.id, fishType: r.fish_type, caughtAt: r.caught_at, isFavorite: r.is_favorite, ...FISH_TYPES[r.fish_type] }));
     const displayFish = rows[0].display_fish_id ? (fish.find(f => f.id === rows[0].display_fish_id) || null) : null;
     const { rows: birdRows } = await pool.query(
-      'SELECT id, bird_type, caught_at FROM pet_birds WHERE user_id = $1 ORDER BY caught_at DESC', [req.user.id]
+      'SELECT id, bird_type, caught_at, is_favorite FROM pet_birds WHERE user_id = $1 ORDER BY caught_at DESC', [req.user.id]
     );
-    const birds = birdRows.map(r => ({ id: r.id, birdType: r.bird_type, caughtAt: r.caught_at, ...BIRD_TYPES[r.bird_type] }));
+    const birds = birdRows.map(r => ({ id: r.id, birdType: r.bird_type, caughtAt: r.caught_at, isFavorite: r.is_favorite, ...BIRD_TYPES[r.bird_type] }));
     const displayBird = rows[0].display_bird_id ? (birds.find(b => b.id === rows[0].display_bird_id) || null) : null;
     const balls = { ballNormal: rows[0].ball_normal, ballGreat: rows[0].ball_great, ballUltra: rows[0].ball_ultra };
     const fishTankPos = rows[0].fish_tank_pos_x != null ? { x: rows[0].fish_tank_pos_x, y: rows[0].fish_tank_pos_y } : null;
@@ -2768,7 +2773,7 @@ app.post('/api/pet/slingshot/encounter', requireAuth, async (req, res) => {
     const bird = BIRD_TYPES[birdType];
     const expiresAt = Date.now() + SLINGSHOT_TTL_MS;
     activeSlingshotEncounters.set(req.user.id, { birdType, name: bird.name, hits: bird.hits, hitsRemaining: bird.hits, expiresAt });
-    res.json({ coins: rows[0].coins, birdType, name: bird.name, speciesId: bird.speciesId, hits: bird.hits, hitsRemaining: bird.hits, rare: !!bird.rare, expiresAt });
+    res.json({ coins: rows[0].coins, birdType, name: bird.name, speciesId: bird.speciesId, showdownName: bird.showdownName, hits: bird.hits, hitsRemaining: bird.hits, rare: !!bird.rare, expiresAt });
   } catch (e) {
     console.error('slingshot encounter error:', e.message);
     res.status(503).json({ error: 'db_error' });
@@ -2809,7 +2814,7 @@ app.post('/api/pet/slingshot/hit', requireAuth, async (req, res) => {
       'INSERT INTO pet_birds_discovered (user_id, bird_type) VALUES ($1, $2) ON CONFLICT DO NOTHING',
       [req.user.id, birdType]
     );
-    res.json({ caught: true, birdType, name: bird.name, speciesId: bird.speciesId, rare: !!bird.rare, birdId: insertRows[0].id, caughtAt: insertRows[0].caught_at });
+    res.json({ caught: true, birdType, ...bird, rare: !!bird.rare, birdId: insertRows[0].id, caughtAt: insertRows[0].caught_at });
   } catch (e) {
     activeSlingshotEncounters.set(req.user.id, { ...encounter, hitsRemaining: 1 }); // 例外導致沒寫進去，讓玩家能再打最後一下重試
     console.error('slingshot hit error:', e.message);
@@ -3129,6 +3134,66 @@ app.post('/api/pet/bird/display', requireAuth, async (req, res) => {
     res.json({});
   } catch (e) {
     console.error('pet bird display error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 鳥籠設定比照魚缸（2026-07-26應使用者要求）：賣鳥／標記最愛／一鍵賣重複，跟fish/sell、
+   fish/favorite、fish/sell-duplicates逐一對照，只是資料表換成pet_birds+BIRD_TYPES。 */
+app.post('/api/pet/bird/sell', requireAuth, async (req, res) => {
+  const birdId = req.body?.birdId;
+  try {
+    const { rows } = await pool.query('SELECT bird_type, is_favorite FROM pet_birds WHERE id = $1 AND user_id = $2', [birdId, req.user.id]);
+    if (!rows.length) return res.status(404).json({ error: 'not_owned' });
+    if (rows[0].is_favorite) return res.status(400).json({ error: 'is_favorite' });
+    const price = BIRD_TYPES[rows[0].bird_type]?.sellPrice || 0;
+    await pool.query('DELETE FROM pet_birds WHERE id = $1', [birdId]);
+    const { rows: updated } = await pool.query(
+      'UPDATE pets SET coins = coins + $1 WHERE user_id = $2 RETURNING coins', [price, req.user.id]
+    );
+    res.json({ coins: updated[0].coins, gained: price });
+  } catch (e) {
+    console.error('pet bird sell error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+app.post('/api/pet/bird/favorite', requireAuth, async (req, res) => {
+  const birdId = req.body?.birdId;
+  const favorite = !!req.body?.favorite;
+  try {
+    const { rows } = await pool.query(
+      'UPDATE pet_birds SET is_favorite = $1 WHERE id = $2 AND user_id = $3 RETURNING id',
+      [favorite, birdId, req.user.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'not_owned' });
+    res.json({ birdId, favorite });
+  } catch (e) {
+    console.error('pet bird favorite error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+app.post('/api/pet/bird/sell-duplicates', requireAuth, async (req, res) => {
+  try {
+    const { rows: deleted } = await pool.query(
+      `WITH ranked AS (
+         SELECT id, bird_type,
+           ROW_NUMBER() OVER (PARTITION BY bird_type ORDER BY caught_at DESC) AS rn
+         FROM pet_birds
+         WHERE user_id = $1 AND is_favorite = FALSE
+       )
+       DELETE FROM pet_birds WHERE id IN (SELECT id FROM ranked WHERE rn > 1)
+       RETURNING id, bird_type`,
+      [req.user.id]
+    );
+    const gained = deleted.reduce((sum, row) => sum + (BIRD_TYPES[row.bird_type]?.sellPrice || 0), 0);
+    const { rows: updated } = await pool.query(
+      'UPDATE pets SET coins = coins + $1 WHERE user_id = $2 RETURNING coins', [gained, req.user.id]
+    );
+    res.json({ coins: updated[0].coins, gained, soldIds: deleted.map(r => r.id), soldCount: deleted.length });
+  } catch (e) {
+    console.error('pet bird sell-duplicates error:', e.message);
     res.status(503).json({ error: 'db_error' });
   }
 });
@@ -4185,6 +4250,8 @@ async function initDB() {
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS display_bird_id INTEGER REFERENCES pet_birds(id) ON DELETE SET NULL`);
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS birdcage_pos_x REAL`);
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS birdcage_pos_y REAL`);
+    // 鳥籠設定比照魚缸（2026-07-26應使用者要求）：「我的最愛」標記，sell()/sell-duplicates()會拒賣/跳過
+    await pool.query(`ALTER TABLE pet_birds ADD COLUMN IF NOT EXISTS is_favorite BOOLEAN NOT NULL DEFAULT FALSE`);
     // 寶可夢展示台——3個獨立展示位，取代「我的收藏」側欄。display_poke{n}_id只存POKEMON靜態
     // 陣列的id（跟teams.pokemon_ids本身的存法一致），不是外鍵；隊伍是陣列欄位沒有資料表列可以
     // 外鍵約束，展示中的寶可夢被放生時改成在resolve-release端點手動UPDATE清空（見該端點）。

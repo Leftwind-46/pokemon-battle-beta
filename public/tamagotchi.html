@@ -503,7 +503,8 @@
 <div id="birdcage-modal" class="modal-overlay" onclick="closeBirdcageModal()">
   <div class="modal-box" onclick="event.stopPropagation()">
     <h2>🐦 我的鳥籠</h2>
-    <div class="ts-subtitle" style="font-size:0.75rem;color:var(--muted);text-align:center">選一隻放進鳥籠展示</div>
+    <div class="ts-subtitle" style="font-size:0.75rem;color:var(--muted);text-align:center">選一隻放進鳥籠展示；★ 標記「我的最愛」的鳥不會被賣出</div>
+    <button class="fish-sell-all-btn" onclick="sellDuplicateBirds()">🧹 一鍵賣鳥（每種留1隻）</button>
     <div id="birdcage-list"></div>
     <div class="modal-close" onclick="closeBirdcageModal()">關閉</div>
   </div>
@@ -559,6 +560,17 @@ function teamAnimatedSpriteUrl(id) { return `https://raw.githubusercontent.com/P
 function handleTeamSpriteError(img, id) {
   if (img.dataset.fallback === 'static') { img.src = teamOfficialArtworkUrl(id); }
   else { img.dataset.fallback = 'static'; img.src = teamSpriteUrl(id); }
+}
+// 彈弓小遊戲鳥類收藏的動態圖來源——2026-07-26應使用者回報「鋼鎧鴉/Mega暴飛龍等等都不會動」修正：
+// PokeAPI的Gen5 B/W動圖只涵蓋到第五世代，鋼鎧鴉(Gen8)/烈箭鷹/摔角鷹人(Gen6)/Mega表單完全沒有
+// 這份動圖存在（curl驗證過404，不是程式邏輯錯誤，是資料本身沒有），一律靜態退回讓人誤以為壞掉。
+// 改用Pokémon Showdown的動態sprite（BIRD_TYPES的showdownName欄位），這11隻全部驗證過真的是
+// 多幀動圖。三層退回：Showdown動圖→PokeAPI動圖(仍然可能404，但無妨快速跳過)→PokeAPI靜態圖。
+function birdAnimatedSpriteUrl(showdownName) { return `https://play.pokemonshowdown.com/sprites/ani/${showdownName}.gif`; }
+function handleBirdSpriteError(img, showdownName, speciesId) {
+  if (img.dataset.fallback === 'pokeapi-static') { img.src = teamOfficialArtworkUrl(speciesId); }
+  else if (img.dataset.fallback === 'pokeapi-anim') { img.dataset.fallback = 'pokeapi-static'; img.src = teamSpriteUrl(speciesId); }
+  else { img.dataset.fallback = 'pokeapi-anim'; img.src = teamAnimatedSpriteUrl(speciesId); }
 }
 // 圖鑑用的18種屬性中文名稱——跟pokemon_battle.html的TYPE_ZH是同一份對照表
 const TYPE_ZH = {
@@ -2145,7 +2157,7 @@ async function openSlingshotScene() {
     const stage = document.getElementById('sling-stage');
     const rect = stage.getBoundingClientRect();
     slingState = {
-      birdType: data.birdType, name: data.name, speciesId: data.speciesId, rare: !!data.rare,
+      birdType: data.birdType, name: data.name, speciesId: data.speciesId, showdownName: data.showdownName, rare: !!data.rare,
       hits: data.hits, hitsRemaining: data.hitsRemaining, expiresAt: data.expiresAt,
       wildX: rect.width * 0.5, wildY: 60, wildVX: 70 + Math.random() * 40,
       dragging: false, flying: false, vx: 0, vy: 0, ended: false,
@@ -2154,8 +2166,9 @@ async function openSlingshotScene() {
       wildDir: Math.random() < 0.5 ? 1 : -1, tBase: performance.now(),
     };
     const wildImg = document.getElementById('sling-wild-img');
-    wildImg.src = teamAnimatedSpriteUrl(data.speciesId);
-    wildImg.onerror = () => handleTeamSpriteError(wildImg, data.speciesId);
+    delete wildImg.dataset.fallback;
+    wildImg.src = birdAnimatedSpriteUrl(data.showdownName);
+    wildImg.onerror = () => handleBirdSpriteError(wildImg, data.showdownName, data.speciesId);
     renderSlingHpBar();
     setupSlingDrag();
     slingState.lastTs = performance.now();
@@ -2330,9 +2343,18 @@ async function onSlingHit() {
       slingState.rafId = requestAnimationFrame(slingLoop);
       return;
     }
-    // 集滿次數，真的捕捉成功——加進鳥類收藏（跟地面捕捉的隊伍不同，沒有重複/隊伍已滿的問題）
+    // 集滿次數，真的捕捉成功——先把血條視覺上補到真的見底再關窗，不然玩家會覺得「血條明明
+    // 還沒空就被抓走了」（2026-07-26應使用者回報修正：之前是直接關窗，血條永遠停在扣減前的畫面）
+    slingState.hitsRemaining = 0;
+    renderSlingHpBar();
+    document.getElementById('sling-wild-img').classList.remove('shaking');
+    await new Promise(r => setTimeout(r, 350));
     closeSlingModalOnly();
-    caughtBirds.unshift({ id: data.birdId, birdType: data.birdType, name: data.name, speciesId: data.speciesId, rare: data.rare, caughtAt: data.caughtAt });
+    caughtBirds.unshift({
+      id: data.birdId, birdType: data.birdType, name: data.name, speciesId: data.speciesId,
+      showdownName: data.showdownName, rare: data.rare, sellPrice: data.sellPrice,
+      isFavorite: false, caughtAt: data.caughtAt,
+    });
     _birdDexCache = null; // 圖鑑快取失效，下次打開重新抓，反映剛捕捉到的新發現
     showBirdResult(data);
   } catch (e) {
@@ -2344,7 +2366,7 @@ async function onSlingHit() {
 function showBirdResult(data) {
   const body = document.getElementById('bird-result-body');
   body.innerHTML = `
-    <div class="catch-result-sprite-wrap"><img src="${teamAnimatedSpriteUrl(data.speciesId)}" alt="${data.name}" onerror="handleTeamSpriteError(this, ${data.speciesId})"></div>
+    <div class="catch-result-sprite-wrap"><img src="${birdAnimatedSpriteUrl(data.showdownName)}" alt="${data.name}" onerror="handleBirdSpriteError(this, '${data.showdownName}', ${data.speciesId})"></div>
     <div class="catch-result-name">${data.name}${data.rare ? ' ✨' : ''}</div>
     <div style="align-self:center;font-weight:700;color:#78c850">加入鳥籠收藏了！</div>
     <div class="modal-close" onclick="closeBirdResultModal()">關閉</div>
@@ -2520,7 +2542,7 @@ function renderBirdDexGrid(dex) {
   const grid = document.getElementById('fish-dex-grid');
   grid.innerHTML = dex.map(b => `
     <div class="fish-dex-item${b.discovered ? '' : ' undiscovered'}">
-      <img src="${teamAnimatedSpriteUrl(b.speciesId)}" alt="${b.name}" onerror="handleTeamSpriteError(this, ${b.speciesId})">
+      <img src="${birdAnimatedSpriteUrl(b.showdownName)}" alt="${b.name}" onerror="handleBirdSpriteError(this, '${b.showdownName}', ${b.speciesId})">
       <div class="name">${b.name}</div>
     </div>
   `).join('');
@@ -2549,10 +2571,11 @@ async function setDisplayFish(fishId) {
 }
 
 /* ─────────────────────────────────────────
-   鳥籠——彈弓小遊戲捕捉到的鳥類收藏展示，跟魚缸(#fish-tank-slot/renderFishTank)同一套模式，
-   只是動態圖用teamAnimatedSpriteUrl/handleTeamSpriteError（有靜態圖/官方原畫的退回機制），
-   不是fishAnimatedSpriteUrl（那個沒有退回機制）——因為Mega暴飛龍用的是mega表單id(10089)，
-   不是真的全國圖鑑編號，PokeAPI的Gen5動圖資料夾不會有這個id，一定要靠退回機制才不會顯示壞圖。
+   鳥籠——彈弓小遊戲捕捉到的鳥類收藏展示，設定完全比照魚缸/魚圖鑑（2026-07-26應使用者要求）：
+   ★我的最愛（sell會拒賣）、💰賣出、🧹一鍵賣重複，跟renderFishTank/renderFishTankList/
+   toggleFishFavorite/sellDuplicateFish逐一對照，只是資料換成caughtBirds/displayBirdData。
+   動態圖用birdAnimatedSpriteUrl/handleBirdSpriteError（見宣告處說明）——不能用
+   teamAnimatedSpriteUrl，那個對鋼鎧鴉/烈箭鷹/摔角鷹人/Mega暴飛龍這幾隻只會顯示靜態退回圖。
 ───────────────────────────────────────── */
 function renderBirdcage() {
   const slot = document.getElementById('birdcage-slot');
@@ -2560,7 +2583,7 @@ function renderBirdcage() {
   if (displayBirdData) {
     slot.className = '';
     slot.title = `${displayBirdData.name}（點擊查看鳥籠）`;
-    slot.innerHTML = `<img src="${teamAnimatedSpriteUrl(displayBirdData.speciesId)}" alt="${displayBirdData.name}" onerror="handleTeamSpriteError(this, ${displayBirdData.speciesId})">`;
+    slot.innerHTML = `<img src="${birdAnimatedSpriteUrl(displayBirdData.showdownName)}" alt="${displayBirdData.name}" onerror="handleBirdSpriteError(this, '${displayBirdData.showdownName}', ${displayBirdData.speciesId})">`;
   } else {
     slot.className = 'empty';
     slot.title = '尚無展示鳥類（點擊查看鳥籠）';
@@ -2581,14 +2604,72 @@ function renderBirdcageList() {
   const list = document.getElementById('birdcage-list');
   list.innerHTML = caughtBirds.length
     ? caughtBirds.map(b => {
+        const nameClass = b.rare ? ' legendary' : '';
         const caughtDate = b.caughtAt ? new Date(b.caughtAt).toLocaleDateString() : '';
         return `<div class="fish-list-item">
-          <img src="${teamAnimatedSpriteUrl(b.speciesId)}" alt="${b.name}" onerror="handleTeamSpriteError(this, ${b.speciesId})" onclick="setDisplayBird(${b.id})">
-          <div class="name${b.rare ? ' legendary' : ''}" onclick="setDisplayBird(${b.id})">${b.name}</div>
+          <img src="${birdAnimatedSpriteUrl(b.showdownName)}" alt="${b.name}" onerror="handleBirdSpriteError(this, '${b.showdownName}', ${b.speciesId})" onclick="setDisplayBird(${b.id})">
+          <div class="name${nameClass}" onclick="setDisplayBird(${b.id})">${b.name}</div>
           <div class="caught-at">${caughtDate}</div>
+          <button class="fish-fav-btn${b.isFavorite ? ' favorited' : ''}" onclick="toggleBirdFavorite(${b.id}, ${!b.isFavorite})" title="${b.isFavorite ? '取消最愛' : '標記最愛'}">${b.isFavorite ? '★' : '☆'}</button>
+          <button class="fish-sell-btn" onclick="sellBird(${b.id})">💰 賣出 ${b.sellPrice}</button>
         </div>`;
       }).join('')
     : '<div style="font-size:0.82rem;color:var(--muted);text-align:center">還沒有用彈弓捕捉到任何鳥類</div>';
+}
+
+async function toggleBirdFavorite(birdId, favorite) {
+  try {
+    const res = await fetch('/api/pet/bird/favorite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${myToken}` },
+      body: JSON.stringify({ birdId, favorite }),
+    });
+    if (!res.ok) return;
+    const b = caughtBirds.find(x => x.id === birdId);
+    if (b) b.isFavorite = favorite;
+    renderBirdcageList();
+  } catch (e) { /* 網路暫時失敗，維持原狀讓玩家再試一次 */ }
+}
+
+async function sellBird(birdId) {
+  try {
+    const res = await fetch('/api/pet/bird/sell', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${myToken}` },
+      body: JSON.stringify({ birdId }),
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error === 'is_favorite' ? '標記最愛的鳥不能賣出' : '發生錯誤，請再試一次'); return; }
+    updateCoinsUI(data.coins);
+    if (displayBirdData && displayBirdData.id === birdId) { displayBirdData = null; renderBirdcage(); }
+    caughtBirds = caughtBirds.filter(b => b.id !== birdId);
+    renderBirdcageList();
+    showToast(`賣出，獲得 🪙 ${data.gained} 金幣`);
+  } catch (e) {
+    showToast('連線失敗，請再試一次');
+  }
+}
+
+async function sellDuplicateBirds() {
+  try {
+    const res = await fetch('/api/pet/bird/sell-duplicates', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${myToken}` },
+    });
+    if (!res.ok) { showToast('發生錯誤，請再試一次'); return; }
+    const data = await res.json();
+    const soldSet = new Set(data.soldIds);
+    if (displayBirdData && soldSet.has(displayBirdData.id)) {
+      displayBirdData = null;
+      renderBirdcage();
+    }
+    caughtBirds = caughtBirds.filter(b => !soldSet.has(b.id));
+    renderBirdcageList();
+    updateCoinsUI(data.coins);
+    showToast(data.soldCount ? `賣掉 ${data.soldCount} 隻重複的鳥，獲得 🪙 ${data.gained} 金幣` : '沒有重複的鳥可以賣');
+  } catch (e) {
+    showToast('連線失敗，請再試一次');
+  }
 }
 
 async function setDisplayBird(birdId) {
