@@ -9,7 +9,15 @@
       "Bash(pg_ctl -D /opt/homebrew/var/postgresql@16 status)",
       "mcp__claude-in-chrome__read_page",
       "mcp__claude-in-chrome__get_page_text",
-      "mcp__claude-in-chrome__find"
+      "mcp__claude-in-chrome__find",
+      "Bash(node --check *)",
+      "Bash(curl -s http://localhost:*)",
+      "Bash(curl -s https://api.github.com/*)",
+      "Bash(curl -s https://raw.githubusercontent.com/*)",
+      "Bash(open /Users/mike/Desktop/AI_Claude_code_Projects/1_test_web/*.html)",
+      "mcp__claude-in-chrome__navigate",
+      "mcp__claude-in-chrome__tabs_create_mcp",
+      "mcp__claude-in-chrome__resize_window"
     ]
   }
 }
