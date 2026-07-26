@@ -428,6 +428,19 @@ const PENDING_RELEASE_TTL_MS = 2 * 60 * 1000;
 const DECOR_PLACE_LIMIT = 6;
 const BADGE_PLACE_LIMIT = 4;
 
+/* 彈弓小遊戲——拉弓瞄準飛行中的寶可夢，命中後才真的捕捉進隊伍。跟地面捕捉（/api/pet/catch/*）
+   共用同一套「命中判定分兩層」模型：client端拖曳拋物線物理+畫面碰撞判定「有沒有命中」（技巧層，
+   client決定），命中後才呼叫這裡的/hit端點，由伺服器擲一次真正的捕捉成功率（機率層，server決定）——
+   避免變成純RNG，也避免client直接偽造「命中了」就能無條件穩定捕捉稀有飛行系神獸。
+   跟地面捕捉刻意不同的地方：沒有選球機制（命中率是固定值，不像地面捕捉分三種球），遭遇用固定
+   30秒真實倒數（不像地面捕捉每次沒抓到就展延過期時間）——時間到寶可夢就真的飛走，沒有退款。 */
+const FLYING_POOL = POKEMON.filter(p => p.type === 'flying' || p.type2 === 'flying');
+const SLINGSHOT_ENCOUNTER_COST = 80;
+const SLINGSHOT_GIVEUP_REFUND = 70; // 花80，主動放棄退70（扣的10算「探索費」不退，跟地面捕捉同一比例邏輯）
+const SLINGSHOT_HIT_RATE = 0.75; // 命中後的基礎捕捉成功率，一樣會乘上CATCH_TIER_MULT
+const SLINGSHOT_TTL_MS = 30 * 1000; // 30秒真實倒數，不像地面捕捉的activeEncounters會展延
+const activeSlingshotEncounters = new Map(); // userId -> { pokemonId, name, tier, expiresAt }
+
 /* 釣魚結果registry——weight加總曾經=100可以直接當百分比讀，2026-07-20加入蓋歐卡（機率要精準到0.1%）
    後全部×10改用整數（加總=1001），蓋歐卡=1/1001≈0.0999%。黃金鯉魚王/紅色暴鯉龍/蓋歐卡刻意不生新素材，
    直接借用鯉魚王(129)/暴鯉龍(130)在正史遊戲裡本來就是的shiny配色（金色/紅色跟需求完全對上）、
@@ -2688,6 +2701,117 @@ app.post('/api/pet/catch/resolve-release', requireAuth, async (req, res) => {
     res.json({ released: true, releasedPokemonId: releasePokemonId, addedPokemonId: newPokemonId });
   } catch (e) {
     console.error('pet catch resolve-release error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 彈弓第1步：花80金幣讓一隻飛行系寶可夢出現，開始30秒真實倒數。跟地面捕捉的encounter一樣，
+   不判定捕捉成功與否——瞄準/命中的技巧層完全在client端跑，真正的捕捉機率留到/hit才由伺服器擲。 */
+app.post('/api/pet/slingshot/encounter', requireAuth, async (req, res) => {
+  const existing = activeSlingshotEncounters.get(req.user.id);
+  if (existing && existing.expiresAt > Date.now()) {
+    return res.status(400).json({ error: 'encounter_in_progress' });
+  }
+  try {
+    const { rows } = await pool.query(
+      `UPDATE pets SET coins = coins - $1 WHERE user_id = $2 AND coins >= $1 RETURNING coins`,
+      [SLINGSHOT_ENCOUNTER_COST, req.user.id]
+    );
+    if (!rows.length) {
+      const { rows: existsRows } = await pool.query('SELECT 1 FROM pets WHERE user_id = $1', [req.user.id]);
+      return res.status(existsRows.length ? 400 : 404).json({ error: existsRows.length ? 'not_enough_coins' : 'no_pet' });
+    }
+    const wild = FLYING_POOL[Math.floor(Math.random() * FLYING_POOL.length)];
+    const expiresAt = Date.now() + SLINGSHOT_TTL_MS;
+    activeSlingshotEncounters.set(req.user.id, { pokemonId: wild.id, name: wild.name, tier: wild.tier, expiresAt });
+    res.json({ coins: rows[0].coins, pokemonId: wild.id, name: wild.name, tier: wild.tier, expiresAt });
+  } catch (e) {
+    console.error('slingshot encounter error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 彈弓第2步：client回報「命中了」（畫面碰撞判定已經在client端算完），伺服器這裡只負責擲
+   真正的捕捉成功率（SLINGSHOT_HIT_RATE×tier係數）並依隊伍狀態決定加入/發金幣/待放生——
+   跟/api/pet/catch/throw同一套「不信任client回報結果」+交易保護寫法，只是沒有球可以扣。
+   沒抓到不代表遭遇結束：只要還沒過30秒，寶可夢會再度進入畫面讓玩家可以再次瞄準，
+   除非骰到「激烈反抗」直接飛走（跟地面捕捉共用同一個FIERCE_RESISTANCE_CHANCE）。 */
+app.post('/api/pet/slingshot/hit', requireAuth, async (req, res) => {
+  const pokemonId = Number(req.body?.pokemonId);
+  const wild = FLYING_POOL.find(p => p.id === pokemonId);
+  if (!wild) return res.status(400).json({ error: 'invalid_request' });
+
+  const encounter = activeSlingshotEncounters.get(req.user.id);
+  if (!encounter || encounter.pokemonId !== pokemonId || encounter.expiresAt < Date.now()) {
+    return res.status(400).json({ error: 'no_active_encounter' });
+  }
+  activeSlingshotEncounters.delete(req.user.id);
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const rate = SLINGSHOT_HIT_RATE * (CATCH_TIER_MULT[wild.tier] ?? 1);
+    const success = Math.random() < rate;
+
+    if (!success) {
+      const fierce = Math.random() < FIERCE_RESISTANCE_CHANCE;
+      await client.query('COMMIT');
+      if (!fierce) activeSlingshotEncounters.set(req.user.id, encounter); // 時限不展延，維持原本的expiresAt
+      return res.json({ caught: false, fled: fierce });
+    }
+
+    const { rows: teamRows } = await client.query('SELECT pokemon_ids FROM teams WHERE user_id = $1', [req.user.id]);
+    const currentIds = teamRows[0]?.pokemon_ids || [];
+    let responsePayload, pendingRelease = null;
+    if (currentIds.includes(pokemonId)) {
+      const { rows: coinRows } = await client.query(
+        'UPDATE pets SET coins = coins + 300 WHERE user_id = $1 RETURNING coins', [req.user.id]
+      );
+      responsePayload = { caught: true, duplicate: true, coinsAwarded: 300, coins: coinRows[0].coins, pokemonId, name: wild.name };
+    } else if (currentIds.length < 10) {
+      const newIds = [...currentIds, pokemonId];
+      await client.query(
+        `INSERT INTO teams (user_id, pokemon_ids) VALUES ($1, $2)
+         ON CONFLICT (user_id) DO UPDATE SET pokemon_ids = $2, updated_at = NOW()`,
+        [req.user.id, newIds]
+      );
+      responsePayload = { caught: true, added: true, pokemonId, name: wild.name };
+    } else {
+      // 隊伍已滿10隻——直接重用地面捕捉同一個pendingCatchReleases Map跟/api/pet/catch/resolve-release
+      // 端點，這步驟邏輯跟捕捉來源（地面/彈弓）無關，不用另外新增一份
+      pendingRelease = { pokemonId, expiresAt: Date.now() + PENDING_RELEASE_TTL_MS };
+      responsePayload = { caught: true, needsRelease: true, pokemonId, name: wild.name };
+    }
+    await client.query('COMMIT');
+    if (pendingRelease) pendingCatchReleases.set(req.user.id, pendingRelease);
+    res.json(responsePayload);
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch (_) { /* 連線本身可能已經斷了 */ }
+    activeSlingshotEncounters.set(req.user.id, encounter);
+    console.error('slingshot hit error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  } finally {
+    client.release();
+  }
+});
+
+/* 彈弓第3步（可選）：玩家主動放棄（時間還沒到就提早離開），退回70金幣。
+   時間自然到期（expiresAt過期）不算「主動放棄」，不會走這個端點，也不會退款——
+   跟地面捕捉的giveup不同的地方是彈弓的30秒本身就是遊戲張力的一部分，逾時要有真實代價。 */
+app.post('/api/pet/slingshot/giveup', requireAuth, async (req, res) => {
+  const encounter = activeSlingshotEncounters.get(req.user.id);
+  if (!encounter || encounter.expiresAt < Date.now()) {
+    return res.status(400).json({ error: 'no_active_encounter' });
+  }
+  try {
+    activeSlingshotEncounters.delete(req.user.id);
+    const { rows } = await pool.query('SELECT coins FROM pets WHERE user_id = $1', [req.user.id]);
+    if (!rows.length) return res.status(404).json({ error: 'no_pet' });
+    const coins = rows[0].coins + SLINGSHOT_GIVEUP_REFUND;
+    await pool.query('UPDATE pets SET coins = $1 WHERE user_id = $2', [coins, req.user.id]);
+    res.json({ coins, refunded: SLINGSHOT_GIVEUP_REFUND });
+  } catch (e) {
+    console.error('slingshot giveup error:', e.message);
     res.status(503).json({ error: 'db_error' });
   }
 });

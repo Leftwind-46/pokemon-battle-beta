@@ -221,6 +221,19 @@
   .catch-scene-ball{position:absolute;left:50%;bottom:14px;width:34px;height:34px;transform:translateX(-50%);animation:ballBob 1.4s ease-in-out infinite;image-rendering:pixelated;filter:drop-shadow(0 3px 4px rgba(0,0,0,0.5))}
   @keyframes ballBob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-6px)}}
   .catch-ball-picker{display:flex;gap:0.6rem;justify-content:center;flex-wrap:wrap}
+
+  /* ── 彈弓：拖曳拉弓瞄準飛行中的寶可夢，命中後才真的捕捉 ── */
+  .sling-scene{position:relative;width:100%;height:280px;border-radius:14px;overflow:hidden;background:linear-gradient(180deg,#4a7fc9 0%,#a8d4f0 100%);touch-action:none;user-select:none}
+  .sling-wild{position:absolute;width:64px;height:64px;image-rendering:pixelated;filter:drop-shadow(0 6px 8px rgba(0,0,0,0.35));transition:opacity 0.3s;will-change:left,top}
+  .sling-wild.fled{opacity:0;transform:translateY(-40px)}
+  .sling-wild.shaking{animation:slingWildShake 0.4s ease-in-out}
+  @keyframes slingWildShake{0%,100%{rotate:0deg}25%{rotate:-10deg}75%{rotate:10deg}}
+  .sling-anchor{position:absolute;left:50%;bottom:14px;width:14px;height:14px;border-radius:50%;background:#5d4037;transform:translate(-50%,50%);box-shadow:0 0 0 3px rgba(93,64,55,0.35)}
+  .sling-band{position:absolute;left:50%;bottom:20px;height:2px;background:rgba(93,64,55,0.85);transform-origin:0 50%;pointer-events:none;display:none}
+  .sling-projectile{position:absolute;width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#e03030 60%,#902020);box-shadow:0 2px 4px rgba(0,0,0,0.4);cursor:grab;touch-action:none}
+  .sling-projectile.flying{cursor:default}
+  .sling-timer{position:absolute;left:50%;top:8px;transform:translateX(-50%);font-size:0.78rem;font-weight:700;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,0.5);background:rgba(0,0,0,0.25);padding:0.15rem 0.6rem;border-radius:10px;z-index:2}
+  .sling-hint{position:absolute;left:50%;bottom:36px;transform:translateX(-50%);font-size:0.72rem;color:rgba(255,255,255,0.85);text-shadow:0 1px 3px rgba(0,0,0,0.5);white-space:nowrap;pointer-events:none}
   .catch-ball-btn{display:flex;flex-direction:column;align-items:center;gap:0.2rem;padding:0.5rem 0.8rem;border-radius:12px;border:2px solid var(--border);background:rgba(255,255,255,0.05);color:var(--text);font-size:0.72rem;font-weight:700;cursor:pointer}
   .catch-ball-btn .icon{width:28px;height:28px;image-rendering:pixelated}
   .catch-ball-btn:disabled{opacity:0.35;cursor:not-allowed}
@@ -324,6 +337,7 @@
         <div class="pet-action-btn" onclick="openVisitModal()"><span class="icon">🚪</span>拜訪朋友</div>
         <div class="pet-action-btn" onclick="openFishingScene()"><span class="icon">🎣</span>釣魚</div>
         <div class="pet-action-btn" onclick="openCatchScene()"><img class="icon-img" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png" alt="">捕捉</div>
+        <div class="pet-action-btn" onclick="openSlingshotScene()"><span class="icon">🎯</span>彈弓</div>
         <div class="pet-action-btn" id="decorate-toggle-btn" onclick="toggleDecorateMode()"><span class="icon">🛠️</span>裝潢模式</div>
         <div class="pet-action-btn" id="decorate-add-btn" onclick="openAddPickModal()" style="display:none"><span class="icon">➕</span>加入房間</div>
       </div>
@@ -424,6 +438,20 @@
     <h2>隊伍已滿（10/10）</h2>
     <div class="ts-subtitle" style="font-size:0.75rem;color:var(--muted);text-align:center">選一隻放生，讓新捕捉的寶可夢加入隊伍</div>
     <div id="catch-release-list"></div>
+  </div>
+</div>
+<div id="sling-scene-modal" class="modal-overlay">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <h2>🎯 彈弓捕捉</h2>
+    <div class="sling-scene" id="sling-stage">
+      <div class="sling-timer" id="sling-timer">30</div>
+      <img class="sling-wild" id="sling-wild-img" src="" alt="">
+      <div class="sling-band" id="sling-band"></div>
+      <div class="sling-anchor"></div>
+      <div class="sling-projectile" id="sling-projectile"></div>
+      <div class="sling-hint">拖曳彈弓瞄準，放開發射</div>
+    </div>
+    <div class="modal-close" id="sling-close-btn" onclick="closeSlingshotScene()">放棄離開（退回 70 金幣）</div>
   </div>
 </div>
 <div id="fish-tank-modal" class="modal-overlay" onclick="closeFishTankModal()">
@@ -2027,6 +2055,241 @@ async function confirmRelease(releasePokemonId) {
   } catch (e) {
     showToast('連線失敗，請再試一次');
   }
+}
+
+/* ─────────────────────────────────────────
+   彈弓小遊戲——拖曳拉弓瞄準飛行中的寶可夢，命中後才呼叫伺服器擲真正的捕捉成功率。
+   「有沒有命中」完全是client端物理+getBoundingClientRect()碰撞判定（技巧層），
+   「命中後抓不抓得到」才是伺服器端的RNG（機率層）——跟捕捉小遊戲同一套兩層模型，
+   不用canvas，維持這個檔案既有的「絕對定位DOM元素+rAF更新left/top」風格
+   （裝潢拖曳makeDraggable、拜訪走位visitWalkTimers都是同一套）。
+───────────────────────────────────────── */
+// 這幾個常數要一起看：滿拉(SLING_MAX_PULL)時的初速是SLING_POWER*SLING_MAX_PULL，
+// 直線正上方發射能到達的最高點(相對發射點)是 初速²/(2*SLING_GRAVITY)。目標是滿拉垂直
+// 發射時要能爬升約200px以上（stage高280、彈弓錨點在底部附近，飛行寶可夢大約在頂部50~76px
+// 高度飄動），才有辦法真的構到目標，不是隨便給的數字。
+const SLING_GRAVITY = 700;       // px/s^2
+const SLING_POWER = 6;           // 拉弓距離→初速的倍率
+const SLING_MAX_PULL = 90;       // 拉弓最大距離(px)，超過就夾住，避免無限加速
+const SLING_PROJECTILE_SIZE = 20;
+const SLING_WILD_SIZE = 64;
+
+let slingState = null; // { pokemonId, name, tier, expiresAt, wildX, wildY, wildVX, dragging, flying, vx, vy, rafId, anchorX, anchorY, stageW, stageH, ended }
+
+async function openSlingshotScene() {
+  if (!pet) return;
+  document.getElementById('sling-scene-modal').classList.add('open');
+  document.getElementById('sling-wild-img').src = '';
+  document.getElementById('sling-wild-img').classList.remove('fled');
+  document.getElementById('sling-timer').textContent = '30';
+  resetSlingProjectile();
+  try {
+    const res = await fetch('/api/pet/slingshot/encounter', { method: 'POST', headers: { Authorization: `Bearer ${myToken}` } });
+    const data = await res.json();
+    if (!res.ok) {
+      showToast(data.error === 'not_enough_coins' ? '金幣不足，彈弓一次需要 80 金幣' : '發生錯誤，請再試一次');
+      document.getElementById('sling-scene-modal').classList.remove('open');
+      return;
+    }
+    updateCoinsUI(data.coins);
+    const stage = document.getElementById('sling-stage');
+    const rect = stage.getBoundingClientRect();
+    slingState = {
+      pokemonId: data.pokemonId, name: data.name, tier: data.tier, expiresAt: data.expiresAt,
+      wildX: rect.width * 0.5, wildY: 60, wildVX: 70 + Math.random() * 40,
+      dragging: false, flying: false, vx: 0, vy: 0, ended: false,
+      stageW: rect.width, stageH: rect.height,
+      anchorX: rect.width / 2, anchorY: rect.height - 20,
+      wildDir: Math.random() < 0.5 ? 1 : -1, tBase: performance.now(),
+    };
+    document.getElementById('sling-wild-img').src = catchSpriteUrl(data.pokemonId);
+    setupSlingDrag();
+    slingState.lastTs = performance.now();
+    slingState.rafId = requestAnimationFrame(slingLoop);
+  } catch (e) {
+    showToast('連線失敗，請再試一次');
+    document.getElementById('sling-scene-modal').classList.remove('open');
+  }
+}
+
+function resetSlingProjectile() {
+  const proj = document.getElementById('sling-projectile');
+  proj.classList.remove('flying');
+  proj.style.left = '50%';
+  proj.style.top = 'calc(100% - 34px)';
+  proj.style.transform = 'translate(-50%,-50%)';
+  document.getElementById('sling-band').style.display = 'none';
+}
+
+function setupSlingDrag() {
+  const proj = document.getElementById('sling-projectile');
+  const stage = document.getElementById('sling-stage');
+  const band = document.getElementById('sling-band');
+
+  function toStageCoords(e) {
+    const r = stage.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+
+  proj.onpointerdown = (e) => {
+    if (!slingState || slingState.flying || slingState.ended) return;
+    slingState.dragging = true;
+    proj.setPointerCapture(e.pointerId);
+    band.style.display = 'block';
+  };
+  proj.onpointermove = (e) => {
+    if (!slingState || !slingState.dragging) return;
+    const p = toStageCoords(e);
+    const dx0 = p.x - slingState.anchorX, dy0 = p.y - slingState.anchorY;
+    const dist = Math.min(SLING_MAX_PULL, Math.hypot(dx0, dy0));
+    const ang = Math.atan2(dy0, dx0);
+    const px = slingState.anchorX + Math.cos(ang) * dist;
+    const py = slingState.anchorY + Math.sin(ang) * dist;
+    proj.style.left = px + 'px';
+    proj.style.top = py + 'px';
+    proj.style.transform = 'translate(-50%,-50%)';
+    band.style.left = slingState.anchorX + 'px';
+    band.style.width = dist + 'px';
+    band.style.transform = `rotate(${ang}rad)`;
+    slingState._pullX = px; slingState._pullY = py;
+  };
+  proj.onpointerup = (e) => {
+    if (!slingState || !slingState.dragging) return;
+    slingState.dragging = false;
+    band.style.display = 'none';
+    const px = slingState._pullX, py = slingState._pullY;
+    if (px == null) return;
+    const pullDx = px - slingState.anchorX, pullDy = py - slingState.anchorY;
+    const pullDist = Math.hypot(pullDx, pullDy);
+    if (pullDist < 12) { resetSlingProjectile(); return; } // 拉太短當作取消，不發射
+    slingState.flying = true;
+    proj.classList.add('flying');
+    // 發射起點用錨點本身（不是拉弓拉到的位置）——拉弓只決定方向／力道，
+    // 這樣滿拉的初速才能真的花在往目標移動上，不會有一段先浪費在「彈回錨點」的距離
+    slingState.projX = slingState.anchorX; slingState.projY = slingState.anchorY;
+    slingState.vx = -pullDx * SLING_POWER;
+    slingState.vy = -pullDy * SLING_POWER;
+  };
+}
+
+function slingLoop(ts) {
+  if (!slingState || slingState.ended) return;
+  const dt = Math.min(0.05, (ts - slingState.lastTs) / 1000);
+  slingState.lastTs = ts;
+
+  // 倒數計時
+  const remainMs = slingState.expiresAt - Date.now();
+  document.getElementById('sling-timer').textContent = Math.max(0, Math.ceil(remainMs / 1000));
+  if (remainMs <= 0) { endSlingEncounter('timeout'); return; }
+
+  // 野生寶可夢左右來回飄動 + 上下微幅正弦漂移
+  slingState.wildX += slingState.wildVX * slingState.wildDir * dt;
+  const margin = SLING_WILD_SIZE / 2 + 6;
+  if (slingState.wildX < margin) { slingState.wildX = margin; slingState.wildDir = 1; }
+  if (slingState.wildX > slingState.stageW - margin) { slingState.wildX = slingState.stageW - margin; slingState.wildDir = -1; }
+  const wildY = 50 + Math.sin((ts - slingState.tBase) / 650) * 26;
+  slingState.wildY = wildY;
+  const wildEl = document.getElementById('sling-wild-img');
+  wildEl.style.left = (slingState.wildX - SLING_WILD_SIZE / 2) + 'px';
+  wildEl.style.top = wildY + 'px';
+
+  if (slingState.flying) {
+    slingState.vy += SLING_GRAVITY * dt;
+    slingState.projX += slingState.vx * dt;
+    slingState.projY += slingState.vy * dt;
+    const proj = document.getElementById('sling-projectile');
+    proj.style.left = slingState.projX + 'px';
+    proj.style.top = slingState.projY + 'px';
+    proj.style.transform = 'translate(-50%,-50%)';
+
+    // 碰撞判定：projectile跟野生寶可夢的畫面矩形是否重疊
+    const stage = document.getElementById('sling-stage');
+    const stageRect = stage.getBoundingClientRect();
+    const projRect = proj.getBoundingClientRect();
+    const wildRect = wildEl.getBoundingClientRect();
+    const hit = !(projRect.right < wildRect.left || projRect.left > wildRect.right ||
+                  projRect.bottom < wildRect.top || projRect.top > wildRect.bottom);
+    if (hit) { onSlingHit(); return; }
+
+    // 出界＝沒打中，重置彈丸讓玩家再拉一次（時間還沒到的話）。下緣的判定要求vy>0（正在下墜）
+    // 才算數——拉弓本身就會把起始位置拉到彈弓下方（甚至低於stage下緣），發射瞬間還在往上飛
+    // (vy<0)時不能誤判成「掉出下緣」，只有真的飛到最高點開始往下掉、又低於下緣才算沒打中。
+    if (slingState.projX < -30 || slingState.projX > slingState.stageW + 30 ||
+        (slingState.vy > 0 && slingState.projY > slingState.stageH + 30)) {
+      slingState.flying = false;
+      resetSlingProjectile();
+    }
+  }
+
+  slingState.rafId = requestAnimationFrame(slingLoop);
+}
+
+async function onSlingHit() {
+  if (!slingState || slingState.ended) return;
+  slingState.ended = true;
+  cancelAnimationFrame(slingState.rafId);
+  const pokemonId = slingState.pokemonId;
+  document.getElementById('sling-wild-img').classList.add('shaking');
+  try {
+    const res = await fetch('/api/pet/slingshot/hit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${myToken}` },
+      body: JSON.stringify({ pokemonId }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showToast('發生錯誤，請再試一次');
+      closeSlingModalOnly();
+      return;
+    }
+    if (!data.caught && !data.fled) {
+      // 命中了但沒抓到，遭遇還在進行——恢復動畫讓玩家可以再拉一次
+      showToast(`${slingState.name} 掙脫了！再瞄準一次`);
+      slingState.ended = false;
+      document.getElementById('sling-wild-img').classList.remove('shaking');
+      resetSlingProjectile();
+      slingState.lastTs = performance.now();
+      slingState.rafId = requestAnimationFrame(slingLoop);
+      return;
+    }
+    // 抓到了，或激烈反抗逃跑——這次遭遇結束，沿用地面捕捉同一套結果彈窗
+    closeSlingModalOnly();
+    showCatchResult(data);
+  } catch (e) {
+    showToast('連線失敗，請再試一次');
+    closeSlingModalOnly();
+  }
+}
+
+function closeSlingModalOnly() {
+  document.getElementById('sling-scene-modal').classList.remove('open');
+  if (slingState) { slingState.ended = true; if (slingState.rafId) cancelAnimationFrame(slingState.rafId); }
+  slingState = null;
+}
+
+function endSlingEncounter(reason) {
+  if (!slingState || slingState.ended) return;
+  slingState.ended = true;
+  cancelAnimationFrame(slingState.rafId);
+  document.getElementById('sling-wild-img').classList.add('fled');
+  if (reason === 'timeout') {
+    showToast(`${slingState.name} 飛走了！`);
+    setTimeout(() => { document.getElementById('sling-scene-modal').classList.remove('open'); slingState = null; }, 600);
+  }
+}
+
+// 玩家主動放棄（時間還沒到）——退回70金幣；時間自然到期不算主動放棄，不會走這裡也沒有退款
+async function closeSlingshotScene() {
+  const hadEncounter = !!(slingState && !slingState.ended);
+  if (slingState) { slingState.ended = true; if (slingState.rafId) cancelAnimationFrame(slingState.rafId); }
+  document.getElementById('sling-scene-modal').classList.remove('open');
+  slingState = null;
+  if (!hadEncounter) return;
+  try {
+    const res = await fetch('/api/pet/slingshot/giveup', { method: 'POST', headers: { Authorization: `Bearer ${myToken}` } });
+    const data = await res.json();
+    if (res.ok) { updateCoinsUI(data.coins); showToast(`已放棄，退回 🪙 ${data.refunded} 金幣`); }
+  } catch (e) { /* 網路失敗就算了，不影響UI關閉 */ }
 }
 
 function renderFishTank() {
