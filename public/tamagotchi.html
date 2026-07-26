@@ -2171,9 +2171,14 @@ const SLING_PROJECTILE_SIZE = 20;
 const SLING_WILD_SIZE = 64;
 
 let slingState = null; // { birdType, name, speciesId, rare, hits, hitsRemaining, expiresAt, wildX, wildY, wildVX, flying, vx, vy, rafId, anchorX, anchorY, stageW, stageH, ended, aimPhase:'angle'|'power'|null, aimAngle, aimPower, aimPhaseStartTs, lockedAngle }
+// closeSlingshotScene()每次關閉都會遞增——openSlingshotScene()跟onSlingHit()等rAF/fetch回來後
+// 都會比對這個世代號碼，發現使用者在等待期間已經放棄離開的話就不再回頭寫slingState，避免
+// 已經被關掉的encounter「復活」（2026-07-26應使用者回報「彈弓點放棄會出現bug」修正之一）
+let slingOpenGen = 0;
 
 async function openSlingshotScene() {
   if (!pet) return;
+  const myGen = ++slingOpenGen;
   document.getElementById('sling-scene-modal').classList.add('open');
   document.getElementById('sling-wild-img').src = '';
   document.getElementById('sling-wild-img').classList.remove('fled');
@@ -2182,6 +2187,12 @@ async function openSlingshotScene() {
   try {
     const res = await fetch('/api/pet/slingshot/encounter', { method: 'POST', headers: { Authorization: `Bearer ${myToken}` } });
     const data = await res.json();
+    if (myGen !== slingOpenGen) {
+      // 使用者在等回應的這段時間已經放棄離開（或又重開了下一輪）——這個encounter已經在伺服器
+      // 那邊建立了，告訴伺服器直接清掉，不要回頭覆寫slingState/啟動動畫迴圈讓它變成看不到的殭屍encounter
+      if (res.ok) fetch('/api/pet/slingshot/giveup', { method: 'POST', headers: { Authorization: `Bearer ${myToken}` } }).catch(() => {});
+      return;
+    }
     if (!res.ok) {
       showToast(data.error === 'not_enough_coins' ? '金幣不足，彈弓一次需要 80 金幣' : '發生錯誤，請再試一次');
       document.getElementById('sling-scene-modal').classList.remove('open');
@@ -2386,6 +2397,7 @@ async function onSlingHit() {
   slingState.ended = true;
   cancelAnimationFrame(slingState.rafId);
   const birdType = slingState.birdType;
+  const myGen = slingOpenGen; // 記住這一下命中屬於哪一輪——等/hit回應期間使用者放棄離開的話(見closeSlingshotScene)就不要再摸slingState
   document.getElementById('sling-wild-img').classList.add('shaking');
   try {
     const res = await fetch('/api/pet/slingshot/hit', {
@@ -2394,6 +2406,7 @@ async function onSlingHit() {
       body: JSON.stringify({ birdType }),
     });
     const data = await res.json();
+    if (myGen !== slingOpenGen) return; // 使用者已經放棄離開，伺服器該扣的次數/該寫進收藏的都已經處理完了，這裡沒事可做
     if (!res.ok) {
       showToast('發生錯誤，請再試一次');
       closeSlingModalOnly();
@@ -2474,9 +2487,16 @@ function endSlingEncounter(reason) {
   }
 }
 
-// 玩家主動放棄（時間還沒到）——2026-07-26應使用者要求拿掉退款功能，直接關窗結束遭遇就好，
-// 不用再打一次giveup端點；跟時間自然到期一樣，這次彈弓的花費就直接算了
+// 玩家主動放棄（時間還沒到）——2026-07-26應使用者要求拿掉的是「退款」，花費一律不退，
+// 但2026-07-26稍晚應使用者回報「彈弓點放棄會出現bug」發現：退款端點被整個拿掉時，連「通知
+// 伺服器這次結束了」這個動作也一起消失了，導致關窗後伺服器還以為encounter在進行中，玩家在
+// 原本的30秒TTL自然過期前重開彈弓一律被擋下、只看到一個看不出原因的「發生錯誤」。修法是重新
+// 呼叫一個純粹「清掉伺服器那邊的進行中encounter」的giveup端點（不牽涉金幣，跟退款是兩件事）。
 function closeSlingshotScene() {
+  slingOpenGen++; // 讓還在等待伺服器回應的openSlingshotScene()/onSlingHit()發現自己已經被取消
+  if (slingState && !slingState.ended) {
+    fetch('/api/pet/slingshot/giveup', { method: 'POST', headers: { Authorization: `Bearer ${myToken}` } }).catch(() => {});
+  }
   if (slingState) { slingState.ended = true; if (slingState.rafId) cancelAnimationFrame(slingState.rafId); }
   document.getElementById('sling-scene-modal').classList.remove('open');
   slingState = null;

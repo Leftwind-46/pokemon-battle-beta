@@ -2757,6 +2757,17 @@ app.post('/api/pet/catch/resolve-release', requireAuth, async (req, res) => {
   }
 });
 
+/* 玩家提早放棄（時間還沒到）——只負責清掉伺服器這邊記住的進行中encounter，讓玩家可以馬上
+   開始下一次彈弓，不用等原本的30秒TTL自然過期；不是2026-07-26之前拿掉的那個「退款」端點，
+   這裡完全沒有退錢邏輯，純粹只是解鎖，跟退款是兩件事（使用者要拿掉的是退款，不是「能不能
+   馬上重來」）。2026-07-26應使用者回報「彈弓點放棄會出現bug」修正：拿掉退款端點時连同「通知
+   伺服器結束」這個動作也一起拿掉了，導致關窗後伺服器還以為encounter在進行中，直到30秒TTL
+   自然過期前，玩家重開彈弓一律被encounter_in_progress擋掉、只看到一個看不出原因的錯誤訊息。 */
+app.post('/api/pet/slingshot/giveup', requireAuth, async (req, res) => {
+  activeSlingshotEncounters.delete(req.user.id);
+  res.json({ ok: true });
+});
+
 /* 彈弓第1步：花80金幣讓一隻鳥（依BIRD_TYPES的weight隨機抽）出現，開始30秒真實倒數，
    同時記下這隻要打中幾次才能捕捉成功（hitsRemaining，伺服器權威計數）。 */
 app.post('/api/pet/slingshot/encounter', requireAuth, async (req, res) => {
