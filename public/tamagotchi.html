@@ -114,7 +114,7 @@
   .decor-room-item img{width:100%;height:100%;object-fit:contain}
 
   /* ── 裝潢模式：可拖曳的物件套上金色虛線外框提示、拖曳手勢游標；收回按鈕只在此模式下出現 ── */
-  .decorate-mode .badge-room-item,.decorate-mode .decor-room-item,.decorate-mode #fish-tank-slot,.decorate-mode #fish-dex-slot,.decorate-mode .poke-display-slot{cursor:grab;outline:2px dashed rgba(248,208,48,0.65);outline-offset:2px}
+  .decorate-mode .badge-room-item,.decorate-mode .decor-room-item,.decorate-mode #fish-tank-slot,.decorate-mode #fish-dex-slot,.decorate-mode .poke-display-slot,.decorate-mode #birdcage-slot{cursor:grab;outline:2px dashed rgba(248,208,48,0.65);outline-offset:2px}
   .room-item-remove{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:#f05030;color:#fff;font-size:0.68rem;line-height:20px;text-align:center;cursor:pointer;z-index:2}
   .room-item-flip{position:absolute;bottom:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:#6890f0;color:#fff;font-size:0.7rem;line-height:20px;text-align:center;cursor:pointer;z-index:2}
   #decorate-toggle-btn.active{background:rgba(248,208,48,0.28);border-color:#f8d030}
@@ -129,6 +129,15 @@
   /* ── 魚圖鑑聲納按鈕（自由拖曳位置）── */
   #fish-dex-slot{position:absolute;transform:translate(-50%,-50%);z-index:6;width:64px;height:44px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.4rem;background:rgba(104,144,240,0.18);border:2px solid rgba(104,144,240,0.4);transition:transform 0.15s;touch-action:none}
   #fish-dex-slot:hover{transform:translate(-50%,-50%) scale(1.08)}
+
+  /* ── 鳥籠（彈弓小遊戲捕捉到的鳥類收藏展示，自由拖曳位置，跟魚缸同一套外觀慣例）── */
+  #birdcage-slot{position:absolute;transform:translate(-50%,-50%);z-index:6;width:64px;height:64px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:rgba(240,176,104,0.18);border:2px solid rgba(240,176,104,0.4);transition:transform 0.15s;overflow:hidden;touch-action:none}
+  #birdcage-slot:hover{transform:translate(-50%,-50%) scale(1.08)}
+  #birdcage-slot img{width:80%;height:80%;object-fit:contain;image-rendering:pixelated}
+  #birdcage-slot.empty{font-size:1.5rem;opacity:0.45}
+  .dex-tab-row{display:flex;gap:0.5rem;justify-content:center}
+  .dex-tab-btn{padding:0.4rem 0.9rem;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,0.04);color:var(--muted);font-size:0.8rem;font-weight:700;cursor:pointer}
+  .dex-tab-btn.active{background:rgba(248,208,48,0.2);border-color:#f8d030;color:var(--text)}
   .fish-dex-item{display:flex;flex-direction:column;align-items:center;gap:0.3rem;padding:0.6rem;border:1px solid var(--border);border-radius:12px}
   .fish-dex-item img{width:52px;height:52px;object-fit:contain;image-rendering:pixelated}
   .fish-dex-item.undiscovered img{filter:grayscale(1) brightness(0.55)}
@@ -234,6 +243,12 @@
   .sling-projectile.flying{cursor:default}
   .sling-timer{position:absolute;left:50%;top:8px;transform:translateX(-50%);font-size:0.78rem;font-weight:700;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,0.5);background:rgba(0,0,0,0.25);padding:0.15rem 0.6rem;border-radius:10px;z-index:2}
   .sling-hint{position:absolute;left:50%;bottom:36px;transform:translateX(-50%);font-size:0.72rem;color:rgba(255,255,255,0.85);text-shadow:0 1px 3px rgba(0,0,0,0.5);white-space:nowrap;pointer-events:none}
+  /* 命中血條——依BIRD_TYPES[birdType].hits顯示還要打幾次，Mega暴飛龍(rare)用金色，一般鳥用紅色 */
+  .sling-hp-wrap{position:absolute;left:50%;top:34px;transform:translateX(-50%);z-index:2;display:flex;flex-direction:column;align-items:center;gap:0.15rem;width:55%}
+  .sling-hp-name{font-size:0.72rem;font-weight:700;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,0.6)}
+  .sling-hp-bar{width:100%;height:8px;border-radius:5px;background:rgba(0,0,0,0.35);overflow:hidden;border:1px solid rgba(255,255,255,0.3)}
+  .sling-hp-fill{height:100%;background:#f05030;transition:width 0.25s ease-out}
+  .sling-hp-fill.rare{background:linear-gradient(90deg,#f8d030,#f8b030)}
   .catch-ball-btn{display:flex;flex-direction:column;align-items:center;gap:0.2rem;padding:0.5rem 0.8rem;border-radius:12px;border:2px solid var(--border);background:rgba(255,255,255,0.05);color:var(--text);font-size:0.72rem;font-weight:700;cursor:pointer}
   .catch-ball-btn .icon{width:28px;height:28px;image-rendering:pixelated}
   .catch-ball-btn:disabled{opacity:0.35;cursor:not-allowed}
@@ -445,6 +460,10 @@
     <h2>🎯 彈弓捕捉</h2>
     <div class="sling-scene" id="sling-stage">
       <div class="sling-timer" id="sling-timer">30</div>
+      <div class="sling-hp-wrap" id="sling-hp-wrap">
+        <div class="sling-hp-name" id="sling-hp-name"></div>
+        <div class="sling-hp-bar"><div class="sling-hp-fill" id="sling-hp-fill"></div></div>
+      </div>
       <img class="sling-wild" id="sling-wild-img" src="" alt="">
       <div class="sling-band" id="sling-band"></div>
       <div class="sling-anchor"></div>
@@ -452,6 +471,12 @@
       <div class="sling-hint">拖曳彈弓瞄準，放開發射</div>
     </div>
     <div class="modal-close" id="sling-close-btn" onclick="closeSlingshotScene()">放棄離開（退回 70 金幣）</div>
+  </div>
+</div>
+<div id="bird-result-modal" class="modal-overlay" onclick="closeBirdResultModal()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <h2>🎯 彈弓結果</h2>
+    <div id="bird-result-body"></div>
   </div>
 </div>
 <div id="fish-tank-modal" class="modal-overlay" onclick="closeFishTankModal()">
@@ -465,10 +490,22 @@
 </div>
 <div id="fish-dex-modal" class="modal-overlay" onclick="closeFishDexModal()">
   <div class="modal-box" onclick="event.stopPropagation()">
-    <h2>🔊 魚圖鑑</h2>
-    <div class="ts-subtitle" style="font-size:0.75rem;color:var(--muted);text-align:center">彩色＝已釣到過，黑白＝尚未發現</div>
+    <h2 id="dex-modal-title">🔊 收藏圖鑑</h2>
+    <div class="dex-tab-row">
+      <button class="dex-tab-btn active" id="dex-tab-fish" onclick="switchDexTab('fish')">🐟 魚類</button>
+      <button class="dex-tab-btn" id="dex-tab-bird" onclick="switchDexTab('bird')">🐦 鳥類</button>
+    </div>
+    <div class="ts-subtitle" style="font-size:0.75rem;color:var(--muted);text-align:center">彩色＝已捕捉過，黑白＝尚未發現</div>
     <div class="fish-dex-grid" id="fish-dex-grid"></div>
     <div class="modal-close" onclick="closeFishDexModal()">關閉</div>
+  </div>
+</div>
+<div id="birdcage-modal" class="modal-overlay" onclick="closeBirdcageModal()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <h2>🐦 我的鳥籠</h2>
+    <div class="ts-subtitle" style="font-size:0.75rem;color:var(--muted);text-align:center">選一隻放進鳥籠展示</div>
+    <div id="birdcage-list"></div>
+    <div class="modal-close" onclick="closeBirdcageModal()">關閉</div>
   </div>
 </div>
 
@@ -747,6 +784,8 @@ let decorations = []; // [{ id, itemId, x, y, scale }] —— x/y為null代表�
 let shopItems = null; // 從 /api/shop 抓一次快取起來，跟BADGES一樣是純資料registry
 let caughtFish = []; // [{ id, fishType, name, speciesId, shiny, caughtAt }]
 let displayFishData = null; // { id, fishType, name, speciesId, shiny } | null —— 目前魚缸展示的那隻
+let caughtBirds = []; // [{ id, birdType, name, speciesId, caughtAt }] —— 彈弓小遊戲收藏，跟caughtFish同一套模式
+let displayBirdData = null; // { id, birdType, name, speciesId } | null —— 目前鳥籠展示的那隻
 let pokeDisplayIds = [null, null, null]; // 3個展示位各自展示的寶可夢id（POKEMON陣列的id），null=空
 let pokeDisplayFlipped = [false, false, false]; // 3個展示位各自是否水平翻轉（純視覺偏好）
 let openDisplaySlot = null; // 目前開著的展示選擇彈窗是在編輯第幾個展示位（1/2/3）
@@ -760,6 +799,7 @@ const BADGE_PLACE_LIMIT = 4;
 // 徽章在右上角、魚缸在下方、聲納再下方）
 const DEFAULT_FISH_TANK_POS = { x: 0.90, y: 0.24 };
 const DEFAULT_FISH_DEX_POS  = { x: 0.90, y: 0.42 };
+const DEFAULT_BIRDCAGE_POS  = { x: 0.90, y: 0.60 };
 // 寶可夢展示台3個展示位——跟魚缸/魚圖鑑對稱地放在房間左側
 const DEFAULT_POKE_DISPLAY_POS = [
   { x: 0.10, y: 0.20 },
@@ -786,6 +826,8 @@ async function init() {
     decorations = data.decorations || [];
     caughtFish = data.fish || [];
     displayFishData = data.displayFish || null;
+    caughtBirds = data.birds || [];
+    displayBirdData = data.displayBird || null;
     pokeDisplayIds = (pet && pet.pokeDisplayIds) || [null, null, null];
     pokeDisplayFlipped = (pet && pet.pokeDisplayFlipped) || [false, false, false];
     await ensureShopItems(); // 先抓好道具資料，房間插槽才能正確顯示已擺放道具的圖示
@@ -893,6 +935,14 @@ function startStage() {
   stage.appendChild(fishDexSlot);
   positionFreeform(fishDexSlot, pet.fishDexPos || DEFAULT_FISH_DEX_POS);
   makeDraggable(fishDexSlot, stage, (x, y) => saveFixturePosition('fish_dex', x, y));
+
+  const birdcageSlot = document.createElement('div');
+  birdcageSlot.id = 'birdcage-slot';
+  birdcageSlot.onclick = () => { if (!decorateMode) openBirdcageModal(); };
+  stage.appendChild(birdcageSlot);
+  positionFreeform(birdcageSlot, pet.birdcagePos || DEFAULT_BIRDCAGE_POS);
+  makeDraggable(birdcageSlot, stage, (x, y) => saveFixturePosition('birdcage', x, y));
+  renderBirdcage();
 
   // 寶可夢展示台——3個各自獨立、可拖曳的展示位，取代「我的收藏」側欄
   for (let n = 1; n <= 3; n++) {
@@ -2074,7 +2124,7 @@ const SLING_MAX_PULL = 90;       // 拉弓最大距離(px)，超過就夾住，�
 const SLING_PROJECTILE_SIZE = 20;
 const SLING_WILD_SIZE = 64;
 
-let slingState = null; // { pokemonId, name, tier, expiresAt, wildX, wildY, wildVX, dragging, flying, vx, vy, rafId, anchorX, anchorY, stageW, stageH, ended }
+let slingState = null; // { birdType, name, speciesId, rare, hits, hitsRemaining, expiresAt, wildX, wildY, wildVX, dragging, flying, vx, vy, rafId, anchorX, anchorY, stageW, stageH, ended }
 
 async function openSlingshotScene() {
   if (!pet) return;
@@ -2095,14 +2145,18 @@ async function openSlingshotScene() {
     const stage = document.getElementById('sling-stage');
     const rect = stage.getBoundingClientRect();
     slingState = {
-      pokemonId: data.pokemonId, name: data.name, tier: data.tier, expiresAt: data.expiresAt,
+      birdType: data.birdType, name: data.name, speciesId: data.speciesId, rare: !!data.rare,
+      hits: data.hits, hitsRemaining: data.hitsRemaining, expiresAt: data.expiresAt,
       wildX: rect.width * 0.5, wildY: 60, wildVX: 70 + Math.random() * 40,
       dragging: false, flying: false, vx: 0, vy: 0, ended: false,
       stageW: rect.width, stageH: rect.height,
       anchorX: rect.width / 2, anchorY: rect.height - 20,
       wildDir: Math.random() < 0.5 ? 1 : -1, tBase: performance.now(),
     };
-    document.getElementById('sling-wild-img').src = catchSpriteUrl(data.pokemonId);
+    const wildImg = document.getElementById('sling-wild-img');
+    wildImg.src = teamAnimatedSpriteUrl(data.speciesId);
+    wildImg.onerror = () => handleTeamSpriteError(wildImg, data.speciesId);
+    renderSlingHpBar();
     setupSlingDrag();
     slingState.lastTs = performance.now();
     slingState.rafId = requestAnimationFrame(slingLoop);
@@ -2110,6 +2164,15 @@ async function openSlingshotScene() {
     showToast('連線失敗，請再試一次');
     document.getElementById('sling-scene-modal').classList.remove('open');
   }
+}
+
+function renderSlingHpBar() {
+  if (!slingState) return;
+  document.getElementById('sling-hp-name').textContent = `${slingState.name}${slingState.rare ? ' ✨' : ''}`;
+  const pct = Math.max(0, Math.round((slingState.hitsRemaining / slingState.hits) * 100));
+  const fill = document.getElementById('sling-hp-fill');
+  fill.style.width = pct + '%';
+  fill.classList.toggle('rare', slingState.rare);
 }
 
 function resetSlingProjectile() {
@@ -2169,6 +2232,7 @@ function setupSlingDrag() {
     slingState.projX = slingState.anchorX; slingState.projY = slingState.anchorY;
     slingState.vx = -pullDx * SLING_POWER;
     slingState.vy = -pullDy * SLING_POWER;
+    slingState.launchTs = performance.now(); // 出界判定的最短飛行時間保護要用，見slingLoop
   };
 }
 
@@ -2187,7 +2251,9 @@ function slingLoop(ts) {
   const margin = SLING_WILD_SIZE / 2 + 6;
   if (slingState.wildX < margin) { slingState.wildX = margin; slingState.wildDir = 1; }
   if (slingState.wildX > slingState.stageW - margin) { slingState.wildX = slingState.stageW - margin; slingState.wildDir = -1; }
-  const wildY = 50 + Math.sin((ts - slingState.tBase) / 650) * 26;
+  // 上緣留給倒數計時／血條HUD（見.sling-timer/.sling-hp-wrap），鳥的飄動範圍往下移，
+  // 避免飛到最高點時跟HUD文字重疊
+  const wildY = 75 + Math.sin((ts - slingState.tBase) / 650) * 22;
   slingState.wildY = wildY;
   const wildEl = document.getElementById('sling-wild-img');
   wildEl.style.left = (slingState.wildX - SLING_WILD_SIZE / 2) + 'px';
@@ -2214,8 +2280,12 @@ function slingLoop(ts) {
     // 出界＝沒打中，重置彈丸讓玩家再拉一次（時間還沒到的話）。下緣的判定要求vy>0（正在下墜）
     // 才算數——拉弓本身就會把起始位置拉到彈弓下方（甚至低於stage下緣），發射瞬間還在往上飛
     // (vy<0)時不能誤判成「掉出下緣」，只有真的飛到最高點開始往下掉、又低於下緣才算沒打中。
-    if (slingState.projX < -30 || slingState.projX > slingState.stageW + 30 ||
-        (slingState.vy > 0 && slingState.projY > slingState.stageH + 30)) {
+    // 額外再加一個「發射後至少150ms內不判出界」的保護——某些拉弓方向（例如往目標方向拉，
+    // 放開後往反方向即下方發射）在極短時間內就會同時滿足上面的條件，玩家會感覺「怎麼拉都射不出去」，
+    // 這裡強制給每一發至少150ms的可見飛行時間，不論往哪個方向拉都一樣。
+    const airborneMs = ts - slingState.launchTs;
+    if (airborneMs > 150 && (slingState.projX < -30 || slingState.projX > slingState.stageW + 30 ||
+        (slingState.vy > 0 && slingState.projY > slingState.stageH + 30))) {
       slingState.flying = false;
       resetSlingProjectile();
     }
@@ -2228,13 +2298,13 @@ async function onSlingHit() {
   if (!slingState || slingState.ended) return;
   slingState.ended = true;
   cancelAnimationFrame(slingState.rafId);
-  const pokemonId = slingState.pokemonId;
+  const birdType = slingState.birdType;
   document.getElementById('sling-wild-img').classList.add('shaking');
   try {
     const res = await fetch('/api/pet/slingshot/hit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${myToken}` },
-      body: JSON.stringify({ pokemonId }),
+      body: JSON.stringify({ birdType }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -2242,9 +2312,17 @@ async function onSlingHit() {
       closeSlingModalOnly();
       return;
     }
-    if (!data.caught && !data.fled) {
-      // 命中了但沒抓到，遭遇還在進行——恢復動畫讓玩家可以再拉一次
-      showToast(`${slingState.name} 掙脫了！再瞄準一次`);
+    if (data.fled) {
+      // 激烈反抗直接飛走——遭遇結束，沒集滿次數
+      showToast(`${slingState.name} 激烈反抗，飛走了！`);
+      closeSlingModalOnly();
+      return;
+    }
+    if (!data.caught) {
+      // 命中但還沒集滿次數，遭遇還在進行——更新血條，恢復動畫讓玩家繼續打
+      slingState.hitsRemaining = data.hitsRemaining;
+      renderSlingHpBar();
+      showToast(`命中！還要打中 ${data.hitsRemaining} 次`);
       slingState.ended = false;
       document.getElementById('sling-wild-img').classList.remove('shaking');
       resetSlingProjectile();
@@ -2252,13 +2330,32 @@ async function onSlingHit() {
       slingState.rafId = requestAnimationFrame(slingLoop);
       return;
     }
-    // 抓到了，或激烈反抗逃跑——這次遭遇結束，沿用地面捕捉同一套結果彈窗
+    // 集滿次數，真的捕捉成功——加進鳥類收藏（跟地面捕捉的隊伍不同，沒有重複/隊伍已滿的問題）
     closeSlingModalOnly();
-    showCatchResult(data);
+    caughtBirds.unshift({ id: data.birdId, birdType: data.birdType, name: data.name, speciesId: data.speciesId, rare: data.rare, caughtAt: data.caughtAt });
+    _birdDexCache = null; // 圖鑑快取失效，下次打開重新抓，反映剛捕捉到的新發現
+    showBirdResult(data);
   } catch (e) {
     showToast('連線失敗，請再試一次');
     closeSlingModalOnly();
   }
+}
+
+function showBirdResult(data) {
+  const body = document.getElementById('bird-result-body');
+  body.innerHTML = `
+    <div class="catch-result-sprite-wrap"><img src="${teamAnimatedSpriteUrl(data.speciesId)}" alt="${data.name}" onerror="handleTeamSpriteError(this, ${data.speciesId})"></div>
+    <div class="catch-result-name">${data.name}${data.rare ? ' ✨' : ''}</div>
+    <div style="align-self:center;font-weight:700;color:#78c850">加入鳥籠收藏了！</div>
+    <div class="modal-close" onclick="closeBirdResultModal()">關閉</div>
+  `;
+  document.getElementById('bird-result-modal').classList.add('open');
+  const rect = body.getBoundingClientRect();
+  setTimeout(() => triggerFirework(rect.left + rect.width / 2, rect.top + 80), 200);
+}
+
+function closeBirdResultModal() {
+  document.getElementById('bird-result-modal').classList.remove('open');
 }
 
 function closeSlingModalOnly() {
@@ -2367,14 +2464,45 @@ async function sellDuplicateFish() {
    魚圖鑑——列出FISH_TYPES每一種魚，未發現的套灰階濾鏡。每次開啟都重新抓一次最新的
    discovered狀態（不快取），畢竟玩家可能剛去釣魚回來，資料不會頻繁變動但也不貴，直接重抓最簡單。
 ───────────────────────────────────────── */
+// 魚圖鑑／鳥圖鑑合併成同一個modal用tab切換（使用者要求「圖鑑可以放一起」）——兩邊資料各自
+// 抓一次就快取起來，切換tab不用每次都重打API，跟原本fish-dex-modal共用同一個彈窗/grid元素。
+let _dexTab = 'fish';
+let _fishDexCache = null;
+let _birdDexCache = null;
 async function openFishDexModal() {
+  _dexTab = 'fish';
+  document.getElementById('dex-tab-fish').classList.add('active');
+  document.getElementById('dex-tab-bird').classList.remove('active');
   document.getElementById('fish-dex-modal').classList.add('open');
-  document.getElementById('fish-dex-grid').innerHTML = '<div style="font-size:0.82rem;color:var(--muted);text-align:center;grid-column:1/-1">載入中...</div>';
+  await renderActiveDexTab();
+}
+
+async function switchDexTab(tab) {
+  _dexTab = tab;
+  document.getElementById('dex-tab-fish').classList.toggle('active', tab === 'fish');
+  document.getElementById('dex-tab-bird').classList.toggle('active', tab === 'bird');
+  await renderActiveDexTab();
+}
+
+async function renderActiveDexTab() {
+  const grid = document.getElementById('fish-dex-grid');
+  grid.innerHTML = '<div style="font-size:0.82rem;color:var(--muted);text-align:center;grid-column:1/-1">載入中...</div>';
   try {
-    const res = await fetch('/api/pet/fish/dex', { headers: { Authorization: `Bearer ${myToken}` } });
-    if (!res.ok) return;
-    const data = await res.json();
-    renderFishDexGrid(data.dex);
+    if (_dexTab === 'fish') {
+      if (!_fishDexCache) {
+        const res = await fetch('/api/pet/fish/dex', { headers: { Authorization: `Bearer ${myToken}` } });
+        if (!res.ok) return;
+        _fishDexCache = (await res.json()).dex;
+      }
+      renderFishDexGrid(_fishDexCache);
+    } else {
+      if (!_birdDexCache) {
+        const res = await fetch('/api/pet/bird/dex', { headers: { Authorization: `Bearer ${myToken}` } });
+        if (!res.ok) return;
+        _birdDexCache = (await res.json()).dex;
+      }
+      renderBirdDexGrid(_birdDexCache);
+    }
   } catch (e) { /* 網路暫時失敗，維持載入中的畫面 */ }
 }
 
@@ -2384,6 +2512,16 @@ function renderFishDexGrid(dex) {
     <div class="fish-dex-item${f.discovered ? '' : ' undiscovered'}">
       <img src="${fishSpriteUrl(f.speciesId, f.shiny)}" alt="${f.name}">
       <div class="name">${f.name}</div>
+    </div>
+  `).join('');
+}
+
+function renderBirdDexGrid(dex) {
+  const grid = document.getElementById('fish-dex-grid');
+  grid.innerHTML = dex.map(b => `
+    <div class="fish-dex-item${b.discovered ? '' : ' undiscovered'}">
+      <img src="${teamAnimatedSpriteUrl(b.speciesId)}" alt="${b.name}" onerror="handleTeamSpriteError(this, ${b.speciesId})">
+      <div class="name">${b.name}</div>
     </div>
   `).join('');
 }
@@ -2407,6 +2545,63 @@ async function setDisplayFish(fishId) {
     displayFishData = caughtFish.find(f => f.id === fishId) || null;
     renderFishTank();
     closeFishTankModal();
+  } catch (e) { /* 網路暫時失敗，維持原狀讓玩家再試一次 */ }
+}
+
+/* ─────────────────────────────────────────
+   鳥籠——彈弓小遊戲捕捉到的鳥類收藏展示，跟魚缸(#fish-tank-slot/renderFishTank)同一套模式，
+   只是動態圖用teamAnimatedSpriteUrl/handleTeamSpriteError（有靜態圖/官方原畫的退回機制），
+   不是fishAnimatedSpriteUrl（那個沒有退回機制）——因為Mega暴飛龍用的是mega表單id(10089)，
+   不是真的全國圖鑑編號，PokeAPI的Gen5動圖資料夾不會有這個id，一定要靠退回機制才不會顯示壞圖。
+───────────────────────────────────────── */
+function renderBirdcage() {
+  const slot = document.getElementById('birdcage-slot');
+  if (!slot) return;
+  if (displayBirdData) {
+    slot.className = '';
+    slot.title = `${displayBirdData.name}（點擊查看鳥籠）`;
+    slot.innerHTML = `<img src="${teamAnimatedSpriteUrl(displayBirdData.speciesId)}" alt="${displayBirdData.name}" onerror="handleTeamSpriteError(this, ${displayBirdData.speciesId})">`;
+  } else {
+    slot.className = 'empty';
+    slot.title = '尚無展示鳥類（點擊查看鳥籠）';
+    slot.innerHTML = '🐦';
+  }
+}
+
+function openBirdcageModal() {
+  renderBirdcageList();
+  document.getElementById('birdcage-modal').classList.add('open');
+}
+
+function closeBirdcageModal() {
+  document.getElementById('birdcage-modal').classList.remove('open');
+}
+
+function renderBirdcageList() {
+  const list = document.getElementById('birdcage-list');
+  list.innerHTML = caughtBirds.length
+    ? caughtBirds.map(b => {
+        const caughtDate = b.caughtAt ? new Date(b.caughtAt).toLocaleDateString() : '';
+        return `<div class="fish-list-item">
+          <img src="${teamAnimatedSpriteUrl(b.speciesId)}" alt="${b.name}" onerror="handleTeamSpriteError(this, ${b.speciesId})" onclick="setDisplayBird(${b.id})">
+          <div class="name${b.rare ? ' legendary' : ''}" onclick="setDisplayBird(${b.id})">${b.name}</div>
+          <div class="caught-at">${caughtDate}</div>
+        </div>`;
+      }).join('')
+    : '<div style="font-size:0.82rem;color:var(--muted);text-align:center">還沒有用彈弓捕捉到任何鳥類</div>';
+}
+
+async function setDisplayBird(birdId) {
+  try {
+    const res = await fetch('/api/pet/bird/display', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${myToken}` },
+      body: JSON.stringify({ birdId }),
+    });
+    if (!res.ok) return;
+    displayBirdData = caughtBirds.find(b => b.id === birdId) || null;
+    renderBirdcage();
+    closeBirdcageModal();
   } catch (e) { /* 網路暫時失敗，維持原狀讓玩家再試一次 */ }
 }
 

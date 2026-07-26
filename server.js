@@ -428,18 +428,22 @@ const PENDING_RELEASE_TTL_MS = 2 * 60 * 1000;
 const DECOR_PLACE_LIMIT = 6;
 const BADGE_PLACE_LIMIT = 4;
 
-/* 彈弓小遊戲——拉弓瞄準飛行中的寶可夢，命中後才真的捕捉進隊伍。跟地面捕捉（/api/pet/catch/*）
-   共用同一套「命中判定分兩層」模型：client端拖曳拋物線物理+畫面碰撞判定「有沒有命中」（技巧層，
-   client決定），命中後才呼叫這裡的/hit端點，由伺服器擲一次真正的捕捉成功率（機率層，server決定）——
-   避免變成純RNG，也避免client直接偽造「命中了」就能無條件穩定捕捉稀有飛行系神獸。
-   跟地面捕捉刻意不同的地方：沒有選球機制（命中率是固定值，不像地面捕捉分三種球），遭遇用固定
-   30秒真實倒數（不像地面捕捉每次沒抓到就展延過期時間）——時間到寶可夢就真的飛走，沒有退款。 */
-const FLYING_POOL = POKEMON.filter(p => p.type === 'flying' || p.type2 === 'flying');
+/* 彈弓小遊戲——拉弓瞄準飛行中的鳥類，命中後累計命中次數，次數集滿才真的捕捉進「鳥類收藏」
+   （獨立於隊伍/戰鬥，跟釣魚的pet_fish同一套模式，見BIRD_TYPES）。跟地面捕捉（/api/pet/catch/*）
+   共用「命中判定分兩層」的精神：client端拖曳拋物線物理+畫面碰撞判定「有沒有命中」（技巧層，
+   client決定），每次命中都呼叫這裡的/hit端點由伺服器扣減命中次數（伺服器端權威計數，不信任
+   client回報「這是第幾次命中」）——避免client直接偽造「已經打滿次數」就能無條件捕捉稀有鳥類。
+   2026-07-26 改版：原本命中後還要再擲一次SLINGSHOT_HIT_RATE捕捉機率，現在改成「命中次數集滿
+   （依BIRD_TYPES[birdType].hits，一般鳥1~3次、Mega暴飛龍5次）就一定捕捉成功」——命中次數本身
+   已經是難度/運氣的呈現方式，疊加一層機率反而讓「明明打中了却抓不到」的挫折感沒有意義。
+   跟地面捕捉刻意不同的地方：沒有選球機制，遭遇用固定30秒真實倒數（不像地面捕捉每次沒抓到就
+   展延過期時間）——時間到鳥就真的飛走，沒有退款。 */
 const SLINGSHOT_ENCOUNTER_COST = 80;
 const SLINGSHOT_GIVEUP_REFUND = 70; // 花80，主動放棄退70（扣的10算「探索費」不退，跟地面捕捉同一比例邏輯）
-const SLINGSHOT_HIT_RATE = 0.75; // 命中後的基礎捕捉成功率，一樣會乘上CATCH_TIER_MULT
 const SLINGSHOT_TTL_MS = 30 * 1000; // 30秒真實倒數，不像地面捕捉的activeEncounters會展延
-const activeSlingshotEncounters = new Map(); // userId -> { pokemonId, name, tier, expiresAt }
+// 命中但還沒集滿次數時，小機率讓鳥直接飛走結束遭遇（跟地面捕捉的FIERCE_RESISTANCE_CHANCE
+// 共用同一個值，維持一點真實感的緊張感，不是每次命中都保證能繼續打）
+const activeSlingshotEncounters = new Map(); // userId -> { birdType, name, hits, hitsRemaining, expiresAt }
 
 /* 釣魚結果registry——weight加總曾經=100可以直接當百分比讀，2026-07-20加入蓋歐卡（機率要精準到0.1%）
    後全部×10改用整數（加總=1001），蓋歐卡=1/1001≈0.0999%。黃金鯉魚王/紅色暴鯉龍/蓋歐卡刻意不生新素材，
@@ -454,6 +458,38 @@ const FISH_TYPES = {
   'red-gyarados':    { name: '紅色暴鯉龍', weight: 50,  speciesId: 130, shiny: true,  sellPrice: 80 },
   'kyogre':          { name: '蓋歐卡',     weight: 1,   speciesId: 382, shiny: false, sellPrice: 500, legendary: true },
 };
+
+/* 彈弓小遊戲的鳥類收藏——跟FISH_TYPES同一套registry-driven設計（weight抽獎、獨立於戰鬥用
+   POKEMON陣列，只借speciesId拿PokeAPI sprite），但這裡沒有「none」失手項目，因為彈弓的
+   命中/落空已經在client端物理判定過了，遭遇一旦真的命中就一定屬於某一種鳥，不會像釣魚
+   那樣連「有沒有咬餌」都要用一次weight抽獎決定。
+   10隻一般鳥（先隨機挑，之後可以再調整名單）+ 1隻稀有的「Mega暴飛龍」（見POKEMON裡
+   id:373的mega欄位，spriteId:10089）。weight用19×10+10=200，Mega暴飛龍抽中機率剛好10/200=5%。
+   hits＝需要命中幾次才能捕捉成功（依寶可夢設定，Mega暴飛龍要5次，其餘1~3次）。 */
+const BIRD_TYPES = {
+  'pidgeot':     { name: '大比鳥',   speciesId: 18,  weight: 19, hits: 1 },
+  'staraptor':   { name: '姆克鷹',   speciesId: 398, weight: 19, hits: 2 },
+  'corviknight': { name: '鋼鎧鴉',   speciesId: 823, weight: 19, hits: 2 },
+  'honchkrow':   { name: '烏鴉頭頭', speciesId: 430, weight: 19, hits: 2 },
+  'talonflame':  { name: '烈箭鷹',   speciesId: 663, weight: 19, hits: 2 },
+  'skarmory':    { name: '盔甲鳥',   speciesId: 227, weight: 19, hits: 3 },
+  'hawlucha':    { name: '摔角鷹人', speciesId: 701, weight: 19, hits: 1 },
+  'fearow':      { name: '大嘴雀',   speciesId: 22,  weight: 19, hits: 1 },
+  'swellow':     { name: '大王燕',   speciesId: 277, weight: 19, hits: 2 },
+  'dodrio':      { name: '多多利',   speciesId: 85,  weight: 19, hits: 3 },
+  'mega-salamence': { name: 'Mega暴飛龍', speciesId: 10089, weight: 10, hits: 5, rare: true },
+};
+function rollBird() {
+  const entries = Object.entries(BIRD_TYPES);
+  const total = entries.reduce((s, [, b]) => s + b.weight, 0); // 200
+  let r = Math.random() * total;
+  for (const [id, b] of entries) {
+    if (r < b.weight) return id;
+    r -= b.weight;
+  }
+  return entries[entries.length - 1][0];
+}
+
 function rollFish() {
   const entries = Object.entries(FISH_TYPES);
   const total = entries.reduce((s, [, f]) => s + f.weight, 0); // 100
@@ -2377,7 +2413,8 @@ app.get('/api/pet', requireAuth, async (req, res) => {
               display_poke1_id, display_poke2_id, display_poke3_id,
               poke_display1_pos_x, poke_display1_pos_y, poke_display2_pos_x, poke_display2_pos_y,
               poke_display3_pos_x, poke_display3_pos_y,
-              poke_display1_flip, poke_display2_flip, poke_display3_flip
+              poke_display1_flip, poke_display2_flip, poke_display3_flip,
+              display_bird_id, birdcage_pos_x, birdcage_pos_y
        FROM pets WHERE user_id = $1`, [req.user.id]
     );
     const { rows: badgeRows } = await pool.query('SELECT badge_id, pos_x, pos_y FROM user_badges WHERE user_id = $1', [req.user.id]);
@@ -2391,9 +2428,15 @@ app.get('/api/pet', requireAuth, async (req, res) => {
     );
     const fish = fishRows.map(r => ({ id: r.id, fishType: r.fish_type, caughtAt: r.caught_at, isFavorite: r.is_favorite, ...FISH_TYPES[r.fish_type] }));
     const displayFish = rows[0].display_fish_id ? (fish.find(f => f.id === rows[0].display_fish_id) || null) : null;
+    const { rows: birdRows } = await pool.query(
+      'SELECT id, bird_type, caught_at FROM pet_birds WHERE user_id = $1 ORDER BY caught_at DESC', [req.user.id]
+    );
+    const birds = birdRows.map(r => ({ id: r.id, birdType: r.bird_type, caughtAt: r.caught_at, ...BIRD_TYPES[r.bird_type] }));
+    const displayBird = rows[0].display_bird_id ? (birds.find(b => b.id === rows[0].display_bird_id) || null) : null;
     const balls = { ballNormal: rows[0].ball_normal, ballGreat: rows[0].ball_great, ballUltra: rows[0].ball_ultra };
     const fishTankPos = rows[0].fish_tank_pos_x != null ? { x: rows[0].fish_tank_pos_x, y: rows[0].fish_tank_pos_y } : null;
     const fishDexPos = rows[0].fish_dex_pos_x != null ? { x: rows[0].fish_dex_pos_x, y: rows[0].fish_dex_pos_y } : null;
+    const birdcagePos = rows[0].birdcage_pos_x != null ? { x: rows[0].birdcage_pos_x, y: rows[0].birdcage_pos_y } : null;
     const pokeDisplayIds = [rows[0].display_poke1_id, rows[0].display_poke2_id, rows[0].display_poke3_id];
     const pokeDisplayPos = [
       rows[0].poke_display1_pos_x != null ? { x: rows[0].poke_display1_pos_x, y: rows[0].poke_display1_pos_y } : null,
@@ -2402,8 +2445,8 @@ app.get('/api/pet', requireAuth, async (req, res) => {
     ];
     const pokeDisplayFlipped = [rows[0].poke_display1_flip, rows[0].poke_display2_flip, rows[0].poke_display3_flip];
     res.json({
-      pet: { speciesId: rows[0].species_id, happiness: rows[0].happiness, coins: rows[0].coins, hunger, ...balls, fishTankPos, fishDexPos, pokeDisplayIds, pokeDisplayPos, pokeDisplayFlipped },
-      badges, decorations, fish, displayFish,
+      pet: { speciesId: rows[0].species_id, happiness: rows[0].happiness, coins: rows[0].coins, hunger, ...balls, fishTankPos, fishDexPos, birdcagePos, pokeDisplayIds, pokeDisplayPos, pokeDisplayFlipped },
+      badges, decorations, fish, displayFish, birds, displayBird,
     });
   } catch (e) {
     console.error('pet fetch error:', e.message);
@@ -2705,8 +2748,8 @@ app.post('/api/pet/catch/resolve-release', requireAuth, async (req, res) => {
   }
 });
 
-/* 彈弓第1步：花80金幣讓一隻飛行系寶可夢出現，開始30秒真實倒數。跟地面捕捉的encounter一樣，
-   不判定捕捉成功與否——瞄準/命中的技巧層完全在client端跑，真正的捕捉機率留到/hit才由伺服器擲。 */
+/* 彈弓第1步：花80金幣讓一隻鳥（依BIRD_TYPES的weight隨機抽）出現，開始30秒真實倒數，
+   同時記下這隻要打中幾次才能捕捉成功（hitsRemaining，伺服器權威計數）。 */
 app.post('/api/pet/slingshot/encounter', requireAuth, async (req, res) => {
   const existing = activeSlingshotEncounters.get(req.user.id);
   if (existing && existing.expiresAt > Date.now()) {
@@ -2721,77 +2764,56 @@ app.post('/api/pet/slingshot/encounter', requireAuth, async (req, res) => {
       const { rows: existsRows } = await pool.query('SELECT 1 FROM pets WHERE user_id = $1', [req.user.id]);
       return res.status(existsRows.length ? 400 : 404).json({ error: existsRows.length ? 'not_enough_coins' : 'no_pet' });
     }
-    const wild = FLYING_POOL[Math.floor(Math.random() * FLYING_POOL.length)];
+    const birdType = rollBird();
+    const bird = BIRD_TYPES[birdType];
     const expiresAt = Date.now() + SLINGSHOT_TTL_MS;
-    activeSlingshotEncounters.set(req.user.id, { pokemonId: wild.id, name: wild.name, tier: wild.tier, expiresAt });
-    res.json({ coins: rows[0].coins, pokemonId: wild.id, name: wild.name, tier: wild.tier, expiresAt });
+    activeSlingshotEncounters.set(req.user.id, { birdType, name: bird.name, hits: bird.hits, hitsRemaining: bird.hits, expiresAt });
+    res.json({ coins: rows[0].coins, birdType, name: bird.name, speciesId: bird.speciesId, hits: bird.hits, hitsRemaining: bird.hits, rare: !!bird.rare, expiresAt });
   } catch (e) {
     console.error('slingshot encounter error:', e.message);
     res.status(503).json({ error: 'db_error' });
   }
 });
 
-/* 彈弓第2步：client回報「命中了」（畫面碰撞判定已經在client端算完），伺服器這裡只負責擲
-   真正的捕捉成功率（SLINGSHOT_HIT_RATE×tier係數）並依隊伍狀態決定加入/發金幣/待放生——
-   跟/api/pet/catch/throw同一套「不信任client回報結果」+交易保護寫法，只是沒有球可以扣。
-   沒抓到不代表遭遇結束：只要還沒過30秒，寶可夢會再度進入畫面讓玩家可以再次瞄準，
-   除非骰到「激烈反抗」直接飛走（跟地面捕捉共用同一個FIERCE_RESISTANCE_CHANCE）。 */
+/* 彈弓第2步：client回報「命中了」（畫面碰撞判定已經在client端算完），伺服器只負責權威地扣減
+   命中次數——不信任client回報「這是第幾次命中」，每次呼叫都只當作一次命中來處理。次數還沒
+   歸零就代表遭遇還在進行（回傳目前剩餘次數，client據此更新血條），只有真的打滿次數那一下
+   才真的寫進pet_birds收藏（跟釣魚pet_fish同一套registry-driven+discovered永久紀錄）。
+   小機率讓鳥直接飛走結束遭遇（跟地面捕捉共用FIERCE_RESISTANCE_CHANCE），沒飛走的話時限不展延。 */
 app.post('/api/pet/slingshot/hit', requireAuth, async (req, res) => {
-  const pokemonId = Number(req.body?.pokemonId);
-  const wild = FLYING_POOL.find(p => p.id === pokemonId);
-  if (!wild) return res.status(400).json({ error: 'invalid_request' });
+  const birdType = req.body?.birdType;
+  const bird = BIRD_TYPES[birdType];
+  if (!bird) return res.status(400).json({ error: 'invalid_request' });
 
   const encounter = activeSlingshotEncounters.get(req.user.id);
-  if (!encounter || encounter.pokemonId !== pokemonId || encounter.expiresAt < Date.now()) {
+  if (!encounter || encounter.birdType !== birdType || encounter.expiresAt < Date.now()) {
     return res.status(400).json({ error: 'no_active_encounter' });
   }
-  activeSlingshotEncounters.delete(req.user.id);
+  activeSlingshotEncounters.delete(req.user.id); // 先認領，避免併發hit重複扣次數（跟地面捕捉throw同一個教訓）
 
-  const client = await pool.connect();
+  const hitsRemaining = encounter.hitsRemaining - 1;
+  if (hitsRemaining > 0) {
+    const fierce = Math.random() < FIERCE_RESISTANCE_CHANCE;
+    if (!fierce) activeSlingshotEncounters.set(req.user.id, { ...encounter, hitsRemaining });
+    return res.json({ caught: false, fled: fierce, hitsRemaining, hits: bird.hits });
+  }
+
+  // 打滿次數——真的捕捉成功，寫進鳥類收藏（跟pet_fish同一套：不限量、不判重複，收藏是獨立於
+  // 隊伍的系列，沒有「隊伍已滿10隻」這種上限問題）
   try {
-    await client.query('BEGIN');
-    const rate = SLINGSHOT_HIT_RATE * (CATCH_TIER_MULT[wild.tier] ?? 1);
-    const success = Math.random() < rate;
-
-    if (!success) {
-      const fierce = Math.random() < FIERCE_RESISTANCE_CHANCE;
-      await client.query('COMMIT');
-      if (!fierce) activeSlingshotEncounters.set(req.user.id, encounter); // 時限不展延，維持原本的expiresAt
-      return res.json({ caught: false, fled: fierce });
-    }
-
-    const { rows: teamRows } = await client.query('SELECT pokemon_ids FROM teams WHERE user_id = $1', [req.user.id]);
-    const currentIds = teamRows[0]?.pokemon_ids || [];
-    let responsePayload, pendingRelease = null;
-    if (currentIds.includes(pokemonId)) {
-      const { rows: coinRows } = await client.query(
-        'UPDATE pets SET coins = coins + 300 WHERE user_id = $1 RETURNING coins', [req.user.id]
-      );
-      responsePayload = { caught: true, duplicate: true, coinsAwarded: 300, coins: coinRows[0].coins, pokemonId, name: wild.name };
-    } else if (currentIds.length < 10) {
-      const newIds = [...currentIds, pokemonId];
-      await client.query(
-        `INSERT INTO teams (user_id, pokemon_ids) VALUES ($1, $2)
-         ON CONFLICT (user_id) DO UPDATE SET pokemon_ids = $2, updated_at = NOW()`,
-        [req.user.id, newIds]
-      );
-      responsePayload = { caught: true, added: true, pokemonId, name: wild.name };
-    } else {
-      // 隊伍已滿10隻——直接重用地面捕捉同一個pendingCatchReleases Map跟/api/pet/catch/resolve-release
-      // 端點，這步驟邏輯跟捕捉來源（地面/彈弓）無關，不用另外新增一份
-      pendingRelease = { pokemonId, expiresAt: Date.now() + PENDING_RELEASE_TTL_MS };
-      responsePayload = { caught: true, needsRelease: true, pokemonId, name: wild.name };
-    }
-    await client.query('COMMIT');
-    if (pendingRelease) pendingCatchReleases.set(req.user.id, pendingRelease);
-    res.json(responsePayload);
+    const { rows: insertRows } = await pool.query(
+      'INSERT INTO pet_birds (user_id, bird_type) VALUES ($1, $2) RETURNING id, caught_at',
+      [req.user.id, birdType]
+    );
+    await pool.query(
+      'INSERT INTO pet_birds_discovered (user_id, bird_type) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [req.user.id, birdType]
+    );
+    res.json({ caught: true, birdType, name: bird.name, speciesId: bird.speciesId, rare: !!bird.rare, birdId: insertRows[0].id, caughtAt: insertRows[0].caught_at });
   } catch (e) {
-    try { await client.query('ROLLBACK'); } catch (_) { /* 連線本身可能已經斷了 */ }
-    activeSlingshotEncounters.set(req.user.id, encounter);
+    activeSlingshotEncounters.set(req.user.id, { ...encounter, hitsRemaining: 1 }); // 例外導致沒寫進去，讓玩家能再打最後一下重試
     console.error('slingshot hit error:', e.message);
     res.status(503).json({ error: 'db_error' });
-  } finally {
-    client.release();
   }
 });
 
@@ -2909,6 +2931,7 @@ const FIXTURE_POS_FIELDS = {
   poke_display1: ['poke_display1_pos_x', 'poke_display1_pos_y'],
   poke_display2: ['poke_display2_pos_x', 'poke_display2_pos_y'],
   poke_display3: ['poke_display3_pos_x', 'poke_display3_pos_y'],
+  birdcage: ['birdcage_pos_x', 'birdcage_pos_y'],
 };
 app.post('/api/pet/fixture/position', requireAuth, async (req, res) => {
   const { fixture } = req.body || {};
@@ -3076,6 +3099,36 @@ app.post('/api/pet/fish/display', requireAuth, async (req, res) => {
     res.json({});
   } catch (e) {
     console.error('pet fish display error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 鳥圖鑑——跟魚圖鑑（/api/pet/fish/dex）同一套邏輯，查pet_birds_discovered這張獨立的永久
+   紀錄表，不是看目前pet_birds裡還擁不擁有。 */
+app.get('/api/pet/bird/dex', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT bird_type FROM pet_birds_discovered WHERE user_id = $1', [req.user.id]);
+    const discoveredSet = new Set(rows.map(r => r.bird_type));
+    const dex = Object.entries(BIRD_TYPES)
+      .map(([birdType, info]) => ({ birdType, ...info, discovered: discoveredSet.has(birdType) }));
+    res.json({ dex });
+  } catch (e) {
+    console.error('pet bird dex error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+app.post('/api/pet/bird/display', requireAuth, async (req, res) => {
+  const birdId = req.body?.birdId ?? null;
+  try {
+    if (birdId !== null) {
+      const { rows } = await pool.query('SELECT 1 FROM pet_birds WHERE id = $1 AND user_id = $2', [birdId, req.user.id]);
+      if (!rows.length) return res.status(404).json({ error: 'not_owned' });
+    }
+    await pool.query('UPDATE pets SET display_bird_id = $1 WHERE user_id = $2', [birdId, req.user.id]);
+    res.json({});
+  } catch (e) {
+    console.error('pet bird display error:', e.message);
     res.status(503).json({ error: 'db_error' });
   }
 });
@@ -4114,6 +4167,24 @@ async function initDB() {
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS fish_tank_pos_y REAL`);
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS fish_dex_pos_x REAL`);
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS fish_dex_pos_y REAL`);
+    // 彈弓小遊戲的鳥類收藏——跟pet_fish/pet_fish_discovered同一套設計（SERIAL PK允許重複擁有
+    // 同一種、discovered表跟目前擁有量分開避免圖鑑因為之後可能的賣出/放生機制而倒退）。
+    // 必須排在下面ALTER TABLE pets之前，因為display_bird_id的外鍵參照到這張表。
+    await pool.query(`CREATE TABLE IF NOT EXISTS pet_birds (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      bird_type TEXT NOT NULL,
+      caught_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS pet_birds_discovered (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      bird_type TEXT NOT NULL,
+      discovered_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (user_id, bird_type)
+    )`);
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS display_bird_id INTEGER REFERENCES pet_birds(id) ON DELETE SET NULL`);
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS birdcage_pos_x REAL`);
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS birdcage_pos_y REAL`);
     // 寶可夢展示台——3個獨立展示位，取代「我的收藏」側欄。display_poke{n}_id只存POKEMON靜態
     // 陣列的id（跟teams.pokemon_ids本身的存法一致），不是外鍵；隊伍是陣列欄位沒有資料表列可以
     // 外鍵約束，展示中的寶可夢被放生時改成在resolve-release端點手動UPDATE清空（見該端點）。
