@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -c *)",
+      "mcp__claude-in-chrome__tabs_context_mcp",
+      "Bash(curl -s https://leftwind-pokemon-2v2.zeabur.app/*)",
+      "mcp__claude-in-chrome__read_console_messages",
+      "Bash(npm run verify)",
+      "Bash(pg_ctl -D /opt/homebrew/var/postgresql@16 status)",
+      "mcp__claude-in-chrome__read_page",
+      "mcp__claude-in-chrome__get_page_text",
+      "mcp__claude-in-chrome__find"
+    ]
+  }
+}
