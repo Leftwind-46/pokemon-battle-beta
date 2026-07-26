@@ -131,10 +131,11 @@
   #fish-dex-slot:hover{transform:translate(-50%,-50%) scale(1.08)}
 
   /* ── 鳥籠（彈弓小遊戲捕捉到的鳥類收藏展示，自由拖曳位置，跟魚缸同一套外觀慣例）── */
-  #birdcage-slot{position:absolute;transform:translate(-50%,-50%);z-index:6;width:64px;height:64px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:rgba(240,176,104,0.18);border:2px solid rgba(240,176,104,0.4);transition:transform 0.15s;overflow:hidden;touch-action:none}
+  /* 2026-07-26應使用者要求放大——原本跟魚缸一樣64px，鳥類sprite（尤其Showdown來源）看起來比魚小很多 */
+  #birdcage-slot{position:absolute;transform:translate(-50%,-50%);z-index:6;width:104px;height:104px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:rgba(240,176,104,0.18);border:2px solid rgba(240,176,104,0.4);transition:transform 0.15s;overflow:hidden;touch-action:none}
   #birdcage-slot:hover{transform:translate(-50%,-50%) scale(1.08)}
-  #birdcage-slot img{width:80%;height:80%;object-fit:contain;image-rendering:pixelated}
-  #birdcage-slot.empty{font-size:1.5rem;opacity:0.45}
+  #birdcage-slot img{width:88%;height:88%;object-fit:contain;image-rendering:pixelated}
+  #birdcage-slot.empty{font-size:2.2rem;opacity:0.45}
   .dex-tab-row{display:flex;gap:0.5rem;justify-content:center}
   .dex-tab-btn{padding:0.4rem 0.9rem;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,0.04);color:var(--muted);font-size:0.8rem;font-weight:700;cursor:pointer}
   .dex-tab-btn.active{background:rgba(248,208,48,0.2);border-color:#f8d030;color:var(--text)}
@@ -232,12 +233,19 @@
   .catch-ball-picker{display:flex;gap:0.6rem;justify-content:center;flex-wrap:wrap}
 
   /* ── 彈弓：拖曳拉弓瞄準飛行中的寶可夢，命中後才真的捕捉 ── */
-  .sling-scene{position:relative;width:100%;height:280px;border-radius:14px;overflow:hidden;background:linear-gradient(180deg,#4a7fc9 0%,#a8d4f0 100%);touch-action:none;user-select:none}
+  /* 2026-07-26應使用者回報「拉出框外會有bug」修正：原本overflow:hidden，但錨點在底部附近、
+     滿拉需要往下拉最多90px，正常瞄準（往目標反方向拉）幾乎每次都會把彈丸/橡皮筋拉出這個box的
+     下緣，被裁切到完全看不見，玩家會覺得「拉一拉東西就消失／卡住」。拿掉overflow:hidden後
+     沒打中的彈丸飛出範圍時也會被看到飛走，而不是在邊緣憑空消失，體驗上更直覺。 */
+  .sling-scene{position:relative;width:100%;height:280px;border-radius:14px;background:linear-gradient(180deg,#4a7fc9 0%,#a8d4f0 100%);touch-action:none;user-select:none}
   .sling-wild{position:absolute;width:64px;height:64px;image-rendering:pixelated;filter:drop-shadow(0 6px 8px rgba(0,0,0,0.35));transition:opacity 0.3s;will-change:left,top}
   .sling-wild.fled{opacity:0;transform:translateY(-40px)}
   .sling-wild.shaking{animation:slingWildShake 0.4s ease-in-out}
   @keyframes slingWildShake{0%,100%{rotate:0deg}25%{rotate:-10deg}75%{rotate:10deg}}
-  .sling-anchor{position:absolute;left:50%;bottom:14px;width:14px;height:14px;border-radius:50%;background:#5d4037;transform:translate(-50%,50%);box-shadow:0 0 0 3px rgba(93,64,55,0.35)}
+  /* 2026-07-26錨點從bottom:14px上移到110px——拿掉overflow:hidden只解決了裁切問題，但滿拉90px
+     還是會把彈丸拉到.modal-box本身的overflow-y:auto範圍外（modal-box的半透明背板疊在上面，
+     整顆彈丸完全看不到也點不到），錨點上移讓滿拉的範圍能完整留在box內，才是真正解決 */
+  .sling-anchor{position:absolute;left:50%;bottom:110px;width:14px;height:14px;border-radius:50%;background:#5d4037;transform:translate(-50%,50%);box-shadow:0 0 0 3px rgba(93,64,55,0.35)}
   .sling-band{position:absolute;left:50%;bottom:20px;height:2px;background:rgba(93,64,55,0.85);transform-origin:0 50%;pointer-events:none;display:none}
   .sling-projectile{position:absolute;width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#e03030 60%,#902020);box-shadow:0 2px 4px rgba(0,0,0,0.4);cursor:grab;touch-action:none}
   .sling-projectile.flying{cursor:default}
@@ -2162,7 +2170,9 @@ async function openSlingshotScene() {
       wildX: rect.width * 0.5, wildY: 60, wildVX: 70 + Math.random() * 40,
       dragging: false, flying: false, vx: 0, vy: 0, ended: false,
       stageW: rect.width, stageH: rect.height,
-      anchorX: rect.width / 2, anchorY: rect.height - 20,
+      // 錨點上移到bottom:110px（跟CSS的.sling-anchor對齊）——滿拉SLING_MAX_PULL(90px)才不會
+      // 拉出.sling-scene自己的高度範圍，見.sling-anchor那則說明
+      anchorX: rect.width / 2, anchorY: rect.height - 110,
       wildDir: Math.random() < 0.5 ? 1 : -1, tBase: performance.now(),
     };
     const wildImg = document.getElementById('sling-wild-img');
@@ -2191,8 +2201,10 @@ function renderSlingHpBar() {
 function resetSlingProjectile() {
   const proj = document.getElementById('sling-projectile');
   proj.classList.remove('flying');
-  proj.style.left = '50%';
-  proj.style.top = 'calc(100% - 34px)';
+  // 用slingState.anchorX/Y對齊錨點實際位置（跟.sling-anchor的bottom:110px一致）——
+  // 原本用固定的calc(100% - 34px)在錨點上移之後會跟視覺上的錨點對不齊
+  proj.style.left = slingState ? (slingState.anchorX + 'px') : '50%';
+  proj.style.top = (slingState ? slingState.anchorY : 170) + 'px';
   proj.style.transform = 'translate(-50%,-50%)';
   document.getElementById('sling-band').style.display = 'none';
 }
@@ -2246,6 +2258,15 @@ function setupSlingDrag() {
     slingState.vx = -pullDx * SLING_POWER;
     slingState.vy = -pullDy * SLING_POWER;
     slingState.launchTs = performance.now(); // 出界判定的最短飛行時間保護要用，見slingLoop
+  };
+  // 拉弓拉到box外（甚至拉出瀏覽器視窗）時，pointerup可能不會正常送達到projectile元素上——
+  // 瀏覽器在手勢被中斷時（例如視窗失焦、觸控被系統手勢接管）會改發pointercancel而不是
+  // pointerup，這裡沒接的話dragging會卡在true，玩家會覺得「拉出框外之後整個卡住點不動」。
+  // 當作取消處理（不發射），跟拉太短的邏輯一樣直接reset。
+  proj.onpointercancel = () => {
+    if (!slingState || !slingState.dragging) return;
+    slingState.dragging = false;
+    resetSlingProjectile();
   };
 }
 

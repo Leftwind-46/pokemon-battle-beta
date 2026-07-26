@@ -466,21 +466,23 @@ const FISH_TYPES = {
    那樣連「有沒有咬餌」都要用一次weight抽獎決定。
    10隻一般鳥（先隨機挑，之後可以再調整名單）+ 1隻稀有的「Mega暴飛龍」（見POKEMON裡
    id:373的mega欄位，spriteId:10089）。weight用19×10+10=200，Mega暴飛龍抽中機率剛好10/200=5%。
-   hits＝需要命中幾次才能捕捉成功（依寶可夢設定，Mega暴飛龍要5次，其餘1~3次）。
+   hits＝需要命中幾次才能捕捉成功（依寶可夢設定，Mega暴飛龍要5次，其餘一律2~3次——原本有3隻
+   設成hits:1，2026-07-26應使用者回報「打到血量就歸零，跟預期不一樣」拿掉，改成最少2次，
+   確保血條真的會看到「還沒空」的中間狀態，不要有一擊必中的鳥）。
    sellPrice——鳥籠比照魚缸有賣出機制（2026-07-26應使用者要求補上），依hits訂價（打越多下越貴）。
    showdownName——2026-07-26修正「鋼鎧鴉/Mega暴飛龍等等都不會動」的回報：PokeAPI的Gen5 B/W
    動圖只涵蓋到第五世代，鋼鎧鴉(Gen8)/烈箭鷹/摔角鷹人(Gen6)/Mega表單完全沒有這份動圖，
    一律靜態退回。改用Pokémon Showdown的動態sprite（play.pokemonshowdown.com/sprites/ani/
    {name}.gif，這11隻全部都有curl驗證過，含Mega表單），前端optionsUrl見bird相關render函式。 */
 const BIRD_TYPES = {
-  'pidgeot':     { name: '大比鳥',   speciesId: 18,  weight: 19, hits: 1, sellPrice: 15,  showdownName: 'pidgeot' },
+  'pidgeot':     { name: '大比鳥',   speciesId: 18,  weight: 19, hits: 2, sellPrice: 20,  showdownName: 'pidgeot' },
   'staraptor':   { name: '姆克鷹',   speciesId: 398, weight: 19, hits: 2, sellPrice: 25,  showdownName: 'staraptor' },
   'corviknight': { name: '鋼鎧鴉',   speciesId: 823, weight: 19, hits: 2, sellPrice: 25,  showdownName: 'corviknight' },
   'honchkrow':   { name: '烏鴉頭頭', speciesId: 430, weight: 19, hits: 2, sellPrice: 25,  showdownName: 'honchkrow' },
   'talonflame':  { name: '烈箭鷹',   speciesId: 663, weight: 19, hits: 2, sellPrice: 25,  showdownName: 'talonflame' },
   'skarmory':    { name: '盔甲鳥',   speciesId: 227, weight: 19, hits: 3, sellPrice: 40,  showdownName: 'skarmory' },
-  'hawlucha':    { name: '摔角鷹人', speciesId: 701, weight: 19, hits: 1, sellPrice: 15,  showdownName: 'hawlucha' },
-  'fearow':      { name: '大嘴雀',   speciesId: 22,  weight: 19, hits: 1, sellPrice: 15,  showdownName: 'fearow' },
+  'hawlucha':    { name: '摔角鷹人', speciesId: 701, weight: 19, hits: 2, sellPrice: 20,  showdownName: 'hawlucha' },
+  'fearow':      { name: '大嘴雀',   speciesId: 22,  weight: 19, hits: 2, sellPrice: 20,  showdownName: 'fearow' },
   'swellow':     { name: '大王燕',   speciesId: 277, weight: 19, hits: 2, sellPrice: 25,  showdownName: 'swellow' },
   'dodrio':      { name: '多多利',   speciesId: 85,  weight: 19, hits: 3, sellPrice: 40,  showdownName: 'dodrio' },
   'mega-salamence': { name: 'Mega暴飛龍', speciesId: 10089, weight: 10, hits: 5, rare: true, sellPrice: 300, showdownName: 'salamence-mega' },
