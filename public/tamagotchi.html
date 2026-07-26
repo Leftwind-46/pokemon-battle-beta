@@ -470,7 +470,7 @@
       <div class="sling-projectile" id="sling-projectile"></div>
       <div class="sling-hint">拖曳彈弓瞄準，放開發射</div>
     </div>
-    <div class="modal-close" id="sling-close-btn" onclick="closeSlingshotScene()">放棄離開（退回 70 金幣）</div>
+    <div class="modal-close" id="sling-close-btn" onclick="closeSlingshotScene()">放棄離開</div>
   </div>
 </div>
 <div id="bird-result-modal" class="modal-overlay" onclick="closeBirdResultModal()">
@@ -2249,8 +2249,24 @@ function setupSlingDrag() {
   };
 }
 
+// 拉弓拉到某些角度玩家回報「還是會卡死」——單靠幾何座標判斷出界條件很難窮舉所有邊界case，
+// 改用「不論什麼原因，發射超過SLING_MAX_FLIGHT_MS就強制判定沒打中」當保底：不管出界判定
+// 本身有沒有漏掉某個角度，彈丸最多在空中停留這麼久就一定會被收回，物理上不可能卡住。
+const SLING_MAX_FLIGHT_MS = 2500;
 function slingLoop(ts) {
   if (!slingState || slingState.ended) return;
+  try {
+    slingLoopStep(ts);
+  } catch (e) {
+    // 防止單一frame意外拋錯就讓整個rAF鏈silently停掉（畫面上會表現成「卡死不動」）——
+    // 記錄錯誤、把彈丸收回讓玩家能重新拉弓，而不是讓遊戲從此沒有任何畫面更新。
+    console.error('slingLoop error:', e);
+    if (slingState) { slingState.flying = false; resetSlingProjectile(); }
+  }
+  if (slingState && !slingState.ended) slingState.rafId = requestAnimationFrame(slingLoop);
+}
+
+function slingLoopStep(ts) {
   const dt = Math.min(0.05, (ts - slingState.lastTs) / 1000);
   slingState.lastTs = ts;
 
@@ -2282,8 +2298,6 @@ function slingLoop(ts) {
     proj.style.transform = 'translate(-50%,-50%)';
 
     // 碰撞判定：projectile跟野生寶可夢的畫面矩形是否重疊
-    const stage = document.getElementById('sling-stage');
-    const stageRect = stage.getBoundingClientRect();
     const projRect = proj.getBoundingClientRect();
     const wildRect = wildEl.getBoundingClientRect();
     const hit = !(projRect.right < wildRect.left || projRect.left > wildRect.right ||
@@ -2297,14 +2311,13 @@ function slingLoop(ts) {
     // 放開後往反方向即下方發射）在極短時間內就會同時滿足上面的條件，玩家會感覺「怎麼拉都射不出去」，
     // 這裡強制給每一發至少150ms的可見飛行時間，不論往哪個方向拉都一樣。
     const airborneMs = ts - slingState.launchTs;
-    if (airborneMs > 150 && (slingState.projX < -30 || slingState.projX > slingState.stageW + 30 ||
-        (slingState.vy > 0 && slingState.projY > slingState.stageH + 30))) {
+    const outOfBounds = slingState.projX < -30 || slingState.projX > slingState.stageW + 30 ||
+      (slingState.vy > 0 && slingState.projY > slingState.stageH + 30);
+    if ((airborneMs > 150 && outOfBounds) || airborneMs > SLING_MAX_FLIGHT_MS) {
       slingState.flying = false;
       resetSlingProjectile();
     }
   }
-
-  slingState.rafId = requestAnimationFrame(slingLoop);
 }
 
 async function onSlingHit() {
@@ -2397,18 +2410,12 @@ function endSlingEncounter(reason) {
   }
 }
 
-// 玩家主動放棄（時間還沒到）——退回70金幣；時間自然到期不算主動放棄，不會走這裡也沒有退款
-async function closeSlingshotScene() {
-  const hadEncounter = !!(slingState && !slingState.ended);
+// 玩家主動放棄（時間還沒到）——2026-07-26應使用者要求拿掉退款功能，直接關窗結束遭遇就好，
+// 不用再打一次giveup端點；跟時間自然到期一樣，這次彈弓的花費就直接算了
+function closeSlingshotScene() {
   if (slingState) { slingState.ended = true; if (slingState.rafId) cancelAnimationFrame(slingState.rafId); }
   document.getElementById('sling-scene-modal').classList.remove('open');
   slingState = null;
-  if (!hadEncounter) return;
-  try {
-    const res = await fetch('/api/pet/slingshot/giveup', { method: 'POST', headers: { Authorization: `Bearer ${myToken}` } });
-    const data = await res.json();
-    if (res.ok) { updateCoinsUI(data.coins); showToast(`已放棄，退回 🪙 ${data.refunded} 金幣`); }
-  } catch (e) { /* 網路失敗就算了，不影響UI關閉 */ }
 }
 
 function renderFishTank() {

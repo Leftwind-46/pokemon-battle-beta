@@ -439,7 +439,8 @@ const BADGE_PLACE_LIMIT = 4;
    跟地面捕捉刻意不同的地方：沒有選球機制，遭遇用固定30秒真實倒數（不像地面捕捉每次沒抓到就
    展延過期時間）——時間到鳥就真的飛走，沒有退款。 */
 const SLINGSHOT_ENCOUNTER_COST = 80;
-const SLINGSHOT_GIVEUP_REFUND = 70; // 花80，主動放棄退70（扣的10算「探索費」不退，跟地面捕捉同一比例邏輯）
+// 2026-07-26應使用者要求拿掉「主動放棄退款」功能——不論是提早關窗還是時間自然到期，
+// 這次彈弓的花費一律不退，跟地面捕捉的giveup機制不同，不用另外留一個常數/端點。
 const SLINGSHOT_TTL_MS = 30 * 1000; // 30秒真實倒數，不像地面捕捉的activeEncounters會展延
 // 命中但還沒集滿次數時，小機率讓鳥直接飛走結束遭遇（跟地面捕捉的FIERCE_RESISTANCE_CHANCE
 // 共用同一個值，維持一點真實感的緊張感，不是每次命中都保證能繼續打）
@@ -2818,27 +2819,6 @@ app.post('/api/pet/slingshot/hit', requireAuth, async (req, res) => {
   } catch (e) {
     activeSlingshotEncounters.set(req.user.id, { ...encounter, hitsRemaining: 1 }); // 例外導致沒寫進去，讓玩家能再打最後一下重試
     console.error('slingshot hit error:', e.message);
-    res.status(503).json({ error: 'db_error' });
-  }
-});
-
-/* 彈弓第3步（可選）：玩家主動放棄（時間還沒到就提早離開），退回70金幣。
-   時間自然到期（expiresAt過期）不算「主動放棄」，不會走這個端點，也不會退款——
-   跟地面捕捉的giveup不同的地方是彈弓的30秒本身就是遊戲張力的一部分，逾時要有真實代價。 */
-app.post('/api/pet/slingshot/giveup', requireAuth, async (req, res) => {
-  const encounter = activeSlingshotEncounters.get(req.user.id);
-  if (!encounter || encounter.expiresAt < Date.now()) {
-    return res.status(400).json({ error: 'no_active_encounter' });
-  }
-  try {
-    activeSlingshotEncounters.delete(req.user.id);
-    const { rows } = await pool.query('SELECT coins FROM pets WHERE user_id = $1', [req.user.id]);
-    if (!rows.length) return res.status(404).json({ error: 'no_pet' });
-    const coins = rows[0].coins + SLINGSHOT_GIVEUP_REFUND;
-    await pool.query('UPDATE pets SET coins = $1 WHERE user_id = $2', [coins, req.user.id]);
-    res.json({ coins, refunded: SLINGSHOT_GIVEUP_REFUND });
-  } catch (e) {
-    console.error('slingshot giveup error:', e.message);
     res.status(503).json({ error: 'db_error' });
   }
 });
