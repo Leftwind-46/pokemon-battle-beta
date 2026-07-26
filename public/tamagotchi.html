@@ -237,7 +237,7 @@
      滿拉需要往下拉最多90px，正常瞄準（往目標反方向拉）幾乎每次都會把彈丸/橡皮筋拉出這個box的
      下緣，被裁切到完全看不見，玩家會覺得「拉一拉東西就消失／卡住」。拿掉overflow:hidden後
      沒打中的彈丸飛出範圍時也會被看到飛走，而不是在邊緣憑空消失，體驗上更直覺。 */
-  .sling-scene{position:relative;width:100%;height:280px;border-radius:14px;background:linear-gradient(180deg,#4a7fc9 0%,#a8d4f0 100%);touch-action:none;user-select:none}
+  .sling-scene{position:relative;width:100%;height:280px;border-radius:14px;background:linear-gradient(180deg,#4a7fc9 0%,#a8d4f0 100%);touch-action:none;user-select:none;cursor:pointer}
   .sling-wild{position:absolute;width:64px;height:64px;image-rendering:pixelated;filter:drop-shadow(0 6px 8px rgba(0,0,0,0.35));transition:opacity 0.3s;will-change:left,top}
   .sling-wild.fled{opacity:0;transform:translateY(-40px)}
   .sling-wild.shaking{animation:slingWildShake 0.4s ease-in-out}
@@ -246,9 +246,14 @@
      還是會把彈丸拉到.modal-box本身的overflow-y:auto範圍外（modal-box的半透明背板疊在上面，
      整顆彈丸完全看不到也點不到），錨點上移讓滿拉的範圍能完整留在box內，才是真正解決 */
   .sling-anchor{position:absolute;left:50%;bottom:110px;width:14px;height:14px;border-radius:50%;background:#5d4037;transform:translate(-50%,50%);box-shadow:0 0 0 3px rgba(93,64,55,0.35)}
-  .sling-band{position:absolute;left:50%;bottom:20px;height:2px;background:rgba(93,64,55,0.85);transform-origin:0 50%;pointer-events:none;display:none}
-  .sling-projectile{position:absolute;width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#e03030 60%,#902020);box-shadow:0 2px 4px rgba(0,0,0,0.4);cursor:grab;touch-action:none}
-  .sling-projectile.flying{cursor:default}
+  /* 2026-07-26改成兩段點擊瞄準（角度→力道），取代原本的拖曳——箭頭在半圓範圍來回擺動，
+     點一下鎖定角度；接著力道條來回填滿，再點一下鎖定力道並發射。兩個都用pointer-events:none，
+     真正接收點擊的是#sling-stage本身（見setupSlingAim），這樣玩家不用精準點在小箭頭上。 */
+  .sling-arrow{position:absolute;font-size:2.4rem;line-height:1;color:#fff;text-shadow:0 2px 5px rgba(0,0,0,0.55);transform-origin:0% 50%;pointer-events:none;user-select:none}
+  .sling-power-wrap{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);width:70%;z-index:3;pointer-events:none}
+  .sling-power-bar{width:100%;height:14px;border-radius:7px;background:rgba(0,0,0,0.35);overflow:hidden;border:1px solid rgba(255,255,255,0.35)}
+  .sling-power-fill{height:100%;width:0%;background:linear-gradient(90deg,#78c850,#f8d030,#f05030)}
+  .sling-projectile{position:absolute;width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#e03030 60%,#902020);box-shadow:0 2px 4px rgba(0,0,0,0.4);pointer-events:none}
   .sling-timer{position:absolute;left:50%;top:8px;transform:translateX(-50%);font-size:0.78rem;font-weight:700;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,0.5);background:rgba(0,0,0,0.25);padding:0.15rem 0.6rem;border-radius:10px;z-index:2}
   .sling-hint{position:absolute;left:50%;bottom:36px;transform:translateX(-50%);font-size:0.72rem;color:rgba(255,255,255,0.85);text-shadow:0 1px 3px rgba(0,0,0,0.5);white-space:nowrap;pointer-events:none}
   /* 命中血條——依BIRD_TYPES[birdType].hits顯示還要打幾次，Mega暴飛龍(rare)用金色，一般鳥用紅色 */
@@ -473,10 +478,13 @@
         <div class="sling-hp-bar"><div class="sling-hp-fill" id="sling-hp-fill"></div></div>
       </div>
       <img class="sling-wild" id="sling-wild-img" src="" alt="">
-      <div class="sling-band" id="sling-band"></div>
       <div class="sling-anchor"></div>
+      <div class="sling-arrow" id="sling-arrow">➤</div>
+      <div class="sling-power-wrap" id="sling-power-wrap" style="display:none">
+        <div class="sling-power-bar"><div class="sling-power-fill" id="sling-power-fill"></div></div>
+      </div>
       <div class="sling-projectile" id="sling-projectile"></div>
-      <div class="sling-hint">拖曳彈弓瞄準，放開發射</div>
+      <div class="sling-hint" id="sling-hint">點擊鎖定角度</div>
     </div>
     <div class="modal-close" id="sling-close-btn" onclick="closeSlingshotScene()">放棄離開</div>
   </div>
@@ -2128,23 +2136,25 @@ async function confirmRelease(releasePokemonId) {
 }
 
 /* ─────────────────────────────────────────
-   彈弓小遊戲——拖曳拉弓瞄準飛行中的寶可夢，命中後才呼叫伺服器擲真正的捕捉成功率。
+   彈弓小遊戲——兩段點擊瞄準飛行中的寶可夢，命中後才呼叫伺服器擲真正的捕捉成功率。
    「有沒有命中」完全是client端物理+getBoundingClientRect()碰撞判定（技巧層），
    「命中後抓不抓得到」才是伺服器端的RNG（機率層）——跟捕捉小遊戲同一套兩層模型，
-   不用canvas，維持這個檔案既有的「絕對定位DOM元素+rAF更新left/top」風格
-   （裝潢拖曳makeDraggable、拜訪走位visitWalkTimers都是同一套）。
-───────────────────────────────────────── */
-// 這幾個常數要一起看：滿拉(SLING_MAX_PULL)時的初速是SLING_POWER*SLING_MAX_PULL，
-// 直線正上方發射能到達的最高點(相對發射點)是 初速²/(2*SLING_GRAVITY)。目標是滿拉垂直
-// 發射時要能爬升約200px以上（stage高280、彈弓錨點在底部附近，飛行寶可夢大約在頂部50~76px
-// 高度飄動），才有辦法真的構到目標，不是隨便給的數字。
+   不用canvas，維持這個檔案既有的「絕對定位DOM元素+rAF更新left/top」風格。
+   2026-07-26改版（取代原本的拖曳瞄準，應使用者要求）：第一次點擊鎖定角度（箭頭在半圓
+   範圍內來回擺動，θ=0°指向右邊、90°指向正上方、180°指向左邊，跟數學角度一致，畫面上
+   用CSS rotate(-θ)換算，因為screen座標Y軸方向跟數學角度相反）；鎖定後力道條開始來回
+   填滿，第二次點擊鎖定力道並依鎖定的角度+力道發射。 */
 const SLING_GRAVITY = 700;       // px/s^2
-const SLING_POWER = 6;           // 拉弓距離→初速的倍率
-const SLING_MAX_PULL = 90;       // 拉弓最大距離(px)，超過就夾住，避免無限加速
+const SLING_MIN_SPEED = 200;     // 力道0%對應初速(px/s)
+const SLING_MAX_SPEED = 560;     // 力道100%對應初速——沿用先前拖曳版本「滿拉可以爬升約200px」驗證過的數字
+const SLING_ANGLE_MIN = 15 * Math.PI / 180;   // 半圓範圍：接近水平（右）
+const SLING_ANGLE_MAX = 165 * Math.PI / 180;  // 到接近水平（左），中間掃過正上方
+const SLING_ANGLE_PERIOD_MS = 1600; // 角度來回擺動一次全程所需時間
+const SLING_POWER_PERIOD_MS = 1000; // 力道條來回填滿一次全程所需時間
 const SLING_PROJECTILE_SIZE = 20;
 const SLING_WILD_SIZE = 64;
 
-let slingState = null; // { birdType, name, speciesId, rare, hits, hitsRemaining, expiresAt, wildX, wildY, wildVX, dragging, flying, vx, vy, rafId, anchorX, anchorY, stageW, stageH, ended }
+let slingState = null; // { birdType, name, speciesId, rare, hits, hitsRemaining, expiresAt, wildX, wildY, wildVX, flying, vx, vy, rafId, anchorX, anchorY, stageW, stageH, ended, aimPhase:'angle'|'power'|null, aimAngle, aimPower, aimPhaseStartTs, lockedAngle }
 
 async function openSlingshotScene() {
   if (!pet) return;
@@ -2168,19 +2178,23 @@ async function openSlingshotScene() {
       birdType: data.birdType, name: data.name, speciesId: data.speciesId, showdownName: data.showdownName, rare: !!data.rare,
       hits: data.hits, hitsRemaining: data.hitsRemaining, expiresAt: data.expiresAt,
       wildX: rect.width * 0.5, wildY: 60, wildVX: 70 + Math.random() * 40,
-      dragging: false, flying: false, vx: 0, vy: 0, ended: false,
+      flying: false, vx: 0, vy: 0, ended: false,
       stageW: rect.width, stageH: rect.height,
-      // 錨點上移到bottom:110px（跟CSS的.sling-anchor對齊）——滿拉SLING_MAX_PULL(90px)才不會
+      // 錨點上移到bottom:110px（跟CSS的.sling-anchor對齊）——滿拉時彈道才不會
       // 拉出.sling-scene自己的高度範圍，見.sling-anchor那則說明
       anchorX: rect.width / 2, anchorY: rect.height - 110,
       wildDir: Math.random() < 0.5 ? 1 : -1, tBase: performance.now(),
+      aimPhase: 'angle', aimAngle: SLING_ANGLE_MIN, aimPower: 0, aimPhaseStartTs: performance.now(), lockedAngle: null,
     };
     const wildImg = document.getElementById('sling-wild-img');
     delete wildImg.dataset.fallback;
     wildImg.src = birdAnimatedSpriteUrl(data.showdownName);
     wildImg.onerror = () => handleBirdSpriteError(wildImg, data.showdownName, data.speciesId);
     renderSlingHpBar();
-    setupSlingDrag();
+    document.getElementById('sling-arrow').style.display = '';
+    document.getElementById('sling-power-wrap').style.display = 'none';
+    document.getElementById('sling-hint').textContent = '點擊鎖定角度';
+    setupSlingAim();
     slingState.lastTs = performance.now();
     slingState.rafId = requestAnimationFrame(slingLoop);
   } catch (e) {
@@ -2201,73 +2215,70 @@ function renderSlingHpBar() {
 function resetSlingProjectile() {
   const proj = document.getElementById('sling-projectile');
   proj.classList.remove('flying');
-  // 用slingState.anchorX/Y對齊錨點實際位置（跟.sling-anchor的bottom:110px一致）——
-  // 原本用固定的calc(100% - 34px)在錨點上移之後會跟視覺上的錨點對不齊
+  // 用slingState.anchorX/Y對齊錨點實際位置（跟.sling-anchor的bottom:110px一致）
   proj.style.left = slingState ? (slingState.anchorX + 'px') : '50%';
   proj.style.top = (slingState ? slingState.anchorY : 170) + 'px';
   proj.style.transform = 'translate(-50%,-50%)';
-  document.getElementById('sling-band').style.display = 'none';
 }
 
-function setupSlingDrag() {
-  const proj = document.getElementById('sling-projectile');
+// 點擊#sling-stage任一處都算數（不用精準點在小箭頭上）——依目前的瞄準階段決定這一下是
+// 「鎖定角度」還是「鎖定力道並發射」。真正接收點擊事件的是stage本身，箭頭/力道條都是
+// pointer-events:none的純視覺元素。
+function setupSlingAim() {
   const stage = document.getElementById('sling-stage');
-  const band = document.getElementById('sling-band');
+  stage.onclick = () => {
+    if (!slingState || slingState.ended || slingState.flying) return;
+    if (slingState.aimPhase === 'angle') {
+      slingState.lockedAngle = slingState.aimAngle;
+      slingState.aimPhase = 'power';
+      slingState.aimPower = 0;
+      slingState.aimPhaseStartTs = performance.now();
+      document.getElementById('sling-power-wrap').style.display = '';
+      document.getElementById('sling-hint').textContent = '點擊鎖定力道，發射！';
+    } else if (slingState.aimPhase === 'power') {
+      launchSling(slingState.lockedAngle, slingState.aimPower);
+    }
+  };
+}
 
-  function toStageCoords(e) {
-    const r = stage.getBoundingClientRect();
-    return { x: e.clientX - r.left, y: e.clientY - r.top };
-  }
+function renderSlingArrow(angle) {
+  const arrow = document.getElementById('sling-arrow');
+  arrow.style.left = slingState.anchorX + 'px';
+  arrow.style.top = slingState.anchorY + 'px';
+  // CSS rotate()是順時針、screen座標Y軸往下——跟數學角度(逆時針、Y軸往上)方向相反，取負號换算
+  arrow.style.transform = `translateY(-50%) rotate(${-angle * 180 / Math.PI}deg)`;
+}
 
-  proj.onpointerdown = (e) => {
-    if (!slingState || slingState.flying || slingState.ended) return;
-    slingState.dragging = true;
-    proj.setPointerCapture(e.pointerId);
-    band.style.display = 'block';
-  };
-  proj.onpointermove = (e) => {
-    if (!slingState || !slingState.dragging) return;
-    const p = toStageCoords(e);
-    const dx0 = p.x - slingState.anchorX, dy0 = p.y - slingState.anchorY;
-    const dist = Math.min(SLING_MAX_PULL, Math.hypot(dx0, dy0));
-    const ang = Math.atan2(dy0, dx0);
-    const px = slingState.anchorX + Math.cos(ang) * dist;
-    const py = slingState.anchorY + Math.sin(ang) * dist;
-    proj.style.left = px + 'px';
-    proj.style.top = py + 'px';
-    proj.style.transform = 'translate(-50%,-50%)';
-    band.style.left = slingState.anchorX + 'px';
-    band.style.width = dist + 'px';
-    band.style.transform = `rotate(${ang}rad)`;
-    slingState._pullX = px; slingState._pullY = py;
-  };
-  proj.onpointerup = (e) => {
-    if (!slingState || !slingState.dragging) return;
-    slingState.dragging = false;
-    band.style.display = 'none';
-    const px = slingState._pullX, py = slingState._pullY;
-    if (px == null) return;
-    const pullDx = px - slingState.anchorX, pullDy = py - slingState.anchorY;
-    const pullDist = Math.hypot(pullDx, pullDy);
-    if (pullDist < 12) { resetSlingProjectile(); return; } // 拉太短當作取消，不發射
-    slingState.flying = true;
-    proj.classList.add('flying');
-    // 發射起點用錨點本身（不是拉弓拉到的位置）——拉弓只決定方向／力道，
-    // 這樣滿拉的初速才能真的花在往目標移動上，不會有一段先浪費在「彈回錨點」的距離
-    slingState.projX = slingState.anchorX; slingState.projY = slingState.anchorY;
-    slingState.vx = -pullDx * SLING_POWER;
-    slingState.vy = -pullDy * SLING_POWER;
-    slingState.launchTs = performance.now(); // 出界判定的最短飛行時間保護要用，見slingLoop
-  };
-  // 拉弓拉到box外（甚至拉出瀏覽器視窗）時，pointerup可能不會正常送達到projectile元素上——
-  // 瀏覽器在手勢被中斷時（例如視窗失焦、觸控被系統手勢接管）會改發pointercancel而不是
-  // pointerup，這裡沒接的話dragging會卡在true，玩家會覺得「拉出框外之後整個卡住點不動」。
-  // 當作取消處理（不發射），跟拉太短的邏輯一樣直接reset。
-  proj.onpointercancel = () => {
-    if (!slingState || !slingState.dragging) return;
-    slingState.dragging = false;
-    resetSlingProjectile();
-  };
+function launchSling(angle, powerPct) {
+  const speed = SLING_MIN_SPEED + (SLING_MAX_SPEED - SLING_MIN_SPEED) * powerPct;
+  slingState.vx = Math.cos(angle) * speed;
+  slingState.vy = -Math.sin(angle) * speed;
+  slingState.projX = slingState.anchorX;
+  slingState.projY = slingState.anchorY;
+  slingState.flying = true;
+  slingState.aimPhase = null;
+  slingState.launchTs = performance.now(); // 出界判定的最短飛行時間保護要用，見slingLoop
+  document.getElementById('sling-projectile').classList.add('flying');
+  document.getElementById('sling-power-wrap').style.display = 'none';
+  document.getElementById('sling-arrow').style.display = 'none';
+  document.getElementById('sling-hint').textContent = '';
+}
+
+// 沒打中（出界／逾時）或命中但還沒集滿次數時，都要重新開始一輪瞄準——這是唯一重置
+// flying/aimPhase的地方，2026-07-26應使用者回報「同一發彈藥打中後重複計算命中」修正：
+// 原本命中但沒抓到時只呼叫resetSlingProjectile()（純視覺），沒有把slingState.flying
+// 設回false，導致下一個rAF frame的物理計算還是照舊跑（vx/vy/projX/projY都是命中當下的
+// 舊值），彈丸視覺上被搬回錨點但邏輯上還在原地繼續判定碰撞，同一下命中被重複算成好幾次。
+function restartAiming() {
+  slingState.flying = false;
+  slingState.aimPhase = 'angle';
+  slingState.aimAngle = SLING_ANGLE_MIN;
+  slingState.aimPower = 0;
+  slingState.aimPhaseStartTs = performance.now();
+  resetSlingProjectile();
+  document.getElementById('sling-power-wrap').style.display = 'none';
+  document.getElementById('sling-arrow').style.display = '';
+  document.getElementById('sling-hint').textContent = '點擊鎖定角度';
 }
 
 // 拉弓拉到某些角度玩家回報「還是會卡死」——單靠幾何座標判斷出界條件很難窮舉所有邊界case，
@@ -2280,9 +2291,9 @@ function slingLoop(ts) {
     slingLoopStep(ts);
   } catch (e) {
     // 防止單一frame意外拋錯就讓整個rAF鏈silently停掉（畫面上會表現成「卡死不動」）——
-    // 記錄錯誤、把彈丸收回讓玩家能重新拉弓，而不是讓遊戲從此沒有任何畫面更新。
+    // 記錄錯誤、重新開始一輪瞄準讓玩家能繼續玩，而不是讓遊戲從此沒有任何畫面更新。
     console.error('slingLoop error:', e);
-    if (slingState) { slingState.flying = false; resetSlingProjectile(); }
+    if (slingState) restartAiming();
   }
   if (slingState && !slingState.ended) slingState.rafId = requestAnimationFrame(slingLoop);
 }
@@ -2309,6 +2320,23 @@ function slingLoopStep(ts) {
   wildEl.style.left = (slingState.wildX - SLING_WILD_SIZE / 2) + 'px';
   wildEl.style.top = wildY + 'px';
 
+  // 瞄準階段：角度／力道用cosine緩動來回擺動(0→1→0)，跟slingState.aimPhaseStartTs算相對時間，
+  // 玩家點擊鎖定時直接讀目前算出來的瞬時值（見setupSlingAim）。
+  if (slingState.aimPhase === 'angle') {
+    const t = (ts - slingState.aimPhaseStartTs) % SLING_ANGLE_PERIOD_MS;
+    const progress = 0.5 - 0.5 * Math.cos(t / SLING_ANGLE_PERIOD_MS * 2 * Math.PI);
+    slingState.aimAngle = SLING_ANGLE_MIN + (SLING_ANGLE_MAX - SLING_ANGLE_MIN) * progress;
+    renderSlingArrow(slingState.aimAngle);
+    return;
+  }
+  if (slingState.aimPhase === 'power') {
+    const t = (ts - slingState.aimPhaseStartTs) % SLING_POWER_PERIOD_MS;
+    const progress = 0.5 - 0.5 * Math.cos(t / SLING_POWER_PERIOD_MS * 2 * Math.PI);
+    slingState.aimPower = progress;
+    document.getElementById('sling-power-fill').style.width = Math.round(progress * 100) + '%';
+    return;
+  }
+
   if (slingState.flying) {
     slingState.vy += SLING_GRAVITY * dt;
     slingState.projX += slingState.vx * dt;
@@ -2325,18 +2353,14 @@ function slingLoopStep(ts) {
                   projRect.bottom < wildRect.top || projRect.top > wildRect.bottom);
     if (hit) { onSlingHit(); return; }
 
-    // 出界＝沒打中，重置彈丸讓玩家再拉一次（時間還沒到的話）。下緣的判定要求vy>0（正在下墜）
-    // 才算數——拉弓本身就會把起始位置拉到彈弓下方（甚至低於stage下緣），發射瞬間還在往上飛
-    // (vy<0)時不能誤判成「掉出下緣」，只有真的飛到最高點開始往下掉、又低於下緣才算沒打中。
-    // 額外再加一個「發射後至少150ms內不判出界」的保護——某些拉弓方向（例如往目標方向拉，
-    // 放開後往反方向即下方發射）在極短時間內就會同時滿足上面的條件，玩家會感覺「怎麼拉都射不出去」，
-    // 這裡強制給每一發至少150ms的可見飛行時間，不論往哪個方向拉都一樣。
+    // 出界＝沒打中，重新開始一輪瞄準（時間還沒到的話）。下緣的判定要求vy>0（正在下墜）才算數，
+    // 剛發射時還在往上飛(vy<0)不該誤判成「掉出下緣」。額外加「發射後至少150ms內不判出界」的
+    // 保護＋SLING_MAX_FLIGHT_MS上限，避免任何幾何邊界case導致卡住（見下方SLING_MAX_FLIGHT_MS說明）。
     const airborneMs = ts - slingState.launchTs;
     const outOfBounds = slingState.projX < -30 || slingState.projX > slingState.stageW + 30 ||
       (slingState.vy > 0 && slingState.projY > slingState.stageH + 30);
     if ((airborneMs > 150 && outOfBounds) || airborneMs > SLING_MAX_FLIGHT_MS) {
-      slingState.flying = false;
-      resetSlingProjectile();
+      restartAiming();
     }
   }
 }
@@ -2366,13 +2390,16 @@ async function onSlingHit() {
       return;
     }
     if (!data.caught) {
-      // 命中但還沒集滿次數，遭遇還在進行——更新血條，恢復動畫讓玩家繼續打
+      // 命中但還沒集滿次數，遭遇還在進行——更新血條，重新開始一輪瞄準讓玩家繼續打。
+      // 用restartAiming()而不是單純resetSlingProjectile()：後者只重置視覺位置，沒有把
+      // flying設回false，會導致下一個frame的物理計算沿用命中當下的舊vx/vy/projX/projY
+      // 繼續跑，同一發彈藥在原地重複判定命中好幾次（2026-07-26應使用者回報修正）。
       slingState.hitsRemaining = data.hitsRemaining;
       renderSlingHpBar();
       showToast(`命中！還要打中 ${data.hitsRemaining} 次`);
       slingState.ended = false;
       document.getElementById('sling-wild-img').classList.remove('shaking');
-      resetSlingProjectile();
+      restartAiming();
       slingState.lastTs = performance.now();
       slingState.rafId = requestAnimationFrame(slingLoop);
       return;
