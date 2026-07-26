@@ -121,10 +121,18 @@
 
   /* ── 魚缸（自由拖曳位置——用left/top(百分比)+transform置中，不再是固定right/top）── */
   /* z-index同樣調到高於#pet-sprite(4)，理由同上面.decor-room-item的說明 */
-  #fish-tank-slot{position:absolute;transform:translate(-50%,-50%);z-index:6;width:64px;height:64px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:rgba(104,144,240,0.18);border:2px solid rgba(104,144,240,0.4);transition:transform 0.15s;overflow:hidden;touch-action:none}
+  /* 2026-07-26應使用者要求改成真的魚缸樣式：水體(藍)+底沙(棕)硬轉場、玻璃斜光澤、兩顆氣泡，
+     全部用background多層疊加畫出來（不用額外的::before/::after元素），確保一定畫在魚圖片下方，不會蓋住內容 */
+  #fish-tank-slot{position:absolute;transform:translate(-50%,-50%);z-index:6;width:74px;height:60px;border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    background:
+      radial-gradient(5px 5px at 60% 24%, rgba(255,255,255,0.65), rgba(255,255,255,0) 70%),
+      radial-gradient(4px 4px at 37% 42%, rgba(255,255,255,0.45), rgba(255,255,255,0) 70%),
+      linear-gradient(105deg, rgba(255,255,255,0.3) 6%, rgba(255,255,255,0) 24%),
+      linear-gradient(180deg, #cfe9ff 0%, #6fa3d6 62%, #c9a06a 62%, #93693c 100%);
+    border:3px solid rgba(210,235,255,0.65);box-shadow:inset 0 0 8px rgba(255,255,255,0.3),0 2px 6px rgba(0,0,0,0.35);transition:transform 0.15s;overflow:hidden;touch-action:none}
   #fish-tank-slot:hover{transform:translate(-50%,-50%) scale(1.08)}
-  #fish-tank-slot img{width:80%;height:80%;object-fit:contain;image-rendering:pixelated}
-  #fish-tank-slot.empty{font-size:1.5rem;opacity:0.45}
+  #fish-tank-slot img{width:76%;height:76%;object-fit:contain;image-rendering:pixelated}
+  #fish-tank-slot.empty{font-size:1.5rem;opacity:0.6}
 
   /* ── 魚圖鑑聲納按鈕（自由拖曳位置）── */
   #fish-dex-slot{position:absolute;transform:translate(-50%,-50%);z-index:6;width:64px;height:44px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.4rem;background:rgba(104,144,240,0.18);border:2px solid rgba(104,144,240,0.4);transition:transform 0.15s;touch-action:none}
@@ -132,10 +140,18 @@
 
   /* ── 鳥籠（彈弓小遊戲捕捉到的鳥類收藏展示，自由拖曳位置，跟魚缸同一套外觀慣例）── */
   /* 2026-07-26應使用者要求放大——原本跟魚缸一樣64px，鳥類sprite（尤其Showdown來源）看起來比魚小很多 */
-  #birdcage-slot{position:absolute;transform:translate(-50%,-50%);z-index:6;width:104px;height:104px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:rgba(240,176,104,0.18);border:2px solid rgba(240,176,104,0.4);transition:transform 0.15s;overflow:hidden;touch-action:none}
+  /* 2026-07-26應使用者要求外框改成窗戶樣式：木框+十字窗櫺(4片天空窗格)，取代原本的純色圓角方塊。
+     窗櫺一樣用background多層疊加畫出來，保證畫在鳥圖片下方 */
+  #birdcage-slot{position:absolute;transform:translate(-50%,-50%);z-index:6;width:104px;height:104px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    background:
+      linear-gradient(105deg, rgba(255,255,255,0.16) 6%, rgba(255,255,255,0) 22%),
+      linear-gradient(#8d5a34,#8d5a34) center / 6px 100% no-repeat,
+      linear-gradient(#8d5a34,#8d5a34) center / 100% 6px no-repeat,
+      linear-gradient(180deg, #bfe0f7 0%, #5f95d1 100%);
+    border:6px solid #8d5a34;box-shadow:inset 0 0 0 2px rgba(255,255,255,0.28),0 3px 8px rgba(0,0,0,0.35);transition:transform 0.15s;overflow:hidden;touch-action:none}
   #birdcage-slot:hover{transform:translate(-50%,-50%) scale(1.08)}
-  #birdcage-slot img{width:88%;height:88%;object-fit:contain;image-rendering:pixelated}
-  #birdcage-slot.empty{font-size:2.2rem;opacity:0.45}
+  #birdcage-slot img{width:82%;height:82%;object-fit:contain;image-rendering:pixelated}
+  #birdcage-slot.empty{font-size:2.2rem;opacity:0.6}
   .dex-tab-row{display:flex;gap:0.5rem;justify-content:center}
   .dex-tab-btn{padding:0.4rem 0.9rem;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,0.04);color:var(--muted);font-size:0.8rem;font-weight:700;cursor:pointer}
   .dex-tab-btn.active{background:rgba(248,208,48,0.2);border-color:#f8d030;color:var(--text)}
