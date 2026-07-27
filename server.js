@@ -288,7 +288,7 @@ const TRAINERS = [
   {id:'swarm-feast',    name:'蟲群啃食',   cat:'item', type:'bug', weight:10,      desc:'讓對方損失 8 點能量，其中 4 點轉給自己'},
   // ── 支援者牌屬性分類新卡 第二批（每種屬性再+2張，延續同一套屬性→機制對照表）──
   {id:'fire-fury',        name:'業火燎原',   cat:'item', type:'fire',     weight:10, desc:'若對手已有異常狀態，下次攻擊威力 +70；否則 +25'},
-  {id:'fire-resolve',     name:'灰燼決意',   cat:'item', type:'fire',     weight:10, desc:'自身損失 15 點能量，下次攻擊威力 ×1.3'},
+  {id:'fire-resolve',     name:'灰燼決意',   cat:'item', type:'fire',     weight:10, desc:'下次攻擊威力 ×1.3，下回合開始損失 15 點能量'},
   {id:'water-recover',    name:'水流恢復',   cat:'item', type:'water',    weight:10, desc:'立即回復 8 點能量'},
   {id:'water-aegis',      name:'大海之盾',   cat:'item', type:'water',    weight:10, desc:'下次受到攻擊傷害減少 50，並立即回復 3 點能量'},
   {id:'ground-heal',      name:'大地治癒',   cat:'item', type:'ground',   weight:10, desc:'立即回復上場寶可夢 15% 最大HP'},
@@ -340,7 +340,7 @@ const TRAINERS = [
   {id:'stadium-shrine',        name:'莊嚴神社',   cat:'stadium', type:'normal', weight:10, desc:'一般屬性招式一律視為剋制對手（效果拉滿 ×1.2）'},
   // ── stadium：屬性分類新卡 ──
   {id:'stadium-sandstorm',   name:'沙塵暴',   cat:'stadium', type:'ground', weight:10, desc:'非地面／岩石／鋼屬性寶可夢，每回合結束損失最大HP的12%'},
-  {id:'stadium-rock-field',  name:'岩石地帶', cat:'stadium', type:'rock', weight:10, desc:'岩石／地面／鋼屬性寶可夢，受到的攻擊傷害 -150'},
+  {id:'stadium-rock-field',  name:'岩石地帶', cat:'stadium', type:'rock', weight:10, desc:'岩石／地面／鋼屬性寶可夢，受到的攻擊傷害 -50，且不會再被剋制（弱點消除）'},
   // ── 競技場牌：8種先前沒有專屬場地的屬性（2026-07-23新增，各自搭配一個獨特玩法，不只是傷害數值）──
   {id:'stadium-electric-storm', name:'雷雲庇護所', cat:'stadium', type:'electric', weight:10, desc:'電屬性招式傷害 +30；每回合結束，雙方上場寶可夢若無異常狀態，20% 機率陷入麻痺'},
   {id:'stadium-ice-tundra',     name:'永凍冰原',   cat:'stadium', type:'ice',      weight:10, desc:'冰屬性招式傷害 +30；每回合結束，雙方上場寶可夢若無異常狀態，15% 機率陷入結凍'},
@@ -574,6 +574,11 @@ function srvEffActive(atkType, defType, defType2, G) {
   if (G?.activeStadium?.id === 'stadium-mystic-space') {
     if ((defType === 'psychic' || defType2 === 'psychic') && m > 1) m = 1;
   }
+  // 岩石地帶：2026-07-27應使用者要求，除了減傷之外再加碼「弱點消除」——岩石／地面／鋼屬性
+  // 寶可夢不會再被剋制，跟魔幻空間（psychic）同一套pattern
+  if (G?.activeStadium?.id === 'stadium-rock-field') {
+    if ((['rock','ground','steel'].includes(defType) || ['rock','ground','steel'].includes(defType2)) && m > 1) m = 1;
+  }
   // 2026-07-24應使用者要求「場地卡下修」，把m=5（compressMult=1.8）調回m=2（compressMult=1.2）
   if (G?.activeStadium?.id === 'stadium-shrine' && eAtk === 'normal') {
     m = 2;
@@ -781,7 +786,7 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
 
   /* Flash Fire: full immunity to fire-type moves, boosts own next attack instead */
   if (defenderAbility?.id === 'flash-fire' && atkType === 'fire') {
-    dBuff.atkBonus += 20;
+    dBuff.atkBonus = Math.max(dBuff.atkBonus, 20);
     log.push({ text: `${attacker.name} 使用了 ${atk.name}！`, cls: 'attack' });
     log.push({ text: `${defender.name} 的引火吸收了攻擊，下次攻擊威力提升！`, cls: 'special' });
     aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; aBuff.doubleStrike = false; aBuff.typeBoost = null; aBuff.ignoreShield = false; aBuff.guaranteedStatus = false; aBuff.costFree = false; aBuff.costHalved = false; dBuff.shield = 0; dBuff.iceImmune = false;
@@ -840,9 +845,10 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
   const lavaBonus = (G.activeStadium?.id === 'stadium-lava' && atkType === 'fire') ? 30 : 0;
   const lavaMult = (G.activeStadium?.id === 'stadium-lava' && atkType === 'water') ? 0.65 : 1;
   const oceanMult = (G.activeStadium?.id === 'stadium-ocean' && atkType === 'electric') ? 1.2 : 1;
-  // 岩石地帶：岩石／地面／鋼屬性寶可夢，受到攻擊固定減傷150（2026-07-22場地卡全面加強，從-80再放大）
+  // 岩石地帶：岩石／地面／鋼屬性寶可夢，受到攻擊固定減傷50（2026-07-27應使用者要求「-150太多了」下修，
+  // 從-150調回-50，並在srvEffActive()額外加碼「弱點消除」讓這張卡不只靠單一個數字撐強度）
   const rockFieldReduction = (G.activeStadium?.id === 'stadium-rock-field' &&
-    (['rock','ground','steel'].includes(defender.type) || ['rock','ground','steel'].includes(defender.type2))) ? 150 : 0;
+    (['rock','ground','steel'].includes(defender.type) || ['rock','ground','steel'].includes(defender.type2))) ? 50 : 0;
   // 反轉世界：反轉後如果仍然是「克制」（mult>1），額外+25固定傷害
   const invertBonus = (G.activeStadium?.id === 'stadium-invert' && mult > 1) ? 25 : 0;
   // 2026-07-23新增8張場地卡的傷害加成部分（獨特玩法另外在別處實作）
@@ -1155,7 +1161,7 @@ function executeSupportMoveSrv(attacker, defender, atk, role, op, G, log) {
       G[`${role}BonusSupporterDrawNextTurn`] = true;
       const aBuff = G[`${role}Buff`];
       // 2026-07-22應使用者要求：原本×1.02倍率太弱，改成固定+40傷害
-      aBuff.atkBonus += 40;
+      aBuff.atkBonus = Math.max(aBuff.atkBonus, 40);
       log.push({ text: `${attacker.name} 使出了詭計，下回合將額外抽 1 張支援者卡，下次攻擊威力 +40！`, cls: 'special' });
       break;
     }
@@ -1355,7 +1361,7 @@ function applyTrainer(card, role, G, log, chosenType) {
       break;
     }
     case 'x-atk':
-      buff.atkBonus += 40;
+      buff.atkBonus = Math.max(buff.atkBonus, 40);
       log.push({ text: `使用了攻擊強化，下次攻擊 +40 傷害！`, cls: 'system' });
       break;
     case 'x-def':
@@ -1566,7 +1572,7 @@ function applyTrainer(card, role, G, log, chosenType) {
       break;
     case 'focus-punch':
       // 2026-07-22應使用者要求：原本×1.04倍率太弱，改成固定+40傷害
-      buff.atkBonus += 40;
+      buff.atkBonus = Math.max(buff.atkBonus, 40);
       active.cur = Math.max(1, Math.round(active.cur * 0.8));
       log.push({ text: `使用了捨身猛擊，下次攻擊威力 +40！但 ${active.name} 損失了 20% 目前 HP！`, cls: 'system' });
       break;
@@ -1590,13 +1596,13 @@ function applyTrainer(card, role, G, log, chosenType) {
     }
     case 'desperate-boost': {
       const bonus = Math.round(50 * (1 - active.cur / active.hp));
-      buff.atkBonus += bonus;
+      buff.atkBonus = Math.max(buff.atkBonus, bonus);
       log.push({ text: `使用了背水一戰，HP 越低加成越高，下次攻擊威力 +${bonus}！`, cls: 'system' });
       break;
     }
     case 'double-strike':
       // 2026-07-22應使用者要求：原本×1.08倍率太弱，改成固定+40傷害；doubleStrike(狀態機率×2)本身不受影響
-      buff.atkBonus += 40;
+      buff.atkBonus = Math.max(buff.atkBonus, 40);
       buff.doubleStrike = true;
       log.push({ text: `使用了連擊，下次攻擊威力 +40，並將分兩段結算！`, cls: 'system' });
       break;
@@ -1613,7 +1619,7 @@ function applyTrainer(card, role, G, log, chosenType) {
       break;
     // ── 支援者牌：屬性分類新卡 ──
     case 'fire-nova': {
-      buff.atkBonus += 60;
+      buff.atkBonus = Math.max(buff.atkBonus, 60);
       const opDeck = G[`${op}Deck`]; const opActive = opDeck[G[`${op}Idx`]];
       if (Math.random() < 0.3 && inflictStatus(opActive, 'burn', 999)) {
         log.push({ text: `使用了${card.name}，下次攻擊威力 +60，${opActive.name} 陷入了燒傷！`, cls: 'special' });
@@ -1643,7 +1649,7 @@ function applyTrainer(card, role, G, log, chosenType) {
       log.push({ text: `使用了${card.name}，下次攻擊的異常狀態機率視為 100%！`, cls: 'system' });
       break;
     case 'breakthrough':
-      buff.atkBonus += 40;
+      buff.atkBonus = Math.max(buff.atkBonus, 40);
       buff.ignoreShield = true;
       log.push({ text: `使用了${card.name}，下次攻擊威力 +40，且無視對方的受傷減少效果！`, cls: 'system' });
       break;
@@ -1741,18 +1747,20 @@ function applyTrainer(card, role, G, log, chosenType) {
     case 'fire-fury': {
       const opActive = G[`${op}Deck`][G[`${op}Idx`]];
       if (opActive.status) {
-        buff.atkBonus += 70;
+        buff.atkBonus = Math.max(buff.atkBonus, 70);
         log.push({ text: `使用了${card.name}，對手已有異常狀態，下次攻擊威力 +70！`, cls: 'special' });
       } else {
-        buff.atkBonus += 25;
+        buff.atkBonus = Math.max(buff.atkBonus, 25);
         log.push({ text: `使用了${card.name}，下次攻擊威力 +25！`, cls: 'special' });
       }
       break;
     }
     case 'fire-resolve':
-      G[`${role}Energy`] = Math.max(0, (G[`${role}Energy`] || 0) - 15);
+      // 2026-07-27應使用者要求：原本當下直接扣15點能量太虧，改成跟集氣/bonusEnergy同一套
+      // promote-then-consume：這裡只記帳，下回合開始（drawForRole）才真的扣
+      G[`${role}EnergyLossNextTurn`] = (G[`${role}EnergyLossNextTurn`] || 0) + 15;
       buff.atkMult = Math.max(buff.atkMult, 1.3);
-      log.push({ text: `使用了${card.name}，損失 15 點能量，下次攻擊威力 ×1.3！`, cls: 'special' });
+      log.push({ text: `使用了${card.name}，下次攻擊威力 ×1.3，下回合開始損失 15 點能量！`, cls: 'special' });
       break;
     case 'water-recover':
       G[`${role}Energy`] = Math.min(20, (G[`${role}Energy`] || 0) + 8);
@@ -1820,10 +1828,10 @@ function applyTrainer(card, role, G, log, chosenType) {
     case 'psychic-foresight': {
       const opActive = G[`${op}Deck`][G[`${op}Idx`]];
       if (opActive.status) {
-        buff.atkBonus += 80;
+        buff.atkBonus = Math.max(buff.atkBonus, 80);
         log.push({ text: `使用了${card.name}，對手已有異常狀態，下次攻擊威力 +80！`, cls: 'special' });
       } else {
-        buff.atkBonus += 50;
+        buff.atkBonus = Math.max(buff.atkBonus, 50);
         log.push({ text: `使用了${card.name}，下次攻擊威力 +50！`, cls: 'special' });
       }
       break;
@@ -1831,10 +1839,10 @@ function applyTrainer(card, role, G, log, chosenType) {
     case 'fighting-crush': {
       const opBuff = G[`${op}Buff`];
       if (opBuff.shield > 0) {
-        buff.atkBonus += 90;
+        buff.atkBonus = Math.max(buff.atkBonus, 90);
         log.push({ text: `使用了${card.name}，對手持有防禦加成，下次攻擊威力 +90！`, cls: 'special' });
       } else {
-        buff.atkBonus += 60;
+        buff.atkBonus = Math.max(buff.atkBonus, 60);
         log.push({ text: `使用了${card.name}，下次攻擊威力 +60！`, cls: 'special' });
       }
       break;
@@ -1862,7 +1870,7 @@ function applyTrainer(card, role, G, log, chosenType) {
       const opActive = G[`${op}Deck`][G[`${op}Idx`]];
       buff.guaranteedStatus = true;
       if (opActive.megaEvolved) {
-        buff.atkBonus += 40;
+        buff.atkBonus = Math.max(buff.atkBonus, 40);
         log.push({ text: `使用了${card.name}，下次攻擊異常狀態機率 100%，對手為 Mega 型態，威力額外 +40！`, cls: 'special' });
       } else {
         log.push({ text: `使用了${card.name}，下次攻擊異常狀態機率視為 100%！`, cls: 'special' });
@@ -1872,7 +1880,7 @@ function applyTrainer(card, role, G, log, chosenType) {
     case 'dragon-fang':
       // 2026-07-23應使用者要求：原本-10點能量副作用太傷，改成-5
       G[`${role}Energy`] = Math.max(0, (G[`${role}Energy`] || 0) - 5);
-      buff.atkBonus += 90;
+      buff.atkBonus = Math.max(buff.atkBonus, 90);
       log.push({ text: `使用了${card.name}，損失 5 點能量，下次攻擊威力 +90！`, cls: 'special' });
       break;
     case 'dragon-cleanse': {
@@ -1913,7 +1921,7 @@ function applyTrainer(card, role, G, log, chosenType) {
       log.push({ text: `使用了${card.name}，下次承受傷害 -40，接下來 1 回合免疫異常狀態！`, cls: 'special' });
       break;
     case 'normal-allout':
-      buff.atkBonus += 35;
+      buff.atkBonus = Math.max(buff.atkBonus, 35);
       buff.costFree = true;
       log.push({ text: `使用了${card.name}，下次攻擊威力 +35，且不消耗能量！`, cls: 'special' });
       break;
@@ -1943,7 +1951,7 @@ function applyTrainer(card, role, G, log, chosenType) {
     }
     case 'dark-ambush': {
       const opBuff = G[`${op}Buff`];
-      buff.atkBonus += 50;
+      buff.atkBonus = Math.max(buff.atkBonus, 50);
       opBuff.atkMult = Math.min(opBuff.atkMult, 0.9);
       log.push({ text: `使用了${card.name}，下次攻擊威力 +50，並讓對手下次攻擊威力 ×0.9！`, cls: 'special' });
       break;
@@ -1961,10 +1969,10 @@ function applyTrainer(card, role, G, log, chosenType) {
     }
     case 'rock-slide':
       if (G.activeStadium) {
-        buff.atkBonus += 80;
+        buff.atkBonus = Math.max(buff.atkBonus, 80);
         log.push({ text: `使用了${card.name}，場上有競技場效果，下次攻擊威力 +80！`, cls: 'special' });
       } else {
-        buff.atkBonus += 55;
+        buff.atkBonus = Math.max(buff.atkBonus, 55);
         log.push({ text: `使用了${card.name}，下次攻擊威力 +55！`, cls: 'special' });
       }
       break;
@@ -2006,10 +2014,10 @@ function applyTrainer(card, role, G, log, chosenType) {
     case 'poison-strike': {
       const opActive = G[`${op}Deck`][G[`${op}Idx`]];
       if (opActive.status?.type === 'poison' || opActive.status2?.type === 'poison') {
-        buff.atkBonus += 80;
+        buff.atkBonus = Math.max(buff.atkBonus, 80);
         log.push({ text: `使用了${card.name}，對手已中毒，下次攻擊威力 +80！`, cls: 'special' });
       } else {
-        buff.atkBonus += 40;
+        buff.atkBonus = Math.max(buff.atkBonus, 40);
         log.push({ text: `使用了${card.name}，下次攻擊威力 +40！`, cls: 'special' });
       }
       break;
@@ -2017,7 +2025,7 @@ function applyTrainer(card, role, G, log, chosenType) {
     case 'bug-web': {
       const before = G[`${op}Energy`] || 0;
       G[`${op}Energy`] = Math.max(0, before - 6);
-      buff.atkBonus += 20;
+      buff.atkBonus = Math.max(buff.atkBonus, 20);
       log.push({ text: `使用了${card.name}，對方損失了 ${before - G[`${op}Energy`]} 點能量，自己下次攻擊威力 +20！`, cls: 'special' });
       break;
     }
@@ -2114,6 +2122,11 @@ function drawForRole(G, role) {
   if (G[`${role}BonusEnergyNextTurn`]) {
     G[`${role}Energy`] = Math.min(20, G[`${role}Energy`] + G[`${role}BonusEnergyNextTurn`]);
     G[`${role}BonusEnergyNextTurn`] = 0;
+  }
+  // 灰燼決意：上回合使用時承諾的「下回合損失能量」，這裡兌現後歸零（promote-then-consume）
+  if (G[`${role}EnergyLossNextTurn`]) {
+    G[`${role}Energy`] = Math.max(0, (G[`${role}Energy`] || 0) - G[`${role}EnergyLossNextTurn`]);
+    G[`${role}EnergyLossNextTurn`] = 0;
   }
   if (G.activeStadium?.id === 'stadium-mega-prism' && !G[`${role}MegaUsed`]) {
     G[`${role}MegaEnergy`] = Math.min(20, (G[`${role}MegaEnergy`] || 0) + 16);
