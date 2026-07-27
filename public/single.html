@@ -2987,20 +2987,10 @@ function renderSelCard(p, isSelected, onClick) {
   return el;
 }
 
-/* 隨機抽取寶可夢陣容，HP >= 300 的高血量寶可夢最多只能出現 1 隻 */
-function pickRandomRoster(n, pool = POKEMON, hpCap = 300, maxAtCap = 1) {
+/* 隨機抽取寶可夢陣容 */
+function pickRandomRoster(n, pool = POKEMON) {
   const shuffled = [...pool].sort(() => Math.random() - 0.5);
-  const result = [];
-  let capCount = 0;
-  for (const p of shuffled) {
-    if (result.length >= n) break;
-    if (p.hp >= hpCap) {
-      if (capCount >= maxAtCap) continue;
-      capCount++;
-    }
-    result.push(p);
-  }
-  return result;
+  return shuffled.slice(0, n);
 }
 
 function startGame() {
@@ -3115,7 +3105,6 @@ function showTeamSelectScreen() {
     `;
 
     const row = screen.querySelector('#ts-cards-row');
-    const hasHighHp = G.selectedIndices.some(i => G.playerRoster[i].hp >= 300);
     G.playerRoster.forEach((p, i) => {
       const isSelected = G.selectedIndices.includes(i);
       const card = renderSelCard(p, isSelected, () => {
@@ -3123,11 +3112,7 @@ function showTeamSelectScreen() {
         if (isSelected) {
           G.selectedIndices = G.selectedIndices.filter(x => x !== i);
         } else if (G.selectedIndices.length < 3) {
-          if (p.hp >= 300 && hasHighHp) {
-            tsErr = '每場最多只能選 1 隻血量 ≥300 的寶可夢出戰';
-          } else {
-            G.selectedIndices.push(i);
-          }
+          G.selectedIndices.push(i);
         }
         render();
       });
@@ -3182,7 +3167,6 @@ function renderSandboxPickScreen() {
     const filtered = POKEMON.filter(p => p.name.includes(G.sandboxSearch.trim()));
     const row = screen.querySelector('#sandbox-cards-row');
     row.innerHTML = '';
-    const hasHighHp = selected.some(p => p.hp >= 300);
     filtered.forEach(p => {
       const isSelected = selected.includes(p);
       const card = renderSelCard(p, isSelected, () => {
@@ -3190,11 +3174,7 @@ function renderSandboxPickScreen() {
         if (isSelected) {
           selected.splice(selected.indexOf(p), 1);
         } else if (selected.length < 3) {
-          if (p.hp >= 300 && hasHighHp) {
-            tsErr = '每場最多只能選 1 隻血量 ≥300 的寶可夢出戰';
-          } else {
-            selected.push(p);
-          }
+          selected.push(p);
         }
         renderCards();
         updateFooter();
