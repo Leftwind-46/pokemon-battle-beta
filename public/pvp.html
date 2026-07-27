@@ -954,7 +954,7 @@
         <li>羅馬鬥技場（格鬥屬性） — 格鬥屬性招式傷害 ×1.4；不再被幽靈屬性完全免疫</li>
         <li>魔幻空間（超能力屬性） — 超能力屬性寶可夢受到的傷害 ×0.75；弱點消失</li>
         <li>熔岩火山（火屬性） — 火屬性招式傷害 +75；水屬性招式傷害 ×0.65</li>
-        <li>海洋世界（水屬性） — 水屬性招式消耗能量 ×0.3；電屬性招式傷害 ×1.4</li>
+        <li>海洋世界（水屬性） — 水屬性招式消耗能量 ×0.3；電屬性招式傷害 ×1.4；水屬性寶可夢傷害額外 +40</li>
         <li>莊嚴神社（一般屬性） — 一般屬性招式一律視為剋制對手（效果拉滿 ×1.8）</li>
         <li>沙塵暴（地面屬性） — 非地面／岩石／鋼屬性寶可夢，每回合結束損失最大HP的12%</li>
         <li>岩石地帶（岩石屬性） — 岩石／地面／鋼屬性寶可夢，受到的攻擊傷害 -50，且不會再被剋制（弱點消除）</li>
@@ -2656,6 +2656,13 @@ function showResult(iWon, isDraw, winnerDeck, winnerRole) {
    TYPE CHART
 ───────────────────────────────────────── */
 function effectiveCost(atk, opponentPoke) {
+  // 電光石火／全力以赴：2026-07-28應使用者要求，原本「這次攻擊必定免費」改成「攻擊的寶可夢
+  // 或招式本身符合指定屬性才免費」——buff.costFreeType記著是哪個屬性（'electric'/'normal'）。
+  // 這裡是PvP client端純顯示用的copy，真正扣款驗證在server.js的effectiveCostSrv。
+  const buff = G.playerBuff;
+  const attackerPoke = P();
+  if (buff?.costFreeType && attackerPoke &&
+      (attackerPoke.type === buff.costFreeType || attackerPoke.type2 === buff.costFreeType || atk.type === buff.costFreeType)) return 0;
   let cost = atk.cost;
   // Ocean World: water-type moves cost ×0.3（2026-07-22場地卡全面加強）
   if (G.activeStadium?.id === 'stadium-ocean' && atk.type === 'water') cost = Math.floor(cost * 0.3);
