@@ -440,6 +440,10 @@ const BADGE_PLACE_LIMIT = 4;
    跟地面捕捉刻意不同的地方：沒有選球機制，遭遇用固定30秒真實倒數（不像地面捕捉每次沒抓到就
    展延過期時間）——時間到鳥就真的飛走，沒有退款。 */
 const SLINGSHOT_ENCOUNTER_COST = 80;
+// 2026-07-27新增：除了80金幣，也可以改付5顆一般精靈球——玩家在client端的選擇畫面二選一，
+// 這裡用paymentMethod區分兩條扣款路徑，跟地面捕捉「一定要選球」不同，彈弓本身沒有選球機制，
+// 這裡的球只是「代替金幣的付費方式」，不影響命中次數等遭遇本身的邏輯。
+const SLINGSHOT_BALL_COST = 5;
 // 2026-07-26應使用者要求拿掉「主動放棄退款」功能——不論是提早關窗還是時間自然到期，
 // 這次彈弓的花費一律不退，跟地面捕捉的giveup機制不同，不用另外留一個常數/端點。
 const SLINGSHOT_TTL_MS = 30 * 1000; // 30秒真實倒數，不像地面捕捉的activeEncounters會展延
@@ -2768,27 +2772,36 @@ app.post('/api/pet/slingshot/giveup', requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
-/* 彈弓第1步：花80金幣讓一隻鳥（依BIRD_TYPES的weight隨機抽）出現，開始30秒真實倒數，
-   同時記下這隻要打中幾次才能捕捉成功（hitsRemaining，伺服器權威計數）。 */
+/* 彈弓第1步：花80金幣或5顆一般精靈球（client端二選一，body.paymentMethod指定）讓一隻鳥
+   （依BIRD_TYPES的weight隨機抽）出現，開始30秒真實倒數，同時記下這隻要打中幾次才能捕捉
+   成功（hitsRemaining，伺服器權威計數）。不信任client算好的餘額，SQL的WHERE條件本身就是
+   權威扣款檢查——跟原本金幣那條路徑同一個寫法，球的路徑對ball_normal做一樣的事。 */
 app.post('/api/pet/slingshot/encounter', requireAuth, async (req, res) => {
   const existing = activeSlingshotEncounters.get(req.user.id);
   if (existing && existing.expiresAt > Date.now()) {
     return res.status(400).json({ error: 'encounter_in_progress' });
   }
+  const payWithBalls = req.body?.paymentMethod === 'balls';
   try {
-    const { rows } = await pool.query(
-      `UPDATE pets SET coins = coins - $1 WHERE user_id = $2 AND coins >= $1 RETURNING coins`,
-      [SLINGSHOT_ENCOUNTER_COST, req.user.id]
-    );
+    const { rows } = payWithBalls
+      ? await pool.query(
+          `UPDATE pets SET ball_normal = ball_normal - $1 WHERE user_id = $2 AND ball_normal >= $1 RETURNING coins, ball_normal`,
+          [SLINGSHOT_BALL_COST, req.user.id]
+        )
+      : await pool.query(
+          `UPDATE pets SET coins = coins - $1 WHERE user_id = $2 AND coins >= $1 RETURNING coins, ball_normal`,
+          [SLINGSHOT_ENCOUNTER_COST, req.user.id]
+        );
     if (!rows.length) {
       const { rows: existsRows } = await pool.query('SELECT 1 FROM pets WHERE user_id = $1', [req.user.id]);
-      return res.status(existsRows.length ? 400 : 404).json({ error: existsRows.length ? 'not_enough_coins' : 'no_pet' });
+      const errKey = payWithBalls ? 'not_enough_balls' : 'not_enough_coins';
+      return res.status(existsRows.length ? 400 : 404).json({ error: existsRows.length ? errKey : 'no_pet' });
     }
     const birdType = rollBird();
     const bird = BIRD_TYPES[birdType];
     const expiresAt = Date.now() + SLINGSHOT_TTL_MS;
     activeSlingshotEncounters.set(req.user.id, { birdType, name: bird.name, hits: bird.hits, hitsRemaining: bird.hits, expiresAt });
-    res.json({ coins: rows[0].coins, birdType, name: bird.name, speciesId: bird.speciesId, showdownName: bird.showdownName, hits: bird.hits, hitsRemaining: bird.hits, rare: !!bird.rare, expiresAt });
+    res.json({ coins: rows[0].coins, ballNormal: rows[0].ball_normal, birdType, name: bird.name, speciesId: bird.speciesId, showdownName: bird.showdownName, hits: bird.hits, hitsRemaining: bird.hits, rare: !!bird.rare, expiresAt });
   } catch (e) {
     console.error('slingshot encounter error:', e.message);
     res.status(503).json({ error: 'db_error' });

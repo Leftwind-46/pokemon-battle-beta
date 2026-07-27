@@ -57,7 +57,14 @@
   .happiness-track{flex:1;height:14px;border-radius:999px;background:rgba(255,255,255,0.1);overflow:hidden}
   .happiness-fill{height:100%;background:linear-gradient(90deg,#f8d030,#f05030);transition:width 0.4s ease}
   .hunger-fill{background:linear-gradient(90deg,#8bc34a,#4e9a2a)}
+  #pet-stage-wrap{position:relative;width:100%}
   #pet-stage{position:relative;width:100%;height:52vh;min-height:280px;border-radius:20px;border:2px solid var(--border);background:#141024;overflow:hidden}
+  /* 精靈球持有數量常駐顯示——蓋在房間場景左上角，z-index:10高於房間內所有裝飾/寶可夢圖層，
+     放在#pet-stage-wrap而不是#pet-stage裡面，因為startStage()每次都會stage.innerHTML=''
+     整個清空重建房間內容，放在裡面會被清掉 */
+  #ball-counter{position:absolute;left:10px;top:10px;z-index:10;display:flex;flex-direction:column;gap:0.3rem;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:10px;padding:0.4rem 0.55rem;pointer-events:none}
+  .ball-counter-row{display:flex;align-items:center;gap:0.3rem;font-size:0.78rem;font-weight:700;color:var(--text)}
+  .ball-counter-row img{width:18px;height:18px;image-rendering:pixelated}
   /* z-index:8——2026-07-26應使用者要求「選擇的寶可夢是主軸，應該在所有圖層的最上方」，
      蓋過房間裡其他固定物件(z-index:6，見.decor-room-item等的說明)。取捨：寶可夢走到跟
      某個裝飾/魚缸/鳥籠重疊的那一刻，該物件會短暫被寶可夢擋住點不到，等寶可夢走開就好，
@@ -290,6 +297,10 @@
   .catch-ball-btn{display:flex;flex-direction:column;align-items:center;gap:0.2rem;padding:0.5rem 0.8rem;border-radius:12px;border:2px solid var(--border);background:rgba(255,255,255,0.05);color:var(--text);font-size:0.72rem;font-weight:700;cursor:pointer}
   .catch-ball-btn .icon{width:28px;height:28px;image-rendering:pixelated}
   .catch-ball-btn:disabled{opacity:0.35;cursor:not-allowed}
+  .sling-pay-btn{display:flex;align-items:center;justify-content:center;gap:0.5rem;width:100%;padding:0.7rem 1rem;border-radius:12px;border:2px solid var(--border);background:rgba(255,255,255,0.05);color:var(--text);font-size:0.85rem;font-weight:700;cursor:pointer;transition:all 0.15s}
+  .sling-pay-btn:hover{background:rgba(255,255,255,0.1)}
+  .sling-pay-btn:disabled{opacity:0.35;cursor:not-allowed}
+  .sling-pay-btn img{width:22px;height:22px;image-rendering:pixelated}
   .catch-result-sprite-wrap{position:relative;align-self:center;width:140px;height:140px;display:flex;align-items:center;justify-content:center}
   .catch-result-sprite-wrap img{width:100%;height:100%;object-fit:contain;image-rendering:pixelated}
   .catch-result-name{align-self:center;font-size:1.15rem;font-weight:800}
@@ -382,7 +393,14 @@
         <div class="collection-badge-mini" id="collection-badge-mini"></div>
         <div class="collection-badge-name" id="collection-badge-name">尚未獲得徽章</div>
       </div>
-      <div id="pet-stage"></div>
+      <div id="pet-stage-wrap">
+        <div id="ball-counter">
+          <div class="ball-counter-row"><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png" alt="">×<span id="ball-counter-normal">0</span></div>
+          <div class="ball-counter-row"><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/great-ball.png" alt="">×<span id="ball-counter-great">0</span></div>
+          <div class="ball-counter-row"><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/ultra-ball.png" alt="">×<span id="ball-counter-ultra">0</span></div>
+        </div>
+        <div id="pet-stage"></div>
+      </div>
       <div id="pet-reaction-text"></div>
       <div class="pet-actions">
         <div class="pet-action-btn" onclick="feedPet()"><span class="icon">🍖</span>餵食</div>
@@ -491,6 +509,17 @@
     <h2>隊伍已滿（10/10）</h2>
     <div class="ts-subtitle" style="font-size:0.75rem;color:var(--muted);text-align:center">選一隻放生，讓新捕捉的寶可夢加入隊伍</div>
     <div id="catch-release-list"></div>
+  </div>
+</div>
+<div id="sling-payment-modal" class="modal-overlay" onclick="closeSlingPaymentModal()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <h2>🎯 彈弓要花多少代價？</h2>
+    <div class="ts-subtitle" style="font-size:0.75rem;color:var(--muted);text-align:center">選一種方式換一次彈弓機會</div>
+    <button class="sling-pay-btn" id="sling-pay-coins-btn" onclick="chooseSlingPayment('coins')">🪙 花費 80 金幣</button>
+    <button class="sling-pay-btn" id="sling-pay-balls-btn" onclick="chooseSlingPayment('balls')">
+      <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png" alt="">花費 5 顆一般精靈球
+    </button>
+    <div class="back" onclick="closeSlingPaymentModal()" style="text-align:center;cursor:pointer">取消</div>
   </div>
 </div>
 <div id="sling-scene-modal" class="modal-overlay">
@@ -963,6 +992,7 @@ function startStage() {
   updateHappinessUI(pet.happiness);
   updateCoinsUI(pet.coins || 0);
   updateHungerUI(pet.hunger != null ? pet.hunger : 100);
+  updateBallCounterUI();
 
   const stage = document.getElementById('pet-stage');
   stage.innerHTML = '';
@@ -1143,6 +1173,12 @@ function updateHungerUI(hunger) {
 function updateCoinsUI(coins) {
   pet.coins = coins;
   document.getElementById('coin-text').textContent = coins;
+}
+
+function updateBallCounterUI() {
+  document.getElementById('ball-counter-normal').textContent = pet.ballNormal || 0;
+  document.getElementById('ball-counter-great').textContent = pet.ballGreat || 0;
+  document.getElementById('ball-counter-ultra').textContent = pet.ballUltra || 0;
 }
 
 /* ─────────────────────────────────────────
@@ -1509,6 +1545,7 @@ async function buyItem(itemId) {
     updateCoinsUI(data.coins);
     if (data.ballField) {
       pet[BALL_FIELD_TO_PET_KEY[data.ballField]] = data.count;
+      updateBallCounterUI();
       // 如果捕捉畫面正開著（例如球用完了臨時切去商城買），順便刷新那邊的球數選單，
       // 不然要等下一次丟球失敗才會重新渲染，畫面會跟剛買到的球數兜不起來
       if (document.getElementById('catch-scene-modal').classList.contains('open')) renderBallPicker();
@@ -1992,6 +2029,7 @@ async function openCatchScene() {
     }
     updateCoinsUI(data.coins);
     pet.ballNormal = data.ballNormal; // 每次遭遇都固定送5顆一般球，這裡同步最新數量
+    updateBallCounterUI();
     currentEncounter = { pokemonId: data.pokemonId, name: data.name, tier: data.tier };
     document.getElementById('catch-scene-wild-img').src = catchSpriteUrl(data.pokemonId);
     document.getElementById('catch-scene-name').textContent = data.name;
@@ -2080,6 +2118,7 @@ async function throwBall(ballType) {
   if (data.ballNormal != null) pet.ballNormal = data.ballNormal;
   if (data.ballGreat != null) pet.ballGreat = data.ballGreat;
   if (data.ballUltra != null) pet.ballUltra = data.ballUltra;
+  updateBallCounterUI();
   // 沒抓到但沒激烈反抗——遭遇還在進行中，只要還有球就能繼續丟，不用重新花錢encounter
   if (!data.caught && !data.fled) {
     showToast(`${currentEncounter.name} 掙脫了！再試一次`);
@@ -2200,15 +2239,31 @@ let slingState = null; // { birdType, name, speciesId, rare, hits, hitsRemaining
 // 已經被關掉的encounter「復活」（2026-07-26應使用者回報「彈弓點放棄會出現bug」修正之一）
 let slingOpenGen = 0;
 
-async function openSlingshotScene() {
+// 彈弓開始前先問玩家要花80金幣還是5顆一般精靈球——按鈕依目前擁有的數量disabled，
+// 避免選了付不起的方式才被伺服器打回來
+function openSlingshotScene() {
   if (!pet) return;
+  document.getElementById('sling-pay-coins-btn').disabled = (pet.coins || 0) < 80;
+  document.getElementById('sling-pay-balls-btn').disabled = (pet.ballNormal || 0) < 5;
+  document.getElementById('sling-payment-modal').classList.add('open');
+}
+function closeSlingPaymentModal() {
+  document.getElementById('sling-payment-modal').classList.remove('open');
+}
+
+async function chooseSlingPayment(method) {
+  closeSlingPaymentModal();
   const myGen = ++slingOpenGen;
   document.getElementById('sling-scene-modal').classList.add('open');
   document.getElementById('sling-wild-img').src = '';
   document.getElementById('sling-wild-img').classList.remove('fled');
   document.getElementById('sling-timer').textContent = '30';
   try {
-    const res = await fetch('/api/pet/slingshot/encounter', { method: 'POST', headers: { Authorization: `Bearer ${myToken}` } });
+    const res = await fetch('/api/pet/slingshot/encounter', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${myToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paymentMethod: method }),
+    });
     const data = await res.json();
     if (myGen !== slingOpenGen) {
       // 使用者在等回應的這段時間已經放棄離開（或又重開了下一輪）——這個encounter已經在伺服器
@@ -2217,11 +2272,15 @@ async function openSlingshotScene() {
       return;
     }
     if (!res.ok) {
-      showToast(data.error === 'not_enough_coins' ? '金幣不足，彈弓一次需要 80 金幣' : '發生錯誤，請再試一次');
+      const msg = data.error === 'not_enough_coins' ? '金幣不足，彈弓一次需要 80 金幣'
+        : data.error === 'not_enough_balls' ? '一般精靈球不足，彈弓一次需要 5 顆'
+        : '發生錯誤，請再試一次';
+      showToast(msg);
       document.getElementById('sling-scene-modal').classList.remove('open');
       return;
     }
     updateCoinsUI(data.coins);
+    if (data.ballNormal != null) { pet.ballNormal = data.ballNormal; updateBallCounterUI(); }
     const stage = document.getElementById('sling-stage');
     const rect = stage.getBoundingClientRect();
     slingState = {
