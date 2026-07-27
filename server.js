@@ -616,40 +616,43 @@ function weightedPick(pool) {
   return pool[pool.length - 1];
 }
 
+// 找出poke的.status/.status2兩格裡，哪一格是指定type——2026-07-27改版後兩格都可以是任何
+// 異常狀態，不再限制副格只能中毒/燒傷，所以判定阻擋攻擊的邏輯要能對「隨便哪一格」生效
+function findStatusSlot(poke, type) {
+  if (poke.status?.type === type) return 'status';
+  if (poke.status2?.type === type) return 'status2';
+  return null;
+}
+
 // Processes status before an attack. Mutates poke.
 // Returns { skipped, died }
 function handleStatus(poke, log, atkType) {
-  const st = poke.status;
-  if (!st) return { skipped: false, died: false };
-
-  if (st.type === 'sleep') {
+  // 阻擋型狀態的優先順序：睡眠/結凍是絕對阻擋，麻痺是機率阻擋，混亂是機率打自己——
+  // 兩格都可能命中其中之一時，依此順序只解決第一個命中的，不會同時判定兩次
+  const sleepSlot = findStatusSlot(poke, 'sleep');
+  if (sleepSlot) {
+    const st = poke[sleepSlot];
     st.turnsLeft--;
     if (st.turnsLeft > 0) {
       log.push({ text: `${poke.name} 睡著了，無法行動！`, cls: 'special' });
       return { skipped: true, died: false };
     }
-    poke.status = null;
+    poke[sleepSlot] = null;
     log.push({ text: `${poke.name} 從睡眠中醒來了！`, cls: 'special' });
     return { skipped: false, died: false };
   }
 
-  if (st.type === 'paralysis') {
-    if (Math.random() < 0.50) {
-      log.push({ text: `${poke.name} 因麻痺無法行動！`, cls: 'special' });
-      return { skipped: true, died: false };
-    }
-    return { skipped: false, died: false };
-  }
-
-  if (st.type === 'freeze') {
+  const freezeSlot = findStatusSlot(poke, 'freeze');
+  if (freezeSlot) {
+    const st = poke[freezeSlot];
     if (atkType === 'fire') {
-      poke.status = null;
+      poke[freezeSlot] = null;
       log.push({ text: `${poke.name} 使出火屬性招式，解凍了！`, cls: 'special' });
       return { skipped: false, died: false };
     }
     st.turnsLeft--;
     if (st.turnsLeft <= 0) {
-      poke.status = null;
+      poke[freezeSlot] = null;
       log.push({ text: `${poke.name} 解凍了，恢復行動！`, cls: 'special' });
       return { skipped: false, died: false };
     }
@@ -657,10 +660,21 @@ function handleStatus(poke, log, atkType) {
     return { skipped: true, died: false };
   }
 
-  if (st.type === 'confusion') {
+  const paralysisSlot = findStatusSlot(poke, 'paralysis');
+  if (paralysisSlot) {
+    if (Math.random() < 0.50) {
+      log.push({ text: `${poke.name} 因麻痺無法行動！`, cls: 'special' });
+      return { skipped: true, died: false };
+    }
+    // 麻痺沒觸發阻擋——繼續往下檢查混亂（真實系列作也是麻痺沒擋下才輪到混亂判定）
+  }
+
+  const confusionSlot = findStatusSlot(poke, 'confusion');
+  if (confusionSlot) {
+    const st = poke[confusionSlot];
     st.turnsLeft--;
     if (st.turnsLeft <= 0) {
-      poke.status = null;
+      poke[confusionSlot] = null;
       log.push({ text: `${poke.name} 從混亂中恢復了！`, cls: 'special' });
       return { skipped: false, died: false };
     }
@@ -714,24 +728,30 @@ function applyEndOfTurnStatusSrv(poke, log, G, role) {
 // attack (standby) — no attack-blocking or confusion self-hit here, those only apply when
 // actually trying to attack (see handleStatus).
 function tickNonAttackStatusSrv(poke, log) {
-  const st = poke.status;
-  if (!st || (st.type !== 'sleep' && st.type !== 'freeze' && st.type !== 'confusion')) return;
-  st.turnsLeft--;
-  if (st.turnsLeft <= 0) {
-    poke.status = null;
-    const msg = st.type === 'sleep' ? '從睡眠中醒來了！' : st.type === 'freeze' ? '解凍了，恢復行動！' : '從混亂中恢復了！';
-    log.push({ text: `${poke.name} ${msg}`, cls: 'special' });
+  // 兩格都可能是睡眠/結凍/混亂（2026-07-27改版後不再限制副格只能中毒/燒傷），都要各自倒數
+  for (const slotKey of ['status', 'status2']) {
+    const st = poke[slotKey];
+    if (!st || (st.type !== 'sleep' && st.type !== 'freeze' && st.type !== 'confusion')) continue;
+    st.turnsLeft--;
+    if (st.turnsLeft <= 0) {
+      poke[slotKey] = null;
+      const msg = st.type === 'sleep' ? '從睡眠中醒來了！' : st.type === 'freeze' ? '解凍了，恢復行動！' : '從混亂中恢復了！';
+      log.push({ text: `${poke.name} ${msg}`, cls: 'special' });
+    }
   }
 }
 
-// 負面狀態最多同時2個——2026-07-27新增，跟pokemon_battle.html同一套設計：.status（主格）維持
-// 原本所有機制不變，新增的.status2（副格）只能是中毒/燒傷（純DOT，不會擋下攻擊），所以
-// handleStatus/tickNonAttackStatusSrv完全不用改，只有中毒/燒傷回合結算跟解除異常狀態的地方
-// 需要額外處理.status2。所有原本「直接指定poke.status = {...}」的地方都要改呼叫這個函式。
+/* 負面狀態最多同時2個——2026-07-27新增，同一天內第二次調整：原本副格.status2故意設計成
+   只能中毒/燒傷（避免要改handleStatus的阻擋判定），但使用者實際要的是任兩種都能疊加
+   （例如睡眠+混亂、麻痺+結凍都要能同時存在），所以拿掉了這個限制——.status/.status2兩格
+   現在完全對等，都可以是任何一種異常狀態。handleStatus/tickNonAttackStatusSrv也已經改成
+   兩格都會檢查（見findStatusSlot()），不是只讀.status了。
+   所有原本「直接指定poke.status = {...}」的地方都要改呼叫這個函式，回傳true代表真的套用成功
+   （呼叫端可以再log訊息），false代表已達上限（兩格都滿）或該狀態已存在，什麼都不會發生。 */
 function inflictStatus(poke, effect, turnsLeft) {
   if (poke.status?.type === effect || poke.status2?.type === effect) return false;
   if (!poke.status) { poke.status = { type: effect, turnsLeft }; return true; }
-  if ((effect === 'poison' || effect === 'burn') && !poke.status2) { poke.status2 = { type: effect, turnsLeft }; return true; }
+  if (!poke.status2) { poke.status2 = { type: effect, turnsLeft }; return true; }
   return false;
 }
 
