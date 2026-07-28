@@ -450,9 +450,14 @@
     #cpu-bcard:hover { background:rgba(255,255,255,0.09); }
     .info-hint { position:absolute; bottom:0.28rem; right:0.35rem; font-size:0.62rem; color:rgba(255,255,255,0.3); line-height:1; }
     .btn-atk { flex:1; padding:0.7rem 0.9rem; border:2px solid var(--border); border-left:4px solid transparent; border-radius:10px; background:rgba(255,255,255,0.05); color:var(--text); cursor:pointer; transition:all 0.18s; text-align:left; }
-    .btn-atk:hover:not(:disabled) { border-color:rgba(255,255,255,0.3); background:rgba(255,255,255,0.1); transform:translateY(-1px); }
+    .btn-atk:hover:not(:disabled):not(.action-disabled) { border-color:rgba(255,255,255,0.3); background:rgba(255,255,255,0.1); transform:translateY(-1px); }
     .btn-atk:disabled { opacity:0.45; cursor:not-allowed; }
     .btn-atk.unaffordable:disabled { border-left-color:#455a64 !important; }
+    /* action-disabled：用class而非原生disabled屬性做視覺上的「不能用」，原生disabled會連按鈕
+       內部子元素（招式屬性徽章）的click也一併擋掉，導致對方回合／能量不足時點不到「查看招式
+       詳情」。playerAttack()自己有G.busy／能量檢查，send()也會擋觀戰者，按鈕保持可點擊安全無虞 */
+    .btn-atk.action-disabled { opacity:0.45; cursor:not-allowed; }
+    .btn-atk.action-disabled.unaffordable { border-left-color:#455a64 !important; }
     .atk-name { font-weight:700; font-size:0.9rem; }
     .atk-meta { display:flex; align-items:center; gap:0.45rem; margin-top:0.25rem; }
     .atk-type-badge { display:inline-flex; align-items:center; gap:0.22rem; padding:0.05rem 0.42rem; border-radius:999px; font-size:0.62rem; font-weight:700; color:#fff; cursor:pointer; }
@@ -2310,7 +2315,10 @@ function renderActions() {
     const mult = effActive(a.type, cp?.type, cp?.type2);
     const cost = effectiveCost(a, cp);
     const affordable = (G.playerEnergy ?? 0) >= cost;
-    btn.disabled = isSpectator || G.busy || !affordable;
+    // 用class做「不能用」的視覺與行為（不用原生disabled屬性），這樣對方回合／能量不足時，
+    // 按鈕內部的招式屬性徽章仍然點得到、可以查看招式詳情——playerAttack()自己有G.busy／
+    // 能量檢查，send()也會擋觀戰者，按鈕本身維持可點擊不會誤觸發攻擊
+    btn.classList.toggle('action-disabled', isSpectator || G.busy || !affordable);
     btn.classList.toggle('unaffordable', !affordable);
     btn.style.borderLeftColor = col;
     document.getElementById(`atk-name${i}`).textContent = a.name;

@@ -610,13 +610,19 @@
       transition: all 0.18s;
       text-align: left;
     }
-    .btn-atk:hover:not(:disabled) {
+    .btn-atk:hover:not(:disabled):not(.action-disabled) {
       border-color: rgba(255,255,255,0.3);
       background: rgba(255,255,255,0.1);
       transform: translateY(-1px);
     }
     .btn-atk:disabled { opacity: 0.45; cursor: not-allowed; }
     .btn-atk.unaffordable:disabled { border-left-color: #455a64 !important; }
+    /* action-disabled：用class而非原生disabled屬性做視覺上的「不能用」，因為原生disabled
+       屬性會連按鈕內部子元素（招式屬性徽章）的click事件也一併擋掉，導致對方回合／能量不足時
+       完全點不到「查看招式詳情」。playerAttack()自己內部已經有G.busy/能量檢查，按鈕本身
+       維持可點擊安全無虞（2026-07-28應使用者要求修正） */
+    .btn-atk.action-disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-atk.action-disabled.unaffordable { border-left-color: #455a64 !important; }
     .atk-name { font-weight: 700; font-size: 0.9rem; }
     .atk-meta { display: flex; align-items: center; gap: 0.45rem; margin-top: 0.25rem; }
     .atk-type-badge {
@@ -3622,7 +3628,10 @@ function renderActions() {
     if (!btn) return;
     const cost = effectiveCost(a, cp, 'player');
     const affordable = G.playerEnergy >= cost;
-    btn.disabled = G.busy || !affordable;
+    // 用class做「不能用」的視覺與行為（不用原生disabled屬性），這樣對方回合／能量不足時，
+    // 按鈕內部的招式屬性徽章仍然點得到、可以查看招式詳情——playerAttack()自己有G.busy／
+    // 能量檢查，按鈕本身維持可點擊不會誤觸發攻擊
+    btn.classList.toggle('action-disabled', G.busy || !affordable);
     btn.classList.toggle('unaffordable', !affordable);
     btn.style.borderLeftColor = col;
     document.getElementById(`atk-name${i}`).textContent      = a.name;
