@@ -772,8 +772,12 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
   const defenderAbility = isAbilitySealedSrv(dRole, G) ? null : defender.ability;
 
   // Reflect mirror: bounce damage back to attacker — 2026-07-27新增atk.ignoreReflect：無視對面
-  // 反彈鏡的招式視為對方沒有架反彈鏡，直接照常造成傷害；反彈鏡本身不會被消耗，留給下一次真的被彈到的攻擊
-  if (dBuff.reflect && !atk.ignoreReflect) {
+  // 反彈鏡的招式視為對方沒有架反彈鏡，直接照常造成傷害，反彈鏡護盾本身也一併消耗掉（2026-07-28
+  // 應使用者回報「用了無視反彈鏡的招式，對方反彈鏡還在」修正：改成無論有沒有真的觸發反彈都會消耗）
+  if (dBuff.reflect && atk.ignoreReflect) {
+    dBuff.reflect = false;
+  }
+  if (dBuff.reflect) {
     dBuff.reflect = false;
     const rawMult = compressMult(srvEff(atkType, attacker.type));
     const dmg     = Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus) * aBuff.atkMult * burnMult * (rawMult || 1)));

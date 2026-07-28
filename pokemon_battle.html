@@ -5413,8 +5413,13 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   if (dSide === 'player') G.playerSwitchGuard = false; // consumed by this incoming attack
 
   /* Reflect mirror: bounce attack back — 2026-07-27新增atk.ignoreReflect：無視對面反彈鏡的
-     招式視為對方沒有架反彈鏡，直接照常造成傷害；反彈鏡本身不會被消耗，留給下一次真的被彈到的攻擊 */
-  if (dBuff.reflect && !atk.ignoreReflect) {
+     招式視為對方沒有架反彈鏡，直接照常造成傷害，反彈鏡護盾本身也一併消耗掉（2026-07-28應
+     使用者回報「用了無視反彈鏡的招式，對方反彈鏡還在」修正：原本只是這一發不被反彈，但沒
+     消耗掉，使用者預期應該連護盾都一起破壞才合理，改成無論有沒有真的觸發反彈都會消耗） */
+  if (dBuff.reflect && atk.ignoreReflect) {
+    dBuff.reflect = false;
+  }
+  if (dBuff.reflect) {
     dBuff.reflect = false;
     const dmg = Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus) * aBuff.atkMult * burnMult));
     aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; aBuff.doubleStrike = false; aBuff.typeBoost = null; aBuff.ignoreShield = false; aBuff.guaranteedStatus = false; aBuff.costFreeType = null; aBuff.costHalved = false; dBuff.shield = 0; dBuff.iceImmune = false;
