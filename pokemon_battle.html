@@ -4850,6 +4850,13 @@ function playerSwitch(deckIdx) {
   if (G.switchedThisTurn) return; // already switched once this turn
   if (G.freeSwitch) { executeSwitch(deckIdx); return; } // 撤退背心：免確認，直接換場
   _pendingSwitchDeckIdx = deckIdx;
+  // 疾風之翼場地啟用時換人不會結束回合——2026-07-28應使用者回報「明明是疾風之翼換人還是
+  // 結束回合」修正：問題不是機制（executeSwitch本身早就正確處理），是這個確認彈窗的文字
+  // 寫死「換人將直接結束本回合」，沒有反映疾風之翼時的真實行為，造成誤解
+  const freeSwitchActive = G.activeStadium?.id === 'stadium-flying-wind';
+  document.getElementById('switch-confirm-sub').textContent = freeSwitchActive
+    ? '疾風之翼場地生效中，換人不會結束本回合，新上場的寶可夢這回合受到的傷害會減少 20%'
+    : '換人將直接結束本回合，新上場的寶可夢這回合受到的傷害會減少 20%';
   document.getElementById('switch-confirm-modal').classList.add('open');
 }
 
@@ -6731,7 +6738,7 @@ function renderDex() {
 <div id="switch-confirm-modal">
   <div class="discard-inner">
     <div class="discard-title">確定要換人嗎？</div>
-    <div class="discard-sub">換人將直接結束本回合，新上場的寶可夢這回合受到的傷害會減少 20%</div>
+    <div class="discard-sub" id="switch-confirm-sub">換人將直接結束本回合，新上場的寶可夢這回合受到的傷害會減少 20%</div>
     <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.8rem">
       <button class="btn-modal-ok" onclick="confirmPlayerSwitch()">確定換人</button>
       <button class="btn-modal-cancel" onclick="closeSwitchConfirm()">取消</button>
