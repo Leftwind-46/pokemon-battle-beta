@@ -929,7 +929,7 @@
         <li>撤退背心 — 下次換場不會結束回合 ／ 混亂藥（超能力屬性） — 讓對手混亂 ／ 絕對零度（冰屬性） — 讓對手結凍</li>
         <li>能量補丁 — 回復 4 點能量</li>
         <li>電擊誘餌（電屬性）— 讓對手麻痺 ／ 詛咒波動（幽靈屬性）— 對方 -8 能量、自身 +20 HP</li>
-        <li>鋼鐵裝甲（鋼屬性）— 下次受傷 -70 ／ 夜襲（惡屬性）— 隨機搶對手 2 張手牌</li>
+        <li>鋼鐵裝甲（鋼屬性）— 下次受傷 -70 ／ 夜襲（惡屬性）— 消耗 5 點能量，隨機搶對手 2 張手牌</li>
         <li>順風（飛行屬性）— 下次攻擊若為飛行屬性傷害 +40 ／ 妖精之光（妖精屬性）— 解除異常狀態並回復 40 HP</li>
         <li>群聚針刺（蟲屬性）— 讓對手中毒並損失 3 能量 ／ 潮汐回復（水屬性）— 回復 30% 最大HP</li>
         <li>龍之波動（龍屬性）— 下次攻擊若為龍屬性傷害 ×1.12 ／ 捨身猛擊（格鬥屬性）— 下次攻擊威力 +40，自身 HP ×0.8</li>
@@ -2681,6 +2681,8 @@ function effectiveCost(atk, opponentPoke) {
   let cost = atk.cost;
   // Ocean World: water-type moves cost ×0.3（2026-07-22場地卡全面加強）
   if (G.activeStadium?.id === 'stadium-ocean' && atk.type === 'water') cost = Math.floor(cost * 0.3);
+  // 漩渦威壓（洛奇亞專屬）：對手在場上防守時，攻擊消耗的能量持續 +3（純顯示估算，不檢查封印特性）
+  if (opponentPoke?.ability?.id === 'vortex-pressure') cost += 3;
   return cost;
 }
 
