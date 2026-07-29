@@ -1556,6 +1556,7 @@
           <li>交換器 — 強制讓對手上場寶可夢與隨機備戰寶可夢互換</li>
           <li>反彈鏡 — 下次對手攻擊傷害全數反彈回自身</li>
           <li>屬性轉換 — 選擇一個屬性，本回合攻擊視為該屬性（享有屬性加成）</li>
+          <li>盧恩啟示 — 下次攻擊無視對方反彈鏡；並免疫下一次搏命效果（若對手使用搏命，只有對手的寶可夢會倒下）</li>
           <li>撤退背心 — 下次換場不會結束回合</li>
           <li>混亂藥（超能力屬性） — 讓對手上場寶可夢陷入混亂</li>
           <li>絕對零度（冰屬性） — 讓對手上場寶可夢陷入結凍</li>
@@ -2407,6 +2408,13 @@ const TRAINERS = [
   {id:'type-orb',   name:'屬性轉換',   cat:'item',      desc:'選擇一個屬性，本回合攻擊視為該屬性（可享有屬性加成）'},
   {id:'type-orb',   name:'屬性轉換',   cat:'item',      desc:'選擇一個屬性，本回合攻擊視為該屬性（可享有屬性加成）'},
   {id:'type-orb',   name:'屬性轉換',   cat:'item',      desc:'選擇一個屬性，本回合攻擊視為該屬性（可享有屬性加成）'},
+  // 2026-07-29新增：盧恩啟示，應使用者要求「這張卡片出現的機率與屬性卡一樣」，同樣列6次
+  {id:'rune-revelation', name:'盧恩啟示', cat:'item',   desc:'下次攻擊無視對方反彈鏡；並免疫下一次搏命效果（若對手使用搏命，只有對手的寶可夢會倒下）'},
+  {id:'rune-revelation', name:'盧恩啟示', cat:'item',   desc:'下次攻擊無視對方反彈鏡；並免疫下一次搏命效果（若對手使用搏命，只有對手的寶可夢會倒下）'},
+  {id:'rune-revelation', name:'盧恩啟示', cat:'item',   desc:'下次攻擊無視對方反彈鏡；並免疫下一次搏命效果（若對手使用搏命，只有對手的寶可夢會倒下）'},
+  {id:'rune-revelation', name:'盧恩啟示', cat:'item',   desc:'下次攻擊無視對方反彈鏡；並免疫下一次搏命效果（若對手使用搏命，只有對手的寶可夢會倒下）'},
+  {id:'rune-revelation', name:'盧恩啟示', cat:'item',   desc:'下次攻擊無視對方反彈鏡；並免疫下一次搏命效果（若對手使用搏命，只有對手的寶可夢會倒下）'},
+  {id:'rune-revelation', name:'盧恩啟示', cat:'item',   desc:'下次攻擊無視對方反彈鏡；並免疫下一次搏命效果（若對手使用搏命，只有對手的寶可夢會倒下）'},
   {id:'retreat-vest', name:'撤退背心', cat:'item',      desc:'下次換場不會結束回合'},
   {id:'confuse-potion', name:'混亂藥', cat:'item',      type:'psychic', weight:10, desc:'讓對手上場寶可夢陷入混亂'},
   {id:'absolute-zero', name:'絕對零度', cat:'item',     type:'ice', weight:10,     desc:'讓對手上場寶可夢陷入結凍'},
@@ -3903,6 +3911,15 @@ function applyTrainer(card, side, chosenType) {
       log(`${pron}使用了【${card.name}】，本回合攻擊視為${TYPE_ZH[chosen]||chosen}屬性（享有屬性加成）！`, tag);
       break;
     }
+    case 'rune-revelation': {
+      // 無視反彈鏡的部分沿用ignoreReflectNext（跟招式版ignoreReflect分開，見doAttack註解）；
+      // 搏命免疫是獨立的持續性旗標（不是「下次攻擊」概念，要留到真的被搏命才消耗），存在G.xRuneShield，
+      // 不放進buff物件避免被doAttack每次攻擊後的buff reset清掉
+      buff.ignoreReflectNext = true;
+      G[`${side}RuneShield`] = true;
+      log(`${pron}使用了【${card.name}】，下次攻擊將無視對方反彈鏡，並免疫下一次搏命效果！`, tag);
+      break;
+    }
     case 'hand-wreck': {
       const opHand = opSide === 'player' ? G.playerHand : G.cpuHand;
       if (opHand.length) {
@@ -4993,6 +5010,8 @@ function cpuUseTrainers() {
   }
   /* Reflect if player's attack is dangerous */
   if (P().attacks.some(a => a.dmg >= 70) && !G.cpuBuff.reflect) useCard('reflect');
+  /* 盧恩啟示：玩家架起反彈鏡時優先用來突破，順便拿到搏命免疫 */
+  if (G.playerBuff.reflect) useCard('rune-revelation');
   /* 屬性轉換：只在能打出剋制效果時才用（簡單規則，不做完整盤算） */
   {
     const i = hand.findIndex(c => c.id === 'type-orb');
@@ -5011,7 +5030,7 @@ function cpuUseTrainers() {
     }
   }
   /* Offensive buffs */
-  useCard('all-out') || useCard('energize') || useCard('x-atk') || useCard('gamble') || useCard('desperate-boost') || useCard('double-strike');
+  useCard('all-out') || useCard('energize') || useCard('x-atk') || useCard('gamble') || useCard('desperate-boost') || useCard('double-strike') || useCard('rune-revelation');
   /* Disruption */
   useCard('energy-drain');
   if (G.playerHand.length) useCard('hand-wreck');
@@ -6230,6 +6249,23 @@ function handleKO(side, onNext) {
 
 function resolveMutualKO() {
   G.busy = true;
+  // 這個function只會在「玩家」使用搏命時被呼叫（CPU AI不會用搏命，見cpuUseTrainers()），
+  // 所以「對手」永遠是CPU——盧恩啟示的搏命免疫要檢查G.cpuRuneShield
+  if (G.cpuRuneShield) {
+    G.cpuRuneShield = false;
+    P().cur = 0;
+    log(`對手的【盧恩啟示】發動，只有你的寶可夢倒下了！`, 'special');
+    renderBattle();
+    if (bothTeamsWiped()) {
+      setTimeout(() => showResult('cpu'), 1000);
+      return;
+    }
+    handleKO('player', () => {
+      renderBattle();
+      setTimeout(cpuAttack, 700);
+    });
+    return;
+  }
   P().cur = 0;
   CP().cur = 0;
   log(`雙方場上的寶可夢同歸於盡了！`, 'special');

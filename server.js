@@ -234,6 +234,13 @@ const TRAINERS = [
   {id:'type-orb',   name:'屬性轉換',   cat:'item',      desc:'選擇一個屬性，本回合攻擊視為該屬性（可享有屬性加成）'},
   {id:'type-orb',   name:'屬性轉換',   cat:'item',      desc:'選擇一個屬性，本回合攻擊視為該屬性（可享有屬性加成）'},
   {id:'type-orb',   name:'屬性轉換',   cat:'item',      desc:'選擇一個屬性，本回合攻擊視為該屬性（可享有屬性加成）'},
+  // 2026-07-29新增：盧恩啟示，應使用者要求「這張卡片出現的機率與屬性卡一樣」，同樣列6次
+  {id:'rune-revelation', name:'盧恩啟示', cat:'item',   desc:'下次攻擊無視對方反彈鏡；並免疫下一次搏命效果（若對手使用搏命，只有對手的寶可夢會倒下）'},
+  {id:'rune-revelation', name:'盧恩啟示', cat:'item',   desc:'下次攻擊無視對方反彈鏡；並免疫下一次搏命效果（若對手使用搏命，只有對手的寶可夢會倒下）'},
+  {id:'rune-revelation', name:'盧恩啟示', cat:'item',   desc:'下次攻擊無視對方反彈鏡；並免疫下一次搏命效果（若對手使用搏命，只有對手的寶可夢會倒下）'},
+  {id:'rune-revelation', name:'盧恩啟示', cat:'item',   desc:'下次攻擊無視對方反彈鏡；並免疫下一次搏命效果（若對手使用搏命，只有對手的寶可夢會倒下）'},
+  {id:'rune-revelation', name:'盧恩啟示', cat:'item',   desc:'下次攻擊無視對方反彈鏡；並免疫下一次搏命效果（若對手使用搏命，只有對手的寶可夢會倒下）'},
+  {id:'rune-revelation', name:'盧恩啟示', cat:'item',   desc:'下次攻擊無視對方反彈鏡；並免疫下一次搏命效果（若對手使用搏命，只有對手的寶可夢會倒下）'},
   {id:'retreat-vest', name:'撤退背心', cat:'item',      desc:'下次換場不會結束回合'},
   {id:'confuse-potion', name:'混亂藥', cat:'item',      type:'psychic', weight:10, desc:'讓對手上場寶可夢陷入混亂'},
   {id:'absolute-zero', name:'絕對零度', cat:'item',     type:'ice', weight:10,     desc:'讓對手上場寶可夢陷入結凍'},
@@ -1524,6 +1531,15 @@ function applyTrainer(card, role, G, log, chosenType) {
       const chosen = attackTypes.includes(chosenType) ? chosenType : attackTypes[Math.floor(Math.random() * attackTypes.length)];
       buff.typeOverride = chosen;
       log.push({ text: `使用了屬性轉換，本回合攻擊視為${chosen}屬性（享有屬性加成）！`, cls: 'system' });
+      break;
+    }
+    case 'rune-revelation': {
+      // 無視反彈鏡的部分沿用ignoreReflectNext（跟招式版ignoreReflect分開，見doAttack註解）；
+      // 搏命免疫是獨立的持續性旗標，存在G[role+'RuneShield']，不放進buff避免被doAttack的
+      // buff reset清掉——要留到真的被搏命才消耗
+      buff.ignoreReflectNext = true;
+      G[`${role}RuneShield`] = true;
+      log.push({ text: `使用了盧恩啟示，下次攻擊將無視對方反彈鏡，並免疫下一次搏命效果！`, cls: 'system' });
       break;
     }
     case 'hand-wreck': {
@@ -3884,12 +3900,21 @@ async function handleMessage(ws, msg) {
       if (HAND_MANIPULATION_CARDS.includes(card.id)) G[`${role}HandCardUsed`] = true;
       if (card.cat === 'item') G[`${role}UsedItemThisTurn`] = true; // 龍捲雲系特性「機械之心」用這個判斷
 
-      // 搏命：雙方場上寶可夢同歸於盡
+      // 搏命：雙方場上寶可夢同歸於盡——除非對方（op）持有盧恩啟示的搏命免疫（G[op+'RuneShield']），
+      // 此時只有發動搏命的role自己倒下，op完全不受影響
       if (card.id === 'sacrifice') {
-        const active   = G[`${role}Deck`][G[`${role}Idx`]];
-        const opActive = G[`${op}Deck`][G[`${op}Idx`]];
-        active.cur = 0; opActive.cur = 0;
-        const log = [{ text: `使用了搏命！雙方場上的寶可夢同歸於盡了！`, cls: 'special' }];
+        const active     = G[`${role}Deck`][G[`${role}Idx`]];
+        const opActive   = G[`${op}Deck`][G[`${op}Idx`]];
+        const opShielded = !!G[`${op}RuneShield`];
+        let log;
+        if (opShielded) {
+          G[`${op}RuneShield`] = false;
+          active.cur = 0;
+          log = [{ text: `對方的【盧恩啟示】發動，只有 ${active.name} 倒下了！`, cls: 'special' }];
+        } else {
+          active.cur = 0; opActive.cur = 0;
+          log = [{ text: `使用了搏命！雙方場上的寶可夢同歸於盡了！`, cls: 'special' }];
+        }
         const roleAlive = G[`${role}Deck`].filter(p => p.cur > 0).length;
         const opAlive   = G[`${op}Deck`].filter(p => p.cur > 0).length;
         if (roleAlive === 0 && opAlive === 0) {
@@ -3902,7 +3927,7 @@ async function handleMessage(ws, msg) {
           endGame(room, role, log); return;
         }
         G.pendingKOSwitch = role;
-        G.pendingKOSwitchQueue = [op];
+        if (!opShielded) G.pendingKOSwitchQueue = [op]; // 被護盾擋下時op沒有倒下，不需要排隊補位
         G.turn = op; // 搏命 consumes the turn — without this, ko_switch's "did the turn actually end" check never passes and role can act again immediately
         broadcast(room, { type: 'update', state: G, log, actor: role });
         return;
