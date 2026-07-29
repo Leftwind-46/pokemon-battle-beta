@@ -182,6 +182,16 @@
   .poke-display-slot:hover{transform:translate(-50%,-50%) scale(1.08)}
   .poke-display-slot img{width:100%;height:100%;object-fit:contain;image-rendering:pixelated;filter:drop-shadow(0 4px 6px rgba(0,0,0,0.4))}
   .poke-display-slot.empty{font-size:1.5rem;opacity:0.45;border-radius:10px;background:rgba(104,144,240,0.18);border:2px dashed rgba(104,144,240,0.4)}
+  /* 2026-07-29應使用者回報「展示的寶可夢有得不會動」修正：參考pokemon_battle.html的.sprite-idle
+     做法——不是每隻寶可夢都有Gen5動圖（第九世代/Mega表單常常沒有，會退回靜態圖，見
+     teamAnimatedSpriteUrl的註解），battle mode是額外疊加一個CSS浮動動畫讓「所有」寶可夢
+     不論圖片本身動不動都會動，這裡照同一套邏輯做。scaleX(-1)水平翻轉沒辦法跟CSS animation
+     的transform共存（animation會整個蓋掉inline transform），所以拆成idle/idle-flip兩組
+     keyframes各自把翻轉內建進去，而不是翻轉用inline style、浮動用animation。 */
+  @keyframes poke-display-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+  @keyframes poke-display-float-flip{0%,100%{transform:scaleX(-1) translateY(0)}50%{transform:scaleX(-1) translateY(-6px)}}
+  .poke-display-slot img.poke-anim-idle{animation:poke-display-float 2.6s ease-in-out infinite}
+  .poke-display-slot img.poke-anim-idle-flip{animation:poke-display-float-flip 2.6s ease-in-out infinite}
   .fish-dex-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:0.6rem}
 
   /* ── 賣魚清單：最愛切換 + 一鍵賣魚 ── */
@@ -1619,7 +1629,7 @@ function renderPokeDisplaySlot(n) {
     slot.className = 'poke-display-slot';
     slot.title = `${mon.name}（點擊更換展示）`;
     const flipped = !!pokeDisplayFlipped[n - 1];
-    slot.innerHTML = `<img src="${teamAnimatedSpriteUrl(mon.id)}" alt="${mon.name}" onerror="handleTeamSpriteError(this, ${mon.id})" style="${flipped ? 'transform:scaleX(-1)' : ''}">`;
+    slot.innerHTML = `<img src="${teamAnimatedSpriteUrl(mon.id)}" alt="${mon.name}" onerror="handleTeamSpriteError(this, ${mon.id})" class="${flipped ? 'poke-anim-idle-flip' : 'poke-anim-idle'}">`;
     if (decorateMode) slot.appendChild(makeFlipBtn(() => toggleDisplayFlip(n)));
   } else {
     slot.className = 'poke-display-slot empty';
