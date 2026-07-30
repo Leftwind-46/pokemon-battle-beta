@@ -2542,6 +2542,18 @@ function dealHand(n) {
   return [...TRAINERS].sort(() => Math.random() - 0.5).slice(0, n);
 }
 
+// 換場（自願換人／KO換人／交換器／獵捕強制換人）時，該側整組攻擊buff都要歸零——新上場的
+// 寶可夢不該繼承前一隻寶可夢留下的attack buff。單一函式集中列出全部欄位，避免像過去交換器/
+// 獵捕那樣各自手寫一份字面量，新增欄位時忘記同步更新其中一處。
+function freshBuff() {
+  return {
+    atkBonus: 0, atkMult: 1, shield: 0, typeOverride: null, reflect: false,
+    doubleStrike: false, typeBoost: null, debuffReflect: false, guaranteedStatus: false,
+    costFreeType: null, costHalved: false, ignoreReflectNext: false, iceHowlFreeze: false,
+    ignoreShield: false, iceImmune: false,
+  };
+}
+
 // 2026-07-23應使用者要求：待機／詭計等「隨機抽1張支援者卡」的地方盡量避開手牌裡已經有的
 // （抽到重複的支援者卡意義不大）。如果支援者卡全部都已經在手牌裡了（理論上手牌上限跟支援者
 // 卡種類數打平才會發生），退回原本可能重複的完整池子，不要讓抽卡直接噴錯。
@@ -3381,8 +3393,8 @@ function startBattle() {
   G.freeSwitch          = false;
   G.switchedThisTurn    = false;
   G.playerSwitchGuard   = false;
-  G.playerBuff     = { atkBonus:0, atkMult:1, shield:0 };
-  G.cpuBuff        = { atkBonus:0, atkMult:1, shield:0 };
+  G.playerBuff     = freshBuff();
+  G.cpuBuff        = freshBuff();
   G.activeStadium  = null;
   G.playerDmgDealt  = 0;
   G.cpuDmgDealt     = 0;
@@ -3894,8 +3906,8 @@ function applyTrainer(card, side, chosenType) {
         // 強制換人，原本累積的buff（攻擊強化/反彈鏡/屬性寶珠等）全部重置——撐住/硬幣護盾是跟buff
         // 平行的獨立欄位（不在G.xxxBuff物件裡），之前漏重置，導致被交換器換下場的寶可夢下次
         // 上場還帶著撐住效果，跟其他「這回合沒實際出手」情境（例如被石化/睡眠跳過）的清除邏輯不一致
-        if (opSide === 'player') { G.playerBuff = { atkBonus:0, atkMult:1, shield:0, typeOverride:null, reflect:false, doubleStrike:false, typeBoost:null }; G.playerBraced = false; G.playerCoinShield = false; }
-        else                     { G.cpuBuff    = { atkBonus:0, atkMult:1, shield:0, typeOverride:null, reflect:false, doubleStrike:false, typeBoost:null }; G.cpuBraced = false; G.cpuCoinShield = false; }
+        if (opSide === 'player') { G.playerBuff = freshBuff(); G.playerBraced = false; G.playerCoinShield = false; }
+        else                     { G.cpuBuff    = freshBuff(); G.cpuBraced = false; G.cpuCoinShield = false; }
         log(`${pron}使用了【${card.name}】，強制換出 ${opDeck[newIdx].name} 上場！`, tag);
         triggerOnLeave(outPoke, opSide); // forced switch is a genuine field departure for the outgoing Pokémon too
         triggerOnEnter(opDeck[newIdx], opSide); // forced switch is a genuine field entry — traps/on-enter abilities must fire
@@ -4426,7 +4438,11 @@ function applyTrainer(card, side, chosenType) {
     case 'ice-barrier': {
       const key = side === 'player' ? 'playerStatusImmuneTurns' : 'cpuStatusImmuneTurns';
       buff.shield += 40;
-      G[key] = Math.max(G[key] || 0, 1);
+      // 這張卡是在施放者自己回合中設定，但保護的是「對方下一次攻擊」——跟ability-seal/heal-seal
+      // 那種由對方在自己回合設定、影響「被封印方自己接下來N回合」的情境不同，兩者剛好差一次
+      // 「回合開始」倒數的時間點，數值1在這裡放到對方的回合開始就直接被扣成0、來不及生效一次。
+      // 存2才能讓它撐過對方緊接著的下一次攻擊（同樣邏輯下，fairy-barrier本來就存2所以沒有這個問題）。
+      G[key] = Math.max(G[key] || 0, 2);
       log(`${pron}使用了【${card.name}】，下次承受傷害 -40，接下來 1 回合免疫異常狀態！`, tag);
       break;
     }
@@ -4732,7 +4748,7 @@ function confirmHunt(targetIdx) {
   const target = G.cpuDeck[targetIdx];
   triggerOnLeave(outPoke, 'cpu');
   G.cpuIdx = targetIdx;
-  G.cpuBuff = { atkBonus:0, atkMult:1, shield:0, typeOverride:null, reflect:false, doubleStrike:false, typeBoost:null };
+  G.cpuBuff = freshBuff();
   G.cpuBraced = false; G.cpuCoinShield = false;
   log(`你使用了【${card.name}】，強制讓 ${target.name} 上場！`, 'player');
   triggerOnEnter(target, 'cpu', false); // 不觸發上場特性／進場陷阱
@@ -4921,7 +4937,7 @@ function executeSwitch(deckIdx) {
   const usedFreeSwitch = usedRetreatVest || G.activeStadium?.id === 'stadium-flying-wind';
   G.freeSwitch = false;
   G.switchedThisTurn = true;
-  G.playerBuff.typeOverride = null; // orb effect expires — turn ends without attacking
+  G.playerBuff = freshBuff(); G.playerBraced = false; G.playerCoinShield = false; // 換人時整組攻擊buff（含屬性寶珠override）都不該留給新上場的寶可夢
   G.playerSwitchGuard = true; // this turn's incoming damage ×0.96
 
   const outPoke = P();
@@ -5094,9 +5110,12 @@ function cpuAttack() {
     G.cpuMegaEnergy = Math.min(20, G.cpuMegaEnergy + 16);
     log('【Mega 稜鏡塔】對手獲得了 16 點 Mega 能量！', 'special');
   }
-  if (G.cpuMegaSealedTurns > 0) G.cpuMegaSealedTurns--;
-  if (G.cpuAbilitySealedTurns > 0) G.cpuAbilitySealedTurns--;
-  if (G.cpuHealSealedTurns > 0) G.cpuHealSealedTurns--;
+  // 封印系效果（封印特性/詛咒/封印Mega/妖精結界異常免疫）：對稱於drawAfterTurn開頭的寫法——
+  // 玩家的封印倒數放在這裡（對方回合開始＝玩家自己回合剛結束）才扣，理由同drawAfterTurn那邊的註解。
+  if (G.playerMegaSealedTurns > 0) G.playerMegaSealedTurns--;
+  if (G.playerAbilitySealedTurns > 0) G.playerAbilitySealedTurns--;
+  if (G.playerHealSealedTurns > 0) G.playerHealSealedTurns--;
+  if (G.playerStatusImmuneTurns > 0) G.playerStatusImmuneTurns--;
   if (G.cpuLeechTurns > 0) {
     const amt = Math.min(3, G.playerEnergy);
     G.playerEnergy -= amt;
@@ -5104,7 +5123,6 @@ function cpuAttack() {
     G.cpuLeechTurns--;
     log(`對手的【寄生種子】從你身上吸取了 ${amt} 點能量！（剩餘 ${G.cpuLeechTurns} 回合）`, 'special');
   }
-  if (G.cpuStatusImmuneTurns > 0) G.cpuStatusImmuneTurns--;
   if (CP().mega && !CP().megaEvolved && !G.cpuMegaUsed && G.cpuMegaEnergy >= 20 && !G.cpuMegaSealedTurns) applyMegaEvolution(CP(), 'cpu');
   cpuUseTrainers();
   renderBattle(); // 立即反映 cpuUseTrainers() 造成的狀態變化（例如萬能藥解除異常狀態），避免舊的狀態圖示殘留到整個攻擊動畫結束才更新
@@ -5186,20 +5204,18 @@ function handleAttackerStatus(poke, side, onProceed, onSkip, onKO, atkType) {
   const label = side === 'player' ? '你的' : '對手的';
   // 阻擋型狀態的優先順序：睡眠/結凍是絕對阻擋，麻痺是機率阻擋，混亂是機率打自己——
   // 兩格都可能命中其中之一時，依此順序只解決第一個命中的，不會同時判定兩次
+  // 2026-07-30應使用者回報「結凍最後一回合，圖示還在效果卻沒了」修正：睡眠/結凍/混亂原本都是
+  // 先扣turnsLeft、再用扣減後的值判斷「這回合還要不要擋」，等於turnsLeft設2實際只會擋1回合就
+  // 提前解除。改成用扣減前的值決定「這回合仍在效果內」，扣減後才視情況清除狀態物件，讓設定
+  // N回合就是真的擋滿N回合，最後一回合清除的時機點跟其餘一樣不變。
   const sleepSlot = findStatusSlot(poke, 'sleep');
   if (sleepSlot) {
     const st = poke[sleepSlot];
+    log(`${label}${poke.name} 睡著了，無法行動！（剩 ${st.turnsLeft} 回合）`, 'special');
     st.turnsLeft--;
-    if (st.turnsLeft > 0) {
-      log(`${label}${poke.name} 睡著了，無法行動！`, 'special');
-      renderBattle();
-      setTimeout(onSkip, 500);
-    } else {
-      poke[sleepSlot] = null;
-      log(`${label}${poke.name} 從睡眠中醒來了！`, 'special');
-      renderBattle();
-      setTimeout(onProceed, 400);
-    }
+    if (st.turnsLeft <= 0) poke[sleepSlot] = null; // 用完最後一回合的睡眠額度，下次行動才會真的清醒
+    renderBattle();
+    setTimeout(onSkip, 500);
     return;
   }
 
@@ -5213,17 +5229,11 @@ function handleAttackerStatus(poke, side, onProceed, onSkip, onKO, atkType) {
       setTimeout(onProceed, 400);
       return;
     }
+    log(`${label}${poke.name} 被冰凍住了，無法行動！（剩 ${st.turnsLeft} 回合）`, 'special');
     st.turnsLeft--;
-    if (st.turnsLeft <= 0) {
-      poke[freezeSlot] = null;
-      log(`${label}${poke.name} 解凍了，恢復行動！`, 'special');
-      renderBattle();
-      setTimeout(onProceed, 400);
-    } else {
-      log(`${label}${poke.name} 被冰凍住了，無法行動！（剩 ${st.turnsLeft} 回合）`, 'special');
-      renderBattle();
-      setTimeout(onSkip, 400);
-    }
+    if (st.turnsLeft <= 0) poke[freezeSlot] = null; // 用完最後一回合的結凍額度，下次行動才會真的解凍
+    renderBattle();
+    setTimeout(onSkip, 400);
     return;
   }
 
@@ -5242,13 +5252,7 @@ function handleAttackerStatus(poke, side, onProceed, onSkip, onKO, atkType) {
   if (confusionSlot) {
     const st = poke[confusionSlot];
     st.turnsLeft--;
-    if (st.turnsLeft <= 0) {
-      poke[confusionSlot] = null;
-      log(`${label}${poke.name} 從混亂中清醒了！`, 'special');
-      renderBattle();
-      setTimeout(onProceed, 400);
-      return;
-    }
+    if (st.turnsLeft <= 0) poke[confusionSlot] = null; // 這回合是混亂的最後一次判定，判定完才解除
     if (Math.random() < 0.5) {
       const selfDmg = 60;
       log(`${label}${poke.name} 因混亂攻擊了自己！`, 'special');
@@ -5634,8 +5638,13 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   const shieldTerm = aBuff.ignoreShield ? 0 : (defenderAbility?.id === 'shield-invert' ? -dBuff.shield : dBuff.shield);
   // 冰凍護甲：對方這次攻擊若剛好是冰屬性，無視前面所有計算直接完全無效（比一般shield更強的針對性防禦）
   const frostArmorProc = !!dBuff.iceImmune && atkType === 'ice';
+  // 2026-07-30應使用者回報「傷害計算怪怪的」修正：shieldTerm/rockFieldReduction/steelFortressReduction
+  // 是固定扣減，疊加起來（例如鋼鐵裝甲-70再加上岩石地帶-50）可能超過乘法鏈算出來的傷害本身，
+  // 原本只有內層Math.max(1,...)保底、扣減後沒有再夾在0以上，會讓dmg變成負數——defender.cur -= dmg
+  // 對負數dmg來說等於「攻擊」反而幫對方加血，且沒有上限封頂。外層再包一層Math.max(0,...)確保
+  // 固定減傷最多只能把傷害打到0（完全格擋），不會倒扣出負傷害。
   let dmg = (mult === 0 || frostArmorProc) ? 0
-    : Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumFlatBonus + legacyDmgBonus + abilityDmgBonus + megaBoostBonus + typeBoostBonus) * effectiveAtkMult * burnMult * mult * stabMult * switchGuardMult * abilityDmgMult * defAbilityMult * stadiumMult * typeBoostMult * reflectPierceMult) - shieldTerm - rockFieldReduction - steelFortressReduction);
+    : Math.max(0, Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumFlatBonus + legacyDmgBonus + abilityDmgBonus + megaBoostBonus + typeBoostBonus) * effectiveAtkMult * burnMult * mult * stabMult * switchGuardMult * abilityDmgMult * defAbilityMult * stadiumMult * typeBoostMult * reflectPierceMult)) - shieldTerm - rockFieldReduction - steelFortressReduction);
   const wasDoubleStrike = aBuff.doubleStrike; // captured before reset — 連擊 rolls the move's own status chance a second time
   const guaranteedStatusThisHit = aBuff.guaranteedStatus; // 心靈感應：captured before reset，同樣道理
   // 冰霜咆哮：captured before reset，同樣道理——只有這次攻擊剛好是冰屬性才會真的觸發額外結凍判定
@@ -6295,6 +6304,7 @@ function handleKO(side, onNext) {
 
   log(`${label}${fainted.name} 倒下了！`, 'special');
   triggerOnLeave(fainted, side);
+  G[`${side}Buff`] = freshBuff(); G[`${side}Braced`] = false; G[`${side}CoinShield`] = false; // 倒下的寶可夢離場，累積的攻擊buff不該留給替補上場的寶可夢
   playSfx('faint');
 
   const card = document.getElementById(`${side}-bcard`);
@@ -6535,11 +6545,16 @@ function drawAfterTurn(onDone) {
     G.playerMegaEnergy = Math.min(20, G.playerMegaEnergy + 16);
     log('【Mega 稜鏡塔】你獲得了 16 點 Mega 能量！', 'special');
   }
-  // 封印Mega進化（亡靈詛咒/暗影封鎖）：輪到被封印的一方自己回合開始才倒數一次，
-  // 跟其他「下N回合」倒數的位置一致（不是設卡當下就開始扣，而是從下一次真的輪到那回合才算）
-  if (G.playerMegaSealedTurns > 0) G.playerMegaSealedTurns--;
-  if (G.playerAbilitySealedTurns > 0) G.playerAbilitySealedTurns--;
-  if (G.playerHealSealedTurns > 0) G.playerHealSealedTurns--;
+  // 封印系效果（封印特性/詛咒/封印Mega/妖精結界異常免疫）：2026-07-30應使用者回報「最後一回合
+  // 效果應該還在，結果圖示還在效果卻沒了」修正——這幾個「N回合」倒數如果放在「被封印那一方自己
+  // 回合開始」時扣，會在被封印方的最後一個有效回合就先扣成0，導致該回合的判定（例如isAbilitySealed）
+  // 提前失效一整回合。改成放在「對方回合開始」（＝被封印方自己的回合剛結束）才扣，這樣被封印方
+  // 自己回合內、以及緊接著對方回合內的判定都還讀得到扣減前的值，正好蓋滿宣告的回合數。
+  // 對手（CPU）的封印倒數見cpuAttack()開頭對稱的寫法。
+  if (G.cpuMegaSealedTurns > 0) G.cpuMegaSealedTurns--;
+  if (G.cpuAbilitySealedTurns > 0) G.cpuAbilitySealedTurns--;
+  if (G.cpuHealSealedTurns > 0) G.cpuHealSealedTurns--;
+  if (G.cpuStatusImmuneTurns > 0) G.cpuStatusImmuneTurns--;
   // 寄生種子：接下來N回合，每回合開始吸取對方能量轉為自己的
   if (G.playerLeechTurns > 0) {
     const amt = Math.min(3, G.cpuEnergy);
@@ -6548,8 +6563,6 @@ function drawAfterTurn(onDone) {
     G.playerLeechTurns--;
     log(`【寄生種子】從對手身上吸取了 ${amt} 點能量！（剩餘 ${G.playerLeechTurns} 回合）`, 'special');
   }
-  // 妖精結界：異常狀態免疫倒數
-  if (G.playerStatusImmuneTurns > 0) G.playerStatusImmuneTurns--;
   // 強子引擎／緋紅脈動／漩渦威壓／惡作劇之心：每回合開始的額外抽卡特性
   rollTurnStartAbilityDraw(P(), 'player');
   // Player draws at start of their own turn; items-only pool, filtered by 場上寶可夢的屬性
@@ -6765,14 +6778,29 @@ function renderDex() {
       const col = TYPE_COLOR[p.type] || '#888';
       const movesHtml = p.attacks.map(a => {
         const mc = TYPE_COLOR[a.type] || '#888';
-        const statusHint = a.status
-          ? ` <span style="color:#f8d030;font-size:0.62rem">${STATUS_EFFECT_ZH[a.status.effect]} ${Math.round(a.status.chance*100)}%</span>`
-          : '';
+        // 2026-07-30應使用者回報「圖鑑看不到招式/特性的完整說明」修正：原本只顯示威力/能量/
+        // 異常狀態機率，輔助技能的實際效果（SUPPORT_EFFECT_ZH）、附加效果（RIDER_EFFECT_ZH）、
+        // Mega能量加成／下回合能量／自我回復等欄位完全沒顯示——這些文字既有的招式詳情彈窗
+        // （showMoveInfo）本來就有，圖鑑只是沒有複用，這裡補齊（拿掉需要對手屬性才能算的
+        // 相剋/STAB部分，圖鑑沒有固定對手，不適用）。
+        const descParts = [];
+        if (a.support) {
+          descParts.push(SUPPORT_EFFECT_ZH[a.effect] || '輔助技能');
+        } else {
+          if (a.status) descParts.push(`${STATUS_EFFECT_ZH[a.status.effect]} ${Math.round(a.status.chance*100)}%`);
+          if (a.megaBoost) descParts.push('Mega 能量 ×2');
+          else if (a.bonusEnergy) descParts.push(`下回合 +${a.bonusEnergy} 能量`);
+          else if (a.selfHeal) descParts.push('附帶回復自身 HP');
+          if (a.rider) descParts.push(RIDER_EFFECT_ZH[a.rider] || '');
+          if (a.ignoreReflect) descParts.push('無視對方反彈鏡');
+        }
+        const descHtml = descParts.length
+          ? `<div class="dex-move-desc" style="color:var(--muted);font-size:0.6rem;margin-left:0.3rem">${descParts.join('・')}</div>` : '';
         return `<div class="dex-move">
-          <span class="dex-move-badge" style="background:${mc}">${TYPE_ZH[a.type]||a.type}</span>${a.name} <span style="color:var(--muted)">${a.support ? '輔助' : a.dmg} · ⚡${a.cost}</span>${statusHint}
+          <span class="dex-move-badge" style="background:${mc}">${TYPE_ZH[a.type]||a.type}</span>${a.name} <span style="color:var(--muted)">${a.support ? '輔助' : a.dmg} · ⚡${a.cost}</span>${descHtml}
         </div>`;
       }).join('');
-      const abilityHtml = p.ability ? `<div class="ability-badge" title="${p.ability.desc}">✨ ${p.ability.name}</div>` : '';
+      const abilityHtml = p.ability ? `<div class="ability-badge">✨ ${p.ability.name}</div><div class="dex-ability-desc" style="color:var(--muted);font-size:0.62rem;margin:0.1rem 0 0.3rem">${p.ability.desc}</div>` : '';
       const type2Badge = p.type2 ? `<span class="type-badge" style="background:${TYPE_COLOR[p.type2]||'#888'};font-size:0.58rem;padding:0.04rem 0.28rem;vertical-align:middle;margin-left:0.15rem">${TYPE_ZH[p.type2]||p.type2}</span>` : '';
       const megaHtml = p.mega ? `
         <div class="dex-mega-section">
@@ -6783,7 +6811,7 @@ function renderDex() {
               <span class="type-badge" style="background:${TYPE_COLOR[p.mega.type]||'#888'};font-size:0.58rem;padding:0.04rem 0.28rem">${TYPE_ZH[p.mega.type]||p.mega.type}</span>
               ${p.mega.type2 ? `<span class="type-badge" style="background:${TYPE_COLOR[p.mega.type2]||'#888'};font-size:0.58rem;padding:0.04rem 0.28rem;margin-left:0.15rem">${TYPE_ZH[p.mega.type2]||p.mega.type2}</span>` : ''}
             </div>
-            ${p.mega.ability ? `<div class="ability-badge" title="${p.mega.ability.desc}">✨ ${p.mega.ability.name}</div>` : ''}
+            ${p.mega.ability ? `<div class="ability-badge">✨ ${p.mega.ability.name}</div><div class="dex-ability-desc" style="color:var(--muted);font-size:0.62rem;margin-top:0.1rem">${p.mega.ability.desc}</div>` : ''}
           </div>
         </div>` : '';
       html += `<div class="dex-card">

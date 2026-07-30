@@ -641,17 +641,17 @@ function findStatusSlot(poke, type) {
 function handleStatus(poke, log, atkType) {
   // 阻擋型狀態的優先順序：睡眠/結凍是絕對阻擋，麻痺是機率阻擋，混亂是機率打自己——
   // 兩格都可能命中其中之一時，依此順序只解決第一個命中的，不會同時判定兩次
+  // 2026-07-30應使用者回報「結凍最後一回合，圖示還在效果卻沒了」修正：睡眠/結凍/混亂原本都是
+  // 先扣turnsLeft、再用扣減後的值判斷「這回合還要不要擋」，等於turnsLeft設2實際只會擋1回合就
+  // 提前解除。改成用扣減前的值決定「這回合仍在效果內」，扣減後才視情況清除狀態物件，讓設定
+  // N回合就是真的擋滿N回合。
   const sleepSlot = findStatusSlot(poke, 'sleep');
   if (sleepSlot) {
     const st = poke[sleepSlot];
+    log.push({ text: `${poke.name} 睡著了，無法行動！（剩 ${st.turnsLeft} 回合）`, cls: 'special' });
     st.turnsLeft--;
-    if (st.turnsLeft > 0) {
-      log.push({ text: `${poke.name} 睡著了，無法行動！`, cls: 'special' });
-      return { skipped: true, died: false };
-    }
-    poke[sleepSlot] = null;
-    log.push({ text: `${poke.name} 從睡眠中醒來了！`, cls: 'special' });
-    return { skipped: false, died: false };
+    if (st.turnsLeft <= 0) poke[sleepSlot] = null; // 用完最後一回合的睡眠額度，下次行動才會真的清醒
+    return { skipped: true, died: false };
   }
 
   const freezeSlot = findStatusSlot(poke, 'freeze');
@@ -662,13 +662,9 @@ function handleStatus(poke, log, atkType) {
       log.push({ text: `${poke.name} 使出火屬性招式，解凍了！`, cls: 'special' });
       return { skipped: false, died: false };
     }
-    st.turnsLeft--;
-    if (st.turnsLeft <= 0) {
-      poke[freezeSlot] = null;
-      log.push({ text: `${poke.name} 解凍了，恢復行動！`, cls: 'special' });
-      return { skipped: false, died: false };
-    }
     log.push({ text: `${poke.name} 被冰凍住了，無法行動！（剩 ${st.turnsLeft} 回合）`, cls: 'special' });
+    st.turnsLeft--;
+    if (st.turnsLeft <= 0) poke[freezeSlot] = null; // 用完最後一回合的結凍額度，下次行動才會真的解凍
     return { skipped: true, died: false };
   }
 
@@ -685,11 +681,7 @@ function handleStatus(poke, log, atkType) {
   if (confusionSlot) {
     const st = poke[confusionSlot];
     st.turnsLeft--;
-    if (st.turnsLeft <= 0) {
-      poke[confusionSlot] = null;
-      log.push({ text: `${poke.name} 從混亂中恢復了！`, cls: 'special' });
-      return { skipped: false, died: false };
-    }
+    if (st.turnsLeft <= 0) poke[confusionSlot] = null; // 這回合是混亂的最後一次判定，判定完才解除
     if (Math.random() < 0.5) {
       const dmg = 60;
       poke.cur = Math.max(0, poke.cur - dmg);
@@ -950,7 +942,10 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     // 烏賊王「顛倒之心」：對手的防禦加成（shield）對它反而變成傷害加成
     // 直搗黃龍：無視對方的shield（受傷減少）效果，這次攻擊當它不存在
     const shieldTerm = aBuff.ignoreShield ? 0 : (defenderAbility?.id === 'shield-invert' ? -dBuff.shield : dBuff.shield);
-    damage = Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumFlatBonus + legacyDmgBonus + abilityDmgBonus + megaBoostBonus + typeBoostBonus) * effectiveAtkMult * burnMult * mult * stabMult * switchGuardMult * abilityDmgMult * defAbilityMult * stadiumMult * typeBoostMult * reflectPierceMult) - shieldTerm - rockFieldReduction - steelFortressReduction);
+    // 2026-07-30應使用者回報「傷害計算怪怪的」修正：固定減傷（shieldTerm/rockFieldReduction/
+    // steelFortressReduction）疊加起來可能超過乘法鏈算出來的傷害本身，原本扣減後沒有再夾在0以上，
+    // 會讓damage變成負數，等同攻擊反而幫defender加血。外層包Math.max(0,...)避免倒扣出負傷害。
+    damage = Math.max(0, Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumFlatBonus + legacyDmgBonus + abilityDmgBonus + megaBoostBonus + typeBoostBonus) * effectiveAtkMult * burnMult * mult * stabMult * switchGuardMult * abilityDmgMult * defAbilityMult * stadiumMult * typeBoostMult * reflectPierceMult)) - shieldTerm - rockFieldReduction - steelFortressReduction);
     // 影舞：下一次受到攻擊擲硬幣，正面完全免傷——一次性旗標，這次攻擊到來就消耗掉（不論正反面）。true-damage系特性無視此效果。
     if (!moldBreaker && G[`${dRole}CoinShield`]) {
       G[`${dRole}CoinShield`] = false;
@@ -2046,7 +2041,11 @@ function applyTrainer(card, role, G, log, chosenType) {
       break;
     case 'ice-barrier':
       buff.shield += 40;
-      G[`${role}StatusImmuneTurns`] = Math.max(G[`${role}StatusImmuneTurns`] || 0, 1);
+      // 這張卡在施放者自己回合中設定，但保護的是「對方下一次攻擊」，跟ability-seal那種在自己
+      // 回合設定、影響「被封印方自己接下來N回合」的情境不同：drawForRole把op的封印倒數放在
+      // role回合開始時扣，這張卡的op要等到對方下一次真的攻擊時才會讀到——中間剛好差一次
+      // drawForRole，存1在對方回合開始就會被扣成0，來不及生效一次，需要存2才能撐過。
+      G[`${role}StatusImmuneTurns`] = Math.max(G[`${role}StatusImmuneTurns`] || 0, 2);
       log.push({ text: `使用了${card.name}，下次承受傷害 -40，接下來 1 回合免疫異常狀態！`, cls: 'special' });
       break;
     case 'normal-allout':
@@ -2260,21 +2259,23 @@ function drawForRole(G, role) {
   if (G.activeStadium?.id === 'stadium-mega-prism' && !G[`${role}MegaUsed`]) {
     G[`${role}MegaEnergy`] = Math.min(20, (G[`${role}MegaEnergy`] || 0) + 16);
   }
-  // 亡靈詛咒／暗影封鎖：封印Mega進化的回合倒數
-  if (G[`${role}MegaSealedTurns`] > 0) G[`${role}MegaSealedTurns`]--;
-  // 封印特性／詛咒：回合倒數，同一套pattern
-  if (G[`${role}AbilitySealedTurns`] > 0) G[`${role}AbilitySealedTurns`]--;
-  if (G[`${role}HealSealedTurns`] > 0) G[`${role}HealSealedTurns`]--;
+  const op = role === 'p1' ? 'p2' : 'p1';
+  // 亡靈詛咒／暗影封鎖／封印特性／詛咒／妖精結界：2026-07-30應使用者回報「最後一回合效果應該
+  // 還在，結果圖示還在效果卻沒了」修正——這幾個「N回合」倒數原本放在role自己回合開始時扣，
+  // 會在role自己的最後一個有效回合就先扣成0，導致該回合的判定（isAbilitySealedSrv等）提前
+  // 一整回合失效。改成在op（也就是被封印/被免疫那一方）自己回合剛結束、role回合開始時才扣，
+  // 讓被封印方自己回合內、以及緊接著對方回合內的判定都還讀得到扣減前的值，正好蓋滿宣告的回合數。
+  if (G[`${op}MegaSealedTurns`] > 0) G[`${op}MegaSealedTurns`]--;
+  if (G[`${op}AbilitySealedTurns`] > 0) G[`${op}AbilitySealedTurns`]--;
+  if (G[`${op}HealSealedTurns`] > 0) G[`${op}HealSealedTurns`]--;
+  if (G[`${op}StatusImmuneTurns`] > 0) G[`${op}StatusImmuneTurns`]--;
   // 寄生種子：接下來N回合，每回合開始從對方身上吸取能量
   if (G[`${role}LeechTurns`] > 0) {
-    const op = role === 'p1' ? 'p2' : 'p1';
     const amt = Math.min(3, G[`${op}Energy`] || 0);
     G[`${op}Energy`] = (G[`${op}Energy`] || 0) - amt;
     G[`${role}Energy`] = Math.min(20, (G[`${role}Energy`] || 0) + amt);
     G[`${role}LeechTurns`]--;
   }
-  // 妖精結界：異常狀態免疫的回合倒數
-  if (G[`${role}StatusImmuneTurns`] > 0) G[`${role}StatusImmuneTurns`]--;
   const activePoke = G[`${role}Deck`][G[`${role}Idx`]];
   // 強子引擎／緋紅脈動／漩渦威壓／惡作劇之心：每回合開始的額外抽卡特性
   rollTurnStartAbilityDrawSrv(activePoke, role, G);
@@ -2329,7 +2330,14 @@ function genCode() {
   return crypto.randomBytes(2).toString('hex').toUpperCase();
 }
 
-function freshBuff() { return { atkBonus:0, atkMult:1, shield:0, typeOverride:null, reflect:false, typeBoost:null }; }
+function freshBuff() {
+  return {
+    atkBonus: 0, atkMult: 1, shield: 0, typeOverride: null, reflect: false,
+    doubleStrike: false, typeBoost: null, debuffReflect: false, guaranteedStatus: false,
+    costFreeType: null, costHalved: false, ignoreReflectNext: false, iceHowlFreeze: false,
+    ignoreShield: false, iceImmune: false,
+  };
+}
 // 封印特性（ability-seal）／詛咒（heal-seal，2026-07-22新增）：G沒有全域state（每個room各自一份），
 // 所以跟其他判斷一樣要把G/role明確傳進來，不能像單人版那樣直接讀模組層級的G。
 function isAbilitySealedSrv(role, G) { return (G[`${role}AbilitySealedTurns`] || 0) > 0; }
@@ -4264,7 +4272,7 @@ async function handleMessage(ws, msg) {
       const outPoke = deck[curIdx];
       if (outPoke.status?.type === 'confusion') outPoke.status = null;
       G[`${role}Idx`] = newIdx;
-      G[`${role}Buff`].typeOverride = null; // orb effect expires — turn ends without attacking
+      G[`${role}Buff`] = freshBuff(); G[`${role}Braced`] = false; G[`${role}CoinShield`] = false; // 換人時整組攻擊buff（含屬性寶珠override）都不該留給新上場的寶可夢
       G[`${role}SwitchGuard`] = true; // this turn's incoming damage ×0.96
       G[`${role}FreeSwitch`] = false;
       G[`${role}SwitchedThisTurn`] = true;
@@ -4305,6 +4313,7 @@ async function handleMessage(ws, msg) {
       const fainted = deck[G[`${role}Idx`]];
       const log = [{ text: `${deck[newIdx].name} 上場！`, cls: 'system' }];
       triggerOnLeaveSrv(fainted, role, G, log);
+      G[`${role}Buff`] = freshBuff(); G[`${role}Braced`] = false; G[`${role}CoinShield`] = false; // 倒下的寶可夢離場，累積的攻擊buff不該留給替補上場的寶可夢
       G[`${role}Idx`] = newIdx;
       G.pendingKOSwitch = null;
       triggerOnEnterSrv(deck[newIdx], role, G, log);
