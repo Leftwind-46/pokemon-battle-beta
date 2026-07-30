@@ -145,6 +145,11 @@
     .status-tag.burn      { background:#bf360c; }
     .status-tag.freeze    { background:#006064; }
     .ability-badge { display:inline-block; font-size:0.62rem; font-weight:700; padding:0.1rem 0.48rem; border-radius:999px; margin-top:0.22rem; letter-spacing:0.02em; background:rgba(186,104,200,0.22); color:#ce93d8; border:1px solid rgba(186,104,200,0.55); }
+    /* 2026-07-30應使用者要求：封印特性/詛咒(回復封印)/封印Mega/妖精結界異常免疫這幾個「N回合」
+       效果原本完全沒有畫面上的倒數顯示，只有log訊息，玩家沒辦法確認還剩幾回合。這裡跟status-tag
+       一樣的樣式邏輯，補一排可見的倒數徽章，雙方（含對手）都顯示。 */
+    .seal-tags { display:flex; gap:0.25rem; flex-wrap:wrap; justify-content:center; margin-top:0.22rem; }
+    .seal-tag { display:inline-block; font-size:0.6rem; font-weight:700; padding:0.1rem 0.44rem; border-radius:999px; letter-spacing:0.02em; background:rgba(120,144,156,0.25); color:#b0bec5; border:1px solid rgba(176,190,197,0.5); }
     .mega-badge { display:inline-block; font-size:0.62rem; font-weight:700; padding:0.1rem 0.48rem; border-radius:999px; margin-top:0.22rem; margin-left:0.2rem; letter-spacing:0.02em; background:rgba(224,64,251,0.22); color:#e040fb; border:1px solid rgba(224,64,251,0.55); }
 
     /* ══════════════════════════════
@@ -1799,6 +1804,7 @@
         <div class="ability-badge" id="cpu-ability" style="display:none"></div>
         <div id="cpu-status" style="display:none"></div>
         <div id="cpu-status2" style="display:none"></div>
+        <div class="seal-tags" id="cpu-seal-tags"></div>
         <div class="info-hint">ℹ</div>
       </div>
       <div class="hp-wrap">
@@ -1842,6 +1848,7 @@
         <div class="ability-badge" id="player-ability" style="display:none"></div>
         <div id="player-status" style="display:none"></div>
         <div id="player-status2" style="display:none"></div>
+        <div class="seal-tags" id="player-seal-tags"></div>
         <div class="buff-tags" id="player-buff-tags"></div>
         <div class="info-hint">ℹ</div>
       </div>
@@ -3560,13 +3567,16 @@ function renderSide(side, poke, deck, activeIdx) {
     }
   }
 
-  // Status badges——最多同時2個，.status（主格，可以是任何異常狀態）+ .status2（副格，只會是中毒/燒傷）
+  // Status badges——最多同時2個，.status/.status2都可以是任何異常狀態（2026-07-27改版後兩格對等）
+  // 2026-07-30應使用者回報「回合數計數器怎麼沒做」修正：原本只有睡眠/混亂會顯示剩餘回合數，
+  // 結凍完全沒顯示——玩家看不出結凍還剩幾回合，容易誤以為圖示在、效果卻已經沒了。
+  // turnsLeft型的異常狀態（睡眠/結凍/混亂）都要顯示，麻痺/中毒/燒傷是999無期限，不顯示數字。
+  const TURN_COUNTED_STATUS = ['sleep', 'freeze', 'confusion'];
   const statusEl = document.getElementById(`${side}-status`);
   if (statusEl) {
     if (poke.status) {
       const info = STATUS_INFO[poke.status.type];
-      const turns = (poke.status.type === 'sleep' || poke.status.type === 'confusion')
-        ? ` (${poke.status.turnsLeft})` : '';
+      const turns = TURN_COUNTED_STATUS.includes(poke.status.type) ? ` (${poke.status.turnsLeft})` : '';
       statusEl.textContent  = info.label + turns;
       statusEl.className    = `status-tag ${info.cls}`;
       statusEl.style.display = '';
@@ -3579,13 +3589,30 @@ function renderSide(side, poke, deck, activeIdx) {
   if (status2El) {
     if (poke.status2) {
       const info2 = STATUS_INFO[poke.status2.type];
-      status2El.textContent  = info2.label;
+      const turns2 = TURN_COUNTED_STATUS.includes(poke.status2.type) ? ` (${poke.status2.turnsLeft})` : '';
+      status2El.textContent  = info2.label + turns2;
       status2El.className    = `status-tag ${info2.cls}`;
       status2El.style.display = '';
     } else {
       status2El.style.display = 'none';
       status2El.textContent   = '';
     }
+  }
+
+  // 封印系效果倒數徽章（封印特性/回復封印/封印Mega/妖精結界異常免疫）——雙方都顯示，
+  // 之前這幾個效果完全沒有畫面上的倒數，只在log出現過一次，玩家沒辦法確認還剩幾回合。
+  const sealTagsEl = document.getElementById(`${side}-seal-tags`);
+  if (sealTagsEl) {
+    const abilitySealed = G[`${side}AbilitySealedTurns`] || 0;
+    const healSealed     = G[`${side}HealSealedTurns`] || 0;
+    const megaSealed      = G[`${side}MegaSealedTurns`] || 0;
+    const statusImmune    = G[`${side}StatusImmuneTurns`] || 0;
+    const parts = [];
+    if (abilitySealed > 0) parts.push(`<span class="seal-tag">🔒特性封印 (${abilitySealed})</span>`);
+    if (healSealed > 0)    parts.push(`<span class="seal-tag">🚫回復封印 (${healSealed})</span>`);
+    if (megaSealed > 0)    parts.push(`<span class="seal-tag">💎Mega封印 (${megaSealed})</span>`);
+    if (statusImmune > 0)  parts.push(`<span class="seal-tag">🛡異常免疫 (${statusImmune})</span>`);
+    sealTagsEl.innerHTML = parts.join('');
   }
 
   // Buff tags (player only)

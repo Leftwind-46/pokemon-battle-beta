@@ -253,6 +253,10 @@
     .status-tag.burn      { background:#bf360c; }
     .status-tag.freeze    { background:#006064; }
     .ability-badge { display:inline-block; font-size:0.62rem; font-weight:700; padding:0.1rem 0.48rem; border-radius:999px; margin-top:0.22rem; letter-spacing:0.02em; background:rgba(186,104,200,0.22); color:#ce93d8; border:1px solid rgba(186,104,200,0.55); }
+    /* 2026-07-30應使用者要求：封印特性/詛咒(回復封印)/封印Mega/妖精結界異常免疫這幾個「N回合」
+       效果原本完全沒有畫面上的倒數顯示——跟pokemon_battle.html同一套樣式 */
+    .seal-tags { display:flex; gap:0.25rem; flex-wrap:wrap; justify-content:center; margin-top:0.22rem; }
+    .seal-tag { display:inline-block; font-size:0.6rem; font-weight:700; padding:0.1rem 0.44rem; border-radius:999px; letter-spacing:0.02em; background:rgba(120,144,156,0.25); color:#b0bec5; border:1px solid rgba(176,190,197,0.5); }
     .mega-badge { display:inline-block; font-size:0.62rem; font-weight:700; padding:0.1rem 0.48rem; border-radius:999px; margin-top:0.22rem; margin-left:0.2rem; letter-spacing:0.02em; background:rgba(224,64,251,0.22); color:#e040fb; border:1px solid rgba(224,64,251,0.55); }
     .field { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:1rem; }
     .field-label { font-size:0.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:0.6rem; }
@@ -769,6 +773,7 @@
           <div class="ability-badge" id="cpu-ability" style="display:none"></div>
           <div id="cpu-status" style="display:none"></div>
           <div id="cpu-status2" style="display:none"></div>
+          <div class="seal-tags" id="cpu-seal-tags"></div>
           <div class="info-hint">ℹ</div>
         </div>
         <div class="hp-wrap">
@@ -795,6 +800,7 @@
           <div class="ability-badge" id="player-ability" style="display:none"></div>
           <div id="player-status" style="display:none"></div>
           <div id="player-status2" style="display:none"></div>
+          <div class="seal-tags" id="player-seal-tags"></div>
           <div class="buff-tags" id="player-buff-tags"></div>
           <div class="info-hint">ℹ</div>
         </div>
@@ -1937,6 +1943,17 @@ function applyServerState(sG) {
   G.round              = sG.round;
   G.switchedThisTurn   = sG[`${me}SwitchedThisTurn`] || false;
   G.activeStadium      = sG.activeStadium || null;
+  // 2026-07-30應使用者要求：封印特性/回復封印/封印Mega/妖精結界異常免疫這幾個「N回合」倒數，
+  // 伺服器state本來就有(server.js的drawForRole)，只是applyServerState從來沒把它們複製進client
+  // 端的G，導致renderSide()就算補了顯示邏輯也永遠讀到undefined——這裡補上兩側各4個欄位。
+  G.playerAbilitySealedTurns = sG[`${me}AbilitySealedTurns`] || 0;
+  G.cpuAbilitySealedTurns    = sG[`${op}AbilitySealedTurns`] || 0;
+  G.playerHealSealedTurns    = sG[`${me}HealSealedTurns`] || 0;
+  G.cpuHealSealedTurns       = sG[`${op}HealSealedTurns`] || 0;
+  G.playerMegaSealedTurns    = sG[`${me}MegaSealedTurns`] || 0;
+  G.cpuMegaSealedTurns       = sG[`${op}MegaSealedTurns`] || 0;
+  G.playerStatusImmuneTurns  = sG[`${me}StatusImmuneTurns`] || 0;
+  G.cpuStatusImmuneTurns     = sG[`${op}StatusImmuneTurns`] || 0;
   // busy if: it's not my turn OR opponent needs KO switch (awaiting their input)
   const opKO = sG.pendingKOSwitch && sG.pendingKOSwitch !== me;
   G.busy = opKO || (sG.turn !== me && sG.pendingKOSwitch !== me);
@@ -2239,25 +2256,43 @@ function renderSide(side, poke, deck, activeIdx) {
     }
   }
 
+  // 2026-07-30應使用者回報「回合數計數器怎麼沒做」修正：原本只有睡眠/混亂會顯示剩餘回合數，
+  // 結凍完全沒顯示；status2副格也已經跟主格對等可以是任何異常狀態，同樣要顯示回合數。
+  const TURN_COUNTED_STATUS = ['sleep', 'freeze', 'confusion'];
   const statusEl = document.getElementById(`${side}-status`);
   if (statusEl) {
     if (poke.status) {
       const info = STATUS_INFO[poke.status.type];
-      const turns = (poke.status.type==='sleep'||poke.status.type==='confusion') ? ` (${poke.status.turnsLeft})` : '';
+      const turns = TURN_COUNTED_STATUS.includes(poke.status.type) ? ` (${poke.status.turnsLeft})` : '';
       statusEl.textContent   = info.label + turns;
       statusEl.className     = `status-tag ${info.cls}`;
       statusEl.style.display = '';
     } else { statusEl.style.display = 'none'; }
   }
-  // status2（副格）——最多同時2個異常狀態，副格只會是中毒/燒傷
   const status2El = document.getElementById(`${side}-status2`);
   if (status2El) {
     if (poke.status2) {
       const info2 = STATUS_INFO[poke.status2.type];
-      status2El.textContent  = info2.label;
+      const turns2 = TURN_COUNTED_STATUS.includes(poke.status2.type) ? ` (${poke.status2.turnsLeft})` : '';
+      status2El.textContent  = info2.label + turns2;
       status2El.className    = `status-tag ${info2.cls}`;
       status2El.style.display = '';
     } else { status2El.style.display = 'none'; }
+  }
+
+  // 封印系效果倒數徽章（封印特性/回復封印/封印Mega/妖精結界異常免疫）——雙方都顯示
+  const sealTagsEl = document.getElementById(`${side}-seal-tags`);
+  if (sealTagsEl) {
+    const abilitySealed = G[`${side}AbilitySealedTurns`] || 0;
+    const healSealed     = G[`${side}HealSealedTurns`] || 0;
+    const megaSealed      = G[`${side}MegaSealedTurns`] || 0;
+    const statusImmune    = G[`${side}StatusImmuneTurns`] || 0;
+    const parts = [];
+    if (abilitySealed > 0) parts.push(`<span class="seal-tag">🔒特性封印 (${abilitySealed})</span>`);
+    if (healSealed > 0)    parts.push(`<span class="seal-tag">🚫回復封印 (${healSealed})</span>`);
+    if (megaSealed > 0)    parts.push(`<span class="seal-tag">💎Mega封印 (${megaSealed})</span>`);
+    if (statusImmune > 0)  parts.push(`<span class="seal-tag">🛡異常免疫 (${statusImmune})</span>`);
+    sealTagsEl.innerHTML = parts.join('');
   }
   const bcard = document.getElementById(`${side}-bcard`);
   if (cur <= 0) { if (!bcard.querySelector('.ko-overlay')) { const o=document.createElement('div'); o.className='ko-overlay'; o.textContent='KO'; bcard.appendChild(o); } }
