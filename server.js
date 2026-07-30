@@ -4,6 +4,7 @@ const http      = require('http');
 const { WebSocketServer } = require('ws');
 const { Pool }  = require('pg');
 const crypto    = require('crypto');
+const util      = require('util');
 
 const app    = express();
 const server = http.createServer(app);
@@ -2403,15 +2404,19 @@ function buildG(room, startLog) {
 /* ═══════════════════════════════════════════
    ACCOUNTS: password hashing + player pool
 ═══════════════════════════════════════════ */
-function hashPassword(password) {
+// 2026-07-30 review發現：scryptSync是CPU密集的同步呼叫(數十ms)，Node是單執行緒，
+// 註冊/登入/改密碼當下會整個卡住event loop，連帶讓所有正在連線對戰的WebSocket訊息都delay——
+// 改用非同步版本(util.promisify包crypto.scrypt)，讓密碼雜湊改到背景執行緒跑，不擋住其他連線。
+const scryptAsync = util.promisify(crypto.scrypt);
+async function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  const hash = (await scryptAsync(password, salt, 64)).toString('hex');
   return `${salt}:${hash}`;
 }
-function verifyPassword(password, stored) {
+async function verifyPassword(password, stored) {
   const [salt, hash] = (stored || '').split(':');
   if (!salt || !hash) return false;
-  const candidate = crypto.scryptSync(password, salt, 64);
+  const candidate = await scryptAsync(password, salt, 64);
   const expected = Buffer.from(hash, 'hex');
   return candidate.length === expected.length && crypto.timingSafeEqual(candidate, expected);
 }
@@ -2555,7 +2560,7 @@ app.post('/api/register', async (req, res) => {
     return res.status(400).json({ error: 'invalid_password' });
   }
   try {
-    const passwordHash = hashPassword(password);
+    const passwordHash = await hashPassword(password);
     const token = crypto.randomBytes(32).toString('hex');
     const { rows } = await pool.query(
       'INSERT INTO users (username, password_hash, session_token) VALUES ($1, $2, $3) RETURNING id',
@@ -2582,7 +2587,7 @@ app.post('/api/login', async (req, res) => {
       'SELECT id, password_hash FROM users WHERE username = $1 AND disabled = false',
       [username]
     );
-    if (!rows.length || !verifyPassword(password, rows[0].password_hash)) {
+    if (!rows.length || !(await verifyPassword(password, rows[0].password_hash))) {
       return res.status(401).json({ error: 'invalid_credentials' });
     }
     const token = crypto.randomBytes(32).toString('hex');
@@ -3624,7 +3629,7 @@ app.post('/api/admin/users/:id/reset-password', requireAuth, requireAdmin, async
   if (!Number.isInteger(id)) return res.status(400).json({ error: 'invalid_id' });
   if (typeof newPassword !== 'string' || newPassword.length < 8) return res.status(400).json({ error: 'invalid_password' });
   try {
-    await pool.query('UPDATE users SET password_hash = $1, session_token = NULL WHERE id = $2', [hashPassword(newPassword), id]);
+    await pool.query('UPDATE users SET password_hash = $1, session_token = NULL WHERE id = $2', [await hashPassword(newPassword), id]);
     res.json({});
   } catch (e) {
     console.error('admin reset-password error:', e.message);
@@ -3730,7 +3735,12 @@ wss.on('connection', (ws, req) => {
     }
     const op = ws.role === 'p1' ? 'p2' : 'p1';
     send(room[op], { type: 'opponent_disconnected' });
-    if (room.phase !== 'done') rooms.delete(ws.roomCode);
+    room[ws.role] = null;
+    // 2026-07-30 review發現的記憶體洩漏修正：原本寫成「未結束的對局才delete」，等於每一場
+    // 正常打完(phase==='done')的對局永遠留在rooms這個Map裡，長期跑下去記憶體只會一直長。
+    // 改成：未結束就照原本邏輯直接清掉；已結束的話，等雙方都斷線了才清掉（讓賽後畫面/觀戰者
+    // 還能看一下結果，不會一結束就馬上被踢），不是「已結束的房間永遠留著」。
+    if (room.phase !== 'done' || (!room.p1 && !room.p2)) rooms.delete(ws.roomCode);
   });
 });
 
