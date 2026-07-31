@@ -1338,7 +1338,7 @@ const SUPPORT_EFFECT_ZH = {
 };
 // 屬性剋制招式的附加效果（取代原輔助技能）：命中時觸發，不影響本身的傷害計算
 const RIDER_EFFECT_ZH = {
-  'energy-steal': '命中時奪取對方 5 點能量，自身回復 3 點能量',
+  'energy-steal': '命中時奪取對方 8 點能量，自身回復 5 點能量',
   'guard-up': '命中時架起護盾，下次受到的攻擊傷害 -50',
   'card-steal': '命中時隨機奪取對方一張手牌',
   'life-drain': '命中時回復本次傷害 25% 的 HP',
@@ -3006,6 +3006,7 @@ function showMoveInfo(anchorEl, a, p, cp, cost, mult) {
     rows.push(`<div class="mip-row">${SUPPORT_EFFECT_ZH[a.effect] || '輔助技能'}</div>`);
   } else {
     if (a.status) rows.push(`<div class="mip-row">異常狀態：<b>${STATUS_EFFECT_ZH[a.status.effect]} ${Math.round(a.status.chance*100)}%</b></div>`);
+    if (a.status2) rows.push(`<div class="mip-row">附加異常狀態：<b>${STATUS_EFFECT_ZH[a.status2.effect]} ${Math.round(a.status2.chance*100)}%</b></div>`);
     const isOwnType = a.type === p.type || (p.type2 && a.type === p.type2);
     if (isOwnType) rows.push(`<div class="mip-row">★ STAB 屬性加成</div>`);
     const effText = mult>=4 ? '超超級有效 ×1.6' : mult===2 ? '超級有效 ×1.2' : mult===0 ? '完全無效' : mult<1 ? `效果不佳 ×${mult}` : '';
@@ -3014,7 +3015,9 @@ function showMoveInfo(anchorEl, a, p, cp, cost, mult) {
     else if (a.bonusEnergy) rows.push(`<div class="mip-row">下回合 +${a.bonusEnergy} 能量</div>`);
     else if (a.selfHeal) rows.push(`<div class="mip-row">附帶回復自身 HP</div>`);
     if (a.rider) rows.push(`<div class="mip-row">附加效果：<b>${RIDER_EFFECT_ZH[a.rider] || ''}</b></div>`);
+    if (a.bonusVsType) rows.push(`<div class="mip-row">對 <b>${TYPE_ZH[a.bonusVsType] || a.bonusVsType}</b> 系額外 +50 傷害</div>`);
     if (a.ignoreReflect) rows.push(`<div class="mip-row">附加效果：<b>無視對方反彈鏡</b></div>`);
+    if (a.ignoreShield) rows.push(`<div class="mip-row">附加效果：<b>無視對方護盾</b></div>`);
   }
   popup.innerHTML = `
     <div class="mip-name">${a.name}</div>
