@@ -5372,6 +5372,9 @@ function effectiveCost(atk, opponentPoke, side) {
   if (buff?.costFreeType && attackerPoke &&
       (attackerPoke.type === buff.costFreeType || attackerPoke.type2 === buff.costFreeType || atk.type === buff.costFreeType)) return 0;
   let cost = atk.cost;
+  // 2026-07-31應使用者要求：mega進化後攻擊消耗的能量要比不能mega的寶可夢更低，固定8折
+  // （跟下面Ocean World的水系折扣一樣用Math.floor疊乘，可以互相疊加）
+  if (attackerPoke?.megaEvolved) cost = Math.floor(cost * 0.8);
   // Ocean World: water-type moves cost ×0.3（2026-07-22場地卡全面加強，從減半再放大折扣）
   if (G.activeStadium?.id === 'stadium-ocean' && atk.type === 'water') cost = Math.floor(cost * 0.3);
   // 深海之力：下次攻擊消耗能量減半（跟海洋世界的水屬性減半疊加計算，各自算各自的一半）
@@ -5618,7 +5621,10 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   const multiscaleMult = (!moldBreaker && defenderAbility?.id === 'multiscale' && wasFullHp) ? 0.9 : 1;
   const defAbilityMult = thickFatMult * solidRockMult * friskWardMult * multiscaleMult;
   // 2026-07-22應使用者要求：Mega進化通用加成原本×1.02，改成固定+40傷害
-  const megaBoostBonus = attacker.megaEvolved ? 40 : 0;
+  // 2026-07-31應使用者要求再調整為三段式：不能mega的寶可夢基礎傷害要更高、能mega但還沒
+  // 進化的要更低、mega進化後要比不能mega的更高——原本只有「進化後+40」一種狀態有加成，
+  // 現在依species是否有mega能力＋是否已進化分三段，維持同一套「固定加成」寫法
+  const megaBoostBonus = !attacker.mega ? 40 : attacker.megaEvolved ? 100 : -20;
   const colosseumMult = (G.activeStadium?.id === 'stadium-colosseum' && atkType === 'fighting') ? 1.2 : 1;
   // Mystic Space: psychic-type defenders additionally take reduced damage (on top of the weakness removal in effActive)
   const mysticSpaceMult = (G.activeStadium?.id === 'stadium-mystic-space' && (defender.type === 'psychic' || defender.type2 === 'psychic')) ? 0.75 : 1;

@@ -544,6 +544,8 @@ function effectiveCostSrv(atk, opponentPoke, G, buff, attackerPoke, opRole) {
   if (buff?.costFreeType && attackerPoke &&
       (attackerPoke.type === buff.costFreeType || attackerPoke.type2 === buff.costFreeType || atk.type === buff.costFreeType)) return 0;
   let cost = atk.cost;
+  // 2026-07-31應使用者要求：mega進化後攻擊消耗的能量要比不能mega的寶可夢更低，固定8折
+  if (attackerPoke?.megaEvolved) cost = Math.floor(cost * 0.8);
   if (G?.activeStadium?.id === 'stadium-ocean' && atk.type === 'water') cost = Math.floor(cost * 0.3);
   if (buff?.costHalved) cost = Math.floor(cost / 2);
   // 漩渦威壓（洛奇亞專屬）：只要牠在場上防守，對手攻擊消耗的能量持續 +3（封印特性時視為不存在）
@@ -894,7 +896,10 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
   const multiscaleMult = (!moldBreaker && defenderAbility?.id === 'multiscale' && wasFullHp) ? 0.9 : 1;
   const defAbilityMult = thickFatMult * solidRockMult * friskWardMult * multiscaleMult;
   // 2026-07-22應使用者要求：Mega進化通用加成原本×1.02，改成固定+40傷害
-  const megaBoostBonus = attacker.megaEvolved ? 40 : 0;
+  // 2026-07-31應使用者要求再調整為三段式：不能mega的寶可夢基礎傷害要更高、能mega但還沒
+  // 進化的要更低、mega進化後要比不能mega的更高——維持同一套「固定加成」寫法，跟
+  // pokemon_battle.html同步（見該檔案同一行的完整說明）
+  const megaBoostBonus = !attacker.mega ? 40 : attacker.megaEvolved ? 100 : -20;
   const colosseumMult = (G.activeStadium?.id === 'stadium-colosseum' && atkType === 'fighting') ? 1.2 : 1;
   const mysticSpaceMult = (G.activeStadium?.id === 'stadium-mystic-space' && (defender.type === 'psychic' || defender.type2 === 'psychic')) ? 0.75 : 1;
   // Lava Volcano: fire-type moves固定加成；water-type moves ×0.65（削弱維持不變，2026-07-24只下修攻擊向的加成）

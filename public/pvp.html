@@ -2714,6 +2714,8 @@ function effectiveCost(atk, opponentPoke) {
   if (buff?.costFreeType && attackerPoke &&
       (attackerPoke.type === buff.costFreeType || attackerPoke.type2 === buff.costFreeType || atk.type === buff.costFreeType)) return 0;
   let cost = atk.cost;
+  // 2026-07-31應使用者要求：mega進化後攻擊消耗的能量要比不能mega的寶可夢更低，固定8折
+  if (attackerPoke?.megaEvolved) cost = Math.floor(cost * 0.8);
   // Ocean World: water-type moves cost ×0.3（2026-07-22場地卡全面加強）
   if (G.activeStadium?.id === 'stadium-ocean' && atk.type === 'water') cost = Math.floor(cost * 0.3);
   // 漩渦威壓（洛奇亞專屬）：對手在場上防守時，攻擊消耗的能量持續 +3（純顯示估算，不檢查封印特性）
