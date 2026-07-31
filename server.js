@@ -2771,6 +2771,29 @@ app.post('/api/pet/buy', requireAuth, async (req, res) => {
   }
 });
 
+/* 精靈球變賣——半價換回金幣（跟買價同一套SHOP_ITEMS.price，不另存sellPrice欄位）。
+   跟/api/pet/buy同樣改成單一原子UPDATE（球數量夠不夠直接放WHERE子句判斷)，避免buy端點
+   當初踩過的併發race condition（兩個請求都讀到同一個舊值，其中一次效果被覆蓋消失）。 */
+app.post('/api/pet/sell-ball', requireAuth, async (req, res) => {
+  const itemId = req.body?.itemId;
+  const item = SHOP_ITEMS[itemId];
+  if (!item || item.category !== 'ball') return res.status(400).json({ error: 'invalid_item' });
+  const sellPrice = Math.floor(item.price / 2);
+  try {
+    const { rows } = await pool.query(
+      `UPDATE pets SET coins = coins + $1, ${item.ballField} = ${item.ballField} - 1
+       WHERE user_id = $2 AND ${item.ballField} >= 1
+       RETURNING coins, ${item.ballField} AS count`,
+      [sellPrice, req.user.id]
+    );
+    if (!rows.length) return res.status(400).json({ error: 'not_enough_balls' });
+    res.json({ coins: rows[0].coins, ballField: item.ballField, count: rows[0].count, coinsAwarded: sellPrice });
+  } catch (e) {
+    console.error('pet sell-ball error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
 /* 單人模式「冠軍挑戰模式」打贏三關後核發冠軍獎盃——只驗證登入+尚未領過，不重新驗證整場戰鬥
    （單人模式本來就完全跑在client端，沒有伺服器連線，這裡刻意比照那個既有信任模型，不做PvP
    等級的server-authoritative重寫）。只能領一次：已經有這筆pet_decorations就直接回alreadyOwned，
@@ -2975,6 +2998,56 @@ app.post('/api/pet/catch/resolve-release', requireAuth, async (req, res) => {
   } catch (e) {
     console.error('pet catch resolve-release error:', e.message);
     res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 捕捉到的寶可夢變賣——換算成金幣的價值刻意跟「抓到重複寶可夢」的補償金（300）用同一個數字，
+   維持「這隻寶可夢換算成多少錢」在遊戲內只有一種價值，不會因為是自動觸發還是玩家手動賣掉而不同。
+   跟resolve-release共用同一條安全檢查：賣掉後三個血量區間（200-249／250-309／310+）都要還有
+   至少1隻，不然玩家會卡在單人模式/PvP選隊畫面湊不出合法隊伍。整段包成交易，跟catch/throw
+   同樣的理由——選隊/扣錢/清展示台要嘛一起生效要嘛都不生效，不留半套狀態。 */
+const SELL_POKEMON_REWARD = 300;
+app.post('/api/pet/team/sell', requireAuth, async (req, res) => {
+  const pokemonId = Number(req.body?.pokemonId);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: teamRows } = await client.query(
+      'SELECT pokemon_ids FROM teams WHERE user_id = $1 FOR UPDATE', [req.user.id]
+    );
+    const currentIds = teamRows[0]?.pokemon_ids || [];
+    if (!currentIds.includes(pokemonId)) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'not_in_team' });
+    }
+    const newIds = currentIds.filter(id => id !== pokemonId);
+    const newMons = newIds.map(id => POKEMON.find(p => p.id === id)).filter(Boolean);
+    if (new Set(newMons.map(p => hpBand(p.hp))).size !== 3) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'would_break_hp_bands' });
+    }
+    await client.query(
+      'UPDATE teams SET pokemon_ids = $1, updated_at = NOW() WHERE user_id = $2', [newIds, req.user.id]
+    );
+    // 賣掉的這隻如果剛好正在展示台上，手動清空——跟resolve-release同樣的理由，display_pokeN_id
+    // 沒有外鍵可以自動處理（不像魚缸的display_fish_id有ON DELETE SET NULL）
+    const { rows: petRows } = await client.query(
+      `UPDATE pets SET coins = coins + $1,
+         display_poke1_id = CASE WHEN display_poke1_id = $2 THEN NULL ELSE display_poke1_id END,
+         display_poke2_id = CASE WHEN display_poke2_id = $2 THEN NULL ELSE display_poke2_id END,
+         display_poke3_id = CASE WHEN display_poke3_id = $2 THEN NULL ELSE display_poke3_id END
+       WHERE user_id = $3
+       RETURNING coins`,
+      [SELL_POKEMON_REWARD, pokemonId, req.user.id]
+    );
+    await client.query('COMMIT');
+    res.json({ sold: true, soldPokemonId: pokemonId, coinsAwarded: SELL_POKEMON_REWARD, coins: petRows[0].coins });
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch (_) { /* 連線本身可能已經斷了，rollback失敗就不用管 */ }
+    console.error('pet team sell error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  } finally {
+    client.release();
   }
 });
 

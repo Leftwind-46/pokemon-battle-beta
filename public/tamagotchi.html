@@ -341,7 +341,7 @@
   .modal-box{display:flex;flex-direction:column;gap:0.9rem;padding:1.3rem;background:var(--bg);border:1px solid var(--border);border-radius:18px;width:min(360px,88vw);max-height:80vh;overflow-y:auto}
   .modal-box h2{font-size:1.05rem}
   .modal-close{align-self:center;font-size:0.82rem;color:var(--muted);cursor:pointer;text-decoration:underline}
-  .shop-item{display:flex;align-items:center;gap:0.7rem;padding:0.6rem 0.7rem;border:1px solid var(--border);border-radius:12px}
+  .shop-item{display:flex;align-items:center;flex-wrap:wrap;gap:0.7rem;padding:0.6rem 0.7rem;border:1px solid var(--border);border-radius:12px}
   .shop-item .icon{font-size:1.6rem}
   .shop-item .icon-img{width:32px;height:32px;image-rendering:pixelated}
   .shop-item .info{flex:1}
@@ -419,6 +419,7 @@
         <div class="pet-action-btn" onclick="openFishingScene()"><span class="icon">🎣</span>釣魚</div>
         <div class="pet-action-btn" onclick="openCatchScene()"><img class="icon-img" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png" alt="">捕捉</div>
         <div class="pet-action-btn" onclick="openSlingshotScene()"><span class="icon">🎯</span>彈弓</div>
+        <div class="pet-action-btn" onclick="openSellPokeModal()"><span class="icon">💰</span>變賣寶可夢</div>
         <div class="pet-action-btn" id="decorate-toggle-btn" onclick="toggleDecorateMode()"><span class="icon">🛠️</span>裝潢模式</div>
         <div class="pet-action-btn" id="decorate-add-btn" onclick="openAddPickModal()" style="display:none"><span class="icon">➕</span>加入房間</div>
       </div>
@@ -454,6 +455,14 @@
     <h2>🖼️ 展示寶可夢</h2>
     <div id="poke-display-list"></div>
     <div class="modal-close" onclick="closePokeDisplayModal()">關閉</div>
+  </div>
+</div>
+<div id="sell-poke-modal" class="modal-overlay" onclick="closeSellPokeModal()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <h2>💰 變賣寶可夢</h2>
+    <div class="ts-subtitle" style="font-size:0.75rem;color:var(--muted);text-align:center">每隻換 🪙 300 金幣，賣掉後隊伍無法找回</div>
+    <div id="sell-poke-list"></div>
+    <div class="modal-close" onclick="closeSellPokeModal()">關閉</div>
   </div>
 </div>
 <div id="pokedex-modal" class="modal-overlay" onclick="closePokedexModal()">
@@ -1514,6 +1523,7 @@ function renderShopList() {
   const ballHtml = balls.map(([itemId, item]) => {
     const affordable = (pet.coins || 0) >= item.price;
     const owned = pet[BALL_FIELD_TO_PET_KEY[item.ballField]] || 0;
+    const sellPrice = Math.floor(item.price / 2);
     return `
       <div class="shop-item">
         <img class="icon-img" src="${item.iconUrl}" alt="">
@@ -1522,6 +1532,7 @@ function renderShopList() {
           <div class="price">🪙 ${item.price}</div>
         </div>
         <button ${!affordable ? 'disabled' : ''} onclick="buyItem('${itemId}')">購買</button>
+        <button ${!owned ? 'disabled' : ''} onclick="sellBall('${itemId}')">變賣（🪙${sellPrice}）</button>
       </div>
     `;
   }).join('');
@@ -1564,6 +1575,25 @@ async function buyItem(itemId) {
     }
     renderShopList();
   } catch (e) { /* 網路失敗，維持原狀讓玩家再試一次 */ }
+}
+
+async function sellBall(itemId) {
+  try {
+    const res = await fetch('/api/pet/sell-ball', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${myToken}` },
+      body: JSON.stringify({ itemId }),
+    });
+    if (!res.ok) { showToast('手上沒有這種球了'); return; }
+    const data = await res.json();
+    updateCoinsUI(data.coins);
+    pet[BALL_FIELD_TO_PET_KEY[data.ballField]] = data.count;
+    updateBallCounterUI();
+    if (document.getElementById('catch-scene-modal').classList.contains('open')) renderBallPicker();
+    renderShopList();
+  } catch (e) {
+    showToast('連線失敗，請再試一次');
+  }
 }
 
 /* ─────────────────────────────────────────
@@ -1691,6 +1721,57 @@ async function toggleDisplayFlip(n) {
     if (!res.ok) { showToast('操作失敗，請再試一次'); return; }
     pokeDisplayFlipped[n - 1] = flip;
     renderPokeDisplaySlot(n);
+  } catch (e) {
+    showToast('連線失敗，請再試一次');
+  }
+}
+
+/* ─────────────────────────────────────────
+   變賣寶可夢——重用 myTeam（loadMyTeam() 已經抓過的隊伍清單）跟 .release-pick-item 的列表樣式，
+   跟展示位挑選/放生同一套UI慣例：單擊「賣出」直接送出，不另外跳二次確認彈窗，modal本身的
+   副標題文字已經提示「賣掉後隊伍無法找回」。伺服器端會擋下賣掉後湊不齊三個血量區間的情況。
+───────────────────────────────────────── */
+function openSellPokeModal() {
+  renderSellPokeList();
+  document.getElementById('sell-poke-modal').classList.add('open');
+}
+
+function closeSellPokeModal() {
+  document.getElementById('sell-poke-modal').classList.remove('open');
+}
+
+function renderSellPokeList() {
+  const list = document.getElementById('sell-poke-list');
+  list.innerHTML = myTeam.length
+    ? myTeam.map(p => `
+      <div class="release-pick-item">
+        <img src="${teamSpriteUrl(p.id)}" alt="${p.name}" onerror="this.onerror=null;this.src='${teamOfficialArtworkUrl(p.id)}'">
+        <div style="flex:1;font-weight:700">${p.name}</div>
+        <button onclick="event.stopPropagation();sellPokemon(${p.id})">賣出（🪙300）</button>
+      </div>
+    `).join('')
+    : '<div style="font-size:0.78rem;color:var(--muted)">尚未取得隊伍資料</div>';
+}
+
+async function sellPokemon(pokemonId) {
+  try {
+    const res = await fetch('/api/pet/team/sell', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${myToken}` },
+      body: JSON.stringify({ pokemonId }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      showToast(data.error === 'would_break_hp_bands' ? '賣掉這隻會讓隊伍湊不出三個血量區間，請留著' : '操作失敗，請再試一次');
+      return;
+    }
+    const data = await res.json();
+    updateCoinsUI(data.coins);
+    myTeam = myTeam.filter(p => p.id !== pokemonId);
+    pokeDisplayIds = pokeDisplayIds.map(id => id === pokemonId ? null : id);
+    renderAllPokeDisplaySlots();
+    renderSellPokeList();
+    showToast(`已賣出，獲得 ${data.coinsAwarded} 金幣`);
   } catch (e) {
     showToast('連線失敗，請再試一次');
   }
