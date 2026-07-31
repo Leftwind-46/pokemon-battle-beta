@@ -1523,7 +1523,7 @@ function renderShopList() {
   const ballHtml = balls.map(([itemId, item]) => {
     const affordable = (pet.coins || 0) >= item.price;
     const owned = pet[BALL_FIELD_TO_PET_KEY[item.ballField]] || 0;
-    const sellPrice = Math.floor(item.price / 2);
+    const sellPrice = Math.max(1, Math.floor(item.price / 2)); // 跟後端/api/pet/sell-ball同一個公式，純顯示用
     return `
       <div class="shop-item">
         <img class="icon-img" src="${item.iconUrl}" alt="">

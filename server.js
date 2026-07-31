@@ -2778,7 +2778,8 @@ app.post('/api/pet/sell-ball', requireAuth, async (req, res) => {
   const itemId = req.body?.itemId;
   const item = SHOP_ITEMS[itemId];
   if (!item || item.category !== 'ball') return res.status(400).json({ error: 'invalid_item' });
-  const sellPrice = Math.floor(item.price / 2);
+  // 半價無條件至少賣1金幣——一般球價格只有1，floor(1/2)本來會是0，等於白送對方一顆球換不到錢
+  const sellPrice = Math.max(1, Math.floor(item.price / 2));
   try {
     const { rows } = await pool.query(
       `UPDATE pets SET coins = coins + $1, ${item.ballField} = ${item.ballField} - 1
