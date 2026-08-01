@@ -183,6 +183,16 @@
       #hand-panel.open #hand-area { flex-wrap: wrap; flex-direction: row; gap: 0.5rem; }
       #hand-panel .t-card { flex: 1; min-width: 110px; width: auto; }
       #hand-panel.open #hand-panel-close { display: block !important; position: fixed !important; top: 0.6rem !important; right: 3.4rem !important; z-index: 93 !important; }
+      /* 手機版手牌是橫向排列才有辦法做真正的扇形——見pokemon_battle.html同一段註解 */
+      #hand-panel.open #hand-area > .t-card {
+        transform-origin: bottom center !important;
+        transform: rotate(calc(var(--fan-offset, 0) * 3.5deg)) translateY(calc(var(--fan-offset, 0) * var(--fan-offset, 0) * 3px)) !important;
+      }
+      #hand-panel.open #hand-area > .t-card:hover {
+        transform: translateY(-14px) scale(1.08) rotate(0deg) !important;
+        z-index: 8;
+        box-shadow: 0 10px 24px rgba(0,0,0,0.45);
+      }
       /* Tighter spacing on mobile — goal: the whole battle screen fits one viewport,
          no vertical scrolling needed to see both fields + action buttons at once.
          Same treatment as pokemon_battle.html's identical mobile section. */
@@ -567,6 +577,21 @@
     .t-card { flex:1; min-width:110px; background:rgba(255,255,255,0.04); border:2px solid transparent; border-radius:10px; padding:0.55rem 0.6rem; font-size:0.78rem; display:flex; flex-direction:column; gap:0.18rem; }
     .t-card.item      { border-color:rgba(76,175,80,0.55); }
     .t-card.supporter { border-color:rgba(121,134,203,0.55); }
+    /* 手牌卡片互動：桌面版側欄手牌是單欄直向堆疊，懸停時滑出+放大；手機版抽屜手牌是橫向排列，
+       做真正的扇形（見下方@media區塊），只作用在#hand-area本身，不影響trade-modal重用同一個
+       .t-card class的地方。--fan-offset由renderHand()依卡片index跟手牌總數算好設進inline style */
+    #hand-area > .t-card { position: relative; transition: transform 0.18s ease, box-shadow 0.18s ease; }
+    #hand-area > .t-card:hover { transform: translateX(6px) scale(1.04); z-index: 8; box-shadow: 0 8px 20px rgba(0,0,0,0.4); }
+    /* 出牌動畫：用手牌時複製一張浮動卡片，沿弧線飛向對應的戰鬥卡＋旋轉淡出，取代原本卡片瞬間消失 */
+    .t-card-flying {
+      position: fixed; z-index: 200; pointer-events: none; margin: 0 !important;
+      animation: cardFlyPlay 0.46s cubic-bezier(.4,0,.2,1) forwards;
+    }
+    @keyframes cardFlyPlay {
+      0%   { transform: translate(0,0) rotate(0deg) scale(1); opacity: 1; }
+      60%  { transform: translate(calc(var(--tx) * 0.7), calc(var(--ty) * 0.7 - 30px)) rotate(12deg) scale(1.05); opacity: 1; }
+      100% { transform: translate(var(--tx), var(--ty)) rotate(20deg) scale(0.4); opacity: 0; }
+    }
     .t-badge { display:inline-block; font-size:0.62rem; padding:0.05rem 0.38rem; border-radius:4px; font-weight:700; color:#fff; width:fit-content; }
     .t-card.item .t-badge      { background:rgba(76,175,80,0.7); }
     .t-card.supporter .t-badge { background:rgba(121,134,203,0.7); }
@@ -2481,6 +2506,7 @@ function renderHand() {
     const badgeLabel = isSupp ? '支援者' : isStadium ? '競技場' : '道具';
     const el = document.createElement('div');
     el.className = `t-card ${card.cat}`;
+    el.style.setProperty('--fan-offset', i - (G.playerHand.length - 1) / 2);
     el.innerHTML = `
       <div class="t-badge">${badgeLabel}</div>
       <div class="t-name">${card.name}</div>
@@ -2489,6 +2515,25 @@ function renderHand() {
     `;
     area.appendChild(el);
   });
+}
+
+/* 出牌動畫：cardEl是手牌區裡被使用的那張卡片DOM節點，side決定飛向哪張戰鬥卡 */
+function spawnCardPlayEffect(cardEl, side) {
+  const targetEl = document.getElementById(`${side}-bcard`);
+  if (!cardEl || !targetEl) return;
+  const startRect = cardEl.getBoundingClientRect();
+  const endRect = targetEl.getBoundingClientRect();
+  const clone = cardEl.cloneNode(true);
+  clone.classList.add('t-card-flying');
+  clone.style.left = startRect.left + 'px';
+  clone.style.top = startRect.top + 'px';
+  clone.style.width = startRect.width + 'px';
+  clone.style.height = startRect.height + 'px';
+  clone.style.setProperty('--fan-offset', '0');
+  clone.style.setProperty('--tx', (endRect.left + endRect.width / 2 - startRect.left - startRect.width / 2) + 'px');
+  clone.style.setProperty('--ty', (endRect.top + endRect.height / 2 - startRect.top - startRect.height / 2) + 'px');
+  document.body.appendChild(clone);
+  setTimeout(() => clone.remove(), 480);
 }
 
 /* ─────────────────────────────────────────
@@ -2573,6 +2618,7 @@ function useTrainer(handIdx) {
     openHuntModal(handIdx);
     return;
   }
+  spawnCardPlayEffect(document.querySelectorAll('#hand-area > .t-card')[handIdx], 'player');
   send({ type: 'use_trainer', handIdx });
 }
 
