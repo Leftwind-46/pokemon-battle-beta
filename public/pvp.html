@@ -524,6 +524,39 @@
     .b-card img.sprite-lunge-l { animation: sprite-lunge-left  0.52s ease; }
     .b-card img.sprite-hit     { animation: sprite-take-hit    0.48s ease; }
     .b-card img.sprite-danger  { animation: sprite-danger      0.22s linear infinite; }
+
+    /* 召喚特效：寶可夢真正上場（初次登場／換人／KO替補）時，在.b-card上疊一圈屬性色的擴散環+粒子，
+       跟Mega cutscene的--mpx/--mpy粒子技巧相同手法，但範圍小很多、只作用在單張卡片內 */
+    .summon-ring {
+      position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px;
+      border-radius: 50%; border-style: solid; border-width: 3px; pointer-events: none; z-index: 12;
+      animation: summonRingPulse 0.55s ease-out forwards;
+    }
+    @keyframes summonRingPulse {
+      0%   { transform: scale(0.3); opacity: 0.85; }
+      100% { transform: scale(2.4); opacity: 0; }
+    }
+    .summon-particle {
+      position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; margin: -3.5px;
+      border-radius: 50%; pointer-events: none; z-index: 12;
+      animation: summonParticleFly 0.6s ease-out forwards;
+    }
+    @keyframes summonParticleFly {
+      0%   { transform: translate(0,0) scale(1);   opacity: 1; }
+      100% { transform: translate(var(--mpx), var(--mpy)) scale(0.2); opacity: 0; }
+    }
+
+    /* 攻擊特效：攻擊方衝刺的同時，一顆屬性色光彈從攻擊方飛向防禦方，用position:fixed＋viewport座標 */
+    .attack-bolt {
+      position: fixed; width: 18px; height: 18px; margin: -9px; border-radius: 50%;
+      pointer-events: none; z-index: 150;
+      animation: attackBoltFly 0.36s cubic-bezier(.3,0,.7,1) forwards;
+    }
+    @keyframes attackBoltFly {
+      0%   { transform: translate(0,0) scale(0.5); opacity: 0; }
+      12%  { opacity: 1; }
+      100% { transform: translate(var(--bx), var(--by)) scale(1.3); opacity: 0.85; }
+    }
     .ko-overlay   { position:absolute; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; font-size:2.2rem; font-weight:900; color:#ef5350; border-radius:10px; z-index:10; animation:fadeUp 0.3s ease; }
     #turn-bar { text-align:center; font-size:0.82rem; font-weight:700; padding:0.38rem 1rem; border-radius:8px; transition:all 0.2s; }
     #turn-bar.my-turn { background:rgba(144,202,249,0.12); color:#90caf9; }
@@ -1403,6 +1436,7 @@ function setSprite(el, id, poke) {
     el.classList.remove('sprite-idle','sprite-danger'); // don't let idle/danger animation clash with entrance pop-in
     el.classList.add('sprite-enter');
     el.addEventListener('animationend', () => el.classList.remove('sprite-enter'), { once: true });
+    spawnSummonEffect(el.closest('.b-card'), poke?.type);
   };
   // Show the static sprite immediately (see pokemon_battle.html's setSprite for the full
   // reasoning) — animated GIFs are missing for most species now, so trying that first caused a
@@ -1501,6 +1535,50 @@ function playMegaEvolveAnim(side) {
   setTimeout(() => {
     modal.classList.remove('open');
   }, 3200);
+}
+
+/* 召喚特效：cardEl是該側的.b-card，type用來配色（無屬性色就用預設白） */
+function spawnSummonEffect(cardEl, type) {
+  if (!cardEl) return;
+  const color = TYPE_COLOR[type] || '#e8eaf6';
+  cardEl.style.position = 'relative';
+  const ring = document.createElement('div');
+  ring.className = 'summon-ring';
+  ring.style.borderColor = color;
+  cardEl.appendChild(ring);
+  setTimeout(() => ring.remove(), 600);
+  for (let i = 0; i < 10; i++) {
+    const particle = document.createElement('div');
+    const angle = (i / 10) * 2 * Math.PI;
+    const dist = 42 + Math.random() * 24;
+    particle.className = 'summon-particle';
+    particle.style.background = color;
+    particle.style.setProperty('--mpx', Math.cos(angle) * dist + 'px');
+    particle.style.setProperty('--mpy', Math.sin(angle) * dist + 'px');
+    cardEl.appendChild(particle);
+    setTimeout(() => particle.remove(), 650);
+  }
+}
+
+/* 攻擊特效：從攻擊方精靈圖飛向防禦方精靈圖的屬性色光彈，用getBoundingClientRect取視窗座標，
+   position:fixed所以不用加scrollX/scrollY */
+function spawnAttackBolt(aSide, dSide, atkType) {
+  const aSpr = document.getElementById(`${aSide}-sprite`);
+  const dSpr = document.getElementById(`${dSide}-sprite`);
+  if (!aSpr || !dSpr) return;
+  const aRect = aSpr.getBoundingClientRect();
+  const dRect = dSpr.getBoundingClientRect();
+  const color = TYPE_COLOR[atkType] || '#e8eaf6';
+  const bolt = document.createElement('div');
+  bolt.className = 'attack-bolt';
+  bolt.style.background = `radial-gradient(circle, #fff 0%, ${color} 55%, transparent 100%)`;
+  bolt.style.boxShadow = `0 0 12px 4px ${color}`;
+  bolt.style.left = (aRect.left + aRect.width / 2) + 'px';
+  bolt.style.top = (aRect.top + aRect.height / 2) + 'px';
+  bolt.style.setProperty('--bx', (dRect.left + dRect.width / 2 - aRect.left - aRect.width / 2) + 'px');
+  bolt.style.setProperty('--by', (dRect.top + dRect.height / 2 - aRect.top - aRect.height / 2) + 'px');
+  document.body.appendChild(bolt);
+  setTimeout(() => bolt.remove(), 380);
 }
 
 function showHitEffect(atkType, targetEl) {
@@ -1855,6 +1933,7 @@ function handleMsg(msg) {
             syncSpriteAnim(defDeck, defDeck === 'player' ? P() : CP());
           }, { once: true });
         }
+        spawnAttackBolt(actorDeck, defDeck, msg.atkType);
         if (defCard) showHitEffect(msg.atkType, defCard);
         playSfx('attack-hit');
       }
