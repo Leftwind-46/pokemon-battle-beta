@@ -183,16 +183,6 @@
       #hand-panel.open #hand-area { flex-wrap: wrap; flex-direction: row; gap: 0.5rem; }
       #hand-panel .t-card { flex: 1; min-width: 110px; width: auto; }
       #hand-panel.open #hand-panel-close { display: block !important; position: fixed !important; top: 0.6rem !important; right: 3.4rem !important; z-index: 93 !important; }
-      /* 手機版手牌是橫向排列才有辦法做真正的扇形——見pokemon_battle.html同一段註解 */
-      #hand-panel.open #hand-area > .t-card {
-        transform-origin: bottom center !important;
-        transform: rotate(calc(var(--fan-offset, 0) * 3.5deg)) translateY(calc(var(--fan-offset, 0) * var(--fan-offset, 0) * 3px)) !important;
-      }
-      #hand-panel.open #hand-area > .t-card:hover {
-        transform: translateY(-14px) scale(1.08) rotate(0deg) !important;
-        z-index: 8;
-        box-shadow: 0 10px 24px rgba(0,0,0,0.45);
-      }
       /* Tighter spacing on mobile — goal: the whole battle screen fits one viewport,
          no vertical scrolling needed to see both fields + action buttons at once.
          Same treatment as pokemon_battle.html's identical mobile section. */
@@ -574,12 +564,16 @@
     #hand-section {}
     .hand-label { font-size:0.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:0.45rem; }
     #hand-area { display:flex; gap:0.5rem; flex-wrap:wrap; }
-    .t-card { flex:1; min-width:110px; background:rgba(255,255,255,0.04); border:2px solid transparent; border-radius:10px; padding:0.55rem 0.6rem; font-size:0.78rem; display:flex; flex-direction:column; gap:0.18rem; }
+    /* 卡片改成直式（像實體集換式卡牌）：上方.t-card-art是屬性色系背景+emoji大圖示（角落疊小徽章），
+       下方.t-card-body是卡名/說明/使用按鈕——2026-08-01應使用者要求「手牌弄得更像卡牌」，
+       取代原本橫向短方形的純文字卡片。見pokemon_battle.html同一段的完整設計註解 */
+    .t-card { flex:1; min-width:130px; max-width:170px; background:rgba(255,255,255,0.04); border:2px solid transparent; border-radius:12px; padding:0; font-size:0.78rem; display:flex; flex-direction:column; overflow:hidden; }
+    .t-card-art { position:relative; display:flex; align-items:center; justify-content:center; font-size:2.3rem; padding:0.85rem 0; background:linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.01)); border-bottom:1px solid rgba(255,255,255,0.08); }
+    .t-card-body { display:flex; flex-direction:column; gap:0.18rem; padding:0.5rem 0.6rem 0.55rem; flex:1; }
     .t-card.item      { border-color:rgba(76,175,80,0.55); }
     .t-card.supporter { border-color:rgba(121,134,203,0.55); }
-    /* 手牌卡片互動：桌面版側欄手牌是單欄直向堆疊，懸停時滑出+放大；手機版抽屜手牌是橫向排列，
-       做真正的扇形（見下方@media區塊），只作用在#hand-area本身，不影響trade-modal重用同一個
-       .t-card class的地方。--fan-offset由renderHand()依卡片index跟手牌總數算好設進inline style */
+    /* 手牌卡片互動：懸停時滑出+放大，只作用在#hand-area本身，不影響trade-modal重用同一個
+       .t-card class的地方 */
     #hand-area > .t-card { position: relative; transition: transform 0.18s ease, box-shadow 0.18s ease; }
     #hand-area > .t-card:hover { transform: translateX(6px) scale(1.04); z-index: 8; box-shadow: 0 8px 20px rgba(0,0,0,0.4); }
     /* 出牌動畫：用手牌時複製一張浮動卡片，沿弧線飛向對應的戰鬥卡＋旋轉淡出，取代原本卡片瞬間消失 */
@@ -593,6 +587,7 @@
       100% { transform: translate(var(--tx), var(--ty)) rotate(20deg) scale(0.4); opacity: 0; }
     }
     .t-badge { display:inline-block; font-size:0.62rem; padding:0.05rem 0.38rem; border-radius:4px; font-weight:700; color:#fff; width:fit-content; }
+    .t-card-art .t-badge { position: absolute; top: 0.35rem; left: 0.35rem; }
     .t-card.item .t-badge      { background:rgba(76,175,80,0.7); }
     .t-card.supporter .t-badge { background:rgba(121,134,203,0.7); }
     .t-name { font-weight:700; font-size:0.82rem; }
@@ -1504,6 +1499,25 @@ const HIT_EMOJI = {
   fighting:'👊',ghost:'👻',dragon:'🐲',dark:'🌑',steel:'⚙️',ground:'💥',
   flying:'💨',rock:'🪨',fairy:'✨',normal:'💫',poison:'☠️',
 };
+/* 手牌卡片圖示：有type欄位的卡直接借用HIT_EMOJI的屬性圖示；沒有type的通用卡/場地卡另外手動指定
+   一個代表性emoji——見pokemon_battle.html同一段的完整清單來源，這裡是同一份資料 */
+const TRAINER_ICON_OVERRIDE = {
+  'potion-m':'💊', 'potion-l':'💊', 'potion-xl':'💊',
+  'x-atk':'⚔️', 'x-def':'🛡️', 'energize':'🔋', 'antidote':'🧪',
+  'switcher':'🔀', 'reflect':'🪞', 'type-orb':'🌈', 'rune-revelation':'📜',
+  'retreat-vest':'🦺', 'energy-patch-l':'🔋',
+  'hand-wreck':'💢', 'energy-drain':'🔻', 'gamble':'🎲', 'desperate-boost':'🔥',
+  'double-strike':'⚔️', 'plunder':'🏴', 'comm-seal':'📵', 'ability-seal':'🚫', 'heal-seal':'💀',
+  'revive':'💗', 'nurse':'👩‍⚕️', 'all-out':'💥', 'sacrifice':'☠️',
+  'mad-scientist':'🧪', 'cheerleader':'📣', 'hunt':'🎯',
+  'stadium-training':'🏋️', 'stadium-spring':'♨️', 'stadium-reversal':'🔄',
+  'stadium-invert':'🌀', 'stadium-mega-prism':'💎', 'stadium-spikes':'🔺',
+};
+function getTrainerIcon(card) {
+  if (TRAINER_ICON_OVERRIDE[card.id]) return TRAINER_ICON_OVERRIDE[card.id];
+  if (card.type && HIT_EMOJI[card.type]) return HIT_EMOJI[card.type];
+  return card.cat === 'stadium' ? '🏟️' : card.cat === 'supporter' ? '🌟' : '🎴';
+}
 /* Mega Evolution cutscene: full-screen takeover, like a victory screen but temporary — a Mega
    Stone appears and pulses, shatters into a burst of particles, the Pokémon's (already-mutated)
    Mega sprite bursts out from behind it, title fades in, then the whole thing fades out and
@@ -2506,12 +2520,16 @@ function renderHand() {
     const badgeLabel = isSupp ? '支援者' : isStadium ? '競技場' : '道具';
     const el = document.createElement('div');
     el.className = `t-card ${card.cat}`;
-    el.style.setProperty('--fan-offset', i - (G.playerHand.length - 1) / 2);
     el.innerHTML = `
-      <div class="t-badge">${badgeLabel}</div>
-      <div class="t-name">${card.name}</div>
-      <div class="t-desc">${card.desc}</div>
-      <button class="t-use-btn" ${disabled?'disabled':''} onclick="useTrainer(${i})">使用</button>
+      <div class="t-card-art">
+        <span>${getTrainerIcon(card)}</span>
+        <div class="t-badge">${badgeLabel}</div>
+      </div>
+      <div class="t-card-body">
+        <div class="t-name">${card.name}</div>
+        <div class="t-desc">${card.desc}</div>
+        <button class="t-use-btn" ${disabled?'disabled':''} onclick="useTrainer(${i})">使用</button>
+      </div>
     `;
     area.appendChild(el);
   });
@@ -2529,7 +2547,6 @@ function spawnCardPlayEffect(cardEl, side) {
   clone.style.top = startRect.top + 'px';
   clone.style.width = startRect.width + 'px';
   clone.style.height = startRect.height + 'px';
-  clone.style.setProperty('--fan-offset', '0');
   clone.style.setProperty('--tx', (endRect.left + endRect.width / 2 - startRect.left - startRect.width / 2) + 'px');
   clone.style.setProperty('--ty', (endRect.top + endRect.height / 2 - startRect.top - startRect.height / 2) + 'px');
   document.body.appendChild(clone);
@@ -2781,10 +2798,12 @@ function showDiscardModal() {
     const el = document.createElement('div');
     el.className = `t-card ${card.cat}`;
     el.innerHTML = `
-      <div class="t-badge">${isSupp?'支援者':'道具'}</div>
-      <div class="t-name">${card.name}</div>
-      <div class="t-desc">${card.desc}</div>
-      <button class="t-use-btn" onclick="discardCard(${i})">丟棄</button>
+      <div class="t-card-art"><span>${getTrainerIcon(card)}</span><div class="t-badge">${isSupp?'支援者':'道具'}</div></div>
+      <div class="t-card-body">
+        <div class="t-name">${card.name}</div>
+        <div class="t-desc">${card.desc}</div>
+        <button class="t-use-btn" onclick="discardCard(${i})">丟棄</button>
+      </div>
     `;
     row.appendChild(el);
   });
@@ -2942,7 +2961,7 @@ function renderTradeModal() {
     const isSupp = card.cat === 'supporter';
     const el = document.createElement('div');
     el.className = `t-card ${card.cat}` + (_tradeSelected.includes(i) ? ' selected' : '');
-    el.innerHTML = `<div class="t-badge">${isSupp?'支援者':isStadium?'競技場':'道具'}</div><div class="t-name">${card.name}</div><div class="t-desc">${card.desc}</div>`;
+    el.innerHTML = `<div class="t-card-art"><span>${getTrainerIcon(card)}</span><div class="t-badge">${isSupp?'支援者':isStadium?'競技場':'道具'}</div></div><div class="t-card-body"><div class="t-name">${card.name}</div><div class="t-desc">${card.desc}</div></div>`;
     el.onclick = () => toggleTradeSelect(i);
     row.appendChild(el);
   });

@@ -306,18 +306,6 @@
       }
       #hand-panel.open #hand-area { flex-wrap: wrap; flex-direction: row; gap: 0.5rem; }
       #hand-panel .t-card { flex: 1; min-width: 110px; width: auto; }
-      /* 手機版手牌是橫向排列，才有辦法做真正的扇形（桌面版是單欄直向堆疊，旋轉會變得很怪）——
-         --fan-offset由renderHand()設好，中間的牌offset接近0（幾乎不轉不下沉），越靠兩側offset絕對值
-         越大，轉得越開、也因為offset平方的關係往下沉一點，整體呈現手持紙牌略微展開的弧形 */
-      #hand-panel.open #hand-area > .t-card {
-        transform-origin: bottom center !important;
-        transform: rotate(calc(var(--fan-offset, 0) * 3.5deg)) translateY(calc(var(--fan-offset, 0) * var(--fan-offset, 0) * 3px)) !important;
-      }
-      #hand-panel.open #hand-area > .t-card:hover {
-        transform: translateY(-14px) scale(1.08) rotate(0deg) !important;
-        z-index: 8;
-        box-shadow: 0 10px 24px rgba(0,0,0,0.45);
-      }
       #hand-panel.open #hand-panel-close {
         display: block !important;
         position: fixed !important;
@@ -1037,24 +1025,43 @@
       margin-bottom: 0.45rem;
     }
     #hand-area { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    /* 卡片改成直式（像實體集換式卡牌）：上方是圖示區(.t-card-art，屬性色系背景+emoji大圖示，
+       角落疊小徽章)，下方是文字區(.t-card-body，卡名/說明/使用按鈕)——2026-08-01應使用者要求
+       「手牌弄得更像卡牌」，取代原本橫向短方形的純文字卡片 */
     .t-card {
       flex: 1;
-      min-width: 110px;
+      min-width: 130px;
+      max-width: 170px;
       background: rgba(255,255,255,0.04);
       border: 2px solid transparent;
-      border-radius: 10px;
-      padding: 0.55rem 0.6rem;
+      border-radius: 12px;
+      padding: 0;
       font-size: 0.78rem;
       display: flex;
       flex-direction: column;
-      gap: 0.18rem;
+      overflow: hidden;
     }
-    /* 手牌卡片互動：桌面版側欄手牌是單欄直向堆疊，懸停時滑出+放大；手機版抽屜手牌是橫向排列，
-       做真正的扇形（每張牌依位置旋轉+下沉，懸停時攤平放大），只作用在#hand-area本身（不影響
-       discard-modal/trade-modal重用同一個.t-card class的地方）。--fan-offset由renderHand()依
-       卡片index跟手牌總數算好設進inline style，概念上參考MDPro3 HandCardPlace.cs的扇形佈局
-       （每張牌角度=GetFlabellateAngle(viewIndex, handNum)），但這裡純CSS transform做，不用另外
-       建一套定位系統 */
+    .t-card-art {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.3rem;
+      padding: 0.85rem 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.01));
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .t-card-body {
+      display: flex;
+      flex-direction: column;
+      gap: 0.18rem;
+      padding: 0.5rem 0.6rem 0.55rem;
+      flex: 1;
+    }
+    /* 手牌卡片互動：懸停時滑出+放大，只作用在#hand-area本身（不影響discard-modal/trade-modal
+       重用同一個.t-card class的地方）。2026-08-01曾經在手機版抽屜（橫向排列）另外做過扇形展開
+       （依卡片位置旋轉+下沉，參考MDPro3 HandCardPlace.cs的flabellate佈局），但使用者覺得手機版
+       不需要扇形效果，已移除、只保留這個桌面/手機共用的簡單滑出+放大 */
     #hand-area > .t-card {
       position: relative;
       transition: transform 0.18s ease, box-shadow 0.18s ease;
@@ -1088,6 +1095,7 @@
       color: #fff;
       width: fit-content;
     }
+    .t-card-art .t-badge { position: absolute; top: 0.35rem; left: 0.35rem; }
     .t-card.item .t-badge      { background: rgba(76,175,80,0.7); }
     .t-card.supporter .t-badge { background: rgba(121,134,203,0.7); }
     .t-name { font-weight: 700; font-size: 0.82rem; }
@@ -2620,6 +2628,26 @@ const TRAINERS = [
   {id:'stadium-fairy-ward',     name:'妖精結界原野', cat:'stadium', type:'fairy',  weight:10, desc:'妖精屬性招式傷害 +30；此場地下，雙方招式的異常狀態附加機率降低 10%（下限0%）'},
 ];
 
+/* 手牌卡片圖示：有type欄位的卡（絕大多數）直接借用HIT_EMOJI的屬性圖示；沒有type的通用卡/場地卡
+   （道具強化類、支援者、少數通用場地）另外手動指定一個代表性emoji，取代卡片正面原本的空白 */
+const TRAINER_ICON_OVERRIDE = {
+  'potion-m':'💊', 'potion-l':'💊', 'potion-xl':'💊',
+  'x-atk':'⚔️', 'x-def':'🛡️', 'energize':'🔋', 'antidote':'🧪',
+  'switcher':'🔀', 'reflect':'🪞', 'type-orb':'🌈', 'rune-revelation':'📜',
+  'retreat-vest':'🦺', 'energy-patch-l':'🔋',
+  'hand-wreck':'💢', 'energy-drain':'🔻', 'gamble':'🎲', 'desperate-boost':'🔥',
+  'double-strike':'⚔️', 'plunder':'🏴', 'comm-seal':'📵', 'ability-seal':'🚫', 'heal-seal':'💀',
+  'revive':'💗', 'nurse':'👩‍⚕️', 'all-out':'💥', 'sacrifice':'☠️',
+  'mad-scientist':'🧪', 'cheerleader':'📣', 'hunt':'🎯',
+  'stadium-training':'🏋️', 'stadium-spring':'♨️', 'stadium-reversal':'🔄',
+  'stadium-invert':'🌀', 'stadium-mega-prism':'💎', 'stadium-spikes':'🔺',
+};
+function getTrainerIcon(card) {
+  if (TRAINER_ICON_OVERRIDE[card.id]) return TRAINER_ICON_OVERRIDE[card.id];
+  if (card.type && HIT_EMOJI[card.type]) return HIT_EMOJI[card.type];
+  return card.cat === 'stadium' ? '🏟️' : card.cat === 'supporter' ? '🌟' : '🎴';
+}
+
 // 2026-07-22應使用者要求：抽牌／搶奪對方手牌效果太強（隨機應變/換氣追擊/群聚共鳴抽牌，
 // 掠奪/夜襲/暗夜掠奪搶對方牌），改成跟支援者卡一樣「每回合限用一次」（跨這6張卡共用同一個
 // 每回合旗標，不是各卡各自一次）——見G.playerHandCardUsed/cpuHandCardUsed。
@@ -3805,12 +3833,16 @@ function renderHand() {
     const badgeLabel = isSupp ? '支援者' : isStadium ? '競技場' : '道具';
     const el = document.createElement('div');
     el.className = `t-card ${card.cat}`;
-    el.style.setProperty('--fan-offset', i - (G.playerHand.length - 1) / 2);
     el.innerHTML = `
-      <div class="t-badge">${badgeLabel}</div>
-      <div class="t-name">${card.name}</div>
-      <div class="t-desc">${card.desc}</div>
-      <button class="t-use-btn" ${disabled ? 'disabled' : ''} onclick="useTrainer(${i})">使用</button>
+      <div class="t-card-art">
+        <span>${getTrainerIcon(card)}</span>
+        <div class="t-badge">${badgeLabel}</div>
+      </div>
+      <div class="t-card-body">
+        <div class="t-name">${card.name}</div>
+        <div class="t-desc">${card.desc}</div>
+        <button class="t-use-btn" ${disabled ? 'disabled' : ''} onclick="useTrainer(${i})">使用</button>
+      </div>
     `;
     area.appendChild(el);
   });
@@ -6415,7 +6447,6 @@ function spawnCardPlayEffect(cardEl, side) {
   clone.style.top = startRect.top + 'px';
   clone.style.width = startRect.width + 'px';
   clone.style.height = startRect.height + 'px';
-  clone.style.setProperty('--fan-offset', '0');
   clone.style.setProperty('--tx', (endRect.left + endRect.width / 2 - startRect.left - startRect.width / 2) + 'px');
   clone.style.setProperty('--ty', (endRect.top + endRect.height / 2 - startRect.top - startRect.height / 2) + 'px');
   document.body.appendChild(clone);
@@ -6806,10 +6837,12 @@ function showDiscardModal(onDone) {
     const el = document.createElement('div');
     el.className = `t-card ${card.cat}`;
     el.innerHTML = `
-      <div class="t-badge">${isSupp ? '支援者' : '道具'}</div>
-      <div class="t-name">${card.name}</div>
-      <div class="t-desc">${card.desc}</div>
-      <button class="t-use-btn" onclick="discardCard(${i})">丟棄</button>
+      <div class="t-card-art"><span>${getTrainerIcon(card)}</span><div class="t-badge">${isSupp ? '支援者' : '道具'}</div></div>
+      <div class="t-card-body">
+        <div class="t-name">${card.name}</div>
+        <div class="t-desc">${card.desc}</div>
+        <button class="t-use-btn" onclick="discardCard(${i})">丟棄</button>
+      </div>
     `;
     row.appendChild(el);
   });
@@ -6849,7 +6882,7 @@ function renderTradeModal() {
     const isSupp = card.cat === 'supporter';
     const el = document.createElement('div');
     el.className = `t-card ${card.cat}` + (_tradeSelected.includes(i) ? ' selected' : '');
-    el.innerHTML = `<div class="t-badge">${isSupp?'支援者':isStadium?'競技場':'道具'}</div><div class="t-name">${card.name}</div><div class="t-desc">${card.desc}</div>`;
+    el.innerHTML = `<div class="t-card-art"><span>${getTrainerIcon(card)}</span><div class="t-badge">${isSupp?'支援者':isStadium?'競技場':'道具'}</div></div><div class="t-card-body"><div class="t-name">${card.name}</div><div class="t-desc">${card.desc}</div></div>`;
     el.onclick = () => toggleTradeSelect(i);
     row.appendChild(el);
   });
