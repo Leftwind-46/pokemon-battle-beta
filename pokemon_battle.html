@@ -1569,8 +1569,8 @@
 
       <h3>對戰規則</h3>
       <ul>
-        <li>每回合限換場一次；換場會直接結束本回合，新上場的寶可夢該回合受到的傷害減少 4%，並額外抽 1 張支援者牌（使用撤退背心後的換場不會結束回合）。</li>
-        <li><b>💤 待機</b>：跳過攻擊，抽 1 張支援者牌進入手牌，並獲得 5 點 Mega 能量。</li>
+        <li>每回合限換場一次；換場會直接結束本回合，新上場的寶可夢該回合受到的傷害減少 10%，並額外抽 1 張支援者牌，被換下場的寶可夢回復 100 HP（使用撤退背心後的換場不會結束回合）。</li>
+        <li><b>🛡 格擋</b>：跳過攻擊，抽 1 張支援者牌進入手牌，獲得 5 點 Mega 能量，並且下一次受到的攻擊傷害 ×0.6。</li>
         <li>每個回合開始時，抽 2 張道具牌，手牌上限 7 張。</li>
         <li>若抽牌後超過 7 張，可選擇丟棄一張。</li>
         <li>棄牌兌換按鈕：棄 1 張手牌可換 1 張競技場卡或 +5 能量（換競技場卡每回合最多 3 次）；棄 2 張可換 1 張道具卡或解除上場寶可夢的異常狀態。換到的競技場卡／道具卡會依上場寶可夢的屬性過濾。</li>
@@ -1583,7 +1583,7 @@
         <li>每隻上場的寶可夢都有獨立的能量條（0–20），初始值 5，<b>每回合自動 +3</b>（上限 20）。</li>
         <li>每個招式都需要消耗能量才能使用；能量不足時該招式按鈕會反灰無法點選。</li>
         <li>弱招消耗低（甚至 0），可以幾乎每回合使用；強招消耗高，需要先囤積幾回合能量才打得出來。</li>
-        <li>若能量不足以使用任何招式，該回合只能待機、換人或使用道具卡，無法攻擊。</li>
+        <li>若能量不足以使用任何招式，該回合只能格擋、換人或使用道具卡，無法攻擊。</li>
         <li>可透過棄牌兌換（棄1張換+5能量）、能量補丁道具卡、或啦啦隊支援者卡（直接補滿到 20）額外獲取能量。</li>
         <li>過關進入下一關時，能量會跟 HP 一樣重置回初始值 5。</li>
       </ul>
@@ -1618,12 +1618,12 @@
 
       <h3>異常狀態</h3>
       <ul>
-        <li><b>☠ 中毒</b>：損失 1/8 最大 HP，在該回合的行動（攻擊或待機）結束後才扣血，不會搶在攻擊之前把你打倒。</li>
+        <li><b>☠ 中毒</b>：損失 1/8 最大 HP，在該回合的行動（攻擊或格擋）結束後才扣血，不會搶在攻擊之前把你打倒。</li>
         <li><b>🔥 燒傷</b>：損失 1/16 最大 HP（同樣是行動後才扣），且攻擊力降低 30%。</li>
         <li><b>⚡ 麻痺</b>：每回合 50% 機率完全無法行動。</li>
-        <li><b>💤 睡眠</b>：無法行動 2–3 回合後自然醒來；回合數每回合都會減少，待機也算一回合。</li>
-        <li><b>❄ 結凍</b>：無法行動；冰凍 2 回合後自動解凍，或被火系招式命中立即解凍，自己使出火屬性招式也能立即解凍；回合數每回合都會減少，待機也算一回合。</li>
-        <li><b>💫 混亂</b>：嘗試攻擊時 50% 機率攻擊自己（60 傷害），持續 2–4 回合；換場可解除；回合數每回合都會減少，待機也算一回合（但待機不會觸發混亂自傷）。</li>
+        <li><b>💤 睡眠</b>：無法行動 2–3 回合後自然醒來；回合數每回合都會減少，格擋也算一回合。</li>
+        <li><b>❄ 結凍</b>：無法行動；冰凍 2 回合後自動解凍，或被火系招式命中立即解凍，自己使出火屬性招式也能立即解凍；回合數每回合都會減少，格擋也算一回合。</li>
+        <li><b>💫 混亂</b>：嘗試攻擊時 50% 機率攻擊自己（60 傷害），持續 2–4 回合；換場可解除；回合數每回合都會減少，格擋也算一回合（但格擋不會觸發混亂自傷）。</li>
         <li>每隻寶可夢同一時間最多可以疊加 2 種異常狀態（任意組合，例如睡眠+中毒、麻痺+混亂皆可）；若同時中了會阻擋行動的狀態（睡眠／結凍／麻痺／混亂），依睡眠→結凍→麻痺→混亂的順序，每次攻擊只判定一個。使用<b>萬能藥</b>或<b>治療師</b>會一次解除全部異常狀態。</li>
       </ul>
 
@@ -1734,30 +1734,30 @@
         </ul>
         <li><b>競技場牌</b>（橘框）效果持續整場，放置新競技場會取代舊的：</li>
         <ul>
-          <li>訓練場 — 場上所有技能威力 +45（雙方均有效）</li>
+          <li>訓練場 — 場上所有技能威力 +25（雙方均有效）</li>
           <li>地熱溫泉 — 每回合結束，雙方上場寶可夢各回復 30 HP</li>
-          <li>逆轉鬥技場 — HP 低於 50% 時，攻擊威力 +65</li>
+          <li>逆轉鬥技場 — HP 低於 50% 時，攻擊威力 +30</li>
           <li>反轉世界 — 場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×1.2）；反轉後仍是克制的攻擊額外 +25 固定傷害</li>
           <li>龍之谷（龍屬性） — 龍屬性寶可夢對妖精、冰系招式最多×1效果；龍屬性攻擊不會被減免或無效，且額外 +35 固定傷害</li>
-          <li>邪惡森林（草屬性） — 原本克制草屬性的寶可夢（火／冰／飛行／毒／蟲），全部變成弱草屬性（草屬性攻擊 ×1.6）</li>
-          <li>Mega 稜鏡塔 — 雙方每個自己的回合開始時，獲得 16 點 Mega 能量</li>
+          <li>邪惡森林（草屬性） — 原本克制草屬性的寶可夢（火／冰／飛行／毒／蟲），全部變成弱草屬性（草屬性攻擊 ×1.2）；每回合結束，草屬性上場寶可夢回復 70 HP</li>
+          <li>Mega 稜鏡塔 — 雙方每個自己的回合開始時，獲得 16 點 Mega 能量；可 Mega 進化或已經 Mega 進化的寶可夢，受到的攻擊傷害 ×0.6</li>
           <li>尖峰陷阱 — 寶可夢上場時，受到最大HP 25% 的傷害（雙方對等）</li>
-          <li>劇毒領域（毒屬性） — 寶可夢上場時，陷入中毒（雙方對等）；此場地下中毒傷害 ×2</li>
-          <li>羅馬鬥技場（格鬥屬性） — 格鬥屬性招式傷害 ×1.4；格鬥屬性攻擊不再被幽靈屬性完全免疫</li>
+          <li>劇毒領域（毒屬性） — 寶可夢上場時，陷入中毒（雙方對等）；此場地下中毒傷害 ×2；每回合結束，毒屬性上場寶可夢回復 70 HP，並有 50% 機率完全閃避攻擊（不疊加）</li>
+          <li>羅馬鬥技場（格鬥屬性） — 格鬥屬性招式傷害 ×1.2；格鬥屬性攻擊不再被幽靈屬性完全免疫；格鬥屬性攻擊會連續發動兩次，第二次傷害 ×0.5（若第一次就打倒對手，第二次改攻擊新上場的寶可夢）</li>
           <li>魔幻空間（超能力屬性） — 超能力屬性寶可夢受到的傷害 ×0.75；弱點消失（不受超效傷害影響）</li>
-          <li>熔岩火山（火屬性） — 火屬性招式傷害 +75；水屬性招式傷害 ×0.65</li>
+          <li>熔岩火山（火屬性） — 火屬性招式傷害 +30；水屬性招式傷害 ×0.65</li>
           <li>海洋世界（水屬性） — 水屬性招式消耗能量 ×0.3；電屬性招式傷害 ×1.4；水屬性寶可夢傷害額外 +40</li>
-          <li>莊嚴神社（一般屬性） — 一般屬性招式一律視為剋制對手（效果拉滿 ×1.8）</li>
+          <li>莊嚴神社（一般屬性） — 一般屬性招式一律視為剋制對手（效果拉滿 ×1.2）；一般屬性攻擊方命中後回復等同傷害量的HP；一般屬性寶可夢受到的攻擊傷害 -30</li>
           <li>沙塵暴（地面屬性） — 非地面／岩石／鋼屬性寶可夢，每回合結束損失最大HP的12%</li>
           <li>岩石地帶（岩石屬性） — 岩石／地面／鋼屬性寶可夢，受到的攻擊傷害 -50，且不會再被剋制（弱點消除）</li>
-          <li>雷雲庇護所（電屬性） — 電屬性招式傷害 +70；每回合結束，雙方上場寶可夢若無異常狀態，20% 機率陷入麻痺</li>
-          <li>永凍冰原（冰屬性） — 冰屬性招式傷害 +70；每回合結束，雙方上場寶可夢若無異常狀態，15% 機率陷入結凍</li>
-          <li>暗夜詛咒領域（惡屬性） — 惡屬性招式傷害 ×1.6；此場地啟用中，雙方的所有恢復效果全部失效</li>
-          <li>鋼鐵堡壘（鋼屬性） — 鋼屬性招式傷害 +70；此場地下，雙方受到的攻擊傷害固定減少 20</li>
-          <li>疾風之翼（飛行屬性） — 飛行屬性招式傷害 ×1.6；此場地下，雙方換人都不會結束回合</li>
-          <li>蟲群巢穴（蟲屬性） — 蟲屬性招式傷害 +70；此場地下，抽牌／搶奪對方手牌類卡片不受每回合1次限制</li>
-          <li>亡靈墓園（幽靈屬性） — 幽靈屬性招式傷害 ×1.6；此場地下，異常狀態無法被解除</li>
-          <li>妖精結界原野（妖精屬性） — 妖精屬性招式傷害 +70；此場地下，雙方招式的異常狀態附加機率降低 10%（下限0%）</li>
+          <li>雷雲庇護所（電屬性） — 電屬性招式傷害 +30；每回合結束，雙方上場寶可夢若無異常狀態，20% 機率陷入麻痺</li>
+          <li>永凍冰原（冰屬性） — 冰屬性招式傷害 +30；每回合結束，雙方上場寶可夢若無異常狀態，15% 機率陷入結凍</li>
+          <li>暗夜詛咒領域（惡屬性） — 惡屬性招式傷害 ×1.2；此場地啟用中，雙方的所有恢復效果全部失效</li>
+          <li>鋼鐵堡壘（鋼屬性） — 鋼屬性招式傷害 +30；此場地下，雙方受到的攻擊傷害固定減少 20</li>
+          <li>疾風之翼（飛行屬性） — 飛行屬性招式傷害 ×1.2；飛行屬性寶可夢有 50% 機率完全閃避攻擊（不與其他閃避來源疊加判定）</li>
+          <li>蟲群巢穴（蟲屬性） — 蟲屬性招式傷害 +30；此場地下，抽牌／搶奪對方手牌類卡片不受每回合1次限制</li>
+          <li>亡靈墓園（幽靈屬性） — 幽靈屬性招式傷害 ×1.2；此場地下，異常狀態無法被解除</li>
+          <li>妖精結界原野（妖精屬性） — 妖精屬性招式傷害 +30；此場地下，雙方招式的異常狀態附加機率降低 10%（下限0%）</li>
         </ul>
       </ul>
 
@@ -1996,8 +1996,8 @@
             </div>
           </button>
           <button class="btn-atk" id="btn-standby" onclick="playerStandby()" style="grid-column:span 2">
-            <div class="atk-name">💤 待機</div>
-            <div class="atk-meta"><span style="font-size:0.72rem;color:var(--muted)">跳過攻擊，抽 1 張支援者牌＋5 點Mega能量</span></div>
+            <div class="atk-name">🛡 格擋</div>
+            <div class="atk-meta"><span style="font-size:0.72rem;color:var(--muted)">跳過攻擊，抽 1 張支援者牌＋5 點Mega能量，下次受到的傷害 ×0.6</span></div>
           </button>
           <button class="btn-atk" id="btn-trade" onclick="playerDiscardTrade()" style="grid-column:span 2">
             <div class="atk-name">🔄 棄牌兌換</div>
@@ -2605,15 +2605,15 @@ const TRAINERS = [
   {id:'stadium-reversal',      name:'逆轉鬥技場', cat:'stadium', desc:'HP 低於 50% 時，攻擊威力 +30'},
   {id:'stadium-invert',        name:'反轉世界',   cat:'stadium', desc:'場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×1.2）；反轉後仍是克制的攻擊，額外 +25 固定傷害'},
   {id:'stadium-dragon-valley', name:'龍之谷',     cat:'stadium', type:'dragon', weight:10, desc:'龍屬性寶可夢對妖精、冰系招式不受克制（效果最多×1）；龍屬性攻擊不會被減免或無效，且額外 +35 固定傷害'},
-  {id:'stadium-evil-forest',   name:'邪惡森林',   cat:'stadium', type:'grass', weight:10, desc:'原本克制草屬性的寶可夢（火／冰／飛行／毒／蟲），全部變成弱草屬性（草屬性攻擊 ×1.2）'},
-  {id:'stadium-mega-prism',    name:'Mega 稜鏡塔', cat:'stadium', desc:'雙方每個自己的回合開始時，獲得 16 點 Mega 能量'},
+  {id:'stadium-evil-forest',   name:'邪惡森林',   cat:'stadium', type:'grass', weight:10, desc:'原本克制草屬性的寶可夢（火／冰／飛行／毒／蟲），全部變成弱草屬性（草屬性攻擊 ×1.2）；每回合結束，草屬性上場寶可夢回復 70 HP'},
+  {id:'stadium-mega-prism',    name:'Mega 稜鏡塔', cat:'stadium', desc:'雙方每個自己的回合開始時，獲得 16 點 Mega 能量；可 Mega 進化或已經 Mega 進化的寶可夢，受到的攻擊傷害 ×0.6'},
   {id:'stadium-spikes',        name:'尖峰陷阱',   cat:'stadium', desc:'寶可夢上場時，受到最大HP 25% 的傷害（雙方對等）'},
-  {id:'stadium-toxic-field',   name:'劇毒領域',   cat:'stadium', type:'poison', weight:10, desc:'寶可夢上場時，陷入中毒（雙方對等）；此場地下中毒傷害 ×2'},
-  {id:'stadium-colosseum',     name:'羅馬鬥技場', cat:'stadium', type:'fighting', weight:10, desc:'格鬥屬性招式傷害 ×1.2；格鬥屬性攻擊不再被幽靈屬性完全免疫'},
+  {id:'stadium-toxic-field',   name:'劇毒領域',   cat:'stadium', type:'poison', weight:10, desc:'寶可夢上場時，陷入中毒（雙方對等）；此場地下中毒傷害 ×2；每回合結束，毒屬性上場寶可夢回復 70 HP，並有 50% 機率完全閃避攻擊（不疊加）'},
+  {id:'stadium-colosseum',     name:'羅馬鬥技場', cat:'stadium', type:'fighting', weight:10, desc:'格鬥屬性招式傷害 ×1.2；格鬥屬性攻擊不再被幽靈屬性完全免疫；格鬥屬性攻擊會連續發動兩次，第二次傷害 ×0.5（若第一次就打倒對手，第二次改攻擊新上場的寶可夢）'},
   {id:'stadium-mystic-space',  name:'魔幻空間',   cat:'stadium', type:'psychic', weight:10, desc:'超能力屬性寶可夢受到的傷害 ×0.75；弱點消失（不受超效傷害影響）'},
   {id:'stadium-lava',          name:'熔岩火山',   cat:'stadium', type:'fire', weight:10, desc:'火屬性招式傷害 +30；水屬性招式傷害 ×0.65'},
   {id:'stadium-ocean',         name:'海洋世界',   cat:'stadium', type:'water', weight:10, desc:'水屬性招式消耗能量 ×0.3；電屬性招式傷害 ×1.4；水屬性寶可夢傷害額外 +40'},
-  {id:'stadium-shrine',        name:'莊嚴神社',   cat:'stadium', type:'normal', weight:10, desc:'一般屬性招式一律視為剋制對手（效果拉滿 ×1.2）'},
+  {id:'stadium-shrine',        name:'莊嚴神社',   cat:'stadium', type:'normal', weight:10, desc:'一般屬性招式一律視為剋制對手（效果拉滿 ×1.2）；一般屬性攻擊方命中後回復等同傷害量的HP；一般屬性寶可夢受到的攻擊傷害 -30'},
   // ── 競技場牌：屬性分類新卡 ──
   {id:'stadium-sandstorm',   name:'沙塵暴',   cat:'stadium', type:'ground', weight:10, desc:'非地面／岩石／鋼屬性寶可夢，每回合結束損失最大HP的12%'},
   {id:'stadium-rock-field',  name:'岩石地帶', cat:'stadium', type:'rock', weight:10, desc:'岩石／地面／鋼屬性寶可夢，受到的攻擊傷害 -50，且不會再被剋制（弱點消除）'},
@@ -2622,7 +2622,7 @@ const TRAINERS = [
   {id:'stadium-ice-tundra',     name:'永凍冰原',   cat:'stadium', type:'ice',      weight:10, desc:'冰屬性招式傷害 +30；每回合結束，雙方上場寶可夢若無異常狀態，15% 機率陷入結凍'},
   {id:'stadium-dark-curse',     name:'暗夜詛咒領域', cat:'stadium', type:'dark',   weight:10, desc:'惡屬性招式傷害 ×1.2；此場地啟用中，雙方的所有恢復效果全部失效'},
   {id:'stadium-steel-fortress', name:'鋼鐵堡壘',   cat:'stadium', type:'steel',    weight:10, desc:'鋼屬性招式傷害 +30；此場地下，雙方受到的攻擊傷害固定減少 20'},
-  {id:'stadium-flying-wind',    name:'疾風之翼',   cat:'stadium', type:'flying',   weight:10, desc:'飛行屬性招式傷害 ×1.2；此場地下，雙方換人都不會結束回合'},
+  {id:'stadium-flying-wind',    name:'疾風之翼',   cat:'stadium', type:'flying',   weight:10, desc:'飛行屬性招式傷害 ×1.2；飛行屬性寶可夢有 50% 機率完全閃避攻擊（不疊加）'},
   {id:'stadium-bug-hive',       name:'蟲群巢穴',   cat:'stadium', type:'bug',      weight:10, desc:'蟲屬性招式傷害 +30；此場地下，抽牌／搶奪對方手牌類卡片不受每回合1次限制'},
   {id:'stadium-ghost-curse',    name:'亡靈墓園',   cat:'stadium', type:'ghost',    weight:10, desc:'幽靈屬性招式傷害 ×1.2；此場地下，異常狀態無法被解除'},
   {id:'stadium-fairy-ward',     name:'妖精結界原野', cat:'stadium', type:'fairy',  weight:10, desc:'妖精屬性招式傷害 +30；此場地下，雙方招式的異常狀態附加機率降低 10%（下限0%）'},
@@ -2795,6 +2795,7 @@ let G = {
   freeSwitch:      false,
   switchedThisTurn: false,
   playerSwitchGuard: false,
+  playerStandbyGuard: false,
   playerBuff: { atkBonus:0, atkMult:1, shield:0, typeOverride:null, reflect:false },
   cpuBuff:    { atkBonus:0, atkMult:1, shield:0, typeOverride:null, reflect:false },
   playerDmgDealt:  0,
@@ -3512,6 +3513,7 @@ function startBattle() {
   G.freeSwitch          = false;
   G.switchedThisTurn    = false;
   G.playerSwitchGuard   = false;
+  G.playerStandbyGuard  = false;
   G.playerBuff     = freshBuff();
   G.cpuBuff        = freshBuff();
   G.activeStadium  = null;
@@ -4051,7 +4053,7 @@ function applyTrainer(card, side, chosenType) {
         // 強制換人，原本累積的buff（攻擊強化/反彈鏡/屬性寶珠等）全部重置——撐住/硬幣護盾是跟buff
         // 平行的獨立欄位（不在G.xxxBuff物件裡），之前漏重置，導致被交換器換下場的寶可夢下次
         // 上場還帶著撐住效果，跟其他「這回合沒實際出手」情境（例如被石化/睡眠跳過）的清除邏輯不一致
-        if (opSide === 'player') { G.playerBuff = freshBuff(); G.playerBraced = false; G.playerCoinShield = false; }
+        if (opSide === 'player') { G.playerBuff = freshBuff(); G.playerBraced = false; G.playerCoinShield = false; G.playerStandbyGuard = false; }
         else                     { G.cpuBuff    = freshBuff(); G.cpuBraced = false; G.cpuCoinShield = false; }
         log(`${pron}使用了【${card.name}】，強制換出 ${opDeck[newIdx].name} 上場！`, tag);
         triggerOnLeave(outPoke, opSide); // forced switch is a genuine field departure for the outgoing Pokémon too
@@ -5044,7 +5046,7 @@ function playerAttack(atkIdx) {
         executeSupportMove(P(), CP(), atk, 'player', 'cpu', afterPlayerTurn);
       } else {
         if (atk.bonusEnergy) G.playerBonusEnergyNextTurn = (G.playerBonusEnergyNextTurn || 0) + atk.bonusEnergy;
-        doAttack(P(), CP(), atk, 'player', 'cpu', afterPlayerTurn);
+        attackWithColosseumDouble(P(), CP(), atk, 'player', 'cpu', afterPlayerTurn);
       }
     },
     () => { G.cpuBuff.reflect = false; G.cpuBraced = false; G.cpuCoinShield = false; G.cpuBuff.debuffReflect = false; G.playerBuff.ignoreReflectNext = false; tickAndHandoff(); }, // reflect/撐住/影舞 all expire — player never attacked (status skip); still ticks poison/burn before handoff. 盧恩啟示：無視反彈鏡buff沒打出去就失效（搏命免疫改成回合戳記到期制，見rune-revelation case）
@@ -5060,13 +5062,8 @@ function playerSwitch(deckIdx) {
   if (G.switchedThisTurn) return; // already switched once this turn
   if (G.freeSwitch) { executeSwitch(deckIdx); return; } // 撤退背心：免確認，直接換場
   _pendingSwitchDeckIdx = deckIdx;
-  // 疾風之翼場地啟用時換人不會結束回合——2026-07-28應使用者回報「明明是疾風之翼換人還是
-  // 結束回合」修正：問題不是機制（executeSwitch本身早就正確處理），是這個確認彈窗的文字
-  // 寫死「換人將直接結束本回合」，沒有反映疾風之翼時的真實行為，造成誤解
-  const freeSwitchActive = G.activeStadium?.id === 'stadium-flying-wind';
-  document.getElementById('switch-confirm-sub').textContent = freeSwitchActive
-    ? '疾風之翼場地生效中，換人不會結束本回合，新上場的寶可夢這回合受到的傷害會減少 20%'
-    : '換人將直接結束本回合，新上場的寶可夢這回合受到的傷害會減少 20%';
+  document.getElementById('switch-confirm-sub').textContent =
+    '換人將直接結束本回合，新上場的寶可夢這回合受到的傷害會減少 10%，被換下場的寶可夢回復 100 HP';
   document.getElementById('switch-confirm-modal').classList.add('open');
 }
 
@@ -5085,14 +5082,11 @@ function confirmPlayerSwitch() {
 
 function executeSwitch(deckIdx) {
   playSfx('click');
-  // 疾風之翼場地啟用時，換人也視同撤退背心的免費換場——不結束回合，但「每回合限換1次」的
-  // 既有上限（G.switchedThisTurn）沒有跟著解除，兩者是分開的判斷
-  const usedRetreatVest = G.freeSwitch;
-  const usedFreeSwitch = usedRetreatVest || G.activeStadium?.id === 'stadium-flying-wind';
+  const usedFreeSwitch = G.freeSwitch; // 撤退背心：免費換場，不結束回合
   G.freeSwitch = false;
   G.switchedThisTurn = true;
-  G.playerBuff = freshBuff(); G.playerBraced = false; G.playerCoinShield = false; // 換人時整組攻擊buff（含屬性寶珠override）都不該留給新上場的寶可夢
-  G.playerSwitchGuard = true; // this turn's incoming damage ×0.96
+  G.playerBuff = freshBuff(); G.playerBraced = false; G.playerCoinShield = false; G.playerStandbyGuard = false; // 換人時整組攻擊buff（含屬性寶珠override）都不該留給新上場的寶可夢
+  G.playerSwitchGuard = true; // this turn's incoming damage ×0.9
 
   const outPoke = P();
   if (outPoke.status?.type === 'confusion') {
@@ -5101,6 +5095,15 @@ function executeSwitch(deckIdx) {
   }
   const outName = outPoke.name;
   triggerOnLeave(outPoke, 'player');
+  // 換人時被換下場的寶可夢回復100HP（上限為自身max hp），跟isHealSealed既有的「所有回血
+  // 來源都要檢查詛咒」規則一致
+  if (outPoke.cur > 0 && !isHealSealed('player')) {
+    const outHeal = Math.min(100, outPoke.hp - outPoke.cur);
+    if (outHeal > 0) {
+      outPoke.cur += outHeal;
+      log(`${outName} 換下場前回復了 ${outHeal} HP！`, 'system');
+    }
+  }
   G.playerIdx = deckIdx;
   triggerOnEnter(P(), 'player');
 
@@ -5110,8 +5113,7 @@ function executeSwitch(deckIdx) {
   G.playerHand.push(drawnCard);
 
   if (usedFreeSwitch) {
-    const freeReason = usedRetreatVest ? '撤退背心' : '疾風之翼';
-    log(`你將 ${outName} 換回，派出了 ${P().name}！（${freeReason}：不消耗回合）本回合傷害減免中…抽到了【${drawnCard.name}】！`, 'player');
+    log(`你將 ${outName} 換回，派出了 ${P().name}！（撤退背心：不消耗回合）本回合傷害減免中…抽到了【${drawnCard.name}】！`, 'player');
     renderBattle();
     hideBenchPopup();
     const nc = document.getElementById('player-bcard');
@@ -5152,7 +5154,10 @@ function playerStandby() {
   // 2026-07-23應使用者要求：待機額外獲得5點Mega能量，提升待機的強度（跟其他Mega能量來源一樣，
   // 整場只要用過一次Mega進化就不再累積，反正也沒地方用）
   if (!G.playerMegaUsed) G.playerMegaEnergy = Math.min(20, G.playerMegaEnergy + 5);
-  log(`你選擇待機，抽到了【${card.name}】，並獲得了 5 點 Mega 能量！`, 'player');
+  // 待機改名格擋，新增被動：下一次受到的攻擊傷害×0.6——跟switchGuard同一套「一次性旗標，
+  // 消耗於下次受到的攻擊」寫法，見doAttack的standbyGuardMult
+  G.playerStandbyGuard = true;
+  log(`你選擇格擋，抽到了【${card.name}】，並獲得了 5 點 Mega 能量！下次受到的攻擊傷害將 ×0.6！`, 'player');
 
   const proceedToCpu = () => {
     if (G.playerHand.length > 7) {
@@ -5293,6 +5298,7 @@ function cpuAttack() {
     G.freeSwitch      = false;
     G.switchedThisTurn = false;
     G.playerSwitchGuard = false;
+    G.playerStandbyGuard = false; // 格擋一樣只保護一個對方回合，回合結束（不論有沒有真的被打）就失效
     G.playerBuff.reflect = false; G.playerBraced = false; G.playerCoinShield = false; G.playerBuff.debuffReflect = false; // all expire if CPU's turn ends without attacking (status skip)
     G.cpuBuff.ignoreReflectNext = false; // 盧恩啟示：CPU自己的無視反彈鏡buff沒打出去就失效——這裡是CPU回合結束的單一匯集點，CPU有出手攻擊的話doAttack早就清過了，這裡重複清是安全的no-op（搏命免疫改成回合戳記到期制，見rune-revelation case）
     drawAfterTurn(() => {
@@ -5331,7 +5337,7 @@ function cpuAttack() {
         G.cpuEnergy = Math.min(20, G.cpuEnergy + refund);
       }
       if (atk.bonusEnergy) G.cpuBonusEnergyNextTurn = (G.cpuBonusEnergyNextTurn || 0) + atk.bonusEnergy;
-      doAttack(CP(), P(), atk, 'cpu', 'player', () => {
+      attackWithColosseumDouble(CP(), P(), atk, 'cpu', 'player', () => {
         if (P().cur <= 0) {
           handleKO('player', tickAndEndTurn);
         } else {
@@ -5622,8 +5628,11 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   const aLabel   = aSide === 'player' ? '你的' : '對手的';
   const dLabel   = dSide === 'player' ? '你的' : '對手的';
   const atkTypeName = TYPE_ZH[atkType] || atkType;
-  const switchGuardMult = (dSide === 'player' && G.playerSwitchGuard) ? 0.96 : 1;
+  const switchGuardMult = (dSide === 'player' && G.playerSwitchGuard) ? 0.9 : 1;
   if (dSide === 'player') G.playerSwitchGuard = false; // consumed by this incoming attack
+  // 格擋（原待機）：下一次受到的攻擊傷害×0.6，跟switchGuard同一套「不論有沒有真的扣血都消耗」寫法
+  const standbyGuardMult = (dSide === 'player' && G.playerStandbyGuard) ? 0.6 : 1;
+  if (dSide === 'player') G.playerStandbyGuard = false; // consumed by this incoming attack
 
   /* Reflect mirror: bounce attack back — 2026-07-27新增atk.ignoreReflect：無視對面反彈鏡的
      招式視為對方沒有架反彈鏡，直接照常造成傷害，反彈鏡護盾本身也一併消耗掉（2026-07-28應
@@ -5772,6 +5781,9 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   // 從-150調回-50，並在effActive()額外加碼「弱點消除」讓這張卡不只靠單一個數字撐強度）
   const rockFieldReduction = (G.activeStadium?.id === 'stadium-rock-field' &&
     (['rock','ground','steel'].includes(defender.type) || ['rock','ground','steel'].includes(defender.type2))) ? 50 : 0;
+  // 莊嚴神社：一般屬性寶可夢受到攻擊固定減傷30，跟rockFieldReduction同一套寫法
+  const shrineReduction = (G.activeStadium?.id === 'stadium-shrine' &&
+    (defender.type === 'normal' || defender.type2 === 'normal')) ? 30 : 0;
   // 反轉世界：反轉後如果仍然是「克制」（mult>1），額外+25固定傷害，讓這張場地卡的強度不只停留在「換算」而已
   const invertBonus = (G.activeStadium?.id === 'stadium-invert' && mult > 1) ? 25 : 0;
   // 2026-07-23新增8張場地卡的傷害加成部分（獨特玩法另外在別處實作，見isHealSealed/executeSwitch/
@@ -5786,7 +5798,10 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   const ghostCurseMult = (G.activeStadium?.id === 'stadium-ghost-curse' && atkType === 'ghost') ? 1.2 : 1;
   // 鋼鐵堡壘：不限屬性，雙方受到的攻擊傷害固定減少20（全域防禦力場，跟rockFieldReduction一樣在最後減）
   const steelFortressReduction = G.activeStadium?.id === 'stadium-steel-fortress' ? 20 : 0;
-  const stadiumMult = colosseumMult * mysticSpaceMult * lavaMult * oceanMult * darkCurseMult * flyingWindMult * ghostCurseMult;
+  // Mega稜鏡塔：可Mega進化（poke.mega存在）或已經Mega進化的寶可夢，受到攻擊×0.6，跟mysticSpaceMult
+  // 同一套「defender自身屬性/身分決定的減傷倍率」寫法
+  const megaPrismMult = (G.activeStadium?.id === 'stadium-mega-prism' && (defender.mega || defender.megaEvolved)) ? 0.6 : 1;
+  const stadiumMult = colosseumMult * mysticSpaceMult * lavaMult * oceanMult * darkCurseMult * flyingWindMult * ghostCurseMult * megaPrismMult;
   const stadiumFlatBonus = stadiumBonus + reversalBonus + lavaBonus + dragonValleyBonus + invertBonus +
     electricStormBonus + iceTundraBonus + steelFortressBonus + bugHiveBonus + fairyWardBonus + oceanPokeBonus;
   // 龍之波動／順風：只在下次攻擊剛好符合指定屬性時才加成，不論有沒有命中屬性都會被這次攻擊消耗掉
@@ -5811,7 +5826,7 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   // 對負數dmg來說等於「攻擊」反而幫對方加血，且沒有上限封頂。外層再包一層Math.max(0,...)確保
   // 固定減傷最多只能把傷害打到0（完全格擋），不會倒扣出負傷害。
   let dmg = (mult === 0 || frostArmorProc) ? 0
-    : Math.max(0, Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumFlatBonus + legacyDmgBonus + abilityDmgBonus + megaBoostBonus + typeBoostBonus + bonusVsTypeBonus) * effectiveAtkMult * burnMult * mult * stabMult * switchGuardMult * abilityDmgMult * defAbilityMult * stadiumMult * typeBoostMult * reflectPierceMult)) - shieldTerm - rockFieldReduction - steelFortressReduction);
+    : Math.max(0, Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumFlatBonus + legacyDmgBonus + abilityDmgBonus + megaBoostBonus + typeBoostBonus + bonusVsTypeBonus) * effectiveAtkMult * burnMult * mult * stabMult * switchGuardMult * standbyGuardMult * abilityDmgMult * defAbilityMult * stadiumMult * typeBoostMult * reflectPierceMult)) - shieldTerm - rockFieldReduction - steelFortressReduction - shrineReduction);
   const wasDoubleStrike = aBuff.doubleStrike; // captured before reset — 連擊 rolls the move's own status chance a second time
   const guaranteedStatusThisHit = aBuff.guaranteedStatus; // 心靈感應：captured before reset，同樣道理
   // 冰霜咆哮：captured before reset，同樣道理——只有這次攻擊剛好是冰屬性才會真的觸發額外結凍判定
@@ -5829,6 +5844,15 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   if (!moldBreaker && dmg > 0 && isAbyssDodgeFamily) {
     const abyssDodgeChance = defenderAbility?.id === 'no-weakness-dodge-60' ? 0.6 : 0.1;
     if (Math.random() < abyssDodgeChance) { abyssDodgeProc = true; dmg = 0; }
+  }
+  // 疾風之翼／劇毒領域：場地生效中，飛行／毒屬性寶可夢有50%機率完全閃避攻擊（一次性骰，不跟其他
+  // 閃避來源疊加判定——沿用深淵支配同一套「dmg>0才骰、true-damage無視」寫法，不是額外相乘機率）
+  let stadiumDodgeProc = false;
+  const stadiumDodgeActive =
+    (G.activeStadium?.id === 'stadium-flying-wind' && (defender.type === 'flying' || defender.type2 === 'flying')) ||
+    (G.activeStadium?.id === 'stadium-toxic-field' && (defender.type === 'poison' || defender.type2 === 'poison'));
+  if (!moldBreaker && dmg > 0 && stadiumDodgeActive) {
+    if (Math.random() < 0.5) { stadiumDodgeProc = true; dmg = 0; }
   }
 
   const defTypeStr = defender.type2 ? `${TYPE_ZH[defender.type]||defender.type}／${TYPE_ZH[defender.type2]||defender.type2}` : (TYPE_ZH[defender.type]||defender.type);
@@ -5880,6 +5904,7 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
 
     if (coinShieldProc) log(`${dLabel}${defender.name} 的影舞擲出硬幣正面，完全閃避了攻擊！`, 'special');
     if (abyssDodgeProc) log(`${dLabel}${defender.name} 的深淵支配發動，完全閃避了攻擊！`, 'special');
+    if (stadiumDodgeProc) log(`${dLabel}${defender.name} 靠著【${G.activeStadium.name}】完全閃避了攻擊！`, 'special');
     if (frostArmorProc) log(`${dLabel}${defender.name} 的冰凍護甲抵擋了冰屬性攻擊，完全無效！`, 'special');
     if (dmg > 0) playSfx('attack-hit');
     defender.cur = Math.max(0, defender.cur - dmg);
@@ -5931,6 +5956,15 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
       if (heal > 0) {
         attacker.cur = Math.min(attacker.hp, attacker.cur + heal);
         log(`${aLabel}${attacker.name} 靠著攻擊回復了 ${heal} HP！`, 'special');
+        updateHp(aSide, attacker);
+      }
+    }
+    // 莊嚴神社：一般屬性攻擊方命中後，回復等同這次傷害量的HP
+    if (dmg > 0 && (attacker.type === 'normal' || attacker.type2 === 'normal') && G.activeStadium?.id === 'stadium-shrine' && attacker.cur > 0 && !isHealSealed(aSide)) {
+      const shrineHeal = Math.min(dmg, attacker.hp - attacker.cur);
+      if (shrineHeal > 0) {
+        attacker.cur += shrineHeal;
+        log(`${aLabel}${attacker.name} 靠著【莊嚴神社】回復了 ${shrineHeal} HP！`, 'special');
         updateHp(aSide, attacker);
       }
     }
@@ -6038,6 +6072,36 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
       setTimeout(onDone, 600);
     }
   }, 380);
+}
+
+/* 羅馬鬥技場：鬥屬性攻擊會連續發動兩次，第二次傷害減半——如果第一次命中就打倒對手，第二次
+   改成攻擊新換上場的寶可夢（等對方選完替補之後才真正打出去）。用一層wrapper包住doAttack，
+   而不是塞進doAttack本體內部，因為「等KO替補選完再打第二下」這種跨越handleKO非同步流程
+   的邏輯，跟doAttack原本「打一下就結束、由呼叫者自己判斷KO」的單次呼叫模型不相容。
+   playerAttack/cpuAttack呼叫這個取代直接呼叫doAttack，內部沒符合條件就單純轉呼叫doAttack。 */
+function attackWithColosseumDouble(attacker, defender, atk, aSide, dSide, onDone) {
+  const aBuff = aSide === 'player' ? G.playerBuff : G.cpuBuff;
+  const atkTypeForColosseum = aBuff.typeOverride || atk.type;
+  if (!(G.activeStadium?.id === 'stadium-colosseum' && atkTypeForColosseum === 'fighting')) {
+    doAttack(attacker, defender, atk, aSide, dSide, onDone);
+    return;
+  }
+  doAttack(attacker, defender, atk, aSide, dSide, () => {
+    if (attacker.cur <= 0) { onDone(); return; } // 攻擊方在第一下就陣亡（反彈鏡／反傷特性），沒有第二下可打
+    const secondAtk = { ...atk, dmg: Math.max(1, Math.round(atk.dmg * 0.5)) };
+    const fireSecond = () => {
+      const curDefender = dSide === 'player' ? P() : CP();
+      doAttack(attacker, curDefender, secondAtk, aSide, dSide, onDone);
+    };
+    const curDefender = dSide === 'player' ? P() : CP();
+    if (curDefender.cur <= 0) {
+      // 防禦方被第一下打倒了，先讓對方選替補（handleKO在整隊陣亡時會直接showResult、不呼叫
+      // fireSecond，這裡不用另外判斷bothTeamsWiped）
+      handleKO(dSide, fireSecond);
+    } else {
+      fireSecond();
+    }
+  });
 }
 
 /* ─────────────────────────────────────────
@@ -6544,6 +6608,7 @@ function handleKO(side, onNext) {
   log(`${label}${fainted.name} 倒下了！`, 'special');
   triggerOnLeave(fainted, side);
   G[`${side}Buff`] = freshBuff(); G[`${side}Braced`] = false; G[`${side}CoinShield`] = false; // 倒下的寶可夢離場，累積的攻擊buff不該留給替補上場的寶可夢
+  if (side === 'player') G.playerStandbyGuard = false; // 格擋是玩家專屬（比照switchGuard，CPU沒有這個機制），倒下時不該留給替補寶可夢
   playSfx('faint');
 
   const card = document.getElementById(`${side}-bcard`);
@@ -6685,7 +6750,7 @@ function resetGame() {
     playerDeck:[], cpuDeck:[], playerIdx:0, cpuIdx:0, round:0, busy:false,
     playerHand:[], cpuHand:[], playerSuppUsed:false, playerSuppStageUsed:0, cpuSuppUsed:false, cpuSuppStageUsed:0,
     playerHandCardUsed:false, cpuHandCardUsed:false, freeSwitch:false,
-    switchedThisTurn:false, playerSwitchGuard:false,
+    switchedThisTurn:false, playerSwitchGuard:false, playerStandbyGuard:false,
     playerMegaEnergy:0, cpuMegaEnergy:0, playerMegaUsed:false, cpuMegaUsed:false,
     playerBuff:{atkBonus:0,atkMult:1,shield:0,typeOverride:null,reflect:false}, cpuBuff:{atkBonus:0,atkMult:1,shield:0,typeOverride:null,reflect:false},
     playerDmgDealt:0, cpuDmgDealt:0, playerCardsUsed:0,
@@ -6759,6 +6824,28 @@ function drawAfterTurn(onDone) {
     [{ poke:P(), side:'player' }, { poke:CP(), side:'cpu' }].forEach(({poke, side}) => {
       if (poke.cur > 0 && Math.random() < 0.15 && inflictStatus(poke, 'freeze', 2)) {
         log(`【永凍冰原】${poke.name} 被凍住了！`, 'special');
+      }
+    });
+  }
+  // 邪惡森林：每回合結束，草屬性上場寶可夢回復70HP，跟stadium-spring同一套寫法
+  if (G.activeStadium?.id === 'stadium-evil-forest') {
+    [{ poke:P(), side:'player' }, { poke:CP(), side:'cpu' }].forEach(({poke, side}) => {
+      if (poke.cur > 0 && poke.cur < poke.hp && (poke.type === 'grass' || poke.type2 === 'grass') && !isHealSealed(side)) {
+        const heal = Math.min(70, poke.hp - poke.cur);
+        poke.cur += heal;
+        log(`【邪惡森林】${poke.name} 回復了 ${heal} HP！`, 'special');
+        updateHp(side, poke);
+      }
+    });
+  }
+  // 劇毒領域：每回合結束，毒屬性上場寶可夢回復70HP，跟stadium-evil-forest同一套寫法
+  if (G.activeStadium?.id === 'stadium-toxic-field') {
+    [{ poke:P(), side:'player' }, { poke:CP(), side:'cpu' }].forEach(({poke, side}) => {
+      if (poke.cur > 0 && poke.cur < poke.hp && (poke.type === 'poison' || poke.type2 === 'poison') && !isHealSealed(side)) {
+        const heal = Math.min(70, poke.hp - poke.cur);
+        poke.cur += heal;
+        log(`【劇毒領域】${poke.name} 回復了 ${heal} HP！`, 'special');
+        updateHp(side, poke);
       }
     });
   }
@@ -7140,7 +7227,7 @@ function renderDex() {
 <div id="switch-confirm-modal">
   <div class="discard-inner">
     <div class="discard-title">確定要換人嗎？</div>
-    <div class="discard-sub" id="switch-confirm-sub">換人將直接結束本回合，新上場的寶可夢這回合受到的傷害會減少 20%</div>
+    <div class="discard-sub" id="switch-confirm-sub">換人將直接結束本回合，新上場的寶可夢這回合受到的傷害會減少 10%，被換下場的寶可夢回復 100 HP</div>
     <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.8rem">
       <button class="btn-modal-ok" onclick="confirmPlayerSwitch()">確定換人</button>
       <button class="btn-modal-cancel" onclick="closeSwitchConfirm()">取消</button>
