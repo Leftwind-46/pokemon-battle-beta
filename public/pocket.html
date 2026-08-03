@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pokémon TCG Pocket 對戰 — 組牌</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:      #07091a;
+    --surface: rgba(255,255,255,0.05);
+    --border:  rgba(255,255,255,0.10);
+    --text:    #e8eaf6;
+    --muted:   #7986cb;
+  }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Segoe UI','Helvetica Neue',Arial,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; overflow-x:hidden; }
+  #stars { position:fixed; inset:0; z-index:0; pointer-events:none; }
+
+  .page { position:relative; z-index:1; min-height:100vh; display:flex; flex-direction:column; }
+
+  header.top { padding:1rem 1.4rem; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
+  header.top h1 { font-size:1.15rem; font-weight:800; background:linear-gradient(135deg,#f8d030 0%,#f05030 50%,#6890f0 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  header.top .sub { color:var(--muted); font-size:0.8rem; }
+
+  .layout { flex:1; display:grid; grid-template-columns:1fr 340px; gap:0; min-height:0; }
+  @media (max-width: 880px) { .layout { grid-template-columns:1fr; } }
+
+  /* ── pool ── */
+  .pool { padding:1rem 1.2rem 2rem; min-width:0; }
+  .filters { display:flex; gap:0.6rem; flex-wrap:wrap; margin-bottom:1rem; position:sticky; top:0; background:rgba(7,9,26,0.92); backdrop-filter:blur(6px); padding:0.6rem 0; z-index:5; }
+  .filters input, .filters select { background:var(--surface); border:1px solid var(--border); color:var(--text); padding:0.5rem 0.8rem; border-radius:8px; font-size:0.85rem; }
+  .filters input { flex:1; min-width:140px; }
+  .pool-count { color:var(--muted); font-size:0.8rem; margin-bottom:0.6rem; }
+
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(128px,1fr)); gap:0.7rem; }
+  .card-tile { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:0.5rem; cursor:pointer; transition:transform .15s, border-color .15s; position:relative; }
+  .card-tile:hover:not(.maxed) { transform:translateY(-3px); border-color:rgba(255,255,255,0.28); }
+  .card-tile.maxed { opacity:0.35; cursor:not-allowed; }
+  .card-tile img { width:100%; border-radius:6px; display:block; background:#111; aspect-ratio:5/7; object-fit:cover; }
+  .card-tile .name { font-size:0.72rem; font-weight:700; margin-top:0.4rem; line-height:1.2; }
+  .card-tile .meta { font-size:0.65rem; color:var(--muted); margin-top:0.15rem; }
+  .card-tile .type-dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:3px; }
+  .card-tile .count-badge { position:absolute; top:4px; right:4px; background:#f05030; color:#fff; font-size:0.65rem; font-weight:800; border-radius:999px; min-width:18px; height:18px; display:flex; align-items:center; justify-content:center; padding:0 4px; }
+
+  /* ── deck panel ── */
+  .deck-panel { border-left:1px solid var(--border); background:rgba(255,255,255,0.02); padding:1rem 1.1rem 1.5rem; display:flex; flex-direction:column; gap:0.8rem; position:sticky; top:0; align-self:flex-start; height:100vh; overflow-y:auto; }
+  .deck-count { font-size:1.4rem; font-weight:800; }
+  .deck-count .ok { color:#69f0ae; }
+  .deck-count .bad { color:#ff8a80; }
+  .deck-warn { font-size:0.78rem; color:#ffab91; background:rgba(255,138,101,0.08); border:1px solid rgba(255,138,101,0.25); border-radius:8px; padding:0.5rem 0.7rem; display:none; }
+  .deck-warn.show { display:block; }
+  .deck-list { display:flex; flex-direction:column; gap:0.35rem; flex:1; overflow-y:auto; }
+  .deck-row { display:flex; align-items:center; gap:0.5rem; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:0.4rem 0.5rem; font-size:0.78rem; }
+  .deck-row img { width:28px; height:39px; border-radius:4px; object-fit:cover; background:#111; }
+  .deck-row .n { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .deck-row .x { color:var(--muted); font-weight:700; }
+  .deck-row button { background:rgba(255,255,255,0.08); border:1px solid var(--border); color:var(--text); border-radius:6px; width:22px; height:22px; cursor:pointer; font-size:0.8rem; line-height:1; }
+  .deck-row button:hover { background:rgba(255,255,255,0.16); }
+  .deck-empty { color:var(--muted); font-size:0.8rem; text-align:center; padding:2rem 0; }
+
+  .btn { padding:0.6rem 1rem; border:none; border-radius:999px; font-size:0.85rem; font-weight:700; cursor:pointer; transition:all 0.2s; }
+  .btn-primary { background:linear-gradient(135deg,#f8d030,#f05030); color:#fff; }
+  .btn-primary:disabled { opacity:0.35; cursor:not-allowed; }
+  .btn-secondary { background:rgba(255,255,255,0.07); color:var(--text); border:1px solid var(--border); }
+  .btn-secondary:hover { background:rgba(255,255,255,0.13); }
+  .btn-row { display:flex; gap:0.5rem; }
+  .btn-row .btn { flex:1; }
+
+  .save-toast { position:fixed; bottom:1.2rem; left:50%; transform:translateX(-50%) translateY(20px); background:#1b2040; border:1px solid var(--border); color:var(--text); padding:0.6rem 1.2rem; border-radius:999px; font-size:0.85rem; opacity:0; transition:all .25s; z-index:50; pointer-events:none; }
+  .save-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+
+<div class="page">
+  <header class="top">
+    <div>
+      <h1>Pokémon TCG Pocket 對戰</h1>
+      <div class="sub">組牌 — 精選 A1 創世紀卡池</div>
+    </div>
+    <div class="sub" id="pack-info">載入卡池中...</div>
+  </header>
+
+  <div class="layout">
+    <div class="pool">
+      <div class="filters">
+        <input id="q" placeholder="搜尋卡名..." />
+        <select id="cat">
+          <option value="">全部類別</option>
+          <option value="Pokemon">寶可夢</option>
+          <option value="Trainer">訓練師</option>
+        </select>
+        <select id="type">
+          <option value="">全部屬性</option>
+        </select>
+      </div>
+      <div class="pool-count" id="pool-count"></div>
+      <div class="grid" id="grid"></div>
+    </div>
+
+    <aside class="deck-panel">
+      <div class="deck-count">牌組 <span id="deck-total">0</span> / 20</div>
+      <div class="deck-warn" id="deck-warn"></div>
+      <div class="deck-list" id="deck-list"></div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="clearDeck()">清空</button>
+        <button class="btn btn-primary" id="save-btn" onclick="saveDeck()">儲存牌組</button>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div class="save-toast" id="save-toast">牌組已儲存</div>
+
+<script>
+/* ─────────────────────────────────────────
+   STAR CANVAS
+───────────────────────────────────────── */
+(function(){
+  const cvs = document.getElementById('stars');
+  const ctx = cvs.getContext('2d');
+  let stars = [];
+  function resize(){
+    cvs.width=innerWidth; cvs.height=innerHeight;
+    stars=Array.from({length:130},()=>({x:Math.random()*cvs.width,y:Math.random()*cvs.height,r:Math.random()*1.3+0.2,a:Math.random(),da:(Math.random()-0.5)*0.007}));
+  }
+  function draw(){
+    ctx.clearRect(0,0,cvs.width,cvs.height);
+    for(const s of stars){s.a+=s.da;if(s.a<=0.05||s.a>=1)s.da=-s.da;ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fillStyle=`rgba(255,255,255,${s.a.toFixed(2)})`;ctx.fill();}
+    requestAnimationFrame(draw);
+  }
+  resize(); draw(); addEventListener('resize',resize);
+})();
+
+/* ─────────────────────────────────────────
+   Deck builder
+───────────────────────────────────────── */
+const TYPE_COLOR = {
+  Fire:'#f08030', Water:'#6890f0', Lightning:'#f8d030', Psychic:'#f85888',
+  Fighting:'#c03028', Darkness:'#705848', Dragon:'#7038f8', Colorless:'#a8a878', Grass:'#78c850'
+};
+const TYPE_ZH = {
+  Fire:'火', Water:'水', Lightning:'電', Psychic:'超能力',
+  Fighting:'格鬥', Darkness:'惡', Dragon:'龍', Colorless:'無色', Grass:'草'
+};
+const DECK_KEY = 'pocketDeck';
+const DECK_SIZE = 20;
+const MAX_COPIES = 2;
+
+let ALL_CARDS = [];
+let cardById = {};
+/** deck: array of card ids (each entry = 1 copy) */
+let deck = [];
+
+async function loadCards() {
+  const res = await fetch('pocket-cards.json');
+  const data = await res.json();
+  ALL_CARDS = data.cards;
+  ALL_CARDS.forEach(c => cardById[c.id] = c);
+  document.getElementById('pack-info').textContent = `卡池 ${ALL_CARDS.length} 張`;
+
+  const typeSet = new Set();
+  ALL_CARDS.forEach(c => (c.types || []).forEach(t => typeSet.add(t)));
+  const typeSel = document.getElementById('type');
+  [...typeSet].sort().forEach(t => {
+    const o = document.createElement('option');
+    o.value = t; o.textContent = TYPE_ZH[t] || t;
+    typeSel.appendChild(o);
+  });
+
+  const saved = JSON.parse(localStorage.getItem(DECK_KEY) || '[]');
+  deck = saved.filter(id => cardById[id]);
+
+  renderPool();
+  renderDeck();
+}
+
+function countInDeck(id) {
+  return deck.filter(x => x === id).length;
+}
+
+function addCard(id) {
+  const card = cardById[id];
+  if (!card) return;
+  if (deck.length >= DECK_SIZE) return;
+  if (countInDeck(id) >= MAX_COPIES) return;
+  deck.push(id);
+  renderPool();
+  renderDeck();
+}
+
+function removeCard(id) {
+  const idx = deck.lastIndexOf(id);
+  if (idx >= 0) deck.splice(idx, 1);
+  renderPool();
+  renderDeck();
+}
+
+function clearDeck() {
+  deck = [];
+  renderPool();
+  renderDeck();
+}
+
+function saveDeck() {
+  localStorage.setItem(DECK_KEY, JSON.stringify(deck));
+  const toast = document.getElementById('save-toast');
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 1400);
+}
+
+function deckValidation() {
+  const total = deck.length;
+  const hasBasic = deck.some(id => {
+    const c = cardById[id];
+    return c && c.category === 'Pokemon' && c.stage === 'Basic';
+  });
+  const problems = [];
+  if (total !== DECK_SIZE) problems.push(`需要剛好 ${DECK_SIZE} 張（目前 ${total} 張）`);
+  if (!hasBasic) problems.push('至少需要 1 張基礎寶可夢');
+  return { total, hasBasic, valid: problems.length === 0, problems };
+}
+
+function renderPool() {
+  const q = document.getElementById('q').value.trim().toLowerCase();
+  const cat = document.getElementById('cat').value;
+  const type = document.getElementById('type').value;
+  const filtered = ALL_CARDS.filter(c => {
+    if (q && !c.name.toLowerCase().includes(q)) return false;
+    if (cat && c.category !== cat) return false;
+    if (type && !(c.types || []).includes(type)) return false;
+    return true;
+  });
+  document.getElementById('pool-count').textContent = `顯示 ${filtered.length} / ${ALL_CARDS.length} 張`;
+
+  const grid = document.getElementById('grid');
+  grid.innerHTML = filtered.map(c => {
+    const n = countInDeck(c.id);
+    const maxed = n >= MAX_COPIES || deck.length >= DECK_SIZE;
+    const typeDots = (c.types || []).map(t => `<span class="type-dot" style="background:${TYPE_COLOR[t] || '#888'}"></span>`).join('');
+    const metaLine = c.category === 'Pokemon'
+      ? `${typeDots}${TYPE_ZH[c.types?.[0]] || ''} · ${c.stage === 'Basic' ? '基礎' : c.stage === 'Stage1' ? '第1階' : '第2階'}${c.ex ? ' · EX' : ''} · HP${c.hp}`
+      : c.trainerType === 'Supporter' ? '支援者卡' : '道具卡';
+    return `
+      <div class="card-tile ${maxed && n < MAX_COPIES ? 'maxed' : ''}" onclick="addCard('${c.id}')" title="${maxed ? '已達上限或牌組已滿' : '點擊加入牌組'}">
+        ${n > 0 ? `<div class="count-badge">${n}</div>` : ''}
+        <img src="${c.image}" loading="lazy" alt="${c.name}">
+        <div class="name">${c.name}</div>
+        <div class="meta">${metaLine}</div>
+      </div>`;
+  }).join('');
+}
+
+function renderDeck() {
+  const v = deckValidation();
+  document.getElementById('deck-total').innerHTML = `<span class="${v.total === DECK_SIZE ? 'ok' : 'bad'}">${v.total}</span>`;
+  const warn = document.getElementById('deck-warn');
+  if (v.problems.length) {
+    warn.textContent = v.problems.join('　·　');
+    warn.classList.add('show');
+  } else {
+    warn.classList.remove('show');
+  }
+  document.getElementById('save-btn').disabled = !v.valid;
+
+  // group by id, preserve first-seen order
+  const groups = [];
+  const seen = {};
+  deck.forEach(id => {
+    if (!(id in seen)) { seen[id] = groups.length; groups.push({ id, count: 0 }); }
+    groups[seen[id]].count++;
+  });
+
+  const list = document.getElementById('deck-list');
+  if (!groups.length) {
+    list.innerHTML = '<div class="deck-empty">從左邊卡池點擊卡片加入牌組</div>';
+    return;
+  }
+  list.innerHTML = groups.map(g => {
+    const c = cardById[g.id];
+    return `
+      <div class="deck-row">
+        <img src="${c.image}" alt="${c.name}">
+        <div class="n">${c.name}</div>
+        <div class="x">×${g.count}</div>
+        <button onclick="removeCard('${g.id}')">−</button>
+      </div>`;
+  }).join('');
+}
+
+['q', 'cat', 'type'].forEach(id => document.getElementById(id).addEventListener('input', renderPool));
+
+loadCards();
+</script>
+</body>
+</html>
