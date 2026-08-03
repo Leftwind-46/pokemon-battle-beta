@@ -5,6 +5,8 @@ const { WebSocketServer } = require('ws');
 const { Pool }  = require('pg');
 const crypto    = require('crypto');
 const util      = require('util');
+const fs        = require('fs');
+const path      = require('path');
 
 const app    = express();
 const server = http.createServer(app);
@@ -2397,6 +2399,34 @@ function genCode() {
   return crypto.randomBytes(2).toString('hex').toUpperCase();
 }
 
+/* ═══════════════════════════════════════════
+   POCKET TCG（雙人PvP，真實PTCG Pocket規則）
+   完全獨立的房間系統，不跟上面既有的 rooms/G 戰鬥狀態共用——
+   兩套規則(能量池 vs 能量區、無進化 vs 進化、無牌組 vs 20張牌組)差異太大，
+   混在一起只會讓既有PvP的debug變複雜。詳見 /Users/mike/.claude/plans/parsed-dancing-comet.md
+═══════════════════════════════════════════ */
+const pocketRooms = new Map();
+const POCKET_CARDS = JSON.parse(fs.readFileSync(path.join(__dirname, 'public', 'pocket-cards.json'), 'utf8')).cards;
+const POCKET_CARDS_BY_ID = Object.fromEntries(POCKET_CARDS.map(c => [c.id, c]));
+
+// server端權威驗證，不信任client算好的合法性（比照現有PvP「不信任client」的慣例）
+function validatePocketDeck(deckIds) {
+  if (!Array.isArray(deckIds) || deckIds.length !== 20) return '牌組需要剛好 20 張';
+  const counts = {};
+  for (const id of deckIds) {
+    const card = POCKET_CARDS_BY_ID[id];
+    if (!card) return '牌組包含不存在的卡片';
+    counts[id] = (counts[id] || 0) + 1;
+    if (counts[id] > 2) return `${card.name} 最多只能放 2 張`;
+  }
+  const hasBasic = deckIds.some(id => {
+    const c = POCKET_CARDS_BY_ID[id];
+    return c.category === 'Pokemon' && c.stage === 'Basic';
+  });
+  if (!hasBasic) return '牌組至少需要 1 張基礎寶可夢';
+  return null;
+}
+
 function freshBuff() {
   return {
     atkBonus: 0, atkMult: 1, shield: 0, typeOverride: null, reflect: false,
@@ -3832,6 +3862,8 @@ wss.on('connection', (ws, req) => {
   ws.role     = null;
   ws.userId   = null;
   ws.username = null;
+  ws.pocketRoomCode = null;
+  ws.pocketRole     = null;
 
   /* 帶token就驗證，驗證失敗/沒帶token/沒有pool一律當匿名放行，絕不拒絕連線。
      驗證是非同步的，所以先把connection期間收到的訊息排隊，驗證完（不管成功失敗）再依序處理，
@@ -3869,19 +3901,32 @@ wss.on('connection', (ws, req) => {
 
   ws.on('close', () => {
     const room = rooms.get(ws.roomCode);
-    if (!room) return;
-    if (ws.role === 'spectator') {
-      room.spectators = (room.spectators || []).filter(s => s !== ws);
-      return;
+    if (room) {
+      if (ws.role === 'spectator') {
+        room.spectators = (room.spectators || []).filter(s => s !== ws);
+      } else {
+        const op = ws.role === 'p1' ? 'p2' : 'p1';
+        send(room[op], { type: 'opponent_disconnected' });
+        room[ws.role] = null;
+        // 2026-07-30 review發現的記憶體洩漏修正：原本寫成「未結束的對局才delete」，等於每一場
+        // 正常打完(phase==='done')的對局永遠留在rooms這個Map裡，長期跑下去記憶體只會一直長。
+        // 改成：未結束就照原本邏輯直接清掉；已結束的話，等雙方都斷線了才清掉（讓賽後畫面/觀戰者
+        // 還能看一下結果，不會一結束就馬上被踢），不是「已結束的房間永遠留著」。
+        if (room.phase !== 'done' || (!room.p1 && !room.p2)) rooms.delete(ws.roomCode);
+      }
     }
-    const op = ws.role === 'p1' ? 'p2' : 'p1';
-    send(room[op], { type: 'opponent_disconnected' });
-    room[ws.role] = null;
-    // 2026-07-30 review發現的記憶體洩漏修正：原本寫成「未結束的對局才delete」，等於每一場
-    // 正常打完(phase==='done')的對局永遠留在rooms這個Map裡，長期跑下去記憶體只會一直長。
-    // 改成：未結束就照原本邏輯直接清掉；已結束的話，等雙方都斷線了才清掉（讓賽後畫面/觀戰者
-    // 還能看一下結果，不會一結束就馬上被踢），不是「已結束的房間永遠留著」。
-    if (room.phase !== 'done' || (!room.p1 && !room.p2)) rooms.delete(ws.roomCode);
+
+    const pRoom = pocketRooms.get(ws.pocketRoomCode);
+    if (pRoom) {
+      if (ws.pocketRole === 'spectator') {
+        pRoom.spectators = (pRoom.spectators || []).filter(s => s !== ws);
+      } else {
+        const op = ws.pocketRole === 'p1' ? 'p2' : 'p1';
+        send(pRoom[op], { type: 'pocket_opponent_disconnected' });
+        pRoom[ws.pocketRole] = null;
+        if (pRoom.phase !== 'done' || (!pRoom.p1 && !pRoom.p2)) pocketRooms.delete(ws.pocketRoomCode);
+      }
+    }
   });
 });
 
@@ -3935,6 +3980,59 @@ async function handleMessage(ws, msg) {
       send(room.p1, { type: 'opponent_joined', username: room.p2Username });
       return;
     }
+
+    /* ── Pocket TCG lobby（獨立房間系統，見上面 pocketRooms 區塊） ── */
+    if (type === 'pocket_create_room') {
+      const code = genCode();
+      const pRoom = { code, p1: ws, p2: null, phase: 'waiting', p1Deck: null, p2Deck: null, p1Ready: false, p2Ready: false, firstPlayer: null, p1UserId: ws.userId ?? null, p2UserId: null, p1Username: ws.username ?? null, p2Username: null, spectators: [] };
+      pocketRooms.set(code, pRoom);
+      ws.pocketRoomCode = code; ws.pocketRole = 'p1';
+      send(ws, { type: 'pocket_room_created', code, role: 'p1' });
+      return;
+    }
+
+    if (type === 'pocket_join_room') {
+      const code = (msg.code || '').toUpperCase().trim();
+      const pRoom = pocketRooms.get(code);
+      if (!pRoom) { send(ws, { type: 'error', message: '找不到房間，請確認代碼' }); return; }
+      if (pRoom.p2) {
+        pRoom.spectators = pRoom.spectators || [];
+        pRoom.spectators.push(ws);
+        ws.pocketRoomCode = code; ws.pocketRole = 'spectator';
+        send(ws, { type: 'pocket_spectate_joined', phase: pRoom.phase });
+        return;
+      }
+      pRoom.p2 = ws;
+      ws.pocketRoomCode = code; ws.pocketRole = 'p2';
+      pRoom.p2UserId = ws.userId ?? null;
+      pRoom.p2Username = ws.username ?? null;
+      pRoom.phase = 'deckselect';
+      send(ws,        { type: 'pocket_joined', role: 'p2', opponentUsername: pRoom.p1Username });
+      send(pRoom.p1,  { type: 'pocket_opponent_joined', username: pRoom.p2Username });
+      return;
+    }
+
+    if (type === 'pocket_submit_deck') {
+      const pRoom = pocketRooms.get(ws.pocketRoomCode);
+      if (!pRoom) { send(ws, { type: 'error', message: '房間已不存在，請重新建立房間' }); return; }
+      const pRole = ws.pocketRole;
+      if (pRole !== 'p1' && pRole !== 'p2') return;
+      const err = validatePocketDeck(msg.deck);
+      if (err) { send(ws, { type: 'error', message: err }); return; }
+      if (pRole === 'p1') { pRoom.p1Deck = msg.deck; pRoom.p1Ready = true; }
+      else                { pRoom.p2Deck = msg.deck; pRoom.p2Ready = true; }
+      send(pRoom[pRole === 'p1' ? 'p2' : 'p1'], { type: 'pocket_opponent_ready' });
+      if (pRoom.p1Ready && pRoom.p2Ready) {
+        pRoom.firstPlayer = Math.random() < 0.5 ? 'p1' : 'p2';
+        pRoom.phase = 'playing';
+        broadcast(pRoom, { type: 'pocket_match_start', firstPlayer: pRoom.firstPlayer, p1Username: pRoom.p1Username, p2Username: pRoom.p2Username });
+      }
+      return;
+    }
+
+    // 防呆：core回合引擎(Phase 4)還沒做，任何其他pocket_*訊息先安全忽略，
+    // 避免掉進下面既有PvP的 rooms.get(ws.roomCode) 分支（那是完全不同的Map）。
+    if (typeof type === 'string' && type.startsWith('pocket_')) return;
 
     const room = rooms.get(ws.roomCode);
     if (!room) { send(ws, { type: 'error', message: '房間已不存在，請重新建立房間' }); return; }

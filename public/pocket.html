@@ -69,6 +69,19 @@
 
   .save-toast { position:fixed; bottom:1.2rem; left:50%; transform:translateX(-50%) translateY(20px); background:#1b2040; border:1px solid var(--border); color:var(--text); padding:0.6rem 1.2rem; border-radius:999px; font-size:0.85rem; opacity:0; transition:all .25s; z-index:50; pointer-events:none; }
   .save-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* ── lobby modal ── */
+  .lobby-overlay { position:fixed; inset:0; z-index:100; background:rgba(0,0,0,0.55); backdrop-filter:blur(4px); display:none; align-items:center; justify-content:center; }
+  .lobby-overlay.open { display:flex; }
+  .lobby-box { position:relative; background:#10132b; border:1px solid var(--border); border-radius:16px; padding:2rem 2.2rem; width:min(90vw,380px); text-align:center; }
+  .lobby-box h2 { font-size:1.2rem; margin-bottom:0.6rem; }
+  .lobby-sub { color:var(--muted); font-size:0.85rem; margin-bottom:1rem; }
+  .lobby-close { position:absolute; top:0.7rem; right:0.9rem; background:none; border:none; color:var(--muted); font-size:1rem; cursor:pointer; }
+  .lobby-close:hover { color:var(--text); }
+  .join-row { display:flex; gap:0.5rem; margin-top:0.8rem; }
+  .join-row input { flex:1; background:var(--surface); border:1px solid var(--border); color:var(--text); padding:0.6rem 0.8rem; border-radius:8px; text-align:center; letter-spacing:0.1em; text-transform:uppercase; font-size:0.9rem; }
+  .lobby-error { color:#ff8a80; font-size:0.8rem; margin-top:0.7rem; min-height:1em; }
+  .room-code { font-size:2.2rem; font-weight:800; letter-spacing:0.15em; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:0.8rem; margin-bottom:0.8rem; }
 </style>
 </head>
 <body>
@@ -108,11 +121,48 @@
         <button class="btn btn-secondary" onclick="clearDeck()">清空</button>
         <button class="btn btn-primary" id="save-btn" onclick="saveDeck()">儲存牌組</button>
       </div>
+      <button class="btn btn-secondary" id="goto-lobby-btn" onclick="openLobby()" disabled style="width:100%">🔗 前往連線對戰</button>
     </aside>
   </div>
 </div>
 
 <div class="save-toast" id="save-toast">牌組已儲存</div>
+
+<div class="lobby-overlay" id="lobby-overlay">
+  <div class="lobby-box">
+    <button class="lobby-close" onclick="closeLobby()">✕</button>
+
+    <div id="lobby-step-choose">
+      <h2>連線對戰</h2>
+      <p class="lobby-sub">牌組已儲存（20張），可以建立房間或輸入房號加入</p>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="createRoom()">建立房間</button>
+      </div>
+      <div class="join-row">
+        <input id="join-code-input" maxlength="4" placeholder="輸入4碼房號">
+        <button class="btn btn-secondary" onclick="joinRoom()">加入</button>
+      </div>
+      <div class="lobby-error" id="lobby-error"></div>
+    </div>
+
+    <div id="lobby-step-waiting" style="display:none">
+      <h2>房間代碼</h2>
+      <div class="room-code" id="room-code-display"></div>
+      <p class="lobby-sub">請把房號給對方，等待加入中...</p>
+    </div>
+
+    <div id="lobby-step-ready" style="display:none">
+      <h2>雙方已連線</h2>
+      <p class="lobby-sub" id="ready-status">已送出牌組，等待對手...</p>
+    </div>
+
+    <div id="lobby-step-started" style="display:none">
+      <h2>對戰開始！</h2>
+      <p class="lobby-sub" id="started-status"></p>
+      <p class="lobby-sub" style="opacity:0.6">（核心回合引擎尚未實作，這裡先確認房間/牌組/先攻流程正常）</p>
+    </div>
+  </div>
+</div>
 
 <script>
 /* ─────────────────────────────────────────
@@ -264,6 +314,7 @@ function renderDeck() {
     warn.classList.remove('show');
   }
   document.getElementById('save-btn').disabled = !v.valid;
+  document.getElementById('goto-lobby-btn').disabled = !v.valid;
 
   // group by id, preserve first-seen order
   const groups = [];
@@ -293,6 +344,90 @@ function renderDeck() {
 ['q', 'cat', 'type'].forEach(id => document.getElementById(id).addEventListener('input', renderPool));
 
 loadCards();
+
+/* ─────────────────────────────────────────
+   Lobby / WS connection（Phase 3：房間骨架，核心回合引擎還沒做）
+───────────────────────────────────────── */
+let ws = null;
+let myRole = null; // 'p1' | 'p2'
+
+function lobbyShowStep(step) {
+  ['choose', 'waiting', 'ready', 'started'].forEach(s => {
+    document.getElementById(`lobby-step-${s}`).style.display = s === step ? '' : 'none';
+  });
+}
+
+function openLobby() {
+  if (deckValidation().valid !== true) return;
+  document.getElementById('lobby-overlay').classList.add('open');
+  lobbyShowStep('choose');
+  document.getElementById('lobby-error').textContent = '';
+  connectWs();
+}
+
+function closeLobby() {
+  document.getElementById('lobby-overlay').classList.remove('open');
+  if (ws) { ws.close(); ws = null; }
+}
+
+function connectWs() {
+  if (ws) return;
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}`);
+  ws.onmessage = e => handleWsMsg(JSON.parse(e.data));
+  ws.onclose = () => { ws = null; };
+}
+
+function wsSend(msg) {
+  if (ws?.readyState === 1) ws.send(JSON.stringify(msg));
+  else if (ws) ws.addEventListener('open', () => ws.send(JSON.stringify(msg)), { once: true });
+}
+
+function createRoom() {
+  wsSend({ type: 'pocket_create_room' });
+}
+
+function joinRoom() {
+  const code = document.getElementById('join-code-input').value.trim();
+  if (!code) return;
+  wsSend({ type: 'pocket_join_room', code });
+}
+
+function handleWsMsg(msg) {
+  switch (msg.type) {
+    case 'pocket_room_created':
+      myRole = msg.role;
+      document.getElementById('room-code-display').textContent = msg.code;
+      lobbyShowStep('waiting');
+      break;
+    case 'pocket_joined':
+      myRole = msg.role;
+      wsSend({ type: 'pocket_submit_deck', deck });
+      lobbyShowStep('ready');
+      document.getElementById('ready-status').textContent = '已送出牌組，等待對手...';
+      break;
+    case 'pocket_opponent_joined':
+      wsSend({ type: 'pocket_submit_deck', deck });
+      lobbyShowStep('ready');
+      document.getElementById('ready-status').textContent = '對手已加入，已送出牌組，等待對手送出...';
+      break;
+    case 'pocket_opponent_ready':
+      document.getElementById('ready-status').textContent = '對手已送出牌組，等待對戰開始...';
+      break;
+    case 'pocket_match_start': {
+      const iAmFirst = msg.firstPlayer === myRole;
+      lobbyShowStep('started');
+      document.getElementById('started-status').textContent = `先攻：${iAmFirst ? '你' : '對手'}`;
+      break;
+    }
+    case 'pocket_opponent_disconnected':
+      document.getElementById('lobby-error').textContent = '對手已離線';
+      break;
+    case 'error':
+      document.getElementById('lobby-error').textContent = msg.message || '發生錯誤';
+      break;
+  }
+}
 </script>
 </body>
 </html>
