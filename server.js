@@ -2427,6 +2427,110 @@ function validatePocketDeck(deckIds) {
   return null;
 }
 
+/* ── Pocket TCG：核心回合引擎 ──
+   規則依據官方FAQ確認過的細節（不是憑印象猜的）：
+   - 先攻方第1回合沒有能量區能量，但雙方從第1回合起都會抽牌
+   - 能量區從第2回合（即後攻方第1回合）開始每回合產生1點
+   - 板凳上限3隻；撤退/回合限1次；支援者1張/回合（Phase 5才做，這裡還沒有支援者牌可打）
+   - 擊倒一般寶可夢1分/ex寶可夢2分，先到3分獲勝；牌庫在該抽牌時是空的直接落敗
+   - 這個階段刻意只算招式的固定傷害數字+弱點，招式文字效果(擲硬幣加成/狀態異常/治療等)
+     跟訓練師卡一樣先不做，之後合併到同一批「卡片效果」裡處理 */
+let pocketUidCounter = 1;
+function makePocketInstance(cardId) {
+  const base = POCKET_CARDS_BY_ID[cardId];
+  return {
+    ...structuredClone(base),
+    uid: `c${pocketUidCounter++}`,
+    curHp: base.hp ?? null,
+    energy: [],
+    boardTurn: null, // 進場/最近一次進化的回合數，用來擋「這回合不能進化」
+  };
+}
+function pocketShuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function pocketDeckEnergyTypes(deckIds) {
+  const set = new Set();
+  for (const id of deckIds) {
+    const c = POCKET_CARDS_BY_ID[id];
+    if (c.category === 'Pokemon') for (const t of (c.types || [])) if (t !== 'Colorless') set.add(t);
+  }
+  return set.size ? [...set] : ['Colorless'];
+}
+function pocketDrawOpeningHand(deckIds) {
+  let instances = pocketShuffle(deckIds.map(makePocketInstance));
+  let hand = [];
+  for (let attempt = 0; attempt < 50; attempt++) {
+    hand = instances.slice(0, 5);
+    if (hand.some(c => c.category === 'Pokemon' && c.stage === 'Basic')) break;
+    instances = pocketShuffle(instances);
+  }
+  return { hand, deck: instances.slice(5) };
+}
+function buildPocketG(pRoom) {
+  const p1 = pocketDrawOpeningHand(pRoom.p1Deck);
+  const p2 = pocketDrawOpeningHand(pRoom.p2Deck);
+  return {
+    turn: pRoom.firstPlayer, turnNumber: 1, phase: 'setup', winner: null, pendingSwitchRole: null,
+    p1: { ...p1, active: null, bench: [], discard: [], points: 0, pendingEnergy: null, energyAttachedThisTurn: false, retreatedThisTurn: false, energyTypes: pocketDeckEnergyTypes(pRoom.p1Deck), boardReady: false },
+    p2: { ...p2, active: null, bench: [], discard: [], points: 0, pendingEnergy: null, energyAttachedThisTurn: false, retreatedThisTurn: false, energyTypes: pocketDeckEnergyTypes(pRoom.p2Deck), boardReady: false },
+  };
+}
+function pocketPickEnergy(types) {
+  return types[Math.floor(Math.random() * types.length)];
+}
+// 第1回合（先攻方）沒有能量區能量，但雙方從第1回合就要抽牌
+function pocketStartFirstTurn(G) {
+  const side = G[G.turn];
+  if (side.deck.length === 0) { G.winner = G.turn === 'p1' ? 'p2' : 'p1'; G.phase = 'done'; return; }
+  side.hand.push(side.deck.shift());
+}
+function pocketAdvanceTurn(G) {
+  G.turn = G.turn === 'p1' ? 'p2' : 'p1';
+  G.turnNumber++;
+  const side = G[G.turn];
+  if (side.deck.length === 0) { G.winner = G.turn === 'p1' ? 'p2' : 'p1'; G.phase = 'done'; return; }
+  side.hand.push(side.deck.shift());
+  side.pendingEnergy = pocketPickEnergy(side.energyTypes);
+  side.energyAttachedThisTurn = false;
+  side.retreatedThisTurn = false;
+}
+function pocketCanPayCost(pokemon, cost) {
+  const need = {};
+  let colorlessNeed = 0;
+  for (const t of (cost || [])) {
+    if (t === 'Colorless') colorlessNeed++;
+    else need[t] = (need[t] || 0) + 1;
+  }
+  const have = {};
+  for (const e of pokemon.energy) have[e] = (have[e] || 0) + 1;
+  for (const t in need) {
+    if ((have[t] || 0) < need[t]) return false;
+    have[t] -= need[t];
+  }
+  const leftover = Object.values(have).reduce((a, b) => a + b, 0);
+  return leftover >= colorlessNeed;
+}
+function pocketViewFor(G, role) {
+  const op = role === 'p1' ? 'p2' : 'p1';
+  const pub = side => ({ active: side.active, bench: side.bench, discard: side.discard, points: side.points, deckCount: side.deck.length });
+  return {
+    turn: G.turn, turnNumber: G.turnNumber, phase: G.phase, winner: G.winner, pendingSwitchRole: G.pendingSwitchRole,
+    you: { ...pub(G[role]), hand: G[role].hand, pendingEnergy: G[role].pendingEnergy, energyAttachedThisTurn: G[role].energyAttachedThisTurn, retreatedThisTurn: G[role].retreatedThisTurn, energyTypes: G[role].energyTypes },
+    opponent: { ...pub(G[op]), handCount: G[op].hand.length },
+  };
+}
+function pocketBroadcastState(pRoom) {
+  const G = pRoom.G;
+  send(pRoom.p1, { type: 'pocket_turn_state', ...pocketViewFor(G, 'p1') });
+  send(pRoom.p2, { type: 'pocket_turn_state', ...pocketViewFor(G, 'p2') });
+}
+
 function freshBuff() {
   return {
     atkBonus: 0, atkMult: 1, shield: 0, typeOverride: null, reflect: false,
@@ -4025,13 +4129,189 @@ async function handleMessage(ws, msg) {
       if (pRoom.p1Ready && pRoom.p2Ready) {
         pRoom.firstPlayer = Math.random() < 0.5 ? 'p1' : 'p2';
         pRoom.phase = 'playing';
-        broadcast(pRoom, { type: 'pocket_match_start', firstPlayer: pRoom.firstPlayer, p1Username: pRoom.p1Username, p2Username: pRoom.p2Username });
+        pRoom.G = buildPocketG(pRoom);
+        send(pRoom.p1, { type: 'pocket_match_start', firstPlayer: pRoom.firstPlayer, p1Username: pRoom.p1Username, p2Username: pRoom.p2Username, ...pocketViewFor(pRoom.G, 'p1') });
+        send(pRoom.p2, { type: 'pocket_match_start', firstPlayer: pRoom.firstPlayer, p1Username: pRoom.p1Username, p2Username: pRoom.p2Username, ...pocketViewFor(pRoom.G, 'p2') });
       }
       return;
     }
 
-    // 防呆：core回合引擎(Phase 4)還沒做，任何其他pocket_*訊息先安全忽略，
-    // 避免掉進下面既有PvP的 rooms.get(ws.roomCode) 分支（那是完全不同的Map）。
+    /* ── Pocket TCG：開局選主戰/板凳 ── */
+    if (type === 'pocket_setup_board') {
+      const pRoom = pocketRooms.get(ws.pocketRoomCode);
+      if (!pRoom?.G || pRoom.G.phase !== 'setup') return;
+      const G = pRoom.G;
+      const role = ws.pocketRole;
+      const side = G[role];
+      if (side.boardReady) return;
+      const activeCard = side.hand.find(c => c.uid === msg.active);
+      if (!activeCard || activeCard.category !== 'Pokemon' || activeCard.stage !== 'Basic') {
+        send(ws, { type: 'error', message: '主戰寶可夢必須是基礎寶可夢' }); return;
+      }
+      const benchUids = Array.isArray(msg.bench) ? msg.bench.slice(0, 3) : [];
+      const benchCards = benchUids.map(u => side.hand.find(c => c.uid === u)).filter(Boolean);
+      if (benchCards.some(c => c.category !== 'Pokemon' || c.stage !== 'Basic')) {
+        send(ws, { type: 'error', message: '板凳只能放基礎寶可夢' }); return;
+      }
+      const usedUids = new Set([activeCard.uid, ...benchCards.map(c => c.uid)]);
+      side.hand = side.hand.filter(c => !usedUids.has(c.uid));
+      activeCard.boardTurn = G.turnNumber;
+      side.active = activeCard;
+      side.bench = benchCards.map(c => { c.boardTurn = G.turnNumber; return c; });
+      side.boardReady = true;
+      send(ws, { type: 'pocket_setup_wait' });
+      if (G.p1.boardReady && G.p2.boardReady) {
+        pocketStartFirstTurn(G);
+        G.phase = G.phase === 'setup' ? 'active' : G.phase; // pocketStartFirstTurn可能因抽牌落敗而設成done
+        pocketBroadcastState(pRoom);
+      }
+      return;
+    }
+
+    /* ── Pocket TCG：對戰中的操作 ── */
+    if (type === 'pocket_attach_energy') {
+      const pRoom = pocketRooms.get(ws.pocketRoomCode);
+      if (!pRoom?.G || pRoom.G.phase !== 'active') return;
+      const G = pRoom.G; const role = ws.pocketRole;
+      if (G.turn !== role) return;
+      const side = G[role];
+      if (!side.pendingEnergy || side.energyAttachedThisTurn) { send(ws, { type: 'error', message: '沒有可附加的能量' }); return; }
+      const target = [side.active, ...side.bench].find(p => p && p.uid === msg.target);
+      if (!target) return;
+      target.energy.push(side.pendingEnergy);
+      side.pendingEnergy = null;
+      side.energyAttachedThisTurn = true;
+      pocketBroadcastState(pRoom);
+      return;
+    }
+
+    if (type === 'pocket_bench_play') {
+      const pRoom = pocketRooms.get(ws.pocketRoomCode);
+      if (!pRoom?.G || pRoom.G.phase !== 'active') return;
+      const G = pRoom.G; const role = ws.pocketRole;
+      if (G.turn !== role) return;
+      const side = G[role];
+      if (side.bench.length >= 3) { send(ws, { type: 'error', message: '板凳已滿' }); return; }
+      const card = side.hand.find(c => c.uid === msg.handUid);
+      if (!card || card.category !== 'Pokemon' || card.stage !== 'Basic') { send(ws, { type: 'error', message: '只能上場基礎寶可夢' }); return; }
+      card.boardTurn = G.turnNumber;
+      side.bench.push(card);
+      side.hand = side.hand.filter(c => c.uid !== card.uid);
+      pocketBroadcastState(pRoom);
+      return;
+    }
+
+    if (type === 'pocket_evolve') {
+      const pRoom = pocketRooms.get(ws.pocketRoomCode);
+      if (!pRoom?.G || pRoom.G.phase !== 'active') return;
+      const G = pRoom.G; const role = ws.pocketRole;
+      if (G.turn !== role) return;
+      const side = G[role];
+      const handCard = side.hand.find(c => c.uid === msg.handUid);
+      const target = [side.active, ...side.bench].find(p => p && p.uid === msg.target);
+      if (!handCard || !target) return;
+      if (handCard.evolveFrom !== target.name) { send(ws, { type: 'error', message: '進化對象不符' }); return; }
+      if (target.boardTurn >= G.turnNumber) { send(ws, { type: 'error', message: '這隻寶可夢這回合不能進化' }); return; }
+      const preservedDamage = (target.hp || 0) - (target.curHp ?? target.hp ?? 0);
+      const preservedEnergy = target.energy;
+      const preservedUid = target.uid;
+      Object.assign(target, structuredClone(POCKET_CARDS_BY_ID[handCard.id]));
+      target.uid = preservedUid;
+      target.energy = preservedEnergy;
+      target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
+      target.boardTurn = G.turnNumber;
+      side.hand = side.hand.filter(c => c.uid !== handCard.uid);
+      pocketBroadcastState(pRoom);
+      return;
+    }
+
+    if (type === 'pocket_retreat') {
+      const pRoom = pocketRooms.get(ws.pocketRoomCode);
+      if (!pRoom?.G || pRoom.G.phase !== 'active') return;
+      const G = pRoom.G; const role = ws.pocketRole;
+      if (G.turn !== role) return;
+      const side = G[role];
+      if (side.retreatedThisTurn) { send(ws, { type: 'error', message: '這回合已經撤退過了' }); return; }
+      const active = side.active;
+      if (!active) return;
+      const cost = active.retreat || 0;
+      if (active.energy.length < cost) { send(ws, { type: 'error', message: '能量不足，無法撤退' }); return; }
+      const idx = side.bench.findIndex(p => p.uid === msg.target);
+      if (idx < 0) return;
+      active.energy.splice(0, cost);
+      const target = side.bench[idx];
+      side.bench[idx] = active;
+      side.active = target;
+      side.retreatedThisTurn = true;
+      pocketBroadcastState(pRoom);
+      return;
+    }
+
+    if (type === 'pocket_attack') {
+      const pRoom = pocketRooms.get(ws.pocketRoomCode);
+      if (!pRoom?.G || pRoom.G.phase !== 'active') return;
+      const G = pRoom.G; const role = ws.pocketRole; const op = role === 'p1' ? 'p2' : 'p1';
+      if (G.turn !== role) return;
+      const side = G[role]; const oppSide = G[op];
+      const attacker = side.active;
+      const atk = attacker?.attacks?.[msg.attackIndex];
+      if (!atk) return;
+      if (!pocketCanPayCost(attacker, atk.cost)) { send(ws, { type: 'error', message: '能量不足，無法使用這個招式' }); return; }
+      const defender = oppSide.active;
+      if (!defender) return;
+      let dmg = parseInt(String(atk.damage || '0').replace(/\D+/g, ''), 10) || 0;
+      const weak = (defender.weaknesses || []).find(w => (attacker.types || []).includes(w.type));
+      if (weak && dmg > 0) dmg += parseInt(String(weak.value).replace(/\D+/g, ''), 10) || 0;
+      defender.curHp = Math.max(0, (defender.curHp ?? defender.hp ?? 0) - dmg);
+      if (defender.curHp <= 0) {
+        side.points += defender.ex ? 2 : 1; // 擊倒得分歸攻擊方(side)，不是被擊倒的一方(oppSide)
+        oppSide.discard.push(defender);
+        oppSide.active = null;
+        if (side.points >= 3) { G.winner = role; G.phase = 'done'; pocketBroadcastState(pRoom); return; }
+        if (oppSide.bench.length) {
+          G.phase = 'forced_switch';
+          G.pendingSwitchRole = op;
+        } else {
+          G.winner = role; G.phase = 'done';
+        }
+        pocketBroadcastState(pRoom);
+        return;
+      }
+      pocketAdvanceTurn(G);
+      pocketBroadcastState(pRoom);
+      return;
+    }
+
+    if (type === 'pocket_choose_active') {
+      const pRoom = pocketRooms.get(ws.pocketRoomCode);
+      if (!pRoom?.G || pRoom.G.phase !== 'forced_switch') return;
+      const G = pRoom.G; const role = ws.pocketRole;
+      if (G.pendingSwitchRole !== role) return;
+      const side = G[role];
+      const idx = side.bench.findIndex(p => p.uid === msg.target);
+      if (idx < 0) return;
+      const chosen = side.bench[idx];
+      side.bench.splice(idx, 1);
+      side.active = chosen;
+      G.pendingSwitchRole = null;
+      G.phase = 'active';
+      pocketAdvanceTurn(G);
+      pocketBroadcastState(pRoom);
+      return;
+    }
+
+    if (type === 'pocket_end_turn') {
+      const pRoom = pocketRooms.get(ws.pocketRoomCode);
+      if (!pRoom?.G || pRoom.G.phase !== 'active') return;
+      const G = pRoom.G; const role = ws.pocketRole;
+      if (G.turn !== role) return;
+      pocketAdvanceTurn(G);
+      pocketBroadcastState(pRoom);
+      return;
+    }
+
+    // 防呆：任何其他pocket_*訊息先安全忽略，避免掉進下面既有PvP的
+    // rooms.get(ws.roomCode) 分支（那是完全不同的Map）。
     if (typeof type === 'string' && type.startsWith('pocket_')) return;
 
     const room = rooms.get(ws.roomCode);

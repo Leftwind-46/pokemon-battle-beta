@@ -82,6 +82,52 @@
   .join-row input { flex:1; background:var(--surface); border:1px solid var(--border); color:var(--text); padding:0.6rem 0.8rem; border-radius:8px; text-align:center; letter-spacing:0.1em; text-transform:uppercase; font-size:0.9rem; }
   .lobby-error { color:#ff8a80; font-size:0.8rem; margin-top:0.7rem; min-height:1em; }
   .room-code { font-size:2.2rem; font-weight:800; letter-spacing:0.15em; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:0.8rem; margin-bottom:0.8rem; }
+
+  /* ── board ── */
+  .board-overlay { position:fixed; inset:0; z-index:60; background:var(--bg); display:none; flex-direction:column; overflow-y:auto; }
+  .board-overlay.open { display:flex; }
+  .board-top-bar { display:flex; justify-content:space-between; align-items:center; padding:0.6rem 1rem; border-bottom:1px solid var(--border); font-size:0.85rem; }
+  .points-row { display:flex; gap:1rem; color:var(--muted); }
+  .points-row b { color:var(--text); font-size:1.1rem; }
+  .side-info { text-align:center; font-size:0.75rem; color:var(--muted); padding:0.3rem; }
+  .opp-area, .my-area { padding:0.5rem 1rem; }
+  .bench-row { display:flex; gap:0.5rem; justify-content:center; min-height:70px; }
+  .active-row { display:flex; justify-content:center; padding:0.4rem 0; }
+  .mid-area { display:flex; align-items:center; justify-content:center; gap:1rem; padding:0.5rem; min-height:44px; }
+  .energy-zone { width:34px; height:34px; border-radius:50%; border:2px dashed var(--border); display:flex; align-items:center; justify-content:center; font-size:0.7rem; cursor:pointer; }
+  .energy-zone.has-energy { border-style:solid; cursor:pointer; }
+  .energy-zone.picking { box-shadow:0 0 0 3px rgba(248,208,48,0.5); }
+  .action-hint { color:#ffd54f; font-size:0.8rem; min-height:1.2em; }
+
+  .board-slot { width:76px; text-align:center; font-size:0.62rem; cursor:default; }
+  .board-slot.empty { border:1px dashed var(--border); border-radius:8px; height:100%; min-height:60px; }
+  .board-slot img { width:100%; border-radius:6px; background:#111; aspect-ratio:5/7; object-fit:cover; }
+  .board-slot.pickable img { outline:2px solid #ffd54f; cursor:pointer; }
+  .board-slot .board-name { font-weight:700; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .active-row .board-slot { width:96px; font-size:0.7rem; }
+  .hp-bar { height:5px; background:rgba(255,255,255,0.1); border-radius:3px; overflow:hidden; margin-top:2px; }
+  .hp-fill { height:100%; background:#69f0ae; }
+  .hp-fill.low { background:#ff8a80; }
+  .energy-row { display:flex; gap:2px; justify-content:center; margin-top:2px; flex-wrap:wrap; }
+  .energy-icon { width:8px; height:8px; border-radius:50%; display:inline-block; }
+
+  .attack-row { display:flex; flex-direction:column; gap:0.4rem; max-width:420px; margin:0.5rem auto; }
+  .attack-btn { display:flex; justify-content:space-between; align-items:center; background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:0.5rem 0.8rem; cursor:pointer; font-size:0.82rem; }
+  .attack-btn:hover:not(:disabled) { background:rgba(255,255,255,0.1); }
+  .attack-btn:disabled { opacity:0.35; cursor:not-allowed; }
+  .attack-cost { display:flex; gap:2px; }
+
+  .turn-controls { display:flex; gap:0.6rem; justify-content:center; margin:0.5rem 0; }
+  .hand-row { display:flex; gap:0.5rem; justify-content:center; flex-wrap:wrap; padding:0.6rem 0 1.2rem; }
+  .hand-row .board-slot img { cursor:pointer; }
+  .hand-row .board-slot img:hover { outline:2px solid #ffd54f; }
+
+  .setup-overlay { position:absolute; inset:0; z-index:70; background:rgba(0,0,0,0.75); display:flex; align-items:center; justify-content:center; }
+  .setup-box { background:#10132b; border:1px solid var(--border); border-radius:16px; padding:1.6rem; width:min(92vw,560px); text-align:center; max-height:85vh; overflow-y:auto; }
+  .setup-hand { display:flex; gap:0.5rem; justify-content:center; flex-wrap:wrap; margin:1rem 0; }
+  .setup-hand .board-slot img { cursor:pointer; }
+  .setup-hand .board-slot.chosen-active img { outline:3px solid #f8d030; }
+  .setup-hand .board-slot.chosen-bench img { outline:3px solid #6890f0; }
 </style>
 </head>
 <body>
@@ -159,7 +205,63 @@
     <div id="lobby-step-started" style="display:none">
       <h2>對戰開始！</h2>
       <p class="lobby-sub" id="started-status"></p>
-      <p class="lobby-sub" style="opacity:0.6">（核心回合引擎尚未實作，這裡先確認房間/牌組/先攻流程正常）</p>
+    </div>
+  </div>
+</div>
+
+<div class="board-overlay" id="board-overlay">
+  <div class="board-top-bar">
+    <div class="turn-indicator" id="turn-indicator"></div>
+    <div class="points-row"><span>你 <b id="my-points">0</b></span><span>對手 <b id="opp-points">0</b></span></div>
+  </div>
+
+  <div class="opp-area">
+    <div class="side-info">牌庫 <span id="opp-deck-count"></span>張 · 手牌 <span id="opp-hand-count"></span>張</div>
+    <div class="bench-row" id="opp-bench"></div>
+    <div class="active-row" id="opp-active"></div>
+  </div>
+
+  <div class="mid-area">
+    <div class="energy-zone" id="energy-zone-chip"></div>
+    <div class="action-hint" id="action-hint"></div>
+  </div>
+
+  <div class="my-area">
+    <div class="active-row" id="my-active"></div>
+    <div class="attack-row" id="attack-row"></div>
+    <div class="turn-controls">
+      <button class="btn btn-secondary" id="cancel-action-btn" onclick="cancelAction()" style="display:none">取消</button>
+      <button class="btn btn-primary" id="end-turn-btn" onclick="endTurn()">結束回合</button>
+    </div>
+    <div class="bench-row" id="my-bench"></div>
+    <div class="hand-row" id="hand-row"></div>
+  </div>
+
+  <div class="setup-overlay" id="setup-overlay">
+    <div class="setup-box">
+      <h2>選擇出戰寶可夢</h2>
+      <p class="lobby-sub">先點1隻<b>基礎寶可夢</b>當主戰，可以再點最多3隻放板凳</p>
+      <div class="setup-hand" id="setup-hand"></div>
+      <p class="lobby-sub" id="setup-picks-label"></p>
+      <button class="btn btn-primary" id="setup-confirm-btn" onclick="confirmSetup()" disabled>確認出戰</button>
+    </div>
+  </div>
+
+  <div class="setup-overlay" id="setup-wait-overlay" style="display:none">
+    <div class="setup-box"><h2>已送出出戰名單</h2><p class="lobby-sub">等待對手選擇中...</p></div>
+  </div>
+
+  <div class="setup-overlay" id="switch-overlay" style="display:none">
+    <div class="setup-box">
+      <h2 id="switch-title">選擇新的主戰寶可夢</h2>
+      <div class="setup-hand" id="switch-choices"></div>
+    </div>
+  </div>
+
+  <div class="setup-overlay" id="gameover-overlay" style="display:none">
+    <div class="setup-box">
+      <h2 id="gameover-title"></h2>
+      <button class="btn btn-secondary" onclick="location.reload()">回到組牌</button>
     </div>
   </div>
 </div>
@@ -418,15 +520,252 @@ function handleWsMsg(msg) {
       const iAmFirst = msg.firstPlayer === myRole;
       lobbyShowStep('started');
       document.getElementById('started-status').textContent = `先攻：${iAmFirst ? '你' : '對手'}`;
+      setTimeout(() => {
+        document.getElementById('lobby-overlay').classList.remove('open');
+        document.getElementById('board-overlay').classList.add('open');
+        applyState(msg);
+      }, 900);
       break;
     }
+    case 'pocket_turn_state':
+      applyState(msg);
+      break;
     case 'pocket_opponent_disconnected':
       document.getElementById('lobby-error').textContent = '對手已離線';
+      document.getElementById('action-hint').textContent = '對手已離線';
       break;
     case 'error':
       document.getElementById('lobby-error').textContent = msg.message || '發生錯誤';
+      document.getElementById('action-hint').textContent = msg.message || '';
       break;
   }
+}
+
+/* ─────────────────────────────────────────
+   對戰畫面（Phase 4：核心回合引擎——招式只算固定傷害+弱點，
+   訓練師卡/招式的文字效果尚未實作）
+───────────────────────────────────────── */
+let state = null; // 最新一份 pocket_turn_state / pocket_match_start
+let selectedAction = null; // null | {mode:'attach'} | {mode:'evolve', handUid, from} | {mode:'retreat'}
+
+function applyState(msg) {
+  state = msg;
+  selectedAction = null;
+  renderBoard();
+}
+
+function typeDots(types) {
+  return (types || []).map(t => `<span class="type-dot" style="background:${TYPE_COLOR[t] || '#888'}"></span>`).join('');
+}
+
+function renderPokeSlot(p, { pickable = false, dataset = {} } = {}) {
+  if (!p) return '<div class="board-slot empty"></div>';
+  const hpPct = p.hp ? Math.max(0, Math.round(((p.curHp ?? p.hp) / p.hp) * 100)) : 100;
+  const energyIcons = (p.energy || []).map(e => `<span class="energy-icon" style="background:${TYPE_COLOR[e] || '#888'}"></span>`).join('');
+  const attrs = Object.entries(dataset).map(([k, v]) => `data-${k}="${v}"`).join(' ');
+  return `
+    <div class="board-slot ${pickable ? 'pickable' : ''}" data-uid="${p.uid}" ${attrs}>
+      <img src="${p.image}" alt="${p.name}">
+      <div class="board-name">${p.name}${p.ex ? ' EX' : ''}</div>
+      <div class="hp-bar"><div class="hp-fill ${hpPct <= 30 ? 'low' : ''}" style="width:${hpPct}%"></div></div>
+      <div>${p.curHp ?? p.hp}/${p.hp}</div>
+      <div class="energy-row">${energyIcons}</div>
+    </div>`;
+}
+
+function renderBoard() {
+  if (!state) return;
+  const { you, opponent, turn, turnNumber, phase, pendingSwitchRole } = state;
+  const myTurn = turn === myRole;
+
+  document.getElementById('turn-indicator').textContent = phase === 'done' ? '對戰結束' : `第 ${turnNumber} 回合 · ${myTurn ? '輪到你' : '對手回合'}`;
+  document.getElementById('my-points').textContent = you.points;
+  document.getElementById('opp-points').textContent = opponent.points;
+  document.getElementById('opp-deck-count').textContent = opponent.deckCount;
+  document.getElementById('opp-hand-count').textContent = opponent.handCount;
+
+  document.getElementById('opp-active').innerHTML = renderPokeSlot(opponent.active);
+  document.getElementById('opp-bench').innerHTML = (opponent.bench || []).map(p => renderPokeSlot(p)).join('') || '<div class="board-slot empty"></div>'.repeat(3);
+  document.getElementById('my-active').innerHTML = renderPokeSlot(you.active, {
+    pickable: !!selectedAction && selectedAction.mode !== 'retreat',
+    dataset: { zone: 'active' },
+  });
+  document.getElementById('my-bench').innerHTML = (you.bench || []).map(p => renderPokeSlot(p, {
+    pickable: !!selectedAction,
+    dataset: { zone: 'bench' },
+  })).join('');
+
+  // energy zone chip
+  const chip = document.getElementById('energy-zone-chip');
+  if (you.pendingEnergy && !you.energyAttachedThisTurn && myTurn) {
+    chip.className = `energy-zone has-energy ${selectedAction?.mode === 'attach' ? 'picking' : ''}`;
+    chip.style.background = TYPE_COLOR[you.pendingEnergy] || '#888';
+    chip.textContent = '';
+    chip.title = `點擊附加 ${TYPE_ZH[you.pendingEnergy] || you.pendingEnergy} 能量`;
+    chip.onclick = () => {
+      if (!myTurn) return;
+      selectedAction = selectedAction?.mode === 'attach' ? null : { mode: 'attach' };
+      updateActionHint();
+      renderBoard();
+    };
+  } else {
+    chip.className = 'energy-zone';
+    chip.textContent = you.energyAttachedThisTurn ? '✓' : '—';
+    chip.onclick = null;
+    chip.style.background = 'transparent';
+  }
+
+  // attack buttons
+  const atkRow = document.getElementById('attack-row');
+  if (you.active && myTurn && phase === 'active') {
+    atkRow.innerHTML = (you.active.attacks || []).map((a, i) => {
+      const affordable = pocketCanPayCostClient(you.active, a.cost);
+      const costHtml = (a.cost || []).map(t => `<span class="energy-icon" style="background:${TYPE_COLOR[t] || '#888'}"></span>`).join('');
+      return `<button class="attack-btn" ${affordable ? '' : 'disabled'} onclick="doAttack(${i})">
+        <span>${a.name}</span>
+        <span class="attack-cost">${costHtml}</span>
+        <span>${a.damage || '-'}</span>
+      </button>`;
+    }).join('') || '<div class="lobby-sub">這隻寶可夢沒有招式</div>';
+  } else {
+    atkRow.innerHTML = '';
+  }
+
+  document.getElementById('end-turn-btn').style.display = myTurn && phase === 'active' ? '' : 'none';
+  document.getElementById('cancel-action-btn').style.display = selectedAction ? '' : 'none';
+
+  // hand row
+  const handRow = document.getElementById('hand-row');
+  handRow.innerHTML = (you.hand || []).map(c => {
+    const isEvolveCard = c.category === 'Pokemon' && c.stage !== 'Basic';
+    const isBasic = c.category === 'Pokemon' && c.stage === 'Basic';
+    const label = c.category === 'Pokemon' ? `${c.stage === 'Basic' ? '基礎' : c.stage === 'Stage1' ? '第1階' : '第2階'}` : (c.trainerType === 'Supporter' ? '支援者' : '道具');
+    return `<div class="board-slot" data-hand-uid="${c.uid}" data-hand-kind="${c.category}">
+      <img src="${c.image}" alt="${c.name}">
+      <div class="board-name">${c.name}</div>
+      <div>${label}</div>
+    </div>`;
+  }).join('');
+
+  updateActionHint();
+
+  // setup overlay
+  document.getElementById('setup-overlay').style.display = phase === 'setup' && !you.boardSubmitted ? 'flex' : 'none';
+  document.getElementById('setup-wait-overlay').style.display = phase === 'setup' && you.boardSubmitted ? 'flex' : 'none';
+  if (phase === 'setup' && !you.boardSubmitted) renderSetupHand();
+
+  // forced switch overlay
+  const needMySwitch = phase === 'forced_switch' && pendingSwitchRole === myRole;
+  document.getElementById('switch-overlay').style.display = needMySwitch ? 'flex' : 'none';
+  if (needMySwitch) {
+    document.getElementById('switch-choices').innerHTML = (you.bench || []).map(p =>
+      renderPokeSlot(p, { pickable: true, dataset: { switchPick: '1' } })
+    ).join('');
+  }
+
+  if (phase === 'done') showGameOver(state.winner);
+  else document.getElementById('gameover-overlay').style.display = 'none';
+}
+
+function updateActionHint() {
+  const hint = document.getElementById('action-hint');
+  if (!selectedAction) { hint.textContent = ''; return; }
+  if (selectedAction.mode === 'attach') hint.textContent = '點擊己方的寶可夢來附加能量';
+  else if (selectedAction.mode === 'evolve') hint.textContent = `點擊要進化成 ${selectedAction.name} 的寶可夢`;
+  else if (selectedAction.mode === 'retreat') hint.textContent = '點擊板凳寶可夢來撤退交換';
+}
+
+function cancelAction() { selectedAction = null; renderBoard(); }
+
+function pocketCanPayCostClient(pokemon, cost) {
+  const need = {}; let colorlessNeed = 0;
+  for (const t of (cost || [])) { if (t === 'Colorless') colorlessNeed++; else need[t] = (need[t] || 0) + 1; }
+  const have = {};
+  for (const e of (pokemon.energy || [])) have[e] = (have[e] || 0) + 1;
+  for (const t in need) { if ((have[t] || 0) < need[t]) return false; have[t] -= need[t]; }
+  const leftover = Object.values(have).reduce((a, b) => a + b, 0);
+  return leftover >= colorlessNeed;
+}
+
+function doAttack(i) { wsSend({ type: 'pocket_attack', attackIndex: i }); }
+function endTurn() { wsSend({ type: 'pocket_end_turn' }); }
+
+// event delegation：own board (active/bench) 點擊
+document.getElementById('board-overlay').addEventListener('click', e => {
+  const slot = e.target.closest('.board-slot[data-uid]');
+  if (slot && slot.closest('#my-active, #my-bench') && selectedAction) {
+    const uid = slot.dataset.uid;
+    if (selectedAction.mode === 'attach') wsSend({ type: 'pocket_attach_energy', target: uid });
+    else if (selectedAction.mode === 'evolve') wsSend({ type: 'pocket_evolve', handUid: selectedAction.handUid, target: uid });
+    else if (selectedAction.mode === 'retreat' && slot.closest('#my-bench')) wsSend({ type: 'pocket_retreat', target: uid });
+    selectedAction = null;
+    return;
+  }
+  const switchSlot = e.target.closest('.board-slot[data-switch-pick]');
+  if (switchSlot) { wsSend({ type: 'pocket_choose_active', target: switchSlot.dataset.uid }); return; }
+
+  const handSlot = e.target.closest('.hand-row .board-slot[data-hand-uid]');
+  if (handSlot && state && state.turn === myRole && state.phase === 'active') {
+    const uid = handSlot.dataset.handUid;
+    const card = state.you.hand.find(c => c.uid === uid);
+    if (!card) return;
+    if (card.category === 'Pokemon' && card.stage === 'Basic') {
+      wsSend({ type: 'pocket_bench_play', handUid: uid });
+    } else if (card.category === 'Pokemon') {
+      selectedAction = { mode: 'evolve', handUid: uid, name: card.name };
+      updateActionHint();
+      renderBoard();
+    } else {
+      document.getElementById('action-hint').textContent = '訓練師卡效果尚未實作（下一階段做）';
+    }
+    return;
+  }
+
+  // 撤退：點自己板凳寶可夢直接進入撤退模式的捷徑（沒有先選能量/進化時）
+  const benchSlot = e.target.closest('#my-bench .board-slot[data-uid]');
+  if (benchSlot && !selectedAction && state && state.turn === myRole && state.phase === 'active' && !state.you.retreatedThisTurn) {
+    wsSend({ type: 'pocket_retreat', target: benchSlot.dataset.uid });
+  }
+});
+
+/* ── setup（開局選主戰/板凳） ── */
+let setupActive = null;
+let setupBench = [];
+function renderSetupHand() {
+  const hand = state.you.hand;
+  document.getElementById('setup-hand').innerHTML = hand.map(c => {
+    const isBasic = c.category === 'Pokemon' && c.stage === 'Basic';
+    const cls = c.uid === setupActive ? 'chosen-active' : setupBench.includes(c.uid) ? 'chosen-bench' : '';
+    return `<div class="board-slot ${cls}" data-setup-uid="${c.uid}" data-basic="${isBasic}">
+      <img src="${c.image}" alt="${c.name}">
+      <div class="board-name">${c.name}</div>
+      <div>${isBasic ? '基礎' : (c.category === 'Pokemon' ? c.stage : c.trainerType)}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('setup-picks-label').textContent = `主戰：${setupActive ? '已選' : '未選'} · 板凳：${setupBench.length}/3`;
+  document.getElementById('setup-confirm-btn').disabled = !setupActive;
+}
+document.getElementById('setup-hand').addEventListener('click', e => {
+  const slot = e.target.closest('.board-slot[data-setup-uid]');
+  if (!slot || slot.dataset.basic !== 'true') return;
+  const uid = slot.dataset.setupUid;
+  if (setupActive === uid) { setupActive = null; }
+  else if (setupBench.includes(uid)) { setupBench = setupBench.filter(u => u !== uid); }
+  else if (!setupActive) { setupActive = uid; }
+  else if (setupBench.length < 3) { setupBench.push(uid); }
+  renderSetupHand();
+});
+function confirmSetup() {
+  if (!setupActive) return;
+  wsSend({ type: 'pocket_setup_board', active: setupActive, bench: setupBench });
+  state.you.boardSubmitted = true;
+  renderBoard();
+}
+
+function showGameOver(winner) {
+  const title = document.getElementById('gameover-title');
+  title.textContent = winner === myRole ? '你獲勝了！' : winner ? '對手獲勝' : '對戰結束';
+  document.getElementById('gameover-overlay').style.display = 'flex';
 }
 </script>
 </body>
