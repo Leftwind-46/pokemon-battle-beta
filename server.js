@@ -2444,7 +2444,35 @@ function makePocketInstance(cardId) {
     curHp: base.hp ?? null,
     energy: [],
     boardTurn: null, // 進場/最近一次進化的回合數，用來擋「這回合不能進化」
+    status: null, // null | 'asleep' | 'poisoned' | 'paralyzed'
+    cantAttackUntilTurn: 0, // === G.turnNumber 時這回合不能攻擊（用turnNumber比對，過了自然失效不用額外清）
+    cantRetreatUntilTurn: 0,
+    dmgDebuffUntilTurn: 0,
+    dmgDebuffAmount: 0,
+    isFossil: false,
   };
+}
+// 化石道具卡（Helix/Dome/Old Amber）：文字是「當作40HP無色基礎寶可夢上場」，
+// 上場時把Trainer卡臨時轉成一張虛擬的寶可夢卡放進board，不進TRAINER_EFFECTS的一般道具流程
+const POCKET_FOSSIL_IDS = new Set(['A1-216', 'A1-217', 'A1-218']);
+function makePocketFossilInstance(cardId) {
+  const base = POCKET_CARDS_BY_ID[cardId];
+  return {
+    id: base.id, name: base.name, category: 'Pokemon', image: base.image, ex: false,
+    types: ['Colorless'], hp: 40, stage: 'Basic', evolveFrom: null, attacks: [], abilities: null,
+    weaknesses: null, retreat: null, // retreat:null → 之後檢查撤退時視為「不能撤退」
+    uid: `c${pocketUidCounter++}`, curHp: 40, energy: [], boardTurn: null,
+    status: null, cantAttackUntilTurn: 0, cantRetreatUntilTurn: 0, dmgDebuffUntilTurn: 0, dmgDebuffAmount: 0,
+    isFossil: true,
+  };
+}
+function pocketIsPlayableAsBasic(handCard) {
+  return (handCard.category === 'Pokemon' && handCard.stage === 'Basic') || POCKET_FOSSIL_IDS.has(handCard.id);
+}
+function pocketInstantiateBoardCard(handCard, turnNumber) {
+  const inst = POCKET_FOSSIL_IDS.has(handCard.id) ? makePocketFossilInstance(handCard.id) : handCard;
+  inst.boardTurn = turnNumber;
+  return inst;
 }
 function pocketShuffle(arr) {
   const a = arr.slice();
@@ -2476,9 +2504,18 @@ function buildPocketG(pRoom) {
   const p1 = pocketDrawOpeningHand(pRoom.p1Deck);
   const p2 = pocketDrawOpeningHand(pRoom.p2Deck);
   return {
-    turn: pRoom.firstPlayer, turnNumber: 1, phase: 'setup', winner: null, pendingSwitchRole: null,
-    p1: { ...p1, active: null, bench: [], discard: [], points: 0, pendingEnergy: null, energyAttachedThisTurn: false, retreatedThisTurn: false, energyTypes: pocketDeckEnergyTypes(pRoom.p1Deck), boardReady: false },
-    p2: { ...p2, active: null, bench: [], discard: [], points: 0, pendingEnergy: null, energyAttachedThisTurn: false, retreatedThisTurn: false, energyTypes: pocketDeckEnergyTypes(pRoom.p2Deck), boardReady: false },
+    turn: pRoom.firstPlayer, turnNumber: 1, phase: 'setup', winner: null, pendingSwitchRole: null, pendingSwitchReason: null,
+    p1: pocketFreshSide(p1, pRoom.p1Deck),
+    p2: pocketFreshSide(p2, pRoom.p2Deck),
+  };
+}
+function pocketFreshSide(drawn, deckIds) {
+  return {
+    ...drawn, active: null, bench: [], discard: [], points: 0, pendingEnergy: null,
+    energyAttachedThisTurn: false, retreatedThisTurn: false, supporterUsedThisTurn: false,
+    energyTypes: pocketDeckEnergyTypes(deckIds), boardReady: false,
+    giovanniBoostThisTurn: false, blaineBoostNamesThisTurn: null, retreatDiscountThisTurn: 0,
+    abilitiesUsedThisTurn: [], supporterLockedUntilTurn: 0,
   };
 }
 function pocketPickEnergy(types) {
@@ -2490,8 +2527,18 @@ function pocketStartFirstTurn(G) {
   if (side.deck.length === 0) { G.winner = G.turn === 'p1' ? 'p2' : 'p1'; G.phase = 'done'; return; }
   side.hand.push(side.deck.shift());
 }
+// 中毒在「該側回合結束」時扣血（不是對手回合結束）——真實TCG通用時機慣例
 function pocketAdvanceTurn(G) {
-  G.turn = G.turn === 'p1' ? 'p2' : 'p1';
+  const endingRole = G.turn;
+  const endingSide = G[endingRole];
+  if (endingSide.active && endingSide.active.status === 'poisoned') {
+    endingSide.active.curHp = Math.max(0, endingSide.active.curHp - 10);
+    if (endingSide.active.curHp <= 0) {
+      pocketResolveActiveKO(G, endingRole);
+      if (G.phase === 'forced_switch' || G.phase === 'done') return;
+    }
+  }
+  G.turn = endingRole === 'p1' ? 'p2' : 'p1';
   G.turnNumber++;
   const side = G[G.turn];
   if (side.deck.length === 0) { G.winner = G.turn === 'p1' ? 'p2' : 'p1'; G.phase = 'done'; return; }
@@ -2499,7 +2546,51 @@ function pocketAdvanceTurn(G) {
   side.pendingEnergy = pocketPickEnergy(side.energyTypes);
   side.energyAttachedThisTurn = false;
   side.retreatedThisTurn = false;
+  side.supporterUsedThisTurn = false;
+  side.giovanniBoostThisTurn = false;
+  side.blaineBoostNamesThisTurn = null;
+  side.retreatDiscountThisTurn = 0;
+  side.abilitiesUsedThisTurn = [];
 }
+// 共用的「主戰寶可夢死亡」處理：加分給對方、丟棄、視情況進入forced_switch或判定勝負。
+// koRole = 死掉的那隻寶可夢的擁有者。awardPoint=false 用在「非擊倒」的移除情境（例如Sabrina/幽浮硬幣把對手主戰換走），
+// 這種情況不算KO、不給分，但一樣要走「板凳空了就輸」跟「換人」流程。
+function pocketResolveActiveKO(G, koRole, awardPoint = true) {
+  const koSide = G[koRole];
+  const otherRole = koRole === 'p1' ? 'p2' : 'p1';
+  const otherSide = G[otherRole];
+  const dead = koSide.active;
+  if (awardPoint) {
+    otherSide.points += dead.ex ? 2 : 1;
+    koSide.discard.push(dead);
+  }
+  koSide.active = null;
+  if (awardPoint && otherSide.points >= 3) { G.winner = otherRole; G.phase = 'done'; return; }
+  if (koSide.bench.length) {
+    G.phase = 'forced_switch';
+    G.pendingSwitchRole = koRole;
+    G.pendingSwitchReason = 'endTurn'; // 攻擊/中毒造成的換人＝這回合的行動已經用掉，換完人回合換對方
+  } else {
+    G.winner = otherRole; G.phase = 'done';
+  }
+}
+// 板凳寶可夢被濺傷打死（不會觸發forced_switch，因為主戰沒被動到）
+function pocketResolveBenchKOs(G, side, otherRole) {
+  const otherSide = G[otherRole];
+  side.bench = side.bench.filter(p => {
+    if (p.curHp > 0) return true;
+    otherSide.points += p.ex ? 2 : 1;
+    side.discard.push(p);
+    return false; // 從板凳移除
+  });
+}
+function pocketCheckWin(G) {
+  if (G.p1.points >= 3) { G.winner = 'p1'; G.phase = 'done'; return true; }
+  if (G.p2.points >= 3) { G.winner = 'p2'; G.phase = 'done'; return true; }
+  return false;
+}
+function pocketFlipCoin() { return Math.random() < 0.5; }
+function pocketFlipCoins(n) { let h = 0; for (let i = 0; i < n; i++) if (pocketFlipCoin()) h++; return h; }
 function pocketCanPayCost(pokemon, cost) {
   const need = {};
   let colorlessNeed = 0;
@@ -2521,10 +2612,212 @@ function pocketViewFor(G, role) {
   const pub = side => ({ active: side.active, bench: side.bench, discard: side.discard, points: side.points, deckCount: side.deck.length });
   return {
     turn: G.turn, turnNumber: G.turnNumber, phase: G.phase, winner: G.winner, pendingSwitchRole: G.pendingSwitchRole,
-    you: { ...pub(G[role]), hand: G[role].hand, pendingEnergy: G[role].pendingEnergy, energyAttachedThisTurn: G[role].energyAttachedThisTurn, retreatedThisTurn: G[role].retreatedThisTurn, energyTypes: G[role].energyTypes },
+    you: {
+      ...pub(G[role]), hand: G[role].hand, pendingEnergy: G[role].pendingEnergy,
+      energyAttachedThisTurn: G[role].energyAttachedThisTurn, retreatedThisTurn: G[role].retreatedThisTurn,
+      energyTypes: G[role].energyTypes, supporterUsedThisTurn: G[role].supporterUsedThisTurn,
+      abilitiesUsedThisTurn: G[role].abilitiesUsedThisTurn,
+    },
     opponent: { ...pub(G[op]), handCount: G[op].hand.length },
   };
 }
+function pocketOneOff(pRoom, role, extra) {
+  send(pRoom[role], { type: 'pocket_peek', ...extra });
+}
+
+/* ── 找own場上（主戰+板凳）某隻寶可夢，供訓練師卡/特性指定目標用 ── */
+function pocketFindOwn(side, uid) { return [side.active, ...side.bench].find(p => p && p.uid === uid); }
+function pocketFindOwnByName(side, names) { return [side.active, ...side.bench].find(p => p && names.includes(p.name)); }
+
+/* ── 招式文字效果對照表（Phase 5）──
+   key是TCGdex原始英文效果全文（逐字比對，不是regex猜語意，比較不會誤判）。
+   handler簽名：(ctx) => void，ctx = { G, role, op, side, oppSide, attacker, defender, atk, rawDamage(可改), extraKO(bool,已內部處理KO時設true讓主流程跳過), healMirror(bool) }
+   rawDamage是「弱點加成前」的傷害，函式可以直接改 ctx.rawDamage；weakness會在handler跑完後才加上去。 */
+const ATTACK_EFFECTS = {
+  "Discard 1 {R} Energy from this Pokémon.": ctx => pocketDiscardEnergy(ctx.attacker, 'Fire', 1),
+  "Discard 2 {P} Energy from this Pokémon.": ctx => pocketDiscardEnergy(ctx.attacker, 'Psychic', 2),
+  "Discard 2 {R} Energy from this Pokémon.": ctx => pocketDiscardEnergy(ctx.attacker, 'Fire', 2),
+  "Discard a {R} Energy from this Pokémon.": ctx => pocketDiscardEnergy(ctx.attacker, 'Fire', 1),
+  "Discard all Energy from this Pokémon.": ctx => { ctx.attacker.energy = []; },
+  "During your opponent's next turn, the Defending Pokémon can't attack.": ctx => { ctx.defender.cantAttackUntilTurn = ctx.G.turnNumber + 1; },
+  "During your opponent's next turn, the Defending Pokémon can't retreat.": ctx => { ctx.defender.cantRetreatUntilTurn = ctx.G.turnNumber + 1; },
+  "During your opponent’s next turn, attacks used by the Defending Pokémon do −20 damage.": ctx => { ctx.defender.dmgDebuffUntilTurn = ctx.G.turnNumber + 1; ctx.defender.dmgDebuffAmount = 20; },
+  "Flip 2 coins. This attack does 80 damage for each heads.": ctx => { ctx.rawDamage = pocketFlipCoins(2) * 80; },
+  "Flip 3 coins. Take an amount of {R} Energy from your Energy Zone equal to the number of heads and attach it to your Benched {R} Pokémon in any way you like.": ctx => {
+    const heads = pocketFlipCoins(3);
+    const targets = ctx.side.bench.filter(p => (p.types || []).includes('Fire'));
+    for (let i = 0; i < heads && targets.length; i++) targets[i % targets.length].energy.push('Fire');
+    ctx.rawDamage = 0;
+  },
+  "Flip 4 coins. This attack does 40 damage for each heads.": ctx => { ctx.rawDamage = pocketFlipCoins(4) * 40; },
+  "Flip 4 coins. This attack does 50 damage for each heads.": ctx => { ctx.rawDamage = pocketFlipCoins(4) * 50; },
+  "Flip a coin. If heads, the Defending Pokémon can't attack during your opponent's next turn.": ctx => { if (pocketFlipCoin()) ctx.defender.cantAttackUntilTurn = ctx.G.turnNumber + 1; ctx.rawDamage = 0; },
+  "Flip a coin. If heads, this attack does 40 more damage.": ctx => { if (pocketFlipCoin()) ctx.rawDamage += 40; },
+  "Flip a coin. If heads, this attack does 40 more damage. If tails, this Pokémon also does 20 damage to itself.": ctx => {
+    if (pocketFlipCoin()) ctx.rawDamage += 40;
+    else ctx.selfDamage = (ctx.selfDamage || 0) + 20;
+  },
+  "Flip a coin. If heads, your opponent shuffles their Active Pokémon into their deck.": ctx => {
+    if (!pocketFlipCoin()) { ctx.rawDamage = 0; return; }
+    ctx.rawDamage = 0;
+    if (ctx.defender) {
+      ctx.oppSide.deck.push(ctx.defender);
+      ctx.oppSide.deck = pocketShuffle(ctx.oppSide.deck);
+      pocketResolveActiveKO(ctx.G, ctx.op, false);
+      ctx.skipMainDamage = true;
+    }
+  },
+  "Flip a coin. If heads, your opponent's Active Pokémon is now Paralyzed.": ctx => { if (pocketFlipCoin() && ctx.defender) ctx.defender.status = 'paralyzed'; },
+  "Flip a coin. If tails, this attack does nothing.": ctx => { if (!pocketFlipCoin()) ctx.rawDamage = 0; },
+  "Heal 30 damage from this Pokémon.": ctx => { ctx.attacker.curHp = Math.min(ctx.attacker.hp, ctx.attacker.curHp + 30); },
+  "Heal from this Pokémon the same amount of damage you did to your opponent's Active Pokémon.": ctx => { ctx.healMirror = true; },
+  "If this Pokémon has at least 2 extra {W} Energy attached, this attack does 60 more damage.": ctx => {
+    const have = ctx.attacker.energy.filter(e => e === 'Water').length;
+    const need = (ctx.atk.cost || []).filter(t => t === 'Water').length;
+    if (have - need >= 2) ctx.rawDamage += 60;
+  },
+  "If your opponent's Active Pokémon is Poisoned, this attack does 50 more damage.": ctx => { if (ctx.defender?.status === 'poisoned') ctx.rawDamage += 50; },
+  "Switch this Pokémon with 1 of your Benched Pokémon.": ctx => {
+    if (ctx.side.bench.length) {
+      const i = Math.floor(Math.random() * ctx.side.bench.length);
+      const bench = ctx.side.bench[i];
+      ctx.side.bench[i] = ctx.attacker;
+      ctx.side.active = bench;
+    }
+    ctx.rawDamage = 0;
+  },
+  "This Pokémon also does 20 damage to itself.": ctx => { ctx.selfDamage = (ctx.selfDamage || 0) + 20; },
+  "This Pokémon also does 50 damage to itself.": ctx => { ctx.selfDamage = (ctx.selfDamage || 0) + 50; },
+  "This attack also does 10 damage to each of your opponent's Benched Pokémon.": ctx => {
+    for (const p of ctx.oppSide.bench) p.curHp = Math.max(0, p.curHp - 10);
+  },
+  "This attack also does 30 damage to 1 of your Benched Pokémon.": ctx => {
+    if (ctx.side.bench.length) {
+      const t = ctx.side.bench[Math.floor(Math.random() * ctx.side.bench.length)];
+      t.curHp = Math.max(0, t.curHp - 30);
+    }
+  },
+  "This attack does 30 damage for each of your Benched {L} Pokémon.": ctx => {
+    const n = ctx.side.bench.filter(p => (p.types || []).includes('Lightning')).length;
+    ctx.rawDamage = n * 30;
+  },
+  "This attack does 30 damage to 1 of your opponent's Pokémon.": ctx => {
+    ctx.rawDamage = 0;
+    const pool = ctx.oppSide.bench.length ? ctx.oppSide.bench : (ctx.defender ? [ctx.defender] : []);
+    if (pool.length) { const t = pool[Math.floor(Math.random() * pool.length)]; t.curHp = Math.max(0, t.curHp - 30); }
+  },
+  "This attack does 30 more damage for each Energy attached to your opponent's Active Pokémon.": ctx => {
+    ctx.rawDamage += 30 * (ctx.defender?.energy.length || 0);
+  },
+  "Your opponent can't use any Supporter cards from their hand during their next turn.": ctx => {
+    ctx.oppSide.supporterLockedUntilTurn = ctx.G.turnNumber + 1;
+  },
+  "Your opponent reveals their hand.": ctx => { ctx.peekOpponentHand = true; },
+  "Your opponent's Active Pokémon is now Asleep.": ctx => { if (ctx.defender) ctx.defender.status = 'asleep'; },
+  "Your opponent's Active Pokémon is now Poisoned.": ctx => { if (ctx.defender) ctx.defender.status = 'poisoned'; },
+};
+function pocketDiscardEnergy(pokemon, type, n) {
+  for (let i = 0; i < n; i++) {
+    const idx = pokemon.energy.indexOf(type);
+    if (idx >= 0) pokemon.energy.splice(idx, 1);
+  }
+}
+
+/* ── 訓練師卡效果表（Phase 5）── key用卡片id（同名重印卡id不同，統一用A1原版/PromoA原版的id）
+   handler簽名：(ctx, msg) => string|null，回傳錯誤訊息字串代表不合法擋下，null代表成功。 */
+const TRAINER_EFFECTS = {
+  'P-A-001': (ctx, msg) => { // Potion：治療己方1隻20血
+    const target = pocketFindOwn(ctx.side, msg.target);
+    if (!target) return '請選擇要治療的寶可夢';
+    target.curHp = Math.min(target.hp, target.curHp + 20);
+    return null;
+  },
+  'P-A-002': (ctx) => { ctx.side.retreatDiscountThisTurn = 1; return null; }, // X Speed
+  'P-A-003': (ctx) => { ctx.peekHand = ctx.oppSide.hand; return null; }, // Hand Scope
+  'P-A-004': (ctx) => { ctx.peekDeck = ctx.side.deck.slice(0, 3); return null; }, // Pokédex
+  'P-A-005': (ctx) => { // Poké Ball
+    const idxs = ctx.side.deck.map((c, i) => (c.category === 'Pokemon' && c.stage === 'Basic') ? i : -1).filter(i => i >= 0);
+    if (!idxs.length) return '牌庫中沒有基礎寶可夢';
+    const i = idxs[Math.floor(Math.random() * idxs.length)];
+    ctx.side.hand.push(ctx.side.deck.splice(i, 1)[0]);
+    return null;
+  },
+  'P-A-006': (ctx) => { // Red Card：對手棄手牌洗回牌庫抽3
+    ctx.oppSide.deck = pocketShuffle([...ctx.oppSide.deck, ...ctx.oppSide.hand]);
+    ctx.oppSide.hand = ctx.oppSide.deck.splice(0, 3);
+    return null;
+  },
+  'P-A-007': (ctx) => { ctx.side.hand.push(...ctx.side.deck.splice(0, 2)); return null; }, // Professor's Research
+  'A1-219': (ctx, msg) => { // Erika：治療己方1隻草屬性50血
+    const target = pocketFindOwn(ctx.side, msg.target);
+    if (!target || !(target.types || []).includes('Grass')) return '目標必須是草屬性寶可夢';
+    target.curHp = Math.min(target.hp, target.curHp + 50);
+    return null;
+  },
+  'A1-220': (ctx, msg) => { // Misty：選1隻水屬性，連續丟硬幣直到反面，正面各+1水能量
+    const target = pocketFindOwn(ctx.side, msg.target);
+    if (!target || !(target.types || []).includes('Water')) return '目標必須是水屬性寶可夢';
+    while (pocketFlipCoin()) target.energy.push('Water');
+    return null;
+  },
+  'A1-221': (ctx) => { ctx.side.blaineBoostNamesThisTurn = ['Ninetales', 'Rapidash', 'Magmar']; return null; },
+  'A1-222': (ctx) => { // Koga：把主戰的Muk/Weezing收回手牌（需要有板凳補上，否則擋下避免場上淨空）
+    if (!ctx.side.active || !['Muk', 'Weezing'].includes(ctx.side.active.name)) return '主戰必須是Muk或Weezing';
+    if (!ctx.side.bench.length) return '沒有板凳寶可夢可以補位，無法使用';
+    ctx.side.hand.push(ctx.side.active);
+    ctx.side.active = ctx.side.bench.shift();
+    return null;
+  },
+  'A1-223': (ctx) => { ctx.side.giovanniBoostThisTurn = true; return null; },
+  'A1-224': (ctx) => { // Brock：幫場上的Golem/Onix附1個格鬥能量
+    const target = pocketFindOwnByName(ctx.side, ['Golem', 'Onix']);
+    if (!target) return '場上沒有Golem或Onix';
+    target.energy.push('Fighting');
+    return null;
+  },
+  'A1-225': (ctx) => { // Sabrina：把對手主戰換到板凳，對手選新主戰
+    if (!ctx.oppSide.active) return '對手沒有主戰寶可夢';
+    ctx.oppSide.bench.push(ctx.oppSide.active);
+    ctx.oppSide.active = null;
+    ctx.G.phase = 'forced_switch';
+    ctx.G.pendingSwitchRole = ctx.op;
+    ctx.G.pendingSwitchReason = 'noEndTurn'; // 支援者卡不會結束回合，換完人回合還是你的
+    return null;
+  },
+  'A1-226': (ctx) => { // Lt. Surge：把所有板凳的電能量集中給主戰（限主戰是Raichu/Electrode/Electabuzz）
+    if (!ctx.side.active || !['Raichu', 'Electrode', 'Electabuzz'].includes(ctx.side.active.name)) return '主戰必須是Raichu、Electrode或Electabuzz';
+    for (const p of ctx.side.bench) {
+      const moved = p.energy.filter(e => e === 'Lightning');
+      if (moved.length) { p.energy = p.energy.filter(e => e !== 'Lightning'); ctx.side.active.energy.push(...moved); }
+    }
+    return null;
+  },
+};
+
+/* ── 特性(ability)：每回合限用1次的主動觸發型（key用ability.name）。
+   被動常駐型（Gengar ex「詭異束縛」擋支援者卡）不在這裡，是在打出支援者卡時直接檢查對方主戰是不是Gengar ex。 */
+const ABILITY_EFFECTS = {
+  'Volt Charge': (ctx, poke) => { // Magneton：每回合1次，從能量區拿1電能量附到自己身上
+    if (!ctx.side.energyTypes.includes('Lightning')) return '你的能量區沒有電屬性能量';
+    poke.energy.push('Lightning');
+    return null;
+  },
+  'Sleep Pendulum': (ctx) => { // Hypno：每回合1次，丟硬幣，正面讓對方主戰睡著
+    if (ctx.oppSide.active && pocketFlipCoin()) ctx.oppSide.active.status = 'asleep';
+    return null;
+  },
+  'Psy Shadow': (ctx) => { // Gardevoir：每回合1次，從能量區拿1超能力能量附給場上是超能力屬性的主戰
+    if (!ctx.side.active || !(ctx.side.active.types || []).includes('Psychic')) return '主戰必須是超能力屬性';
+    if (!ctx.side.energyTypes.includes('Psychic')) return '你的能量區沒有超能力屬性能量';
+    ctx.side.active.energy.push('Psychic');
+    return null;
+  },
+  'Gas Leak': (ctx, poke) => { // Weezing：只有在主戰位置時，每回合1次讓對方主戰中毒
+    if (ctx.side.active?.uid !== poke.uid) return 'Weezing必須在主戰位置才能使用特性';
+    if (ctx.oppSide.active) ctx.oppSide.active.status = 'poisoned';
+    return null;
+  },
+};
 function pocketBroadcastState(pRoom) {
   const G = pRoom.G;
   send(pRoom.p1, { type: 'pocket_turn_state', ...pocketViewFor(G, 'p1') });
@@ -4144,20 +4437,20 @@ async function handleMessage(ws, msg) {
       const role = ws.pocketRole;
       const side = G[role];
       if (side.boardReady) return;
-      const activeCard = side.hand.find(c => c.uid === msg.active);
-      if (!activeCard || activeCard.category !== 'Pokemon' || activeCard.stage !== 'Basic') {
+      const activeHandCard = side.hand.find(c => c.uid === msg.active);
+      if (!activeHandCard || !pocketIsPlayableAsBasic(activeHandCard)) {
         send(ws, { type: 'error', message: '主戰寶可夢必須是基礎寶可夢' }); return;
       }
       const benchUids = Array.isArray(msg.bench) ? msg.bench.slice(0, 3) : [];
-      const benchCards = benchUids.map(u => side.hand.find(c => c.uid === u)).filter(Boolean);
-      if (benchCards.some(c => c.category !== 'Pokemon' || c.stage !== 'Basic')) {
+      const benchHandCards = benchUids.map(u => side.hand.find(c => c.uid === u)).filter(Boolean);
+      if (benchHandCards.some(c => !pocketIsPlayableAsBasic(c))) {
         send(ws, { type: 'error', message: '板凳只能放基礎寶可夢' }); return;
       }
-      const usedUids = new Set([activeCard.uid, ...benchCards.map(c => c.uid)]);
+      const usedUids = new Set([activeHandCard.uid, ...benchHandCards.map(c => c.uid)]);
       side.hand = side.hand.filter(c => !usedUids.has(c.uid));
-      activeCard.boardTurn = G.turnNumber;
+      const activeCard = pocketInstantiateBoardCard(activeHandCard, G.turnNumber);
       side.active = activeCard;
-      side.bench = benchCards.map(c => { c.boardTurn = G.turnNumber; return c; });
+      side.bench = benchHandCards.map(c => pocketInstantiateBoardCard(c, G.turnNumber));
       side.boardReady = true;
       send(ws, { type: 'pocket_setup_wait' });
       if (G.p1.boardReady && G.p2.boardReady) {
@@ -4193,10 +4486,75 @@ async function handleMessage(ws, msg) {
       const side = G[role];
       if (side.bench.length >= 3) { send(ws, { type: 'error', message: '板凳已滿' }); return; }
       const card = side.hand.find(c => c.uid === msg.handUid);
-      if (!card || card.category !== 'Pokemon' || card.stage !== 'Basic') { send(ws, { type: 'error', message: '只能上場基礎寶可夢' }); return; }
-      card.boardTurn = G.turnNumber;
-      side.bench.push(card);
+      if (!card || !pocketIsPlayableAsBasic(card)) { send(ws, { type: 'error', message: '只能上場基礎寶可夢' }); return; }
+      side.bench.push(pocketInstantiateBoardCard(card, G.turnNumber));
       side.hand = side.hand.filter(c => c.uid !== card.uid);
+      pocketBroadcastState(pRoom);
+      return;
+    }
+
+    if (type === 'pocket_discard_fossil') { // 化石卡「隨時可以從場上棄掉」
+      const pRoom = pocketRooms.get(ws.pocketRoomCode);
+      if (!pRoom?.G || pRoom.G.phase !== 'active') return;
+      const G = pRoom.G; const role = ws.pocketRole;
+      if (G.turn !== role) return;
+      const side = G[role];
+      if (side.active?.uid === msg.target && side.active.isFossil) {
+        side.discard.push(side.active); side.active = null;
+      } else {
+        const idx = side.bench.findIndex(p => p.uid === msg.target && p.isFossil);
+        if (idx < 0) return;
+        side.discard.push(side.bench[idx]); side.bench.splice(idx, 1);
+      }
+      pocketBroadcastState(pRoom);
+      return;
+    }
+
+    if (type === 'pocket_play_item' || type === 'pocket_play_supporter') {
+      const pRoom = pocketRooms.get(ws.pocketRoomCode);
+      if (!pRoom?.G || pRoom.G.phase !== 'active') return;
+      const G = pRoom.G; const role = ws.pocketRole; const op = role === 'p1' ? 'p2' : 'p1';
+      if (G.turn !== role) return;
+      const side = G[role]; const oppSide = G[op];
+      const card = side.hand.find(c => c.uid === msg.handUid);
+      if (!card || card.category !== 'Trainer') return;
+      const isSupporter = card.trainerType === 'Supporter';
+      if (type === 'pocket_play_item' && isSupporter) return;
+      if (type === 'pocket_play_supporter' && !isSupporter) return;
+      if (isSupporter) {
+        if (side.supporterUsedThisTurn) { send(ws, { type: 'error', message: '這回合已經用過支援者卡了' }); return; }
+        if (side.supporterLockedUntilTurn === G.turnNumber) { send(ws, { type: 'error', message: '這回合不能使用支援者卡' }); return; }
+        if (oppSide.active?.abilities?.some(a => a.name === 'Shadowy Spellbind')) {
+          send(ws, { type: 'error', message: '對方的耿鬼ex場上時無法使用支援者卡' }); return;
+        }
+      }
+      const handler = TRAINER_EFFECTS[card.id];
+      if (!handler) { send(ws, { type: 'error', message: '這張卡的效果尚未實作' }); return; }
+      const ctx = { G, role, op, side, oppSide, pRoom };
+      const err = handler(ctx, msg);
+      if (err) { send(ws, { type: 'error', message: err }); return; }
+      side.hand = side.hand.filter(c => c.uid !== card.uid);
+      side.discard.push(card);
+      if (isSupporter) side.supporterUsedThisTurn = true;
+      if (ctx.peekHand) send(ws, { type: 'pocket_peek', title: '對手手牌', cards: ctx.peekHand });
+      if (ctx.peekDeck) send(ws, { type: 'pocket_peek', title: '牌庫頂3張', cards: ctx.peekDeck });
+      pocketBroadcastState(pRoom);
+      return;
+    }
+
+    if (type === 'pocket_use_ability') {
+      const pRoom = pocketRooms.get(ws.pocketRoomCode);
+      if (!pRoom?.G || pRoom.G.phase !== 'active') return;
+      const G = pRoom.G; const role = ws.pocketRole; const op = role === 'p1' ? 'p2' : 'p1';
+      if (G.turn !== role) return;
+      const side = G[role]; const oppSide = G[op];
+      const poke = pocketFindOwn(side, msg.pokemonUid);
+      const ability = poke?.abilities?.[0];
+      if (!poke || !ability || !ABILITY_EFFECTS[ability.name]) return;
+      if (side.abilitiesUsedThisTurn.includes(poke.uid)) { send(ws, { type: 'error', message: '這隻寶可夢這回合已經用過特性了' }); return; }
+      const err = ABILITY_EFFECTS[ability.name]({ G, role, op, side, oppSide }, poke);
+      if (err) { send(ws, { type: 'error', message: err }); return; }
+      side.abilitiesUsedThisTurn.push(poke.uid);
       pocketBroadcastState(pRoom);
       return;
     }
@@ -4234,7 +4592,10 @@ async function handleMessage(ws, msg) {
       if (side.retreatedThisTurn) { send(ws, { type: 'error', message: '這回合已經撤退過了' }); return; }
       const active = side.active;
       if (!active) return;
-      const cost = active.retreat || 0;
+      if (active.status === 'asleep') { send(ws, { type: 'error', message: '睡眠中無法撤退' }); return; }
+      if (active.status === 'paralyzed') { send(ws, { type: 'error', message: '麻痺中無法撤退' }); return; }
+      if (active.isFossil || active.retreat == null) { send(ws, { type: 'error', message: '這隻沒有撤退成本可以撤退（化石卡不能撤退）' }); return; }
+      const cost = Math.max(0, (active.retreat || 0) - (side.retreatDiscountThisTurn || 0));
       if (active.energy.length < cost) { send(ws, { type: 'error', message: '能量不足，無法撤退' }); return; }
       const idx = side.bench.findIndex(p => p.uid === msg.target);
       if (idx < 0) return;
@@ -4256,27 +4617,54 @@ async function handleMessage(ws, msg) {
       const attacker = side.active;
       const atk = attacker?.attacks?.[msg.attackIndex];
       if (!atk) return;
+      if (attacker.status === 'paralyzed') { send(ws, { type: 'error', message: '麻痺中無法攻擊' }); attacker.status = null; pocketAdvanceTurn(G); pocketBroadcastState(pRoom); return; }
+      if (attacker.status === 'asleep') {
+        if (!pocketFlipCoin()) { send(ws, { type: 'error', message: '睡眠中，攻擊失敗' }); pocketAdvanceTurn(G); pocketBroadcastState(pRoom); return; }
+        attacker.status = null;
+      }
+      if (attacker.cantAttackUntilTurn === G.turnNumber) { send(ws, { type: 'error', message: '這回合這隻寶可夢不能攻擊' }); pocketAdvanceTurn(G); pocketBroadcastState(pRoom); return; }
       if (!pocketCanPayCost(attacker, atk.cost)) { send(ws, { type: 'error', message: '能量不足，無法使用這個招式' }); return; }
       const defender = oppSide.active;
       if (!defender) return;
-      let dmg = parseInt(String(atk.damage || '0').replace(/\D+/g, ''), 10) || 0;
-      const weak = (defender.weaknesses || []).find(w => (attacker.types || []).includes(w.type));
-      if (weak && dmg > 0) dmg += parseInt(String(weak.value).replace(/\D+/g, ''), 10) || 0;
-      defender.curHp = Math.max(0, (defender.curHp ?? defender.hp ?? 0) - dmg);
-      if (defender.curHp <= 0) {
-        side.points += defender.ex ? 2 : 1; // 擊倒得分歸攻擊方(side)，不是被擊倒的一方(oppSide)
-        oppSide.discard.push(defender);
-        oppSide.active = null;
-        if (side.points >= 3) { G.winner = role; G.phase = 'done'; pocketBroadcastState(pRoom); return; }
-        if (oppSide.bench.length) {
-          G.phase = 'forced_switch';
-          G.pendingSwitchRole = op;
-        } else {
-          G.winner = role; G.phase = 'done';
-        }
-        pocketBroadcastState(pRoom);
-        return;
+
+      const ctx = { G, role, op, side, oppSide, attacker, defender, atk, rawDamage: parseInt(String(atk.damage || '0').replace(/\D+/g, ''), 10) || 0, selfDamage: 0 };
+      const effectFn = atk.effect && ATTACK_EFFECTS[atk.effect];
+      if (effectFn) effectFn(ctx);
+
+      let mainDamage = 0;
+      if (!ctx.skipMainDamage && ctx.rawDamage > 0) {
+        mainDamage = ctx.rawDamage;
+        if (side.giovanniBoostThisTurn) mainDamage += 10;
+        if (side.blaineBoostNamesThisTurn?.includes(attacker.name)) mainDamage += 30;
+        const weak = (defender.weaknesses || []).find(w => (attacker.types || []).includes(w.type));
+        if (weak) mainDamage += parseInt(String(weak.value).replace(/\D+/g, ''), 10) || 0;
+        if (defender.dmgDebuffUntilTurn === G.turnNumber) mainDamage = Math.max(0, mainDamage - defender.dmgDebuffAmount);
+        defender.curHp = Math.max(0, (defender.curHp ?? defender.hp ?? 0) - mainDamage);
       }
+      if (ctx.selfDamage) attacker.curHp = Math.max(0, attacker.curHp - ctx.selfDamage);
+      if (ctx.healMirror) attacker.curHp = Math.min(attacker.hp, attacker.curHp + mainDamage);
+
+      // 板凳濺傷造成的擊倒先處理（不會觸發forced_switch，因為主戰沒被打）
+      pocketResolveBenchKOs(G, oppSide, role);
+      pocketResolveBenchKOs(G, side, op); // 例如Raging Thunder自己的板凳也可能被自己招式波及
+
+      if (ctx.peekOpponentHand) send(ws, { type: 'pocket_peek', title: '對手手牌', cards: oppSide.hand });
+
+      if (pocketCheckWin(G)) { pocketBroadcastState(pRoom); return; }
+
+      if (!ctx.skipMainDamage && attacker.curHp <= 0 && side.active === attacker) {
+        // 自傷/自損打死自己（例如波導彈/雙倍拳頭）——一樣算作被擊倒，對方加分
+        pocketResolveActiveKO(G, role);
+        pocketBroadcastState(pRoom); return;
+      }
+      if (!ctx.skipMainDamage && defender.curHp <= 0 && oppSide.active === defender) {
+        pocketResolveActiveKO(G, op);
+        pocketBroadcastState(pRoom); return;
+      }
+      // Aerodactyl的「洗回牌庫」效果已經在effect handler內自己呼叫過pocketResolveActiveKO(false)，
+      // 這裡如果已經進入forced_switch/done就不要再往下走
+      if (G.phase === 'forced_switch' || G.phase === 'done') { pocketBroadcastState(pRoom); return; }
+
       pocketAdvanceTurn(G);
       pocketBroadcastState(pRoom);
       return;
@@ -4295,7 +4683,8 @@ async function handleMessage(ws, msg) {
       side.active = chosen;
       G.pendingSwitchRole = null;
       G.phase = 'active';
-      pocketAdvanceTurn(G);
+      if (G.pendingSwitchReason === 'endTurn') pocketAdvanceTurn(G);
+      G.pendingSwitchReason = null;
       pocketBroadcastState(pRoom);
       return;
     }

@@ -25,6 +25,14 @@
 
   .layout { flex:1; display:grid; grid-template-columns:1fr 340px; gap:0; min-height:0; }
   @media (max-width: 880px) { .layout { grid-template-columns:1fr; } }
+  @media (max-width: 480px) {
+    .board-top-bar { flex-wrap:wrap; gap:0.4rem; }
+    .board-slot { width:62px; font-size:0.56rem; }
+    .active-row .board-slot { width:78px; font-size:0.62rem; }
+    .bench-row { gap:0.35rem; }
+    .attack-row { width:100%; padding:0 0.6rem; }
+    .setup-box, .peek-box { padding:1.1rem; }
+  }
 
   /* ── pool ── */
   .pool { padding:1rem 1.2rem 2rem; min-width:0; }
@@ -106,10 +114,16 @@
   .board-slot .board-name { font-weight:700; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .active-row .board-slot { width:96px; font-size:0.7rem; }
   .hp-bar { height:5px; background:rgba(255,255,255,0.1); border-radius:3px; overflow:hidden; margin-top:2px; }
-  .hp-fill { height:100%; background:#69f0ae; }
+  .hp-fill { height:100%; background:#69f0ae; transition:width 0.35s ease, background 0.35s ease; }
   .hp-fill.low { background:#ff8a80; }
   .energy-row { display:flex; gap:2px; justify-content:center; margin-top:2px; flex-wrap:wrap; }
   .energy-icon { width:8px; height:8px; border-radius:50%; display:inline-block; }
+  .mini-btn { font-size:0.58rem; background:rgba(255,255,255,0.1); border:1px solid var(--border); color:var(--text); border-radius:5px; padding:1px 4px; margin-top:2px; cursor:pointer; }
+  .mini-btn:hover { background:rgba(255,255,255,0.2); }
+  .peek-overlay { position:fixed; inset:0; z-index:90; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; }
+  .peek-box { background:#10132b; border:1px solid var(--border); border-radius:16px; padding:1.4rem; width:min(90vw,420px); text-align:center; }
+  .peek-list { display:flex; gap:0.4rem; justify-content:center; flex-wrap:wrap; margin:1rem 0; }
+  .peek-list img { width:70px; border-radius:6px; }
 
   .attack-row { display:flex; flex-direction:column; gap:0.4rem; max-width:420px; margin:0.5rem auto; }
   .attack-btn { display:flex; justify-content:space-between; align-items:center; background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:0.5rem 0.8rem; cursor:pointer; font-size:0.82rem; }
@@ -262,6 +276,14 @@
     <div class="setup-box">
       <h2 id="gameover-title"></h2>
       <button class="btn btn-secondary" onclick="location.reload()">回到組牌</button>
+    </div>
+  </div>
+
+  <div class="peek-overlay" id="peek-overlay" style="display:none">
+    <div class="peek-box">
+      <h2 id="peek-title"></h2>
+      <div class="peek-list" id="peek-list"></div>
+      <button class="btn btn-secondary" onclick="closePeek()">關閉</button>
     </div>
   </div>
 </div>
@@ -530,6 +552,9 @@ function handleWsMsg(msg) {
     case 'pocket_turn_state':
       applyState(msg);
       break;
+    case 'pocket_peek':
+      showPeek(msg.title, msg.cards);
+      break;
     case 'pocket_opponent_disconnected':
       document.getElementById('lobby-error').textContent = '對手已離線';
       document.getElementById('action-hint').textContent = '對手已離線';
@@ -558,11 +583,21 @@ function typeDots(types) {
   return (types || []).map(t => `<span class="type-dot" style="background:${TYPE_COLOR[t] || '#888'}"></span>`).join('');
 }
 
-function renderPokeSlot(p, { pickable = false, dataset = {} } = {}) {
+const STATUS_LABEL = { asleep: '😴 睡眠', poisoned: '☠️ 中毒', paralyzed: '⚡ 麻痺' };
+function renderPokeSlot(p, { pickable = false, dataset = {}, own = false } = {}) {
   if (!p) return '<div class="board-slot empty"></div>';
   const hpPct = p.hp ? Math.max(0, Math.round(((p.curHp ?? p.hp) / p.hp) * 100)) : 100;
   const energyIcons = (p.energy || []).map(e => `<span class="energy-icon" style="background:${TYPE_COLOR[e] || '#888'}"></span>`).join('');
   const attrs = Object.entries(dataset).map(([k, v]) => `data-${k}="${v}"`).join(' ');
+  const statusHtml = p.status ? `<div style="color:#ffd54f">${STATUS_LABEL[p.status] || p.status}</div>` : '';
+  let extraBtns = '';
+  if (own && state?.turn === myRole && state.phase === 'active') {
+    const ability = p.abilities?.[0];
+    if (ability && ABILITY_NAMES_SUPPORTED.has(ability.name) && !state.you.abilitiesUsedThisTurn.includes(p.uid)) {
+      extraBtns += `<button class="mini-btn" data-ability-uid="${p.uid}" title="${ability.name}">特性</button>`;
+    }
+    if (p.isFossil) extraBtns += `<button class="mini-btn" data-fossil-uid="${p.uid}">棄置</button>`;
+  }
   return `
     <div class="board-slot ${pickable ? 'pickable' : ''}" data-uid="${p.uid}" ${attrs}>
       <img src="${p.image}" alt="${p.name}">
@@ -570,8 +605,11 @@ function renderPokeSlot(p, { pickable = false, dataset = {} } = {}) {
       <div class="hp-bar"><div class="hp-fill ${hpPct <= 30 ? 'low' : ''}" style="width:${hpPct}%"></div></div>
       <div>${p.curHp ?? p.hp}/${p.hp}</div>
       <div class="energy-row">${energyIcons}</div>
+      ${statusHtml}
+      ${extraBtns}
     </div>`;
 }
+const ABILITY_NAMES_SUPPORTED = new Set(['Volt Charge', 'Sleep Pendulum', 'Psy Shadow', 'Gas Leak']);
 
 function renderBoard() {
   if (!state) return;
@@ -589,10 +627,12 @@ function renderBoard() {
   document.getElementById('my-active').innerHTML = renderPokeSlot(you.active, {
     pickable: !!selectedAction && selectedAction.mode !== 'retreat',
     dataset: { zone: 'active' },
+    own: true,
   });
   document.getElementById('my-bench').innerHTML = (you.bench || []).map(p => renderPokeSlot(p, {
     pickable: !!selectedAction,
     dataset: { zone: 'bench' },
+    own: true,
   })).join('');
 
   // energy zone chip
@@ -637,10 +677,9 @@ function renderBoard() {
   // hand row
   const handRow = document.getElementById('hand-row');
   handRow.innerHTML = (you.hand || []).map(c => {
-    const isEvolveCard = c.category === 'Pokemon' && c.stage !== 'Basic';
-    const isBasic = c.category === 'Pokemon' && c.stage === 'Basic';
     const label = c.category === 'Pokemon' ? `${c.stage === 'Basic' ? '基礎' : c.stage === 'Stage1' ? '第1階' : '第2階'}` : (c.trainerType === 'Supporter' ? '支援者' : '道具');
-    return `<div class="board-slot" data-hand-uid="${c.uid}" data-hand-kind="${c.category}">
+    const locked = c.trainerType === 'Supporter' && you.supporterUsedThisTurn;
+    return `<div class="board-slot ${locked ? 'maxed' : ''}" data-hand-uid="${c.uid}" data-hand-kind="${c.category}">
       <img src="${c.image}" alt="${c.name}">
       <div class="board-name">${c.name}</div>
       <div>${label}</div>
@@ -690,14 +729,25 @@ function pocketCanPayCostClient(pokemon, cost) {
 function doAttack(i) { wsSend({ type: 'pocket_attack', attackIndex: i }); }
 function endTurn() { wsSend({ type: 'pocket_end_turn' }); }
 
+const POCKET_FOSSIL_IDS = new Set(['A1-216', 'A1-217', 'A1-218']);
+const TRAINER_NEEDS_TARGET = new Set(['P-A-001', 'A1-219', 'A1-220']); // Potion / Erika / Misty
+
 // event delegation：own board (active/bench) 點擊
 document.getElementById('board-overlay').addEventListener('click', e => {
+  const abilityBtn = e.target.closest('[data-ability-uid]');
+  if (abilityBtn) { wsSend({ type: 'pocket_use_ability', pokemonUid: abilityBtn.dataset.abilityUid }); return; }
+  const fossilBtn = e.target.closest('[data-fossil-uid]');
+  if (fossilBtn) { wsSend({ type: 'pocket_discard_fossil', target: fossilBtn.dataset.fossilUid }); return; }
+
   const slot = e.target.closest('.board-slot[data-uid]');
   if (slot && slot.closest('#my-active, #my-bench') && selectedAction) {
     const uid = slot.dataset.uid;
     if (selectedAction.mode === 'attach') wsSend({ type: 'pocket_attach_energy', target: uid });
     else if (selectedAction.mode === 'evolve') wsSend({ type: 'pocket_evolve', handUid: selectedAction.handUid, target: uid });
     else if (selectedAction.mode === 'retreat' && slot.closest('#my-bench')) wsSend({ type: 'pocket_retreat', target: uid });
+    else if (selectedAction.mode === 'item-target') {
+      wsSend({ type: selectedAction.isSupporter ? 'pocket_play_supporter' : 'pocket_play_item', handUid: selectedAction.handUid, target: uid });
+    }
     selectedAction = null;
     return;
   }
@@ -715,8 +765,18 @@ document.getElementById('board-overlay').addEventListener('click', e => {
       selectedAction = { mode: 'evolve', handUid: uid, name: card.name };
       updateActionHint();
       renderBoard();
-    } else {
-      document.getElementById('action-hint').textContent = '訓練師卡效果尚未實作（下一階段做）';
+    } else if (card.category === 'Trainer' && POCKET_FOSSIL_IDS.has(card.id)) {
+      wsSend({ type: 'pocket_bench_play', handUid: uid }); // 化石卡當基礎寶可夢上場
+    } else if (card.category === 'Trainer') {
+      const isSupporter = card.trainerType === 'Supporter';
+      if (isSupporter && state.you.supporterUsedThisTurn) { document.getElementById('action-hint').textContent = '這回合已經用過支援者卡了'; return; }
+      if (TRAINER_NEEDS_TARGET.has(card.id)) {
+        selectedAction = { mode: 'item-target', handUid: uid, isSupporter };
+        document.getElementById('action-hint').textContent = '點擊己方場上的寶可夢作為目標';
+        renderBoard();
+      } else {
+        wsSend({ type: isSupporter ? 'pocket_play_supporter' : 'pocket_play_item', handUid: uid });
+      }
     }
     return;
   }
@@ -761,6 +821,16 @@ function confirmSetup() {
   state.you.boardSubmitted = true;
   renderBoard();
 }
+
+function showPeek(title, cards) {
+  document.getElementById('peek-title').textContent = title;
+  document.getElementById('peek-list').innerHTML = (cards || []).map(c => `
+    <div style="text-align:center;font-size:0.65rem">
+      <img src="${c.image}" alt="${c.name}"><div>${c.name}</div>
+    </div>`).join('') || '<div class="lobby-sub">（沒有卡片）</div>';
+  document.getElementById('peek-overlay').style.display = 'flex';
+}
+function closePeek() { document.getElementById('peek-overlay').style.display = 'none'; }
 
 function showGameOver(winner) {
   const title = document.getElementById('gameover-title');
