@@ -1067,7 +1067,7 @@
       <li>飄浮／蓄電（拉帝亞斯、拉帝歐斯、麻麻鰻魚王、捷拉奧拉）— 受到電屬性攻擊時完全免疫，並回復 3 點能量</li>
       <li>多重鱗片（快龍）— HP 全滿時，受到的攻擊傷害 ×0.9</li>
       <li>深淵支配（暴鯉龍、化石翼龍、冰岩怪）— 不會受到超效傷害；10% 機率完全閃避攻擊</li>
-      <li>深淵支配（伊裴爾塔爾）— 不會受到超效傷害；60% 機率完全閃避攻擊</li>
+      <li>深淵支配（伊裴爾塔爾）— 對方無法使用 Mega 進化；這隻寶可夢在場上時，對方的寶可夢無法回復 HP</li>
       <li>神域支配（卡比獸、貓老大）— 上場時場地切換為莊嚴神社；一般屬性攻擊傷害額外 +40</li>
       <li>我行我素（呆殼獸）— 不會陷入混亂狀態</li>
       <li>劇毒支配（阿柏怪、龍王蠍）— 上場時場地切換為劇毒領域；毒屬性攻擊傷害額外 +40</li>
@@ -2463,7 +2463,7 @@ function renderActions() {
   const megaBtn = document.getElementById('btn-mega');
   if (megaBtn) {
     const eligible = p.mega && !p.megaEvolved && !G.playerMegaUsed;
-    const canMega = eligible && (G.playerMegaEnergy ?? 0) >= 20;
+    const canMega = eligible && (G.playerMegaEnergy ?? 0) >= 20 && cp?.ability?.id !== 'dark-abyss-lockdown';
     megaBtn.style.display = eligible ? '' : 'none';
     megaBtn.disabled = isSpectator || G.busy || !canMega;
   }

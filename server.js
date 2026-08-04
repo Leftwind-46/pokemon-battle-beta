@@ -83,7 +83,7 @@ const POKEMON = [
   { id:888,name:'蒼響',      type:'fairy',    type2:'steel',   hp:370, tier:3, ability:{id:'steel-domain', name:'鋼鐵支配', trigger:'onEnter', desc:'上場時場地切換為鋼鐵堡壘；鋼屬性攻擊傷害額外 +40'}, attacks:[{name:'接近戰',dmg:105,cost:14,type:'fighting',megaBoost:true,bonusEnergy:8},{name:'月亮力量',dmg:101,cost:14,type:'fairy',ignoreReflect:true,selfHeal:0.19,bonusVsType:'dark'},{name:'鐵頭功',dmg:108,cost:14,type:'steel',selfHeal:0.21,bonusVsType:'normal',ignoreReflect:true,ignoreShield:true},{name:'劇毒威壓擊',dmg:81,cost:9,type:'poison',selfHeal:0.18}]},
   { id:716, name:'哲爾尼亞斯', type:'fairy',    hp:305, tier:3, ability:{id:'adaptability', name:'妖精氣場', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×1.2（原本 ×1.1）'}, attacks:[{name:'飛葉快刀',dmg:56,cost:4,type:'grass',rider:'type-draw'},{name:'十萬伏特',dmg:91,cost:10,type:'electric',status:{effect:'paralysis', chance:0.4},status2:{effect:'burn',chance:0.4}},{name:'魔法閃耀',dmg:110,cost:15,type:'fairy',rider:'card-steal'},{name:'冰耳光',dmg:106,cost:15,type:'ice',status:{effect:'freeze', chance:0.4},bonusVsType:'flying',ignoreReflect:true}]},
   { id:378, name:'雷吉艾斯',   type:'ice',      hp:370, tier:3, ability:{id:'thick-fat', name:'厚脂肪', trigger:'onDefend', desc:'受到火／冰屬性攻擊傷害 ×0.92'}, attacks:[{name:'暴風雪',dmg:108,cost:14,type:'ice',status:{effect:'freeze', chance:0.4},megaBoost:true,bonusEnergy:8,bonusVsType:'grass'},{name:'閃光炮',dmg:81,cost:9,type:'steel',rider:'self-cure',status:{effect:'paralysis', chance:0.4}},{name:'未來雷霆',dmg:100,cost:14,type:'psychic',status:{effect:'confusion', chance:0.4},bonusVsType:'fighting'},{name:'電磁砲',dmg:107,cost:14,type:'electric',rider:'mega-charge',status:{effect:'burn', chance:0.4},status2:{effect:'freeze',chance:0.4}}]},
-  { id:717, name:'伊裴爾塔爾', type:'dark',     type2:'flying',  hp:265, tier:3, ability:{id:'no-weakness-dodge-60', name:'深淵支配', trigger:'onDefend', desc:'不會受到超效傷害；60% 機率完全閃避攻擊'}, attacks:[{name:'幽靈球',dmg:53,cost:3,type:'ghost',ignoreReflect:true},{name:'空氣斬',dmg:77,cost:9,type:'flying',rider:'mega-charge',status:{effect:'freeze', chance:0.4},status2:{effect:'paralysis',chance:0.4}},{name:'大地虹吸',dmg:84,cost:9,type:'ground',rider:'life-drain'},{name:'惡意波動',dmg:103,cost:14,type:'dark',selfHeal:0.25,bonusVsType:'ghost'}]},
+  { id:717, name:'伊裴爾塔爾', type:'dark',     type2:'flying',  hp:265, tier:3, ability:{id:'dark-abyss-lockdown', name:'深淵支配', trigger:'passive', desc:'對方無法使用 Mega 進化；這隻寶可夢在場上時，對方的寶可夢無法回復 HP'}, attacks:[{name:'幽靈球',dmg:53,cost:3,type:'ghost',ignoreReflect:true},{name:'空氣斬',dmg:77,cost:9,type:'flying',rider:'mega-charge',status:{effect:'freeze', chance:0.4},status2:{effect:'paralysis',chance:0.4}},{name:'大地虹吸',dmg:84,cost:9,type:'ground',rider:'life-drain'},{name:'惡意波動',dmg:103,cost:14,type:'dark',selfHeal:0.25,bonusVsType:'ghost'}]},
   { id:483, name:'帝牙盧卡',   type:'steel',    type2:'dragon',  hp:360, tier:3, ability:{id:'dragon-domain', name:'龍域降臨', trigger:'onEnter', desc:'上場時場地切換為龍之谷；龍屬性攻擊傷害額外 +40'}, attacks:[{name:'閃光炮',dmg:105,cost:13,type:'steel',ignoreReflect:true,megaBoost:true,bonusEnergy:7,bonusVsType:'fairy',ignoreShield:true},{name:'龍之脈動',dmg:101,cost:13,type:'dragon',selfHeal:0.19,bonusVsType:'dragon'},{name:'雷霆',dmg:73,cost:8,type:'electric',rider:'mega-charge',selfHeal:0.21},{name:'幽靈之爪',dmg:104,cost:13,type:'ghost',selfHeal:0.2}]},
   { id:484, name:'帕路奇亞',   type:'water',    type2:'dragon',  hp:200, tier:3, ability:{id:'dragon-domain', name:'龍域降臨', trigger:'onEnter', desc:'上場時場地切換為龍之谷；龍屬性攻擊傷害額外 +40'}, attacks:[{name:'鐵翼',dmg:40,cost:1,type:'steel',rider:'mega-charge',megaBoost:true,bonusEnergy:7},{name:'龍之脈動',dmg:47,cost:1,type:'dragon',status:{effect:'paralysis', chance:0.4}},{name:'空間扭曲',dmg:71,cost:7,type:'psychic',ignoreReflect:true,selfHeal:0.25,bonusVsType:'fighting',ignoreShield:true},{name:'衝浪',dmg:101,cost:12,type:'water',selfHeal:0.15,bonusVsType:'ice'}]},
   { id:727, name:'熾焰咆哮虎', type:'fire',     type2:'dark',    hp:300, tier:2, ability:{id:'dark-domain', name:'暗夜支配', trigger:'onEnter', desc:'上場時場地切換為暗夜詛咒領域；惡屬性攻擊傷害額外 +40'}, attacks:[{name:'超強衝擊',dmg:56,cost:4,type:'fighting',ignoreReflect:true,status:{effect:'burn', chance:0.4},megaBoost:true,bonusEnergy:6,status2:{effect:'sleep',chance:0.4}},{name:'暗黑強打',dmg:86,cost:9,type:'dark',megaBoost:true,bonusEnergy:7},{name:'火焰噴射',dmg:105,cost:14,type:'fire',status:{effect:'paralysis', chance:0.4},bonusVsType:'dark',ignoreReflect:true},{name:'劇毒威壓擊',dmg:101,cost:14,type:'poison',selfHeal:0.2,bonusVsType:'fairy'}]},
@@ -851,10 +851,9 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
   // 破格系特性：既有的mold-breaker（Mega限定）+ true-damage（不動如山，攻擊無視對方防禦特性/閃避/撐住）共用同一個布林
   const moldBreaker = attackerAbility?.id === 'mold-breaker' || attackerAbility?.id === 'true-damage';
   // 深淵支配：不會受到超效傷害（型效乘數封頂在1，只降不升，不影響自己剋制對方時的正常效果）
-  // 2026-07-29新增no-weakness-dodge-60（伊裴爾塔爾專屬，閃避率60%版本，跟一般10%版本共用
-  // 「無超效傷害」這半部分，另外用獨立id避免暴鯉龍/化石翼龍/冰岩怪這些共用no-weakness-dodge
-  // 的寶可夢被連帶提升閃避率）
-  const isAbyssDodgeFamily = defenderAbility?.id === 'no-weakness-dodge' || defenderAbility?.id === 'no-weakness-dodge-60';
+  // （2026-08-04：伊裴爾塔爾專屬的no-weakness-dodge-60已改成dark-abyss-lockdown，效果完全不同，
+  // 不再屬於這個閃避家族，這裡只剩暴鯉龍/化石翼龍/冰岩怪共用的10%版本）
+  const isAbyssDodgeFamily = defenderAbility?.id === 'no-weakness-dodge';
   if (!moldBreaker && isAbyssDodgeFamily) mult = Math.min(mult, 1);
   // 屬性轉換 (type-orb) makes the overridden type count as own for STAB purposes — pure upside.
   const isOwnType = aBuff.typeOverride ? true : (atkType === attacker.type || (attacker.type2 && atkType === attacker.type2));
@@ -912,8 +911,10 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
   const lavaMult = (G.activeStadium?.id === 'stadium-lava' && atkType === 'water') ? 0.65 : 1;
   // 2026-07-28應使用者要求從×1.2上修到×1.4
   const oceanMult = (G.activeStadium?.id === 'stadium-ocean' && atkType === 'electric') ? 1.4 : 1;
-  // Ocean World：新增水屬性「寶可夢」固定+40傷害（不是招式屬性，是攻擊方自己的種族屬性）
-  const oceanPokeBonus = (G.activeStadium?.id === 'stadium-ocean' && (attacker.type === 'water' || attacker.type2 === 'water')) ? 40 : 0;
+  // Ocean World：水屬性「寶可夢」固定+40傷害（不是招式屬性，是攻擊方自己的種族屬性）。
+  // 2026-08-04修正：跟abilityDmgBonus的drizzle-ocean判定（水/冰招式+40）重疊，排除已算過ability加成的情況。
+  const oceanAbilityAlreadyCounted = attackerAbility?.id === 'drizzle-ocean' && (atkType === 'water' || atkType === 'ice');
+  const oceanPokeBonus = (G.activeStadium?.id === 'stadium-ocean' && (attacker.type === 'water' || attacker.type2 === 'water') && !oceanAbilityAlreadyCounted) ? 40 : 0;
   // 岩石地帶：岩石／地面／鋼屬性寶可夢，受到攻擊固定減傷50（2026-07-27應使用者要求「-150太多了」下修，
   // 從-150調回-50，並在srvEffActive()額外加碼「弱點消除」讓這張卡不只靠單一個數字撐強度）
   const rockFieldReduction = (G.activeStadium?.id === 'stadium-rock-field' &&
@@ -963,7 +964,10 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     // 2026-07-30應使用者回報「傷害計算怪怪的」修正：固定減傷（shieldTerm/rockFieldReduction/
     // steelFortressReduction）疊加起來可能超過乘法鏈算出來的傷害本身，原本扣減後沒有再夾在0以上，
     // 會讓damage變成負數，等同攻擊反而幫defender加血。外層包Math.max(0,...)避免倒扣出負傷害。
-    damage = Math.max(0, Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumFlatBonus + legacyDmgBonus + abilityDmgBonus + megaBoostBonus + typeBoostBonus + bonusVsTypeBonus) * effectiveAtkMult * burnMult * mult * stabMult * switchGuardMult * standbyGuardMult * abilityDmgMult * defAbilityMult * stadiumMult * typeBoostMult * reflectPierceMult)) - shieldTerm - rockFieldReduction - steelFortressReduction - shrineReduction);
+    // 2026-08-04修正：羅馬鬥技場第二段攻擊的×0.5要乘在整條乘法鏈最後面（atk._halfDamage），
+    // 不能只砍atk.dmg這個小加項——megaBoostBonus/abilityDmgBonus等固定加成完全不會被砍到，
+    // 導致第二段幾乎跟第一段一樣高（使用者回報「兩下攻擊都超過300」）。
+    damage = Math.max(0, Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumFlatBonus + legacyDmgBonus + abilityDmgBonus + megaBoostBonus + typeBoostBonus + bonusVsTypeBonus) * effectiveAtkMult * burnMult * mult * stabMult * switchGuardMult * standbyGuardMult * abilityDmgMult * defAbilityMult * stadiumMult * typeBoostMult * reflectPierceMult * (atk._halfDamage ? 0.5 : 1))) - shieldTerm - rockFieldReduction - steelFortressReduction - shrineReduction);
     // 影舞：下一次受到攻擊擲硬幣，正面完全免傷——一次性旗標，這次攻擊到來就消耗掉（不論正反面）。true-damage系特性無視此效果。
     if (!moldBreaker && G[`${dRole}CoinShield`]) {
       G[`${dRole}CoinShield`] = false;
@@ -972,10 +976,8 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
         log.push({ text: `${defender.name} 的影舞擲出硬幣正面，完全閃避了攻擊！`, cls: 'special' });
       }
     }
-    // 深淵支配：被動閃避攻擊（每次受擊都會骰，不是一次性旗標）。true-damage系特性無視此效果。
-    // 一般版10%，no-weakness-dodge-60（伊裴爾塔爾專屬）提升至60%
-    const abyssDodgeChance = defenderAbility?.id === 'no-weakness-dodge-60' ? 0.6 : 0.1;
-    if (!moldBreaker && damage > 0 && isAbyssDodgeFamily && Math.random() < abyssDodgeChance) {
+    // 深淵支配：被動閃避攻擊（每次受擊都會骰，不是一次性旗標）。true-damage系特性無視此效果。10%機率。
+    if (!moldBreaker && damage > 0 && isAbyssDodgeFamily && Math.random() < 0.1) {
       damage = 0;
       log.push({ text: `${defender.name} 的深淵支配發動，完全閃避了攻擊！`, cls: 'special' });
     }
@@ -2836,7 +2838,14 @@ function freshBuff() {
 // 所以跟其他判斷一樣要把G/role明確傳進來，不能像單人版那樣直接讀模組層級的G。
 function isAbilitySealedSrv(role, G) { return (G[`${role}AbilitySealedTurns`] || 0) > 0; }
 // 2026-07-23：暗夜詛咒領域場地啟用時，雙方都視為被封印
-function isHealSealedSrv(role, G) { return G.activeStadium?.id === 'stadium-dark-curse' || (G[`${role}HealSealedTurns`] || 0) > 0; }
+function isHealSealedSrv(role, G) {
+  if (G.activeStadium?.id === 'stadium-dark-curse') return true;
+  // 深淵支配（伊裴爾塔爾）：這隻寶可夢在場上時，對方無法回復HP——常駐效果，不是計次的封印
+  const op = role === 'p1' ? 'p2' : 'p1';
+  const oppActive = G[`${op}Deck`]?.[G[`${op}Idx`]];
+  if (oppActive?.ability?.id === 'dark-abyss-lockdown') return true;
+  return (G[`${role}HealSealedTurns`] || 0) > 0;
+}
 
 // 2026-07-29新增：每回合開始「額外抽到指定卡片」的特性——強子引擎(密勒頓)/緋紅脈動(故勒頓)
 // 必定抽；漩渦威壓(洛奇亞)/惡作劇之心(龍捲雲)50%機率抽，惡作劇之心沒抽到改成下次攻擊+20。
@@ -4970,6 +4979,8 @@ async function handleMessage(ws, msg) {
       const attacker = G[`${role}Deck`][G[`${role}Idx`]];
       if (!attacker.mega || attacker.megaEvolved || G[`${role}MegaUsed`] || G[`${role}MegaEnergy`] < 20) return;
       if (G[`${role}MegaSealedTurns`] > 0) { send(ws, { type: 'error', message: `Mega進化被封印中，還剩 ${G[`${role}MegaSealedTurns`]} 回合` }); return; }
+      { const op = role === 'p1' ? 'p2' : 'p1'; const oppActive = G[`${op}Deck`][G[`${op}Idx`]];
+        if (oppActive?.ability?.id === 'dark-abyss-lockdown') { send(ws, { type: 'error', message: '對方的深淵支配特性封鎖了 Mega 進化！' }); return; } }
       attacker.id = attacker.mega.spriteId;
       attacker.type = attacker.mega.type;
       attacker.type2 = attacker.mega.type2 ?? null;
@@ -5072,7 +5083,7 @@ async function handleMessage(ws, msg) {
         // 才真正對新上場的寶可夢補打第二下，跟pokemon_battle.html的attackWithColosseumDouble同一套邏輯
         const atkTypeForColosseum = aBuff.typeOverride || atk.type;
         if (G.activeStadium?.id === 'stadium-colosseum' && atkTypeForColosseum === 'fighting' && attacker.cur > 0) {
-          const secondAtk = { ...atk, dmg: Math.max(1, Math.round(atk.dmg * 0.5)) };
+          const secondAtk = { ...atk, _halfDamage: true }; // 見doAttack內_halfDamage的說明，不能只砍atk.dmg
           if (defender.cur > 0) {
             doAttack(attacker, defender, secondAtk, aBuff, dBuff, log, G, 1, 1);
           } else {
