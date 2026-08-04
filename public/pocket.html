@@ -112,6 +112,10 @@
   .energy-zone.has-energy { border-style:solid; cursor:pointer; }
   .energy-zone.picking { box-shadow:0 0 0 3px rgba(248,208,48,0.5); }
   .action-hint { color:#ffd54f; font-size:0.8rem; min-height:1.2em; }
+  .action-hint.active { background:rgba(248,208,48,0.12); border:1px solid rgba(248,208,48,0.4); border-radius:999px; padding:0.4rem 1rem; display:flex; align-items:center; gap:0.6rem; }
+  .action-hint .hint-cancel { background:none; border:1px solid rgba(255,213,79,0.6); color:#ffd54f; border-radius:999px; padding:0.1rem 0.6rem; font-size:0.72rem; cursor:pointer; }
+  .detail-actions { display:flex; flex-direction:column; gap:0.5rem; margin-top:0.8rem; }
+  .detail-actions button { width:100%; }
 
   .board-slot { width:76px; text-align:center; font-size:0.62rem; cursor:default; }
   .board-slot.empty { border:1px dashed var(--border); border-radius:8px; height:100%; min-height:60px; }
@@ -711,11 +715,11 @@ function handleWsMsg(msg) {
       break;
     case 'pocket_opponent_disconnected':
       document.getElementById('lobby-error').textContent = '對手已離線';
-      document.getElementById('action-hint').textContent = '對手已離線';
+      flashActionHint('對手已離線');
       break;
     case 'error':
       document.getElementById('lobby-error').textContent = msg.message || '發生錯誤';
-      document.getElementById('action-hint').textContent = msg.message || '';
+      if (msg.message) flashActionHint(msg.message);
       break;
   }
 }
@@ -745,7 +749,10 @@ function pocketFindCardByUid(uid) {
     state.opponent?.active, ...(state.opponent?.bench || [])];
   return pools.find(c => c && c.uid === uid) || null;
 }
-function showCardDetail(card) {
+// actions（可選）：[{label, primary, disabled, onClick}] ——2026-08-05新增，讓卡片預覽面板
+// 兼任「點卡→看到能做什麼→確認」的操作入口，取代原本手牌/場上寶可夢單擊直接觸發動作
+// （沒有預覽、容易誤觸）的舊行為。純檢視用途（例如查看對手的卡）不傳actions就跟以前一樣。
+function showCardDetail(card, actions) {
   if (!card) return;
   const body = document.getElementById('card-detail-body');
   const isPoke = card.category === 'Pokemon';
@@ -763,8 +770,20 @@ function showCardDetail(card) {
   } else {
     html += `<div class="detail-effect">${card.effect || ''}</div>`;
   }
+  window.__detailActions = actions || [];
+  if (actions && actions.length) {
+    html += `<div class="detail-actions">` + actions.map((a, i) =>
+      `<button class="btn ${a.primary ? 'btn-primary' : 'btn-secondary'}" ${a.disabled ? 'disabled' : ''} onclick="pocketDetailAction(${i})">${a.label}</button>`
+    ).join('') + `</div>`;
+  }
   body.innerHTML = html;
   document.getElementById('card-detail-panel').classList.add('open');
+}
+function pocketDetailAction(i) {
+  const a = window.__detailActions?.[i];
+  if (!a || a.disabled) return;
+  closeCardDetail();
+  a.onClick();
 }
 function closeCardDetail() { document.getElementById('card-detail-panel').classList.remove('open'); }
 
@@ -781,7 +800,10 @@ function renderPokeSlot(p, { pickable = false, dataset = {}, own = false } = {})
   if (p.cantRetreatUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合不能撤退">🚫🔄</span>`);
   if (p.dmgDebuffUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合攻擊傷害-${p.dmgDebuffAmount}">↓${p.dmgDebuffAmount}</span>`);
   const statusHtml = badges.length ? `<div class="status-badges">${badges.join('')}</div>` : '';
-  let extraBtns = `<button class="mini-btn" onclick="event.stopPropagation();showCardDetail(pocketFindCardByUid('${p.uid}'))" title="查看詳細資訊">🔍</button>`;
+  // own卡片的🔍要跟直接點卡片本體一樣帶出可用動作（撤退/附加能量），不然點🔍看到的畫面
+  // 反而比點卡片本身少了按鈕，兩個入口行為不一致會讓人以為🔍是唯讀、卡片本體才有功能
+  const detailCall = own ? `showCardDetail(pocketFindCardByUid('${p.uid}'), computeOwnBoardActions(pocketFindCardByUid('${p.uid}')))` : `showCardDetail(pocketFindCardByUid('${p.uid}'))`;
+  let extraBtns = `<button class="mini-btn" onclick="event.stopPropagation();${detailCall}" title="查看詳細資訊">🔍</button>`;
   if (own && state?.turn === myRole && state.phase === 'active') {
     const ability = p.abilities?.[0];
     if (ability && ABILITY_NAMES_SUPPORTED.has(ability.name) && !state.you.abilitiesUsedThisTurn.includes(p.uid)) {
@@ -886,7 +908,7 @@ function renderBoard() {
       <img src="${c.image}" alt="${c.name}">
       <div class="board-name">${c.name}</div>
       <div>${label}</div>
-      <button class="mini-btn" onclick="event.stopPropagation();showCardDetail(pocketFindCardByUid('${c.uid}'))" title="查看詳細資訊">🔍</button>
+      <button class="mini-btn" onclick="event.stopPropagation();showCardDetail(pocketFindCardByUid('${c.uid}'), computeHandCardActions(pocketFindCardByUid('${c.uid}')))" title="查看詳細資訊">🔍</button>
     </div>`;
   }).join('');
   applyFanLayout(handRow);
@@ -915,12 +937,28 @@ function renderBoard() {
   else document.getElementById('gameover-overlay').style.display = 'none';
 }
 
+// 短暫顯示一則錯誤/系統訊息（例如server端擋下不合法的操作），跟selectedAction的提示banner
+// 共用同一個元素跟樣式，但不是「等待動作」狀態，2秒後如果沒有其他selectedAction就自動清掉，
+// 不會一直卡在畫面上
+let actionHintFlashTimer = null;
+function flashActionHint(text) {
+  const hint = document.getElementById('action-hint');
+  clearTimeout(actionHintFlashTimer);
+  hint.classList.add('active');
+  hint.innerHTML = `<span>${text}</span>`;
+  actionHintFlashTimer = setTimeout(() => { if (!selectedAction) updateActionHint(); }, 2200);
+}
+
 function updateActionHint() {
   const hint = document.getElementById('action-hint');
-  if (!selectedAction) { hint.textContent = ''; return; }
-  if (selectedAction.mode === 'attach') hint.textContent = '點擊己方的寶可夢來附加能量';
-  else if (selectedAction.mode === 'evolve') hint.textContent = `點擊要進化成 ${selectedAction.name} 的寶可夢`;
-  else if (selectedAction.mode === 'retreat') hint.textContent = '點擊板凳寶可夢來撤退交換';
+  if (!selectedAction) { hint.classList.remove('active'); hint.innerHTML = ''; return; }
+  let text = '';
+  if (selectedAction.mode === 'attach') text = '點擊己方的寶可夢來附加能量';
+  else if (selectedAction.mode === 'evolve') text = `點擊要進化成 ${selectedAction.name} 的寶可夢`;
+  else if (selectedAction.mode === 'retreat') text = '點擊板凳寶可夢來撤退交換';
+  else if (selectedAction.mode === 'item-target') text = '點擊己方場上的寶可夢作為目標';
+  hint.classList.add('active');
+  hint.innerHTML = `<span>${text}</span><button class="hint-cancel" onclick="cancelAction()">取消</button>`;
 }
 
 function cancelAction() { selectedAction = null; renderBoard(); }
@@ -963,39 +1001,80 @@ document.getElementById('board-overlay').addEventListener('click', e => {
   const switchSlot = e.target.closest('.board-slot[data-switch-pick]');
   if (switchSlot) { wsSend({ type: 'pocket_choose_active', target: switchSlot.dataset.uid }); return; }
 
+  // 2026-08-05改版：點手牌/己方場上寶可夢不再直接觸發動作（原本一點就出牌/撤退，容易誤觸、
+  // 也看不到卡片詳細內容才做決定）——改成先開卡片預覽面板，可用的動作變成面板裡的按鈕，
+  // 按下去才真的送出，跟真實集換式卡牌遊戲「點卡看詳情→按按鈕確認」的操作習慣一致。
   const handSlot = e.target.closest('.hand-row .board-slot[data-hand-uid]');
   if (handSlot && state && state.turn === myRole && state.phase === 'active') {
     const uid = handSlot.dataset.handUid;
     const card = state.you.hand.find(c => c.uid === uid);
-    if (!card) return;
-    if (card.category === 'Pokemon' && card.stage === 'Basic') {
-      wsSend({ type: 'pocket_bench_play', handUid: uid });
-    } else if (card.category === 'Pokemon') {
-      selectedAction = { mode: 'evolve', handUid: uid, name: card.name };
-      updateActionHint();
-      renderBoard();
-    } else if (card.category === 'Trainer' && POCKET_FOSSIL_IDS.has(card.id)) {
-      wsSend({ type: 'pocket_bench_play', handUid: uid }); // 化石卡當基礎寶可夢上場
-    } else if (card.category === 'Trainer') {
-      const isSupporter = card.trainerType === 'Supporter';
-      if (isSupporter && state.you.supporterUsedThisTurn) { document.getElementById('action-hint').textContent = '這回合已經用過支援者卡了'; return; }
-      if (TRAINER_NEEDS_TARGET.has(card.id)) {
-        selectedAction = { mode: 'item-target', handUid: uid, isSupporter };
-        document.getElementById('action-hint').textContent = '點擊己方場上的寶可夢作為目標';
-        renderBoard();
-      } else {
-        wsSend({ type: isSupporter ? 'pocket_play_supporter' : 'pocket_play_item', handUid: uid });
-      }
-    }
+    if (card) showCardDetail(card, computeHandCardActions(card));
     return;
   }
 
-  // 撤退：點自己板凳寶可夢直接進入撤退模式的捷徑（沒有先選能量/進化時）
-  const benchSlot = e.target.closest('#my-bench .board-slot[data-uid]');
-  if (benchSlot && !selectedAction && state && state.turn === myRole && state.phase === 'active' && !state.you.retreatedThisTurn) {
-    wsSend({ type: 'pocket_retreat', target: benchSlot.dataset.uid });
+  const ownSlot = e.target.closest('#my-active .board-slot[data-uid], #my-bench .board-slot[data-uid]');
+  if (ownSlot && !selectedAction) {
+    const card = pocketFindCardByUid(ownSlot.dataset.uid);
+    if (card) showCardDetail(card, computeOwnBoardActions(card));
   }
 });
+
+// 手牌卡片可用動作——跟原本直接送出的if/else分支邏輯相同，只是包成actions陣列給預覽面板用
+function computeHandCardActions(card) {
+  if (card.category === 'Pokemon' && card.stage === 'Basic') {
+    return [{ label: '上場（加入板凳）', primary: true, onClick: () => wsSend({ type: 'pocket_bench_play', handUid: card.uid }) }];
+  }
+  if (card.category === 'Pokemon') {
+    return [{ label: `選擇要進化成 ${card.name} 的寶可夢`, primary: true, onClick: () => {
+      selectedAction = { mode: 'evolve', handUid: card.uid, name: card.name };
+      updateActionHint(); renderBoard();
+    } }];
+  }
+  if (card.category === 'Trainer' && POCKET_FOSSIL_IDS.has(card.id)) {
+    return [{ label: '上場（化石，可隨時棄置）', primary: true, onClick: () => wsSend({ type: 'pocket_bench_play', handUid: card.uid }) }];
+  }
+  if (card.category === 'Trainer') {
+    const isSupporter = card.trainerType === 'Supporter';
+    if (isSupporter && state.you.supporterUsedThisTurn) {
+      return [{ label: '這回合已經用過支援者卡了', disabled: true }];
+    }
+    if (TRAINER_NEEDS_TARGET.has(card.id)) {
+      return [{ label: '選擇目標寶可夢', primary: true, onClick: () => {
+        selectedAction = { mode: 'item-target', handUid: card.uid, isSupporter };
+        updateActionHint(); renderBoard();
+      } }];
+    }
+    return [{ label: isSupporter ? '使用這張支援者卡' : '使用這張道具卡', primary: true, onClick: () =>
+      wsSend({ type: isSupporter ? 'pocket_play_supporter' : 'pocket_play_item', handUid: card.uid }) }];
+  }
+  return [];
+}
+
+// 己方場上寶可夢可用動作——撤退原本是「點板凳直接觸發」的隱藏捷徑（容易誤觸浪費這回合僅有
+// 一次的撤退機會），現在統一成「點主戰→撤退按鈕→再點板凳完成交換」兩步驟，跟附加能量共用
+// 同一套「先選動作再點目標」的既有selectedAction模式（reused，不是新機制）。
+function computeOwnBoardActions(card) {
+  if (!state || state.turn !== myRole || state.phase !== 'active') return [];
+  const you = state.you;
+  const actions = [];
+  const isActive = you.active?.uid === card.uid;
+  if (isActive && !you.retreatedThisTurn && !card.isFossil && card.status !== 'asleep' && card.status !== 'paralyzed'
+      && card.cantRetreatUntilTurn !== state.turnNumber && you.bench.length) {
+    const cost = Math.max(0, (card.retreat || 0) - (you.retreatDiscountThisTurn || 0));
+    const affordable = (card.energy?.length || 0) >= cost;
+    actions.push({
+      label: `撤退（消耗 ${cost} 點能量）`, primary: true, disabled: !affordable,
+      onClick: () => { selectedAction = { mode: 'retreat' }; updateActionHint(); renderBoard(); },
+    });
+  }
+  if (you.pendingEnergy && !you.energyAttachedThisTurn) {
+    actions.push({
+      label: `附加 ${TYPE_ZH[you.pendingEnergy] || you.pendingEnergy} 能量到這隻`, primary: !actions.length,
+      onClick: () => wsSend({ type: 'pocket_attach_energy', target: card.uid }),
+    });
+  }
+  return actions;
+}
 
 /* ── setup（開局選主戰/板凳） ── */
 let setupActive = null;
