@@ -1533,6 +1533,7 @@ function renderShopList() {
         </div>
         <button ${!affordable ? 'disabled' : ''} onclick="buyItem('${itemId}')">購買</button>
         <button ${!owned ? 'disabled' : ''} onclick="sellBall('${itemId}')">變賣（🪙${sellPrice}）</button>
+        <button ${!owned ? 'disabled' : ''} onclick="sellAllBalls('${itemId}')">全部賣出（🪙${sellPrice * owned}）</button>
       </div>
     `;
   }).join('');
@@ -1589,6 +1590,26 @@ async function sellBall(itemId) {
     updateCoinsUI(data.coins);
     pet[BALL_FIELD_TO_PET_KEY[data.ballField]] = data.count;
     updateBallCounterUI();
+    if (document.getElementById('catch-scene-modal').classList.contains('open')) renderBallPicker();
+    renderShopList();
+  } catch (e) {
+    showToast('連線失敗，請再試一次');
+  }
+}
+
+async function sellAllBalls(itemId) {
+  try {
+    const res = await fetch('/api/pet/sell-ball-all', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${myToken}` },
+      body: JSON.stringify({ itemId }),
+    });
+    if (!res.ok) { showToast('手上沒有這種球了'); return; }
+    const data = await res.json();
+    updateCoinsUI(data.coins);
+    pet[BALL_FIELD_TO_PET_KEY[data.ballField]] = data.count;
+    updateBallCounterUI();
+    showToast('已全部賣出！');
     if (document.getElementById('catch-scene-modal').classList.contains('open')) renderBallPicker();
     renderShopList();
   } catch (e) {
@@ -2008,6 +2029,7 @@ async function openFishingScene() {
 // 玩家主動按「結束釣魚」——關掉場景/結果兩個modal，把迴圈旗標關掉，之後不會再自動續釣
 function closeFishingSession() {
   fishingActive = false;
+  if (fishAutoCollectTimer) { clearTimeout(fishAutoCollectTimer); fishAutoCollectTimer = null; }
   document.getElementById('fishing-scene-modal').classList.remove('open');
   document.getElementById('fishing-result-modal').classList.remove('open');
   lastFishResult = null;
@@ -2043,6 +2065,10 @@ async function runFishingAttempt() {
 }
 
 let lastFishResult = null; // 暫存最近一次釣魚結果，避免把整包物件序列化塞進onclick屬性
+// 掛機模式（2026-08-04應使用者要求）：抓到魚不用手動點「收進魚籃」才能繼續，
+// 顯示結果給玩家看一下（稀有/傳說魚多留一點時間）之後自動收進魚籃+繼續釣，
+// 「收進魚籃！」按鈕還在，只是變成「想快點跳過就手動點」的捷徑，不再是必要動作。
+let fishAutoCollectTimer = null;
 function showFishingResult(data) {
   lastFishResult = data;
   const body = document.getElementById('fishing-result-body');
@@ -2065,6 +2091,8 @@ function showFishingResult(data) {
     setTimeout(() => triggerFirework(rect.left + rect.width / 2, rect.top + 80), 200);
   }
   document.getElementById('fishing-result-modal').classList.add('open');
+  if (fishAutoCollectTimer) clearTimeout(fishAutoCollectTimer);
+  fishAutoCollectTimer = setTimeout(() => collectFish(), (isRare || isLegendary) ? 2200 : 1100);
 }
 
 function closeFishingResultModal() {
@@ -2072,6 +2100,7 @@ function closeFishingResultModal() {
 }
 
 async function collectFish() {
+  if (fishAutoCollectTimer) { clearTimeout(fishAutoCollectTimer); fishAutoCollectTimer = null; }
   if (!lastFishResult) return;
   // 這隻魚在剛剛那次 POST /api/pet/fish 就已經存進DB了，這裡純粹更新畫面
   const data = lastFishResult;

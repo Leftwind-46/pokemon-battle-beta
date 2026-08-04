@@ -3298,6 +3298,29 @@ app.post('/api/pet/sell-ball', requireAuth, async (req, res) => {
   }
 });
 
+// 2026-08-04應使用者要求新增「一鍵賣出」——原本sell-ball一次只賣1顆，球數量多時要點很多次。
+// SET子句裡的coins/${item.ballField}都是同一條UPDATE語句內對「更新前」的row值求值（Postgres標準行為，
+// 不是循序執行），所以coins可以直接用舊的ballField算出賣出總額，不用先查詢一次再算，天生原子操作。
+app.post('/api/pet/sell-ball-all', requireAuth, async (req, res) => {
+  const itemId = req.body?.itemId;
+  const item = SHOP_ITEMS[itemId];
+  if (!item || item.category !== 'ball') return res.status(400).json({ error: 'invalid_item' });
+  const sellPrice = Math.max(1, Math.floor(item.price / 2));
+  try {
+    const { rows } = await pool.query(
+      `UPDATE pets SET coins = coins + (${item.ballField} * $1), ${item.ballField} = 0
+       WHERE user_id = $2 AND ${item.ballField} >= 1
+       RETURNING coins, ${item.ballField} AS count`,
+      [sellPrice, req.user.id]
+    );
+    if (!rows.length) return res.status(400).json({ error: 'not_enough_balls' });
+    res.json({ coins: rows[0].coins, ballField: item.ballField, count: rows[0].count });
+  } catch (e) {
+    console.error('pet sell-ball-all error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
 /* 單人模式「冠軍挑戰模式」打贏三關後核發冠軍獎盃——只驗證登入+尚未領過，不重新驗證整場戰鬥
    （單人模式本來就完全跑在client端，沒有伺服器連線，這裡刻意比照那個既有信任模型，不做PvP
    等級的server-authoritative重寫）。只能領一次：已經有這筆pet_decorations就直接回alreadyOwned，
