@@ -806,7 +806,9 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
   }
   if (dBuff.reflect) {
     dBuff.reflect = false;
-    const rawMult = compressMult(srvEff(atkType, attacker.type));
+    // 2026-08-04全面稽核發現：這裡漏了attacker.type2——雙屬性寶可夢被反彈鏡打回去時，
+    // 第二屬性的型效完全沒被納入判定，跟pokemon_battle.html比對後一起補上（順便讓兩邊行為一致）。
+    const rawMult = compressMult(srvEff(atkType, attacker.type, attacker.type2));
     const dmg     = Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus) * aBuff.atkMult * burnMult * (rawMult || 1)));
     attacker.cur  = Math.max(0, attacker.cur - dmg);
     log.push({ text: `反彈鏡！攻擊被反彈，${attacker.name} 承受了 ${dmg} 傷害！`, cls: 'special' });
@@ -863,7 +865,7 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
   // 2026-07-24應使用者要求「場地卡太過強勢」，把傷害倍率壓回~1.2、固定加成>40的下修到30以下
   const stadiumBonus = G?.activeStadium?.id === 'stadium-training' ? 25 : 0;
   const reversalBonus = G?.activeStadium?.id === 'stadium-reversal' && attacker.cur <= attacker.hp * 0.5 ? 30 : 0;
-  const dragonValleyBonus = G?.activeStadium?.id === 'stadium-dragon-valley' && atkType === 'dragon' ? 35 : 0;
+  // dragonValleyBonus的宣告移到下面abilityDomainBonusApplies算完之後（2026-08-04修正需要用到那個旗標）
   const lowHpSelf = attacker.cur <= attacker.hp / 3;
   const halfHpSelf = attacker.cur <= attacker.hp / 2;
   const tintedLensProc = attackerAbility?.id === 'tinted-lens' && mult > 0 && mult < 1;
@@ -884,6 +886,14 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     : (attackerAbility?.id === 'drought-lava' && (atkType === 'ground' || atkType === 'fire')) ? 40
     : (DOMAIN_ABILITY_STADIUM[attackerAbility?.id]?.type === atkType) ? 40
     : 0;
+  // 2026-08-04全面稽核：領域特性持有者onEnter會自動切換到「剛好加成自己本系招式」的場地卡，
+  // 導致abilityDmgBonus的+40跟場地卡自己對該屬性招式的加成疊加算兩次（跟海洋世界/毒刺水母
+  // 那次同一個bug pattern，稽核後發現9張場地卡都有），統一用這個旗標擋掉，見pokemon_battle.html同名變數的說明。
+  const abilityDomainBonusApplies =
+    (attackerAbility?.id === 'drizzle-ocean' && (atkType === 'water' || atkType === 'ice')) ||
+    (attackerAbility?.id === 'drought-lava' && (atkType === 'ground' || atkType === 'fire')) ||
+    (DOMAIN_ABILITY_STADIUM[attackerAbility?.id]?.type === atkType);
+  const dragonValleyBonus = (G?.activeStadium?.id === 'stadium-dragon-valley' && atkType === 'dragon' && !abilityDomainBonusApplies) ? 35 : 0;
   // 強子引擎(密勒頓)/緋紅脈動(故勒頓)：各自專屬id，沿用blaze-boost同樣的「HP<1/3本系傷害×1.1」判定
   const isBlazeBoostFamily = attackerAbility?.id === 'blaze-boost' || attackerAbility?.id === 'hadron-engine' || attackerAbility?.id === 'crimson-pulse';
   const abilityDmgMult = ((isBlazeBoostFamily && lowHpSelf && isOwnType) ? 1.1
@@ -904,17 +914,18 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
   // 使用者要求「傷害高的招式，遇到特定屬性可以加攻」：部分高消耗招式帶bonusVsType欄位，
   // 命中該屬性對手時額外+50固定傷害，跟pokemon_battle.html的doAttack同一套處理
   const bonusVsTypeBonus = (atk.bonusVsType && (defender.type === atk.bonusVsType || defender.type2 === atk.bonusVsType)) ? 50 : 0;
-  const colosseumMult = (G.activeStadium?.id === 'stadium-colosseum' && atkType === 'fighting') ? 1.2 : 1;
+  // 2026-08-04：以下9張「領域特性→自動切換的場地」補上!abilityDomainBonusApplies，理由見上面宣告處
+  const colosseumMult = (G.activeStadium?.id === 'stadium-colosseum' && atkType === 'fighting' && !abilityDomainBonusApplies) ? 1.2 : 1;
   const mysticSpaceMult = (G.activeStadium?.id === 'stadium-mystic-space' && (defender.type === 'psychic' || defender.type2 === 'psychic')) ? 0.75 : 1;
   // Lava Volcano: fire-type moves固定加成；water-type moves ×0.65（削弱維持不變，2026-07-24只下修攻擊向的加成）
-  const lavaBonus = (G.activeStadium?.id === 'stadium-lava' && atkType === 'fire') ? 30 : 0;
+  // drought-lava的abilityDmgBonus涵蓋ground/fire，這裡只有fire會重疊
+  const lavaBonus = (G.activeStadium?.id === 'stadium-lava' && atkType === 'fire' && !abilityDomainBonusApplies) ? 30 : 0;
   const lavaMult = (G.activeStadium?.id === 'stadium-lava' && atkType === 'water') ? 0.65 : 1;
   // 2026-07-28應使用者要求從×1.2上修到×1.4
   const oceanMult = (G.activeStadium?.id === 'stadium-ocean' && atkType === 'electric') ? 1.4 : 1;
   // Ocean World：水屬性「寶可夢」固定+40傷害（不是招式屬性，是攻擊方自己的種族屬性）。
-  // 2026-08-04修正：跟abilityDmgBonus的drizzle-ocean判定（水/冰招式+40）重疊，排除已算過ability加成的情況。
-  const oceanAbilityAlreadyCounted = attackerAbility?.id === 'drizzle-ocean' && (atkType === 'water' || atkType === 'ice');
-  const oceanPokeBonus = (G.activeStadium?.id === 'stadium-ocean' && (attacker.type === 'water' || attacker.type2 === 'water') && !oceanAbilityAlreadyCounted) ? 40 : 0;
+  // 2026-08-04修正：跟abilityDmgBonus的drizzle-ocean判定（水/冰招式+40）重疊，改用統一旗標排除。
+  const oceanPokeBonus = (G.activeStadium?.id === 'stadium-ocean' && (attacker.type === 'water' || attacker.type2 === 'water') && !abilityDomainBonusApplies) ? 40 : 0;
   // 岩石地帶：岩石／地面／鋼屬性寶可夢，受到攻擊固定減傷50（2026-07-27應使用者要求「-150太多了」下修，
   // 從-150調回-50，並在srvEffActive()額外加碼「弱點消除」讓這張卡不只靠單一個數字撐強度）
   const rockFieldReduction = (G.activeStadium?.id === 'stadium-rock-field' &&
@@ -925,14 +936,14 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
   // 反轉世界：反轉後如果仍然是「克制」（mult>1），額外+25固定傷害
   const invertBonus = (G.activeStadium?.id === 'stadium-invert' && mult > 1) ? 25 : 0;
   // 2026-07-23新增8張場地卡的傷害加成部分（獨特玩法另外在別處實作）
-  const electricStormBonus = (G.activeStadium?.id === 'stadium-electric-storm' && atkType === 'electric') ? 30 : 0;
-  const iceTundraBonus = (G.activeStadium?.id === 'stadium-ice-tundra' && atkType === 'ice') ? 30 : 0;
-  const steelFortressBonus = (G.activeStadium?.id === 'stadium-steel-fortress' && atkType === 'steel') ? 30 : 0;
-  const bugHiveBonus = (G.activeStadium?.id === 'stadium-bug-hive' && atkType === 'bug') ? 30 : 0;
-  const fairyWardBonus = (G.activeStadium?.id === 'stadium-fairy-ward' && atkType === 'fairy') ? 30 : 0;
-  const darkCurseMult = (G.activeStadium?.id === 'stadium-dark-curse' && atkType === 'dark') ? 1.2 : 1;
-  const flyingWindMult = (G.activeStadium?.id === 'stadium-flying-wind' && atkType === 'flying') ? 1.2 : 1;
-  const ghostCurseMult = (G.activeStadium?.id === 'stadium-ghost-curse' && atkType === 'ghost') ? 1.2 : 1;
+  const electricStormBonus = (G.activeStadium?.id === 'stadium-electric-storm' && atkType === 'electric' && !abilityDomainBonusApplies) ? 30 : 0;
+  const iceTundraBonus = (G.activeStadium?.id === 'stadium-ice-tundra' && atkType === 'ice' && !abilityDomainBonusApplies) ? 30 : 0;
+  const steelFortressBonus = (G.activeStadium?.id === 'stadium-steel-fortress' && atkType === 'steel' && !abilityDomainBonusApplies) ? 30 : 0;
+  const bugHiveBonus = (G.activeStadium?.id === 'stadium-bug-hive' && atkType === 'bug' && !abilityDomainBonusApplies) ? 30 : 0;
+  const fairyWardBonus = (G.activeStadium?.id === 'stadium-fairy-ward' && atkType === 'fairy' && !abilityDomainBonusApplies) ? 30 : 0;
+  const darkCurseMult = (G.activeStadium?.id === 'stadium-dark-curse' && atkType === 'dark' && !abilityDomainBonusApplies) ? 1.2 : 1;
+  const flyingWindMult = (G.activeStadium?.id === 'stadium-flying-wind' && atkType === 'flying' && !abilityDomainBonusApplies) ? 1.2 : 1;
+  const ghostCurseMult = (G.activeStadium?.id === 'stadium-ghost-curse' && atkType === 'ghost' && !abilityDomainBonusApplies) ? 1.2 : 1;
   const steelFortressReduction = G.activeStadium?.id === 'stadium-steel-fortress' ? 20 : 0;
   // Mega稜鏡塔：可Mega進化或已經Mega進化的寶可夢受到攻擊×0.6，跟pokemon_battle.html的doAttack同一套處理
   const megaPrismMult = (G.activeStadium?.id === 'stadium-mega-prism' && (defender.mega || defender.megaEvolved)) ? 0.6 : 1;
