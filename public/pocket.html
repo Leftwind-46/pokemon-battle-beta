@@ -887,7 +887,7 @@ function renderBoard() {
   document.getElementById('switch-overlay').style.display = needMySwitch ? 'flex' : 'none';
   if (needMySwitch) {
     document.getElementById('switch-choices').innerHTML = (you.bench || []).map(p =>
-      renderPokeSlot(p, { pickable: true, dataset: { switchPick: '1' } })
+      renderPokeSlot(p, { pickable: true, dataset: { 'switch-pick': '1' } })
     ).join('');
   }
 

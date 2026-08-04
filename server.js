@@ -806,10 +806,67 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
   }
   if (dBuff.reflect) {
     dBuff.reflect = false;
-    // 2026-08-04全面稽核發現：這裡漏了attacker.type2——雙屬性寶可夢被反彈鏡打回去時，
-    // 第二屬性的型效完全沒被納入判定，跟pokemon_battle.html比對後一起補上（順便讓兩邊行為一致）。
-    const rawMult = compressMult(srvEff(atkType, attacker.type, attacker.type2));
-    const dmg     = Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus) * aBuff.atkMult * burnMult * (rawMult || 1)));
+    // 2026-08-04應使用者要求「反彈鏡要算全套加成」——跟pokemon_battle.html同一版邏輯，複製主公式
+    // （下面第981行左右那個大算式）並把attacker/defender角色互換（defender=B用反彈鏡彈回去，
+    // 等於B才是這次真正在「攻擊」的一方，attacker=A變成挨打的一方）。刻意複製而非抽成共用函式、
+    // 排除哪些項目的完整理由見pokemon_battle.html同一段的中文註解，兩邊需保持同步但沒有自動化機制檢查。
+    const rMoldBreaker = defenderAbility?.id === 'mold-breaker' || defenderAbility?.id === 'true-damage';
+    let rMult = srvEffActive(atkType, attacker.type, attacker.type2, G);
+    if (!rMoldBreaker && attackerAbility?.id === 'no-weakness-dodge') rMult = Math.min(rMult, 1);
+    const rIsOwnType = dBuff.typeOverride ? true : (atkType === defender.type || (defender.type2 && atkType === defender.type2));
+    const rStabMult = rIsOwnType ? (defenderAbility?.id === 'adaptability' ? 1.2 : 1.1) : 1;
+    const rLowHpSelf = defender.cur <= defender.hp / 3;
+    const rHalfHpSelf = defender.cur <= defender.hp / 2;
+    const rTintedLensMult = (defenderAbility?.id === 'tinted-lens' && rMult > 0 && rMult < 1) ? (1 / rMult) : 1;
+    const rAbilityDomainBonusApplies =
+      (defenderAbility?.id === 'drizzle-ocean' && (atkType === 'water' || atkType === 'ice')) ||
+      (defenderAbility?.id === 'drought-lava' && (atkType === 'ground' || atkType === 'fire')) ||
+      (DOMAIN_ABILITY_STADIUM[defenderAbility?.id]?.type === atkType);
+    const rAbilityDmgBonus = (defenderAbility?.id === 'guts' && defender.status) ? 40
+      : (defenderAbility?.id === 'huge-power') ? 40
+      : (defenderAbility?.id === 'tough-claws') ? 40
+      : (defenderAbility?.id === 'desperate-blade' && rHalfHpSelf) ? 40
+      : (defenderAbility?.id === 'status-immune-once' && defender._temperedHeart) ? 40
+      : (defenderAbility?.id === 'item-synergy' && G[`${dRole}UsedItemThisTurn`]) ? 40
+      : rAbilityDomainBonusApplies ? 40
+      : 0;
+    const rIsBlazeBoostFamily = defenderAbility?.id === 'blaze-boost' || defenderAbility?.id === 'hadron-engine' || defenderAbility?.id === 'crimson-pulse';
+    const rAbilityDmgMult = ((rIsBlazeBoostFamily && rLowHpSelf && rIsOwnType) ? 1.1 : (defenderAbility?.id === 'technician' && atk.dmg <= 60) ? 1.1 : 1) * rTintedLensMult;
+    const rThickFatMult  = (!rMoldBreaker && attackerAbility?.id === 'thick-fat' && (atkType === 'fire' || atkType === 'ice')) ? 0.92 : 1;
+    const rSolidRockMult = (!rMoldBreaker && attackerAbility?.id === 'solid-rock' && rMult >= 1.2) ? 0.95 : 1;
+    const rFriskWardMult = (!rMoldBreaker && attackerAbility?.id === 'frisk-ward' && Math.random() < 0.25) ? 0.9 : 1;
+    const rMultiscaleMult = (!rMoldBreaker && attackerAbility?.id === 'multiscale' && attacker.cur === attacker.hp) ? 0.9 : 1;
+    const rDefAbilityMult = rThickFatMult * rSolidRockMult * rFriskWardMult * rMultiscaleMult;
+    const rMegaBoostBonus = !defender.mega ? 40 : defender.megaEvolved ? 100 : -20;
+    const rBonusVsTypeBonus = (atk.bonusVsType && (attacker.type === atk.bonusVsType || attacker.type2 === atk.bonusVsType)) ? 50 : 0;
+    const rColosseumMult = (G.activeStadium?.id === 'stadium-colosseum' && atkType === 'fighting' && !rAbilityDomainBonusApplies) ? 1.2 : 1;
+    const rMysticSpaceMult = (G.activeStadium?.id === 'stadium-mystic-space' && (attacker.type === 'psychic' || attacker.type2 === 'psychic')) ? 0.75 : 1;
+    const rLavaBonus = (G.activeStadium?.id === 'stadium-lava' && atkType === 'fire' && !rAbilityDomainBonusApplies) ? 30 : 0;
+    const rLavaMult = (G.activeStadium?.id === 'stadium-lava' && atkType === 'water') ? 0.65 : 1;
+    const rOceanMult = (G.activeStadium?.id === 'stadium-ocean' && atkType === 'electric') ? 1.4 : 1;
+    const rOceanPokeBonus = (G.activeStadium?.id === 'stadium-ocean' && (defender.type === 'water' || defender.type2 === 'water') && !rAbilityDomainBonusApplies) ? 40 : 0;
+    const rRockFieldReduction = (G.activeStadium?.id === 'stadium-rock-field' && (['rock','ground','steel'].includes(attacker.type) || ['rock','ground','steel'].includes(attacker.type2))) ? 50 : 0;
+    const rShrineReduction = (G.activeStadium?.id === 'stadium-shrine' && (attacker.type === 'normal' || attacker.type2 === 'normal')) ? 30 : 0;
+    const rDragonValleyBonus = (G.activeStadium?.id === 'stadium-dragon-valley' && atkType === 'dragon' && !rAbilityDomainBonusApplies) ? 35 : 0;
+    const rInvertBonus = (G.activeStadium?.id === 'stadium-invert' && rMult > 1) ? 25 : 0;
+    const rElectricStormBonus = (G.activeStadium?.id === 'stadium-electric-storm' && atkType === 'electric' && !rAbilityDomainBonusApplies) ? 30 : 0;
+    const rIceTundraBonus = (G.activeStadium?.id === 'stadium-ice-tundra' && atkType === 'ice' && !rAbilityDomainBonusApplies) ? 30 : 0;
+    const rSteelFortressBonus = (G.activeStadium?.id === 'stadium-steel-fortress' && atkType === 'steel' && !rAbilityDomainBonusApplies) ? 30 : 0;
+    const rBugHiveBonus = (G.activeStadium?.id === 'stadium-bug-hive' && atkType === 'bug' && !rAbilityDomainBonusApplies) ? 30 : 0;
+    const rFairyWardBonus = (G.activeStadium?.id === 'stadium-fairy-ward' && atkType === 'fairy' && !rAbilityDomainBonusApplies) ? 30 : 0;
+    const rDarkCurseMult = (G.activeStadium?.id === 'stadium-dark-curse' && atkType === 'dark' && !rAbilityDomainBonusApplies) ? 1.2 : 1;
+    const rFlyingWindMult = (G.activeStadium?.id === 'stadium-flying-wind' && atkType === 'flying' && !rAbilityDomainBonusApplies) ? 1.2 : 1;
+    const rGhostCurseMult = (G.activeStadium?.id === 'stadium-ghost-curse' && atkType === 'ghost' && !rAbilityDomainBonusApplies) ? 1.2 : 1;
+    const rSteelFortressReduction = G.activeStadium?.id === 'stadium-steel-fortress' ? 20 : 0;
+    const rMegaPrismMult = (G.activeStadium?.id === 'stadium-mega-prism' && (attacker.mega || attacker.megaEvolved)) ? 0.6 : 1;
+    const rStadiumMult = rColosseumMult * rMysticSpaceMult * rLavaMult * rOceanMult * rDarkCurseMult * rFlyingWindMult * rGhostCurseMult * rMegaPrismMult;
+    const rStadiumFlatBonus = rLavaBonus + rDragonValleyBonus + rInvertBonus + rElectricStormBonus + rIceTundraBonus + rSteelFortressBonus + rBugHiveBonus + rFairyWardBonus + rOceanPokeBonus;
+    const rShieldTerm = (dBuff.ignoreShield || atk.ignoreShield) ? 0 : (attackerAbility?.id === 'shield-invert' ? -aBuff.shield : aBuff.shield);
+    const rBurnMult = defender.status?.type === 'burn' ? 0.94 : 1;
+    const dmg = (rMult === 0) ? 0 : Math.max(0, Math.max(1, Math.floor(
+      (atk.dmg + dBuff.atkBonus + rStadiumFlatBonus + rAbilityDmgBonus + rMegaBoostBonus + rBonusVsTypeBonus) *
+      dBuff.atkMult * rBurnMult * rMult * rStabMult * rAbilityDmgMult * rDefAbilityMult * rStadiumMult
+    )) - rShieldTerm - rRockFieldReduction - rSteelFortressReduction - rShrineReduction);
     attacker.cur  = Math.max(0, attacker.cur - dmg);
     log.push({ text: `反彈鏡！攻擊被反彈，${attacker.name} 承受了 ${dmg} 傷害！`, cls: 'special' });
     aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; aBuff.doubleStrike = false; aBuff.typeBoost = null; aBuff.ignoreShield = false; aBuff.guaranteedStatus = false; aBuff.costFreeType = null; aBuff.costHalved = false; aBuff.ignoreReflectNext = false; aBuff.iceHowlFreeze = false; dBuff.shield = 0; dBuff.iceImmune = false;
