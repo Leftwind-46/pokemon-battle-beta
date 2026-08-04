@@ -95,8 +95,14 @@
   .board-overlay { position:fixed; inset:0; z-index:60; background:var(--bg); display:none; flex-direction:column; overflow-y:auto; }
   .board-overlay.open { display:flex; }
   .board-top-bar { display:flex; justify-content:space-between; align-items:center; padding:0.6rem 1rem; border-bottom:1px solid var(--border); font-size:0.85rem; }
-  .points-row { display:flex; gap:1rem; color:var(--muted); }
-  .points-row b { color:var(--text); font-size:1.1rem; }
+  .points-row { display:flex; gap:1.2rem; color:var(--muted); }
+  .points-side { display:flex; align-items:center; gap:0.4rem; }
+  .points-side b { color:var(--text); font-size:1.1rem; min-width:1.2em; text-align:center; }
+  .point-markers { display:flex; gap:0.22rem; }
+  .point-marker { width:0.6rem; height:0.6rem; border-radius:50%; border:1.5px solid var(--border); background:transparent; transition:background 0.2s, border-color 0.2s, box-shadow 0.2s; }
+  .point-marker.filled { background:#f8d030; border-color:#f8d030; box-shadow:0 0 6px rgba(248,208,48,0.7); }
+  .points-side.win-flash .point-marker.filled { animation: point-pop 0.4s ease; }
+  @keyframes point-pop { 0%{ transform:scale(1.6); } 100%{ transform:scale(1); } }
   .side-info { text-align:center; font-size:0.75rem; color:var(--muted); padding:0.3rem; }
   .opp-area, .my-area { padding:0.5rem 1rem; }
   .bench-row { display:flex; gap:0.5rem; justify-content:center; min-height:70px; }
@@ -318,7 +324,10 @@
 <div class="board-overlay" id="board-overlay">
   <div class="board-top-bar">
     <div class="turn-indicator" id="turn-indicator"></div>
-    <div class="points-row"><span>你 <b id="my-points">0</b></span><span>對手 <b id="opp-points">0</b></span></div>
+    <div class="points-row">
+      <span class="points-side" id="my-points-side">你 <b id="my-points">0</b><span class="point-markers" id="my-points-markers"></span></span>
+      <span class="points-side" id="opp-points-side">對手 <b id="opp-points">0</b><span class="point-markers" id="opp-points-markers"></span></span>
+    </div>
   </div>
 
   <div class="arena-zone opp-zone">
@@ -401,6 +410,10 @@
       <h2 id="switch-title">選擇新的主戰寶可夢</h2>
       <div class="setup-hand" id="switch-choices"></div>
     </div>
+  </div>
+
+  <div class="setup-overlay" id="switch-wait-overlay" style="display:none">
+    <div class="setup-box"><h2>對手的寶可夢倒下了</h2><p class="lobby-sub">等待對方選擇替補寶可夢中...</p></div>
   </div>
 
   <div class="setup-overlay" id="gameover-overlay" style="display:none">
@@ -614,6 +627,7 @@ loadCards();
 ───────────────────────────────────────── */
 let ws = null;
 let myRole = null; // 'p1' | 'p2'
+let lastMyPoints = 0, lastOppPoints = 0; // 用來判斷分數是否剛好在這次render增加，觸發標記彈跳動畫
 
 function lobbyShowStep(step) {
   ['choose', 'waiting', 'ready', 'started'].forEach(s => {
@@ -796,6 +810,9 @@ function renderBoard() {
   document.getElementById('turn-indicator').textContent = phase === 'done' ? '對戰結束' : `第 ${turnNumber} 回合 · ${myTurn ? '輪到你' : '對手回合'}`;
   document.getElementById('my-points').textContent = you.points;
   document.getElementById('opp-points').textContent = opponent.points;
+  renderPointMarkers('my', you.points, lastMyPoints);
+  renderPointMarkers('opp', opponent.points, lastOppPoints);
+  lastMyPoints = you.points; lastOppPoints = opponent.points;
   document.getElementById('opp-deck-count').textContent = opponent.deckCount;
   document.getElementById('my-deck-count').textContent = you.deckCount;
   document.getElementById('opp-discard-count').textContent = (opponent.discard || []).length;
@@ -882,9 +899,12 @@ function renderBoard() {
   document.getElementById('setup-wait-overlay').style.display = phase === 'setup' && you.boardSubmitted ? 'flex' : 'none';
   if (phase === 'setup' && !you.boardSubmitted) renderSetupHand();
 
-  // forced switch overlay
+  // forced switch overlay——雙殺時佇列可能兩邊都要換，這裡只顯示「輪到我」還是「輪到對方」，
+  // pendingSwitchRole永遠指向佇列最前面那個，另一邊在切到自己之前都顯示等待畫面
   const needMySwitch = phase === 'forced_switch' && pendingSwitchRole === myRole;
+  const needOppSwitch = phase === 'forced_switch' && pendingSwitchRole !== myRole;
   document.getElementById('switch-overlay').style.display = needMySwitch ? 'flex' : 'none';
+  document.getElementById('switch-wait-overlay').style.display = needOppSwitch ? 'flex' : 'none';
   if (needMySwitch) {
     document.getElementById('switch-choices').innerHTML = (you.bench || []).map(p =>
       renderPokeSlot(p, { pickable: true, dataset: { 'switch-pick': '1' } })
@@ -1021,9 +1041,26 @@ function showPeek(title, cards) {
 }
 function closePeek() { document.getElementById('peek-overlay').style.display = 'none'; }
 
+// 勝負門檻是3分，但單次擊倒ex寶可夢給2分可能一次從1跳到3甚至更多——markers視覺上固定畫3顆，
+// 多出來的分數只反映在旁邊的數字上，不會多畫第4顆。
+function renderPointMarkers(prefix, points, prevPoints) {
+  const el = document.getElementById(`${prefix}-points-markers`);
+  const filled = Math.min(points, 3);
+  el.innerHTML = Array.from({ length: 3 }, (_, i) =>
+    `<span class="point-marker ${i < filled ? 'filled' : ''}"></span>`
+  ).join('');
+  const sideEl = document.getElementById(`${prefix}-points-side`);
+  if (points > prevPoints) {
+    sideEl.classList.remove('win-flash'); void sideEl.offsetWidth; sideEl.classList.add('win-flash');
+  }
+}
+
 function showGameOver(winner) {
   const title = document.getElementById('gameover-title');
-  title.textContent = winner === myRole ? '你獲勝了！' : winner ? '對手獲勝' : '對戰結束';
+  // winner==='draw'：雙方主戰在同一次攻擊中互相擊倒且雙方都沒有板凳可以補位——見server.js的
+  // pocketResolveMutualKO，一定要排在winner===myRole/truthy判斷之前，不然'draw'這個truthy字串
+  // 會被誤判成「對手獲勝」。
+  title.textContent = winner === 'draw' ? '平手！雙方同時倒下' : winner === myRole ? '你獲勝了！' : winner ? '對手獲勝' : '對戰結束';
   document.getElementById('gameover-overlay').style.display = 'flex';
 }
 

@@ -2623,6 +2623,16 @@ function pocketAdvanceTurn(G) {
   side.retreatDiscountThisTurn = 0;
   side.abilitiesUsedThisTurn = [];
 }
+// 進入強制換人狀態——用佇列而不是單一欄位，讓「雙方主戰同時都需要換人」（見下面
+// pocketResolveMutualKO）也能正確依序處理，不會有後呼叫覆蓋前呼叫的問題。
+// pendingSwitchRole 維持等於佇列第一位，client端讀的是這個欄位，佇列本身是內部實作細節。
+function pocketEnterForcedSwitch(G, koRole, reason) {
+  G.pendingSwitchQueue = [...(G.pendingSwitchQueue || []).filter(r => r !== koRole), koRole];
+  G.phase = 'forced_switch';
+  G.pendingSwitchRole = G.pendingSwitchQueue[0];
+  G.pendingSwitchReason = reason;
+}
+
 // 共用的「主戰寶可夢死亡」處理：加分給對方、丟棄、視情況進入forced_switch或判定勝負。
 // koRole = 死掉的那隻寶可夢的擁有者。awardPoint=false 用在「非擊倒」的移除情境（例如Sabrina/幽浮硬幣把對手主戰換走），
 // 這種情況不算KO、不給分，但一樣要走「板凳空了就輸」跟「換人」流程。
@@ -2638,12 +2648,37 @@ function pocketResolveActiveKO(G, koRole, awardPoint = true) {
   koSide.active = null;
   if (awardPoint && otherSide.points >= 3) { G.winner = otherRole; G.phase = 'done'; return; }
   if (koSide.bench.length) {
-    G.phase = 'forced_switch';
-    G.pendingSwitchRole = koRole;
-    G.pendingSwitchReason = 'endTurn'; // 攻擊/中毒造成的換人＝這回合的行動已經用掉，換完人回合換對方
+    pocketEnterForcedSwitch(G, koRole, 'endTurn'); // 攻擊/中毒造成的換人＝這回合的行動已經用掉，換完人回合換對方
   } else {
     G.winner = otherRole; G.phase = 'done';
   }
+}
+
+// 雙方主戰在同一次攻擊中一起陣亡（例如反傷/自傷招式——Golem的Double-Edge打死對手同時50點
+// 反傷打死自己——剛好雙殺）。原本攻擊handler對attacker/defender死亡各自獨立呼叫
+// pocketResolveActiveKO並各自return，先處理的那個如果導致積分達3就直接判定勝負return，
+// 完全沒機會處理第二個死亡（沒加分、沒進forced_switch、陣亡的主戰卡在場上變殭屍）。
+// 這裡兩邊的加分/棄牌一次做完，才統一判斷勝負/是否雙方都要換人，避免這個「先死的那個吃光
+// return」的bug——跟pokemon_battle.html的bothTeamsWiped()是同一種修法。
+function pocketResolveMutualKO(G, roleA, roleB) {
+  const info = [roleA, roleB].map(koRole => {
+    const koSide = G[koRole];
+    const otherRole = koRole === 'p1' ? 'p2' : 'p1';
+    const dead = koSide.active;
+    G[otherRole].points += dead.ex ? 2 : 1;
+    koSide.discard.push(dead);
+    koSide.active = null;
+    return { koRole, otherRole, benchEmpty: koSide.bench.length === 0 };
+  });
+  const p1Win = G.p1.points >= 3, p2Win = G.p2.points >= 3;
+  if (p1Win && p2Win) { G.winner = 'draw'; G.phase = 'done'; return; }
+  if (p1Win) { G.winner = 'p1'; G.phase = 'done'; return; }
+  if (p2Win) { G.winner = 'p2'; G.phase = 'done'; return; }
+  const outOfMons = info.filter(i => i.benchEmpty);
+  if (outOfMons.length === 2) { G.winner = 'draw'; G.phase = 'done'; return; }
+  if (outOfMons.length === 1) { G.winner = outOfMons[0].otherRole; G.phase = 'done'; return; }
+  pocketEnterForcedSwitch(G, roleA, 'endTurn');
+  pocketEnterForcedSwitch(G, roleB, 'endTurn');
 }
 // 板凳寶可夢被濺傷打死（不會觸發forced_switch，因為主戰沒被動到）
 function pocketResolveBenchKOs(G, side, otherRole) {
@@ -2859,11 +2894,12 @@ const TRAINER_EFFECTS = {
   },
   'A1-225': (ctx) => { // Sabrina：把對手主戰換到板凳，對手選新主戰
     if (!ctx.oppSide.active) return '對手沒有主戰寶可夢';
+    // 這裡刻意不擋「對手沒有其他板凳寶可夢」的情況：active是先push進bench才被清空，所以
+    // bench在forced_switch開始時永遠至少有1隻（剛被換下來的那隻自己）可選——對手沒有其他板凳
+    // 選項時，選回同一隻只是效果對等於沒發生（浪費一張卡），不會卡死在forced_switch選不到目標。
     ctx.oppSide.bench.push(ctx.oppSide.active);
     ctx.oppSide.active = null;
-    ctx.G.phase = 'forced_switch';
-    ctx.G.pendingSwitchRole = ctx.op;
-    ctx.G.pendingSwitchReason = 'noEndTurn'; // 支援者卡不會結束回合，換完人回合還是你的
+    pocketEnterForcedSwitch(ctx.G, ctx.op, 'noEndTurn'); // 支援者卡不會結束回合，換完人回合還是你的
     return null;
   },
   'A1-226': (ctx) => { // Lt. Surge：把所有板凳的電能量集中給主戰（限主戰是Raichu/Electrode/Electabuzz）
@@ -4784,12 +4820,19 @@ async function handleMessage(ws, msg) {
 
       if (pocketCheckWin(G)) { pocketBroadcastState(pRoom); return; }
 
-      if (!ctx.skipMainDamage && attacker.curHp <= 0 && side.active === attacker) {
+      const attackerDied = !ctx.skipMainDamage && attacker.curHp <= 0 && side.active === attacker;
+      const defenderDied = !ctx.skipMainDamage && defender.curHp <= 0 && oppSide.active === defender;
+      if (attackerDied && defenderDied) {
+        // 雙殺（例如Golem的Double-Edge：反傷打死自己同時擊倒對手）——見pocketResolveMutualKO註解
+        pocketResolveMutualKO(G, role, op);
+        pocketBroadcastState(pRoom); return;
+      }
+      if (attackerDied) {
         // 自傷/自損打死自己（例如波導彈/雙倍拳頭）——一樣算作被擊倒，對方加分
         pocketResolveActiveKO(G, role);
         pocketBroadcastState(pRoom); return;
       }
-      if (!ctx.skipMainDamage && defender.curHp <= 0 && oppSide.active === defender) {
+      if (defenderDied) {
         pocketResolveActiveKO(G, op);
         pocketBroadcastState(pRoom); return;
       }
@@ -4813,10 +4856,17 @@ async function handleMessage(ws, msg) {
       const chosen = side.bench[idx];
       side.bench.splice(idx, 1);
       side.active = chosen;
-      G.pendingSwitchRole = null;
-      G.phase = 'active';
-      if (G.pendingSwitchReason === 'endTurn') pocketAdvanceTurn(G);
-      G.pendingSwitchReason = null;
+      // 佇列裡可能還有另一邊在排隊（雙殺情況，見pocketResolveMutualKO）——先換完這個才輪到下一個，
+      // 佇列真的清空才算真正離開forced_switch。
+      G.pendingSwitchQueue = (G.pendingSwitchQueue || []).filter(r => r !== role);
+      if (G.pendingSwitchQueue.length) {
+        G.pendingSwitchRole = G.pendingSwitchQueue[0];
+      } else {
+        G.pendingSwitchRole = null;
+        G.phase = 'active';
+        if (G.pendingSwitchReason === 'endTurn') pocketAdvanceTurn(G);
+        G.pendingSwitchReason = null;
+      }
       pocketBroadcastState(pRoom);
       return;
     }
