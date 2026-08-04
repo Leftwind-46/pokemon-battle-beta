@@ -2507,6 +2507,7 @@ function buildPocketG(pRoom) {
   const p2 = pocketDrawOpeningHand(pRoom.p2Deck);
   return {
     turn: pRoom.firstPlayer, turnNumber: 1, phase: 'setup', winner: null, pendingSwitchRole: null, pendingSwitchReason: null,
+    eventSeq: 0, lastEvent: null,
     p1: pocketFreshSide(p1, pRoom.p1Deck),
     p2: pocketFreshSide(p2, pRoom.p2Deck),
   };
@@ -2591,8 +2592,18 @@ function pocketCheckWin(G) {
   if (G.p2.points >= 3) { G.winner = 'p2'; G.phase = 'done'; return true; }
   return false;
 }
-function pocketFlipCoin() { return Math.random() < 0.5; }
-function pocketFlipCoins(n) { let h = 0; for (let i = 0; i < n; i++) if (pocketFlipCoin()) h++; return h; }
+// ctx可選：如果有傳，會把每次擲的結果記進ctx.coinFlips，讓client端可以重播真實的擲硬幣過程
+// （而不是只顯示「反正最後結果是這樣」，玩家會覺得動畫跟結果對不上）
+function pocketFlipCoin(ctx) {
+  const r = Math.random() < 0.5;
+  if (ctx) (ctx.coinFlips = ctx.coinFlips || []).push(r);
+  return r;
+}
+function pocketFlipCoins(n, ctx) {
+  let h = 0;
+  for (let i = 0; i < n; i++) if (pocketFlipCoin(ctx)) h++;
+  return h;
+}
 function pocketCanPayCost(pokemon, cost) {
   const need = {};
   let colorlessNeed = 0;
@@ -2614,6 +2625,7 @@ function pocketViewFor(G, role) {
   const pub = side => ({ active: side.active, bench: side.bench, discard: side.discard, points: side.points, deckCount: side.deck.length });
   return {
     turn: G.turn, turnNumber: G.turnNumber, phase: G.phase, winner: G.winner, pendingSwitchRole: G.pendingSwitchRole,
+    lastEvent: G.lastEvent,
     you: {
       ...pub(G[role]), hand: G[role].hand, pendingEnergy: G[role].pendingEnergy,
       energyAttachedThisTurn: G[role].energyAttachedThisTurn, retreatedThisTurn: G[role].retreatedThisTurn,
@@ -2644,23 +2656,23 @@ const ATTACK_EFFECTS = {
   "During your opponent's next turn, the Defending Pokémon can't attack.": ctx => { ctx.defender.cantAttackUntilTurn = ctx.G.turnNumber + 1; },
   "During your opponent's next turn, the Defending Pokémon can't retreat.": ctx => { ctx.defender.cantRetreatUntilTurn = ctx.G.turnNumber + 1; },
   "During your opponent’s next turn, attacks used by the Defending Pokémon do −20 damage.": ctx => { ctx.defender.dmgDebuffUntilTurn = ctx.G.turnNumber + 1; ctx.defender.dmgDebuffAmount = 20; },
-  "Flip 2 coins. This attack does 80 damage for each heads.": ctx => { ctx.rawDamage = pocketFlipCoins(2) * 80; },
+  "Flip 2 coins. This attack does 80 damage for each heads.": ctx => { ctx.rawDamage = pocketFlipCoins(2, ctx) * 80; },
   "Flip 3 coins. Take an amount of {R} Energy from your Energy Zone equal to the number of heads and attach it to your Benched {R} Pokémon in any way you like.": ctx => {
-    const heads = pocketFlipCoins(3);
+    const heads = pocketFlipCoins(3, ctx);
     const targets = ctx.side.bench.filter(p => (p.types || []).includes('Fire'));
     for (let i = 0; i < heads && targets.length; i++) targets[i % targets.length].energy.push('Fire');
     ctx.rawDamage = 0;
   },
-  "Flip 4 coins. This attack does 40 damage for each heads.": ctx => { ctx.rawDamage = pocketFlipCoins(4) * 40; },
-  "Flip 4 coins. This attack does 50 damage for each heads.": ctx => { ctx.rawDamage = pocketFlipCoins(4) * 50; },
-  "Flip a coin. If heads, the Defending Pokémon can't attack during your opponent's next turn.": ctx => { if (pocketFlipCoin()) ctx.defender.cantAttackUntilTurn = ctx.G.turnNumber + 1; ctx.rawDamage = 0; },
-  "Flip a coin. If heads, this attack does 40 more damage.": ctx => { if (pocketFlipCoin()) ctx.rawDamage += 40; },
+  "Flip 4 coins. This attack does 40 damage for each heads.": ctx => { ctx.rawDamage = pocketFlipCoins(4, ctx) * 40; },
+  "Flip 4 coins. This attack does 50 damage for each heads.": ctx => { ctx.rawDamage = pocketFlipCoins(4, ctx) * 50; },
+  "Flip a coin. If heads, the Defending Pokémon can't attack during your opponent's next turn.": ctx => { if (pocketFlipCoin(ctx)) ctx.defender.cantAttackUntilTurn = ctx.G.turnNumber + 1; ctx.rawDamage = 0; },
+  "Flip a coin. If heads, this attack does 40 more damage.": ctx => { if (pocketFlipCoin(ctx)) ctx.rawDamage += 40; },
   "Flip a coin. If heads, this attack does 40 more damage. If tails, this Pokémon also does 20 damage to itself.": ctx => {
-    if (pocketFlipCoin()) ctx.rawDamage += 40;
+    if (pocketFlipCoin(ctx)) ctx.rawDamage += 40;
     else ctx.selfDamage = (ctx.selfDamage || 0) + 20;
   },
   "Flip a coin. If heads, your opponent shuffles their Active Pokémon into their deck.": ctx => {
-    if (!pocketFlipCoin()) { ctx.rawDamage = 0; return; }
+    if (!pocketFlipCoin(ctx)) { ctx.rawDamage = 0; return; }
     ctx.rawDamage = 0;
     if (ctx.defender) {
       ctx.oppSide.deck.push(ctx.defender);
@@ -2669,8 +2681,8 @@ const ATTACK_EFFECTS = {
       ctx.skipMainDamage = true;
     }
   },
-  "Flip a coin. If heads, your opponent's Active Pokémon is now Paralyzed.": ctx => { if (pocketFlipCoin() && ctx.defender) ctx.defender.status = 'paralyzed'; },
-  "Flip a coin. If tails, this attack does nothing.": ctx => { if (!pocketFlipCoin()) ctx.rawDamage = 0; },
+  "Flip a coin. If heads, your opponent's Active Pokémon is now Paralyzed.": ctx => { if (pocketFlipCoin(ctx) && ctx.defender) ctx.defender.status = 'paralyzed'; },
+  "Flip a coin. If tails, this attack does nothing.": ctx => { if (!pocketFlipCoin(ctx)) ctx.rawDamage = 0; },
   "Heal 30 damage from this Pokémon.": ctx => { ctx.attacker.curHp = Math.min(ctx.attacker.hp, ctx.attacker.curHp + 30); },
   "Heal from this Pokémon the same amount of damage you did to your opponent's Active Pokémon.": ctx => { ctx.healMirror = true; },
   "If this Pokémon has at least 2 extra {W} Energy attached, this attack does 60 more damage.": ctx => {
@@ -2759,7 +2771,7 @@ const TRAINER_EFFECTS = {
   'A1-220': (ctx, msg) => { // Misty：選1隻水屬性，連續丟硬幣直到反面，正面各+1水能量
     const target = pocketFindOwn(ctx.side, msg.target);
     if (!target || !(target.types || []).includes('Water')) return '目標必須是水屬性寶可夢';
-    while (pocketFlipCoin()) target.energy.push('Water');
+    while (pocketFlipCoin(ctx)) target.energy.push('Water');
     return null;
   },
   'A1-221': (ctx) => { ctx.side.blaineBoostNamesThisTurn = ['Ninetales', 'Rapidash', 'Magmar']; return null; },
@@ -2805,7 +2817,7 @@ const ABILITY_EFFECTS = {
     return null;
   },
   'Sleep Pendulum': (ctx) => { // Hypno：每回合1次，丟硬幣，正面讓對方主戰睡著
-    if (ctx.oppSide.active && pocketFlipCoin()) ctx.oppSide.active.status = 'asleep';
+    if (ctx.oppSide.active && pocketFlipCoin(ctx)) ctx.oppSide.active.status = 'asleep';
     return null;
   },
   'Psy Shadow': (ctx) => { // Gardevoir：每回合1次，從能量區拿1超能力能量附給場上是超能力屬性的主戰
@@ -4649,9 +4661,20 @@ async function handleMessage(ws, msg) {
       const attacker = side.active;
       const atk = attacker?.attacks?.[msg.attackIndex];
       if (!atk) return;
-      if (attacker.status === 'paralyzed') { send(ws, { type: 'error', message: '麻痺中無法攻擊' }); attacker.status = null; pocketAdvanceTurn(G); pocketBroadcastState(pRoom); return; }
+      let wakeCoinFlip = null;
+      if (attacker.status === 'paralyzed') {
+        send(ws, { type: 'error', message: '麻痺中無法攻擊' }); attacker.status = null;
+        G.lastEvent = { seq: ++G.eventSeq, kind: 'attackFailed', reason: 'paralyzed', attackerRole: role, attackerUid: attacker.uid };
+        pocketAdvanceTurn(G); pocketBroadcastState(pRoom); return;
+      }
       if (attacker.status === 'asleep') {
-        if (!pocketFlipCoin()) { send(ws, { type: 'error', message: '睡眠中，攻擊失敗' }); pocketAdvanceTurn(G); pocketBroadcastState(pRoom); return; }
+        const woke = pocketFlipCoin();
+        wakeCoinFlip = woke;
+        if (!woke) {
+          send(ws, { type: 'error', message: '睡眠中，攻擊失敗' });
+          G.lastEvent = { seq: ++G.eventSeq, kind: 'attackFailed', reason: 'asleep', attackerRole: role, attackerUid: attacker.uid, coinFlips: [false] };
+          pocketAdvanceTurn(G); pocketBroadcastState(pRoom); return;
+        }
         attacker.status = null;
       }
       if (attacker.cantAttackUntilTurn === G.turnNumber) { send(ws, { type: 'error', message: '這回合這隻寶可夢不能攻擊' }); pocketAdvanceTurn(G); pocketBroadcastState(pRoom); return; }
@@ -4675,6 +4698,15 @@ async function handleMessage(ws, msg) {
       }
       if (ctx.selfDamage) attacker.curHp = Math.max(0, attacker.curHp - ctx.selfDamage);
       if (ctx.healMirror) attacker.curHp = Math.min(attacker.hp, attacker.curHp + mainDamage);
+
+      // 攻擊事件紀錄——client端用seq判斷是不是「新的」一次攻擊，藉此播放屬性特效/擲硬幣動畫/
+      // 傷害飄字，seq在每次真正攻擊都遞增，state broadcast頻繁但這個值不常變，client不會重複播放
+      const coinFlips = wakeCoinFlip != null ? [wakeCoinFlip, ...(ctx.coinFlips || [])] : (ctx.coinFlips || null);
+      G.lastEvent = {
+        seq: ++G.eventSeq, kind: 'attack', attackerRole: role, atkType: atk.type,
+        attackerUid: attacker.uid, targetUid: defender.uid, damage: mainDamage,
+        selfDamage: ctx.selfDamage || 0, coinFlips,
+      };
 
       // 板凳濺傷造成的擊倒先處理（不會觸發forced_switch，因為主戰沒被打）
       pocketResolveBenchKOs(G, oppSide, role);

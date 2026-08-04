@@ -142,6 +142,98 @@
   .setup-hand .board-slot img { cursor:pointer; }
   .setup-hand .board-slot.chosen-active img { outline:3px solid #f8d030; }
   .setup-hand .board-slot.chosen-bench img { outline:3px solid #6890f0; }
+
+  /* ══════════════════ 對戰畫面視覺升級 (2026-08-04) ══════════════════ */
+
+  /* ── 競技場式分區：每側一個玻璃質感的場地面板，牌庫/棄牌堆放在面板邊緣 ── */
+  .arena-zone { position:relative; border-radius:18px; margin:0.4rem 0.6rem; padding:0.6rem 0.8rem;
+    background:radial-gradient(ellipse at center, rgba(255,255,255,0.035) 0%, rgba(255,255,255,0.01) 70%);
+    border:1px solid var(--border); }
+  .arena-zone.opp-zone { border-top:2px solid rgba(255,138,101,0.25); }
+  .arena-zone.my-zone { border-bottom:2px solid rgba(105,240,174,0.25); }
+  .zone-row { display:flex; align-items:flex-start; gap:0.6rem; padding-top:0.6rem; }
+  .zone-row .pile-wrap { margin-top:0.4rem; }
+  .zone-row.opp-row { flex-direction:row; }
+  .zone-row.my-row { flex-direction:row-reverse; }
+  .zone-battlefield { flex:1; min-width:0; }
+
+  /* 牌庫／棄牌堆：立起來的一疊卡背，數字疊在上面 */
+  .pile-stack { width:44px; height:62px; border-radius:6px; position:relative; flex-shrink:0; cursor:default; }
+  .pile-stack.discard-pile { cursor:pointer; }
+  .pile-stack .pile-card { position:absolute; inset:0; border-radius:6px; border:1px solid rgba(255,255,255,0.18); }
+  .pile-stack .pile-card:nth-child(1) { transform:translate(2px,2px); background:#1b2040; }
+  .pile-stack .pile-card:nth-child(2) { transform:translate(0,0); background:linear-gradient(135deg,#232a52,#171a35);
+    display:flex; align-items:center; justify-content:center; font-size:1.1rem; }
+  .pile-stack .pile-count { position:absolute; bottom:-8px; right:-6px; background:#f05030; color:#fff; font-size:0.62rem;
+    font-weight:800; border-radius:999px; min-width:18px; height:18px; display:flex; align-items:center; justify-content:center; padding:0 4px; }
+  .pile-label { font-size:0.6rem; color:var(--muted); text-align:center; margin-top:2px; }
+  .pile-wrap { display:flex; flex-direction:column; align-items:center; gap:0.5rem; }
+
+  /* ── 手牌扇形排列 + 可拖曳橫向捲動 ── */
+  .hand-fan-wrap { overflow-x:auto; overflow-y:visible; padding:1.2rem 1rem 0.4rem; cursor:grab; scrollbar-width:none; }
+  .hand-fan-wrap::-webkit-scrollbar { display:none; }
+  .hand-fan-wrap.dragging { cursor:grabbing; }
+  .hand-fan { display:flex; justify-content:center; min-width:min-content; padding:0 1rem; }
+  .hand-fan .board-slot { flex-shrink:0; margin:0 -14px; transition:transform 0.15s ease, margin 0.15s ease, z-index 0s;
+    transform-origin:bottom center; }
+  .hand-fan .board-slot:hover { transform:translateY(-14px) scale(1.08) !important; z-index:50 !important; margin:0 -2px; }
+  .opp-hand-fan .board-slot:hover { transform:none !important; }
+  .card-back { width:76px; aspect-ratio:5/7; border-radius:8px; background:
+    repeating-linear-gradient(135deg, #1b2050, #1b2050 6px, #232a5c 6px, #232a5c 12px);
+    border:2px solid rgba(255,255,255,0.15); display:flex; align-items:center; justify-content:center; font-size:1.4rem; }
+
+  /* ── 能量區固定在右下角，可拖曳到寶可夢身上附加 ── */
+  .energy-zone-dock { position:fixed; right:1rem; bottom:5.5rem; z-index:55; display:flex; flex-direction:column; align-items:center; gap:0.2rem; }
+  .energy-zone-dock .energy-zone { width:52px; height:52px; font-size:0.65rem; }
+  .energy-zone-dock .energy-zone.has-energy { cursor:grab; }
+  .energy-zone-dock .energy-zone.has-energy:active { cursor:grabbing; }
+  .energy-zone-label { font-size:0.6rem; color:var(--muted); }
+
+  /* ── PTCG風格能量圖示：色底圓圈+屬性符號，取代原本純色小圓點 ── */
+  .energy-icon { width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center;
+    font-size:0.72rem; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.35), 0 1px 2px rgba(0,0,0,0.4); }
+  .energy-icon.mini { width:14px; height:14px; font-size:0.55rem; }
+  .attack-cost .energy-icon { width:16px; height:16px; font-size:0.6rem; }
+
+  /* ── 卡牌詳細資訊側欄 ── */
+  .card-detail-panel { position:fixed; top:0; right:-340px; width:320px; height:100%; background:#0c0f24;
+    border-left:1px solid var(--border); z-index:80; padding:1.2rem; overflow-y:auto; transition:right 0.25s ease; }
+  .card-detail-panel.open { right:0; }
+  .detail-close { position:absolute; top:0.7rem; right:0.9rem; background:rgba(255,255,255,0.08); border:1px solid var(--border);
+    color:var(--text); border-radius:50%; width:28px; height:28px; cursor:pointer; }
+  .card-detail-panel img.detail-img { width:100%; border-radius:12px; margin-bottom:0.8rem; }
+  .card-detail-panel h3 { font-size:1.1rem; margin-bottom:0.3rem; }
+  .card-detail-panel .detail-meta { color:var(--muted); font-size:0.78rem; margin-bottom:0.8rem; }
+  .card-detail-panel .detail-attack { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:0.6rem; margin-bottom:0.5rem; font-size:0.8rem; }
+  .card-detail-panel .detail-attack .dname { font-weight:700; display:flex; justify-content:space-between; }
+  .card-detail-panel .detail-effect { color:var(--muted); font-size:0.75rem; margin-top:0.3rem; line-height:1.4; }
+  .board-slot img.zoomable, .hand-fan img { cursor:pointer; }
+
+  /* ── 屬性攻擊特效層 ── */
+  .vfx-layer { position:fixed; inset:0; z-index:65; pointer-events:none; }
+  .vfx-bolt { position:absolute; width:22px; height:22px; border-radius:50%; opacity:0; filter:blur(1px) drop-shadow(0 0 8px currentColor); }
+  @keyframes vfxFly { 0% { opacity:0; } 8% { opacity:1; } 80% { opacity:1; } 100% { opacity:0; } }
+  .vfx-impact { position:absolute; width:70px; height:70px; border-radius:50%; opacity:0; transform:translate(-50%,-50%) scale(0.3);
+    background:radial-gradient(circle, currentColor 0%, transparent 70%); }
+  @keyframes vfxImpact { 0% { opacity:0; transform:translate(-50%,-50%) scale(0.3); } 30% { opacity:0.85; transform:translate(-50%,-50%) scale(1.3); } 100% { opacity:0; transform:translate(-50%,-50%) scale(1.6); } }
+
+  /* ── 擲硬幣動畫 ── */
+  .coin-flip-overlay { position:fixed; inset:0; z-index:95; background:rgba(0,0,0,0.55); display:flex; align-items:center; justify-content:center; gap:0.8rem; }
+  .coin { width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg,#f8d030,#f05030); display:flex; align-items:center; justify-content:center;
+    font-weight:900; font-size:1.6rem; color:#fff; box-shadow:0 4px 20px rgba(248,208,48,0.5); animation:coinSpin 0.55s ease-in-out; }
+  @keyframes coinSpin { 0% { transform:rotateY(0deg) scale(0.6); opacity:0; } 50% { transform:rotateY(720deg) scale(1.15); } 100% { transform:rotateY(1080deg) scale(1); opacity:1; } }
+
+  /* ── 傷害飄字 + 受擊震動 ── */
+  .dmg-float { position:fixed; z-index:66; font-weight:900; font-size:1.4rem; color:#ff5252; text-shadow:0 2px 6px rgba(0,0,0,0.6);
+    pointer-events:none; animation:dmgFloat 1s ease-out forwards; }
+  @keyframes dmgFloat { 0% { opacity:0; transform:translate(-50%,0); } 15% { opacity:1; transform:translate(-50%,-10px); } 100% { opacity:0; transform:translate(-50%,-55px); } }
+  @keyframes shakeHit { 0%,100% { transform:translateX(0); } 20% { transform:translateX(-6px); } 40% { transform:translateX(5px); } 60% { transform:translateX(-4px); } 80% { transform:translateX(3px); } }
+  .board-slot.hit-shake img { animation:shakeHit 0.4s ease; }
+  .board-slot.hit-flash img { box-shadow:0 0 0 3px #ff5252; }
+
+  /* ── 狀態/增益小圖示 ── */
+  .status-badges { display:flex; gap:2px; justify-content:center; flex-wrap:wrap; margin-top:2px; }
+  .status-chip { font-size:0.6rem; background:rgba(255,255,255,0.1); border-radius:4px; padding:0 3px; }
 </style>
 </head>
 <body>
@@ -229,26 +321,65 @@
     <div class="points-row"><span>你 <b id="my-points">0</b></span><span>對手 <b id="opp-points">0</b></span></div>
   </div>
 
-  <div class="opp-area">
-    <div class="side-info">牌庫 <span id="opp-deck-count"></span>張 · 手牌 <span id="opp-hand-count"></span>張</div>
-    <div class="bench-row" id="opp-bench"></div>
-    <div class="active-row" id="opp-active"></div>
+  <div class="arena-zone opp-zone">
+    <div class="hand-fan-wrap opp-hand-fan-wrap"><div class="hand-fan opp-hand-fan" id="opp-hand-fan"></div></div>
+    <div class="zone-row opp-row">
+      <div class="pile-wrap">
+        <div class="pile-stack deck-pile" title="對手牌庫"><div class="pile-card"></div><div class="pile-card">🂠</div><div class="pile-count" id="opp-deck-count">0</div></div>
+        <div class="pile-label">牌庫</div>
+      </div>
+      <div class="zone-battlefield">
+        <div class="bench-row" id="opp-bench"></div>
+        <div class="active-row" id="opp-active"></div>
+      </div>
+      <div class="pile-wrap">
+        <div class="pile-stack discard-pile" id="opp-discard-pile" title="點擊查看對手棄牌堆"><div class="pile-card"></div><div class="pile-card">🗑️</div><div class="pile-count" id="opp-discard-count">0</div></div>
+        <div class="pile-label">棄牌堆</div>
+      </div>
+    </div>
   </div>
 
   <div class="mid-area">
-    <div class="energy-zone" id="energy-zone-chip"></div>
     <div class="action-hint" id="action-hint"></div>
   </div>
 
-  <div class="my-area">
-    <div class="active-row" id="my-active"></div>
-    <div class="attack-row" id="attack-row"></div>
-    <div class="turn-controls">
-      <button class="btn btn-secondary" id="cancel-action-btn" onclick="cancelAction()" style="display:none">取消</button>
-      <button class="btn btn-primary" id="end-turn-btn" onclick="endTurn()">結束回合</button>
+  <div class="arena-zone my-zone">
+    <div class="zone-row my-row">
+      <div class="pile-wrap">
+        <div class="pile-stack deck-pile" title="我的牌庫"><div class="pile-card"></div><div class="pile-card">🂠</div><div class="pile-count" id="my-deck-count">0</div></div>
+        <div class="pile-label">牌庫</div>
+      </div>
+      <div class="zone-battlefield">
+        <div class="active-row" id="my-active"></div>
+        <div class="attack-row" id="attack-row"></div>
+        <div class="turn-controls">
+          <button class="btn btn-secondary" id="cancel-action-btn" onclick="cancelAction()" style="display:none">取消</button>
+          <button class="btn btn-primary" id="end-turn-btn" onclick="endTurn()">結束回合</button>
+        </div>
+        <div class="bench-row" id="my-bench"></div>
+      </div>
+      <div class="pile-wrap">
+        <div class="pile-stack discard-pile" id="my-discard-pile" title="點擊查看我的棄牌堆"><div class="pile-card"></div><div class="pile-card">🗑️</div><div class="pile-count" id="my-discard-count">0</div></div>
+        <div class="pile-label">棄牌堆</div>
+      </div>
     </div>
-    <div class="bench-row" id="my-bench"></div>
-    <div class="hand-row" id="hand-row"></div>
+    <div class="hand-fan-wrap" id="hand-fan-wrap"><div class="hand-fan hand-row" id="hand-row"></div></div>
+  </div>
+
+  <div class="energy-zone-dock">
+    <div class="energy-zone" id="energy-zone-chip"></div>
+    <div class="energy-zone-label">能量區</div>
+  </div>
+
+  <div class="card-detail-panel" id="card-detail-panel">
+    <button class="detail-close" onclick="closeCardDetail()">✕</button>
+    <div id="card-detail-body"></div>
+  </div>
+
+  <div class="vfx-layer" id="vfx-layer"></div>
+
+  <div class="coin-flip-overlay" id="coin-flip-overlay" style="display:none">
+    <div class="coin-flip-coins" id="coin-flip-coins"></div>
   </div>
 
   <div class="setup-overlay" id="setup-overlay">
@@ -319,6 +450,15 @@ const TYPE_ZH = {
   Fire:'火', Water:'水', Lightning:'電', Psychic:'超能力',
   Fighting:'格鬥', Darkness:'惡', Dragon:'龍', Colorless:'無色', Grass:'草'
 };
+// 自製能量圖示（不是官方PTCG圖檔——那是任天堂/Creatures的版權美術，這個專案一貫不直接使用
+// 官方遊戲素材，比照8-bit音效用合成取代真實音檔的原則），色底圓圈+emoji符號，看得出屬性就好
+const TYPE_ICON = {
+  Fire:'🔥', Water:'💧', Lightning:'⚡', Psychic:'🔮',
+  Fighting:'👊', Darkness:'🌑', Dragon:'🐉', Colorless:'⭐', Grass:'🌿'
+};
+function energyIconHtml(type, mini) {
+  return `<span class="energy-icon${mini ? ' mini' : ''}" style="background:${TYPE_COLOR[type] || '#888'}" title="${TYPE_ZH[type] || type}">${TYPE_ICON[type] || '?'}</span>`;
+}
 const DECK_KEY = 'pocketDeck';
 const DECK_SIZE = 20;
 const MAX_COPIES = 2;
@@ -583,14 +723,51 @@ function typeDots(types) {
   return (types || []).map(t => `<span class="type-dot" style="background:${TYPE_COLOR[t] || '#888'}"></span>`).join('');
 }
 
+// 卡牌詳細資訊側欄——遊玩中場上/手牌的card物件uid是動態產生的實例id，找不到就退回卡池的靜態資料
+// （沒有uid的情況：組牌畫面點卡片、或peek彈窗裡的卡片，直接把整包card物件傳進來就好）
+function pocketFindCardByUid(uid) {
+  if (!state) return null;
+  const pools = [state.you?.active, ...(state.you?.bench || []), ...(state.you?.hand || []),
+    state.opponent?.active, ...(state.opponent?.bench || [])];
+  return pools.find(c => c && c.uid === uid) || null;
+}
+function showCardDetail(card) {
+  if (!card) return;
+  const body = document.getElementById('card-detail-body');
+  const isPoke = card.category === 'Pokemon';
+  let html = `<img class="detail-img" src="${card.image}" alt="${card.name}">
+    <h3>${card.name}${card.ex ? ' EX' : ''}</h3>
+    <div class="detail-meta">${card.rarity || ''}${isPoke ? ` · ${card.stage === 'Basic' ? '基礎' : card.stage} · HP ${card.hp}` : ` · ${card.trainerType === 'Supporter' ? '支援者卡' : '道具卡'}`}</div>`;
+  if (isPoke) {
+    html += (card.attacks || []).map(a => `
+      <div class="detail-attack">
+        <div class="dname"><span>${a.name}</span><span>${(a.cost || []).map(t => energyIconHtml(t, true)).join('')} ${a.damage || ''}</span></div>
+        ${a.effect ? `<div class="detail-effect">${a.effect}</div>` : ''}
+      </div>`).join('');
+    if (card.abilities?.length) html += card.abilities.map(ab => `<div class="detail-attack"><div class="dname">特性：${ab.name}</div><div class="detail-effect">${ab.effect}</div></div>`).join('');
+    if (card.weaknesses?.length) html += `<div class="detail-meta">弱點：${card.weaknesses.map(w => (TYPE_ZH[w.type] || w.type) + w.value).join(', ')}${card.retreat != null ? ` · 撤退 ${card.retreat}` : ' · 無法撤退'}</div>`;
+  } else {
+    html += `<div class="detail-effect">${card.effect || ''}</div>`;
+  }
+  body.innerHTML = html;
+  document.getElementById('card-detail-panel').classList.add('open');
+}
+function closeCardDetail() { document.getElementById('card-detail-panel').classList.remove('open'); }
+
 const STATUS_LABEL = { asleep: '😴 睡眠', poisoned: '☠️ 中毒', paralyzed: '⚡ 麻痺' };
 function renderPokeSlot(p, { pickable = false, dataset = {}, own = false } = {}) {
   if (!p) return '<div class="board-slot empty"></div>';
   const hpPct = p.hp ? Math.max(0, Math.round(((p.curHp ?? p.hp) / p.hp) * 100)) : 100;
-  const energyIcons = (p.energy || []).map(e => `<span class="energy-icon" style="background:${TYPE_COLOR[e] || '#888'}"></span>`).join('');
+  const energyIcons = (p.energy || []).map(e => energyIconHtml(e, true)).join('');
   const attrs = Object.entries(dataset).map(([k, v]) => `data-${k}="${v}"`).join(' ');
-  const statusHtml = p.status ? `<div style="color:#ffd54f">${STATUS_LABEL[p.status] || p.status}</div>` : '';
-  let extraBtns = '';
+  const badges = [];
+  if (p.status) badges.push(`<span class="status-chip">${STATUS_LABEL[p.status] || p.status}</span>`);
+  const tn = state?.turnNumber ?? 0;
+  if (p.cantAttackUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合不能攻擊">🚫⚔</span>`);
+  if (p.cantRetreatUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合不能撤退">🚫🔄</span>`);
+  if (p.dmgDebuffUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合攻擊傷害-${p.dmgDebuffAmount}">↓${p.dmgDebuffAmount}</span>`);
+  const statusHtml = badges.length ? `<div class="status-badges">${badges.join('')}</div>` : '';
+  let extraBtns = `<button class="mini-btn" onclick="event.stopPropagation();showCardDetail(pocketFindCardByUid('${p.uid}'))" title="查看詳細資訊">🔍</button>`;
   if (own && state?.turn === myRole && state.phase === 'active') {
     const ability = p.abilities?.[0];
     if (ability && ABILITY_NAMES_SUPPORTED.has(ability.name) && !state.you.abilitiesUsedThisTurn.includes(p.uid)) {
@@ -620,7 +797,14 @@ function renderBoard() {
   document.getElementById('my-points').textContent = you.points;
   document.getElementById('opp-points').textContent = opponent.points;
   document.getElementById('opp-deck-count').textContent = opponent.deckCount;
-  document.getElementById('opp-hand-count').textContent = opponent.handCount;
+  document.getElementById('my-deck-count').textContent = you.deckCount;
+  document.getElementById('opp-discard-count').textContent = (opponent.discard || []).length;
+  document.getElementById('my-discard-count').textContent = (you.discard || []).length;
+
+  // 對手手牌視覺化：不知道內容，用蓋牌背面呈現張數(扇形排列)——只露出張數不露內容
+  const oppHandFan = document.getElementById('opp-hand-fan');
+  oppHandFan.innerHTML = Array.from({ length: opponent.handCount || 0 }, () => '<div class="card-back">🎴</div>').join('');
+  applyFanLayout(oppHandFan);
 
   document.getElementById('opp-active').innerHTML = renderPokeSlot(opponent.active);
   document.getElementById('opp-bench').innerHTML = (opponent.bench || []).map(p => renderPokeSlot(p)).join('') || '<div class="board-slot empty"></div>'.repeat(3);
@@ -635,13 +819,14 @@ function renderBoard() {
     own: true,
   })).join('');
 
-  // energy zone chip
+  // energy zone chip——可以點擊進入「選目標」模式，也可以直接拖到寶可夢身上放開來附加（見底下的drag/drop）
   const chip = document.getElementById('energy-zone-chip');
   if (you.pendingEnergy && !you.energyAttachedThisTurn && myTurn) {
     chip.className = `energy-zone has-energy ${selectedAction?.mode === 'attach' ? 'picking' : ''}`;
     chip.style.background = TYPE_COLOR[you.pendingEnergy] || '#888';
-    chip.textContent = '';
-    chip.title = `點擊附加 ${TYPE_ZH[you.pendingEnergy] || you.pendingEnergy} 能量`;
+    chip.textContent = TYPE_ICON[you.pendingEnergy] || '?';
+    chip.draggable = true;
+    chip.title = `點擊或拖曳到寶可夢身上，附加 ${TYPE_ZH[you.pendingEnergy] || you.pendingEnergy} 能量`;
     chip.onclick = () => {
       if (!myTurn) return;
       selectedAction = selectedAction?.mode === 'attach' ? null : { mode: 'attach' };
@@ -651,6 +836,7 @@ function renderBoard() {
   } else {
     chip.className = 'energy-zone';
     chip.textContent = you.energyAttachedThisTurn ? '✓' : '—';
+    chip.draggable = false;
     chip.onclick = null;
     chip.style.background = 'transparent';
   }
@@ -660,7 +846,7 @@ function renderBoard() {
   if (you.active && myTurn && phase === 'active') {
     atkRow.innerHTML = (you.active.attacks || []).map((a, i) => {
       const affordable = pocketCanPayCostClient(you.active, a.cost);
-      const costHtml = (a.cost || []).map(t => `<span class="energy-icon" style="background:${TYPE_COLOR[t] || '#888'}"></span>`).join('');
+      const costHtml = (a.cost || []).map(t => energyIconHtml(t)).join('');
       return `<button class="attack-btn" ${affordable ? '' : 'disabled'} onclick="doAttack(${i})">
         <span>${a.name}</span>
         <span class="attack-cost">${costHtml}</span>
@@ -683,10 +869,13 @@ function renderBoard() {
       <img src="${c.image}" alt="${c.name}">
       <div class="board-name">${c.name}</div>
       <div>${label}</div>
+      <button class="mini-btn" onclick="event.stopPropagation();showCardDetail(pocketFindCardByUid('${c.uid}'))" title="查看詳細資訊">🔍</button>
     </div>`;
   }).join('');
+  applyFanLayout(handRow);
 
   updateActionHint();
+  handlePocketEvent(state.lastEvent);
 
   // setup overlay
   document.getElementById('setup-overlay').style.display = phase === 'setup' && !you.boardSubmitted ? 'flex' : 'none';
@@ -836,6 +1025,149 @@ function showGameOver(winner) {
   const title = document.getElementById('gameover-title');
   title.textContent = winner === myRole ? '你獲勝了！' : winner ? '對手獲勝' : '對戰結束';
   document.getElementById('gameover-overlay').style.display = 'flex';
+}
+
+/* ─────────────────────────────────────────
+   視覺升級（2026-08-04）：手牌扇形、擲硬幣動畫、屬性攻擊特效、傷害飄字、
+   能量區拖曳附加、棄牌堆檢視、卡牌詳細資訊（showCardDetail定義在renderPokeSlot附近）
+───────────────────────────────────────── */
+
+// 扇形手牌：中間的卡角度接近0，兩側依距離中心的比例往外偏轉+下沉，模擬手持展開的撲克牌手感
+function applyFanLayout(container) {
+  const cards = [...container.children];
+  const n = cards.length;
+  if (!n) return;
+  const maxAngle = Math.min(30, 6 + n * 2.2);
+  cards.forEach((el, i) => {
+    const t = n === 1 ? 0 : (i / (n - 1)) - 0.5; // -0.5 .. 0.5
+    const angle = t * maxAngle;
+    const drop = Math.abs(t) * 16;
+    el.style.transform = `rotate(${angle}deg) translateY(${drop}px)`;
+    el.style.zIndex = String(i);
+  });
+}
+
+// 手牌區橫向拖曳捲動（滑鼠版；觸控本來就有原生橫向滑動，overflow-x:auto已經支援）
+function enableDragScroll(wrapEl) {
+  let isDown = false, startX = 0, startScroll = 0, moved = false;
+  wrapEl.addEventListener('mousedown', e => {
+    isDown = true; moved = false; wrapEl.classList.add('dragging');
+    startX = e.pageX; startScroll = wrapEl.scrollLeft;
+  });
+  window.addEventListener('mouseup', () => { isDown = false; wrapEl.classList.remove('dragging'); });
+  window.addEventListener('mousemove', e => {
+    if (!isDown) return;
+    const dx = e.pageX - startX;
+    if (Math.abs(dx) > 4) moved = true;
+    wrapEl.scrollLeft = startScroll - dx;
+  });
+  // 拖曳超過閾值時，這次放開不要誤觸底下卡片的click（避免拖曳跟點擊互相干擾）
+  wrapEl.addEventListener('click', e => { if (moved) { e.stopPropagation(); moved = false; } }, true);
+}
+document.querySelectorAll('.hand-fan-wrap').forEach(enableDragScroll);
+
+// 棄牌堆點擊檢視
+document.getElementById('my-discard-pile').addEventListener('click', () => showPeek('我的棄牌堆', state?.you?.discard));
+document.getElementById('opp-discard-pile').addEventListener('click', () => showPeek('對手的棄牌堆', state?.opponent?.discard));
+
+// 能量區拖曳到寶可夢身上＝附加能量（跟原本點擊能量區→點目標的模式並存，兩種操作都可以）
+const energyChipEl = document.getElementById('energy-zone-chip');
+energyChipEl.addEventListener('dragstart', e => {
+  if (!state || !state.you.pendingEnergy || state.you.energyAttachedThisTurn || state.turn !== myRole) { e.preventDefault(); return; }
+  e.dataTransfer.setData('text/plain', 'pocket-energy');
+});
+document.getElementById('board-overlay').addEventListener('dragover', e => {
+  if (e.target.closest('#my-active, #my-bench')) e.preventDefault();
+});
+document.getElementById('board-overlay').addEventListener('drop', e => {
+  const slot = e.target.closest('#my-active .board-slot[data-uid], #my-bench .board-slot[data-uid]');
+  if (!slot) return;
+  e.preventDefault();
+  wsSend({ type: 'pocket_attach_energy', target: slot.dataset.uid });
+});
+
+// ── 攻擊事件重播：擲硬幣動畫 → 屬性特效 → 傷害飄字/受擊震動 ──
+let lastSeenEventSeq = 0;
+function handlePocketEvent(evt) {
+  if (!evt || evt.seq <= lastSeenEventSeq) return;
+  lastSeenEventSeq = evt.seq;
+  (async () => {
+    if (evt.coinFlips && evt.coinFlips.length) await playCoinFlipAnim(evt.coinFlips);
+    if (evt.kind === 'attack') {
+      if (evt.damage > 0 || evt.selfDamage > 0) playAttackVfx(evt.attackerRole, evt.atkType, evt.targetUid);
+      if (evt.damage > 0) showDamageFloat(evt.targetUid, evt.damage);
+      if (evt.selfDamage > 0) showDamageFloat(evt.attackerUid, evt.selfDamage);
+    }
+  })();
+}
+
+function playCoinFlipAnim(results) {
+  return new Promise(resolve => {
+    const overlay = document.getElementById('coin-flip-overlay');
+    const coinsEl = document.getElementById('coin-flip-coins');
+    coinsEl.innerHTML = results.map(() => `<div class="coin">?</div>`).join('');
+    overlay.style.display = 'flex';
+    const coinEls = [...coinsEl.children];
+    setTimeout(() => { coinEls.forEach((el, i) => { el.textContent = results[i] ? '正' : '反'; }); }, 550);
+    setTimeout(() => { overlay.style.display = 'none'; resolve(); }, 1250);
+  });
+}
+
+function playAttackVfx(attackerRole, atkType, targetUid) {
+  const attackerEl = document.getElementById(attackerRole === myRole ? 'my-active' : 'opp-active');
+  const targetSlot = document.querySelector(`.board-slot[data-uid="${targetUid}"]`);
+  const targetEl = targetSlot || document.getElementById(attackerRole === myRole ? 'opp-active' : 'my-active');
+  if (!attackerEl || !targetEl || typeof attackerEl.animate !== 'function') return;
+  const a = attackerEl.getBoundingClientRect();
+  const t = targetEl.getBoundingClientRect();
+  const color = TYPE_COLOR[atkType] || '#fff';
+  const layer = document.getElementById('vfx-layer');
+  const bolt = document.createElement('div');
+  bolt.className = 'vfx-bolt';
+  bolt.style.color = color; bolt.style.background = color;
+  bolt.style.left = (a.left + a.width / 2) + 'px';
+  bolt.style.top = (a.top + a.height / 2) + 'px';
+  layer.appendChild(bolt);
+  const dx = (t.left + t.width / 2) - (a.left + a.width / 2);
+  const dy = (t.top + t.height / 2) - (a.top + a.height / 2);
+  bolt.animate([
+    { transform: 'translate(0,0)', opacity: 0 },
+    { transform: 'translate(0,0)', opacity: 1, offset: 0.1 },
+    { transform: `translate(${dx}px, ${dy}px)`, opacity: 1, offset: 0.85 },
+    { transform: `translate(${dx}px, ${dy}px)`, opacity: 0 },
+  ], { duration: 500, easing: 'ease-in' });
+  setTimeout(() => {
+    bolt.remove();
+    const impact = document.createElement('div');
+    impact.className = 'vfx-impact';
+    impact.style.color = color;
+    impact.style.left = (t.left + t.width / 2) + 'px';
+    impact.style.top = (t.top + t.height / 2) + 'px';
+    layer.appendChild(impact);
+    impact.animate([
+      { opacity: 0, transform: 'translate(-50%,-50%) scale(0.3)' },
+      { opacity: 0.85, transform: 'translate(-50%,-50%) scale(1.3)', offset: 0.3 },
+      { opacity: 0, transform: 'translate(-50%,-50%) scale(1.6)' },
+    ], { duration: 380 });
+    setTimeout(() => impact.remove(), 400);
+    if (targetSlot) {
+      targetSlot.classList.add('hit-shake', 'hit-flash');
+      setTimeout(() => targetSlot.classList.remove('hit-shake', 'hit-flash'), 450);
+    }
+  }, 480);
+}
+
+function showDamageFloat(uid, dmg) {
+  const slot = document.querySelector(`.board-slot[data-uid="${uid}"]`);
+  if (!slot) return;
+  const rect = slot.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = 'dmg-float';
+  el.textContent = '-' + dmg;
+  el.style.left = (rect.left + rect.width / 2) + 'px';
+  el.style.top = rect.top + 'px';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1000);
 }
 </script>
 </body>
