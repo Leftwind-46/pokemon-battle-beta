@@ -654,7 +654,7 @@ function renderDeck() {
 loadCards();
 
 /* ─────────────────────────────────────────
-   Lobby / WS connection（Phase 3：房間骨架，核心回合引擎還沒做）
+   Lobby / WS connection
 ───────────────────────────────────────── */
 let ws = null;
 let myRole = null; // 'p1' | 'p2'
@@ -752,8 +752,7 @@ function handleWsMsg(msg) {
 }
 
 /* ─────────────────────────────────────────
-   對戰畫面（Phase 4：核心回合引擎——招式只算固定傷害+弱點，
-   訓練師卡/招式的文字效果尚未實作）
+   對戰畫面
 ───────────────────────────────────────── */
 let state = null; // 最新一份 pocket_turn_state / pocket_match_start
 let selectedAction = null; // null | {mode:'attach'} | {mode:'evolve', handUid, from} | {mode:'retreat'}

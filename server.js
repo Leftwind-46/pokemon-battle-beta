@@ -2751,6 +2751,17 @@ function pocketFindOwnByName(side, names) { return [side.active, ...side.bench].
    handler簽名：(ctx) => void，ctx = { G, role, op, side, oppSide, attacker, defender, atk, rawDamage(可改), extraKO(bool,已內部處理KO時設true讓主流程跳過), healMirror(bool) }
    rawDamage是「弱點加成前」的傷害，函式可以直接改 ctx.rawDamage；weakness會在handler跑完後才加上去。 */
 const ATTACK_EFFECTS = {
+  // Dragonite「流星群」：跟其他隨機打對手場上寶可夢的效果（30damage那兩條）同一種寫法——
+  // 差別是這條獨立骰4次、每次都重新從主戰+板凳裡隨機選（可能連續選到同一隻），不是選1隻固定打4次。
+  // 這張卡沒有base damage欄位（damage全部來自這個效果本身，等同其他純特效招式的0-dmg慣例）。
+  "1 of your opponent's Pokémon is chosen at random 4 times. For each time a Pokémon was chosen, do 50 damage to it.": ctx => {
+    ctx.rawDamage = 0;
+    const pool = [ctx.defender, ...ctx.oppSide.bench].filter(Boolean);
+    for (let i = 0; i < 4 && pool.length; i++) {
+      const t = pool[Math.floor(Math.random() * pool.length)];
+      t.curHp = Math.max(0, t.curHp - 50);
+    }
+  },
   "Discard 1 {R} Energy from this Pokémon.": ctx => pocketDiscardEnergy(ctx.attacker, 'Fire', 1),
   "Discard 2 {P} Energy from this Pokémon.": ctx => pocketDiscardEnergy(ctx.attacker, 'Psychic', 2),
   "Discard 2 {R} Energy from this Pokémon.": ctx => pocketDiscardEnergy(ctx.attacker, 'Fire', 2),
@@ -4462,15 +4473,11 @@ wss.on('connection', (ws, req) => {
     }
 
     const pRoom = pocketRooms.get(ws.pocketRoomCode);
-    if (pRoom) {
-      if (ws.pocketRole === 'spectator') {
-        pRoom.spectators = (pRoom.spectators || []).filter(s => s !== ws);
-      } else {
-        const op = ws.pocketRole === 'p1' ? 'p2' : 'p1';
-        send(pRoom[op], { type: 'pocket_opponent_disconnected' });
-        pRoom[ws.pocketRole] = null;
-        if (pRoom.phase !== 'done' || (!pRoom.p1 && !pRoom.p2)) pocketRooms.delete(ws.pocketRoomCode);
-      }
+    if (pRoom && (ws.pocketRole === 'p1' || ws.pocketRole === 'p2')) {
+      const op = ws.pocketRole === 'p1' ? 'p2' : 'p1';
+      send(pRoom[op], { type: 'pocket_opponent_disconnected' });
+      pRoom[ws.pocketRole] = null;
+      if (pRoom.phase !== 'done' || (!pRoom.p1 && !pRoom.p2)) pocketRooms.delete(ws.pocketRoomCode);
     }
   });
 });
@@ -4529,7 +4536,7 @@ async function handleMessage(ws, msg) {
     /* ── Pocket TCG lobby（獨立房間系統，見上面 pocketRooms 區塊） ── */
     if (type === 'pocket_create_room') {
       const code = genCode();
-      const pRoom = { code, p1: ws, p2: null, phase: 'waiting', p1Deck: null, p2Deck: null, p1Ready: false, p2Ready: false, firstPlayer: null, p1UserId: ws.userId ?? null, p2UserId: null, p1Username: ws.username ?? null, p2Username: null, spectators: [] };
+      const pRoom = { code, p1: ws, p2: null, phase: 'waiting', p1Deck: null, p2Deck: null, p1Ready: false, p2Ready: false, firstPlayer: null, p1UserId: ws.userId ?? null, p2UserId: null, p1Username: ws.username ?? null, p2Username: null };
       pocketRooms.set(code, pRoom);
       ws.pocketRoomCode = code; ws.pocketRole = 'p1';
       send(ws, { type: 'pocket_room_created', code, role: 'p1' });
@@ -4540,13 +4547,13 @@ async function handleMessage(ws, msg) {
       const code = (msg.code || '').toUpperCase().trim();
       const pRoom = pocketRooms.get(code);
       if (!pRoom) { send(ws, { type: 'error', message: '找不到房間，請確認代碼' }); return; }
-      if (pRoom.p2) {
-        pRoom.spectators = pRoom.spectators || [];
-        pRoom.spectators.push(ws);
-        ws.pocketRoomCode = code; ws.pocketRole = 'spectator';
-        send(ws, { type: 'pocket_spectate_joined', phase: pRoom.phase });
-        return;
-      }
+      // 2026-08-05修正：房間滿了（p2已存在）原本會把第3個人悄悄接成'spectator'角色，但
+      // Pocket從沒真的做過觀戰功能——pocketBroadcastState只送給p1/p2，client也完全沒有
+      // 處理pocket_spectate_joined這個訊息的case，導致第3個人進來後畫面永遠卡在等待畫面、
+      // 什麼都不會發生，也不會有任何錯誤提示。跟main PvP不同（那邊觀戰是真的做完的功能），
+      // Pocket這段是半成品，直接讓「房間已滿」明確擋下比較符合使用者實際遇到的情境
+      // （通常是誤用了已經有兩人在用的房號），不是刻意要拿掉一個已完成的功能。
+      if (pRoom.p2) { send(ws, { type: 'error', message: '房間已滿（已有兩人在對戰），請確認房號或請對方開一個新房間' }); return; }
       pRoom.p2 = ws;
       ws.pocketRoomCode = code; ws.pocketRole = 'p2';
       pRoom.p2UserId = ws.userId ?? null;
