@@ -110,6 +110,15 @@
   .field-row { display:flex; align-items:center; justify-content:center; gap:0.8rem; flex-wrap:wrap; }
   .bench-row { display:flex; gap:0.4rem; }
   .active-row { display:flex; }
+  /* 主戰跟板凳原本只是並排的兩個flex row，視覺上完全分不出差異——各自包一層有底色/邊框
+     的區塊+小標籤，主戰用金色系「聚光燈」感強調重要性，板凳用暗色虛線框弱化 */
+  .active-zone { display:flex; flex-direction:column; align-items:center; gap:0.3rem; padding:0.5rem 0.9rem; border-radius:14px;
+    background:radial-gradient(ellipse at center, rgba(248,208,48,0.12) 0%, rgba(248,208,48,0.02) 75%);
+    border:1.5px solid rgba(248,208,48,0.4); }
+  .bench-zone { display:flex; flex-direction:column; align-items:center; gap:0.3rem; padding:0.5rem 0.7rem; border-radius:14px;
+    background:rgba(255,255,255,0.02); border:1px dashed rgba(255,255,255,0.15); }
+  .zone-tag { font-size:0.6rem; color:var(--muted); letter-spacing:0.08em; font-weight:700; }
+  .active-zone .zone-tag { color:#f8d030; }
   .mid-area { display:flex; align-items:center; justify-content:center; gap:1rem; padding:0.25rem; min-height:30px; }
   .energy-zone { width:34px; height:34px; border-radius:50%; border:2px dashed var(--border); display:flex; align-items:center; justify-content:center; font-size:0.7rem; cursor:pointer; }
   .energy-zone.has-energy { border-style:solid; cursor:pointer; }
@@ -204,7 +213,8 @@
     border:2px solid rgba(255,255,255,0.15); display:flex; align-items:center; justify-content:center; font-size:1.4rem; }
 
   /* ── 能量區固定在右下角，可拖曳到寶可夢身上附加 ── */
-  .energy-zone-dock { position:fixed; right:1rem; bottom:5.5rem; z-index:55; display:flex; flex-direction:column; align-items:center; gap:0.2rem; }
+  /* 2026-08-05從右下角移到戰場左側——原本擠在螢幕右下角角落，容易被忽略/找不到 */
+  .energy-zone-dock { position:fixed; left:1rem; top:50%; transform:translateY(-50%); z-index:55; display:flex; flex-direction:column; align-items:center; gap:0.2rem; }
   .energy-zone-dock .energy-zone { width:52px; height:52px; font-size:0.65rem; }
   .energy-zone-dock .energy-zone.has-energy { cursor:grab; }
   .energy-zone-dock .energy-zone.has-energy:active { cursor:grabbing; }
@@ -268,6 +278,13 @@
   /* ── 傷害飄字 + 受擊震動 ── */
   .dmg-float { position:fixed; z-index:66; font-weight:900; font-size:1.4rem; color:#ff5252; text-shadow:0 2px 6px rgba(0,0,0,0.6);
     pointer-events:none; animation:dmgFloat 1s ease-out forwards; }
+  .dmg-float.heal-float { color:#69f0ae; }
+
+  /* ── 抽卡/出牌飛行動畫用的卡背方塊 ── */
+  .draw-flourish-card, .play-flourish-card { position:fixed; z-index:67; width:28px; height:40px; border-radius:4px;
+    background:repeating-linear-gradient(135deg, #1b2050, #1b2050 4px, #232a5c 4px, #232a5c 8px);
+    border:1.5px solid rgba(255,255,255,0.25); pointer-events:none; }
+  .play-flourish-card { background-size:cover; background-position:center; border-color:rgba(255,255,255,0.4); }
   @keyframes dmgFloat { 0% { opacity:0; transform:translate(-50%,0); } 15% { opacity:1; transform:translate(-50%,-10px); } 100% { opacity:0; transform:translate(-50%,-55px); } }
   @keyframes shakeHit { 0%,100% { transform:translateX(0); } 20% { transform:translateX(-6px); } 40% { transform:translateX(5px); } 60% { transform:translateX(-4px); } 80% { transform:translateX(3px); } }
   .board-slot.hit-shake img { animation:shakeHit 0.4s ease; }
@@ -370,13 +387,13 @@
     <div class="hand-fan-wrap opp-hand-fan-wrap"><div class="hand-fan opp-hand-fan" id="opp-hand-fan"></div></div>
     <div class="zone-row opp-row">
       <div class="pile-wrap">
-        <div class="pile-stack deck-pile" title="對手牌庫"><div class="pile-card"></div><div class="pile-card">🂠</div><div class="pile-count" id="opp-deck-count">0</div></div>
+        <div class="pile-stack deck-pile" id="opp-deck-pile" title="對手牌庫"><div class="pile-card"></div><div class="pile-card">🂠</div><div class="pile-count" id="opp-deck-count">0</div></div>
         <div class="pile-label">牌庫</div>
       </div>
       <div class="zone-battlefield">
         <div class="field-row">
-          <div class="bench-row" id="opp-bench"></div>
-          <div class="active-row" id="opp-active"></div>
+          <div class="bench-zone"><div class="zone-tag">板凳</div><div class="bench-row" id="opp-bench"></div></div>
+          <div class="active-zone"><div class="zone-tag">主戰</div><div class="active-row" id="opp-active"></div></div>
         </div>
       </div>
       <div class="pile-wrap">
@@ -393,13 +410,13 @@
   <div class="arena-zone my-zone">
     <div class="zone-row my-row">
       <div class="pile-wrap">
-        <div class="pile-stack deck-pile" title="我的牌庫"><div class="pile-card"></div><div class="pile-card">🂠</div><div class="pile-count" id="my-deck-count">0</div></div>
+        <div class="pile-stack deck-pile" id="my-deck-pile" title="我的牌庫"><div class="pile-card"></div><div class="pile-card">🂠</div><div class="pile-count" id="my-deck-count">0</div></div>
         <div class="pile-label">牌庫</div>
       </div>
       <div class="zone-battlefield">
         <div class="field-row">
-          <div class="active-row" id="my-active"></div>
-          <div class="bench-row" id="my-bench"></div>
+          <div class="active-zone"><div class="zone-tag">主戰</div><div class="active-row" id="my-active"></div></div>
+          <div class="bench-zone"><div class="zone-tag">板凳</div><div class="bench-row" id="my-bench"></div></div>
         </div>
       </div>
       <div class="pile-wrap">
@@ -671,6 +688,7 @@ let ws = null;
 let myRole = null; // 'p1' | 'p2'
 let lastMyPoints = 0, lastOppPoints = 0; // 用來判斷分數是否剛好在這次render增加，觸發標記彈跳動畫
 let lastMyActiveUid = null, lastOppActiveUid = null; // 用來判斷主戰是不是剛好換了一隻新的，觸發上場特效
+let lastMyHandCount = 0, lastOppHandCount = 0; // 用來判斷手牌是不是剛好變多，觸發抽卡動畫
 
 function lobbyShowStep(step) {
   ['choose', 'waiting', 'ready', 'started'].forEach(s => {
@@ -945,6 +963,16 @@ function renderBoard() {
   document.getElementById('end-turn-btn').style.display = myTurn && phase === 'active' ? '' : 'none';
   document.getElementById('cancel-action-btn').style.display = selectedAction ? '' : 'none';
 
+  // 抽卡動畫：比對這次render跟上次的手牌張數，多出來的張數視為「剛抽到」，從牌庫堆飛到手牌區
+  // ——純靠state diff判斷，不需要server額外組事件（抽牌本身發生的時機點太多：回合開始/
+  // Professor's Research/Poké Ball...，用diff比逐一在每個抽牌呼叫點插event簡單很多）
+  const myHandGrew = (you.hand?.length || 0) - lastMyHandCount;
+  const oppHandGrew = (opponent.handCount || 0) - lastOppHandCount;
+  if (myHandGrew > 0) for (let i = 0; i < myHandGrew; i++) spawnDrawFlourish('my-deck-pile', 'hand-row');
+  if (oppHandGrew > 0) for (let i = 0; i < oppHandGrew; i++) spawnDrawFlourish('opp-deck-pile', 'opp-hand-fan');
+  lastMyHandCount = you.hand?.length || 0;
+  lastOppHandCount = opponent.handCount || 0;
+
   // hand row
   const handRow = document.getElementById('hand-row');
   handRow.innerHTML = (you.hand || []).map(c => {
@@ -1036,9 +1064,13 @@ document.getElementById('board-overlay').addEventListener('click', e => {
   if (slot && slot.closest('#my-active, #my-bench') && selectedAction) {
     const uid = slot.dataset.uid;
     if (selectedAction.mode === 'attach') wsSend({ type: 'pocket_attach_energy', target: uid });
-    else if (selectedAction.mode === 'evolve') wsSend({ type: 'pocket_evolve', handUid: selectedAction.handUid, target: uid });
+    else if (selectedAction.mode === 'evolve') {
+      spawnPlayFlourish(pocketFindCardByUid(selectedAction.handUid)?.image, slot);
+      wsSend({ type: 'pocket_evolve', handUid: selectedAction.handUid, target: uid });
+    }
     else if (selectedAction.mode === 'retreat' && slot.closest('#my-bench')) wsSend({ type: 'pocket_retreat', target: uid });
     else if (selectedAction.mode === 'item-target') {
+      spawnPlayFlourish(pocketFindCardByUid(selectedAction.handUid)?.image, slot);
       wsSend({ type: selectedAction.isSupporter ? 'pocket_play_supporter' : 'pocket_play_item', handUid: selectedAction.handUid, target: uid });
     }
     selectedAction = null;
@@ -1068,7 +1100,10 @@ document.getElementById('board-overlay').addEventListener('click', e => {
 // 手牌卡片可用動作——跟原本直接送出的if/else分支邏輯相同，只是包成actions陣列給預覽面板用
 function computeHandCardActions(card) {
   if (card.category === 'Pokemon' && card.stage === 'Basic') {
-    return [{ label: '上場（加入板凳）', primary: true, onClick: () => wsSend({ type: 'pocket_bench_play', handUid: card.uid }) }];
+    return [{ label: '上場（加入板凳）', primary: true, onClick: () => {
+      spawnPlayFlourish(card.image, document.getElementById('my-bench'));
+      wsSend({ type: 'pocket_bench_play', handUid: card.uid });
+    } }];
   }
   if (card.category === 'Pokemon') {
     return [{ label: `選擇要進化成 ${card.name} 的寶可夢`, primary: true, onClick: () => {
@@ -1077,7 +1112,10 @@ function computeHandCardActions(card) {
     } }];
   }
   if (card.category === 'Trainer' && POCKET_FOSSIL_IDS.has(card.id)) {
-    return [{ label: '上場（化石，可隨時棄置）', primary: true, onClick: () => wsSend({ type: 'pocket_bench_play', handUid: card.uid }) }];
+    return [{ label: '上場（化石，可隨時棄置）', primary: true, onClick: () => {
+      spawnPlayFlourish(card.image, document.getElementById('my-bench'));
+      wsSend({ type: 'pocket_bench_play', handUid: card.uid });
+    } }];
   }
   if (card.category === 'Trainer') {
     const isSupporter = card.trainerType === 'Supporter';
@@ -1090,8 +1128,10 @@ function computeHandCardActions(card) {
         updateActionHint(); renderBoard();
       } }];
     }
-    return [{ label: isSupporter ? '使用這張支援者卡' : '使用這張道具卡', primary: true, onClick: () =>
-      wsSend({ type: isSupporter ? 'pocket_play_supporter' : 'pocket_play_item', handUid: card.uid }) }];
+    return [{ label: isSupporter ? '使用這張支援者卡' : '使用這張道具卡', primary: true, onClick: () => {
+      spawnPlayFlourish(card.image, document.getElementById('my-discard-pile'));
+      wsSend({ type: isSupporter ? 'pocket_play_supporter' : 'pocket_play_item', handUid: card.uid });
+    } }];
   }
   return [];
 }
@@ -1260,6 +1300,7 @@ function handlePocketEvent(evt) {
       if (evt.damage > 0) showDamageFloat(evt.targetUid, evt.damage);
       if (evt.selfDamage > 0) showDamageFloat(evt.attackerUid, evt.selfDamage);
     }
+    if (evt.healUid && evt.healAmount > 0) showHealFloat(evt.healUid, evt.healAmount);
   })();
 }
 
@@ -1273,6 +1314,54 @@ function playCoinFlipAnim(results) {
     setTimeout(() => { coinEls.forEach((el, i) => { el.textContent = results[i] ? '正' : '反'; el.classList.toggle('tails', !results[i]); }); }, 550);
     setTimeout(() => { overlay.style.display = 'none'; resolve(); }, 1250);
   });
+}
+
+// 出牌動畫：手牌區飛向目標（板凳/主戰/棄牌堆），用卡片本身的圖檔當飛行元素（跟抽卡的純卡背
+// 不同，出牌是玩家主動選的卡，看得到是哪張比較有意義）。這是「自己出牌」才會觸發（在按下
+// 動作按鈕/選好目標的當下就播放，不等server回應）——對手出牌沒有對應的視覺回饋，因為
+// client不知道對手打出的是哪張卡（手牌不透明），只能看到board-slot直接冒出新寶可夢。
+function spawnPlayFlourish(imageUrl, toEl) {
+  const fromEl = document.getElementById('hand-row');
+  if (!fromEl || !toEl || typeof fromEl.animate !== 'function') return;
+  const fromRect = fromEl.getBoundingClientRect();
+  const toRect = toEl.getBoundingClientRect();
+  const card = document.createElement('div');
+  card.className = 'play-flourish-card';
+  if (imageUrl) card.style.backgroundImage = `url(${imageUrl})`;
+  card.style.left = (fromRect.left + fromRect.width / 2 - 14) + 'px';
+  card.style.top = (fromRect.top + fromRect.height / 2 - 20) + 'px';
+  document.body.appendChild(card);
+  const dx = (toRect.left + toRect.width / 2) - (fromRect.left + fromRect.width / 2);
+  const dy = (toRect.top + toRect.height / 2) - (fromRect.top + fromRect.height / 2);
+  const anim = card.animate([
+    { transform: 'translate(0,0) scale(0.9)', opacity: 1 },
+    { transform: `translate(${dx}px, ${dy}px) scale(1.1)`, opacity: 1, offset: 0.85 },
+    { transform: `translate(${dx}px, ${dy}px) scale(0.6)`, opacity: 0 },
+  ], { duration: 400, easing: 'ease-in' });
+  anim.onfinish = () => card.remove();
+}
+
+// 抽卡動畫：一張卡背從牌庫堆飛到手牌區，跟playAttackVfx的光彈同一套position:fixed+WAAPI
+// animate()手法，只是這裡是純視覺的卡背（不用查任何屬性色，抽牌動作本身沒有屬性概念）
+function spawnDrawFlourish(fromId, toId) {
+  const fromEl = document.getElementById(fromId);
+  const toEl = document.getElementById(toId);
+  if (!fromEl || !toEl || typeof fromEl.animate !== 'function') return;
+  const fromRect = fromEl.getBoundingClientRect();
+  const toRect = toEl.getBoundingClientRect();
+  const card = document.createElement('div');
+  card.className = 'draw-flourish-card';
+  card.style.left = (fromRect.left + fromRect.width / 2 - 14) + 'px';
+  card.style.top = (fromRect.top + fromRect.height / 2 - 20) + 'px';
+  document.body.appendChild(card);
+  const dx = (toRect.left + toRect.width / 2) - (fromRect.left + fromRect.width / 2);
+  const dy = (toRect.top + toRect.height / 2) - (fromRect.top + fromRect.height / 2);
+  const anim = card.animate([
+    { transform: 'translate(0,0) scale(0.8)', opacity: 0.9 },
+    { transform: `translate(${dx * 0.5}px, ${dy * 0.5 - 30}px) scale(1)`, opacity: 1, offset: 0.5 },
+    { transform: `translate(${dx}px, ${dy}px) scale(0.7)`, opacity: 0 },
+  ], { duration: 450, easing: 'ease-in-out' });
+  anim.onfinish = () => card.remove();
 }
 
 // 上場特效——跟pokemon_battle.html的spawnSummonEffect同一套手法（擴散環+粒子），這裡只是
@@ -1350,6 +1439,18 @@ function showDamageFloat(uid, dmg) {
   const el = document.createElement('div');
   el.className = 'dmg-float';
   el.textContent = '-' + dmg;
+  el.style.left = (rect.left + rect.width / 2) + 'px';
+  el.style.top = rect.top + 'px';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1000);
+}
+function showHealFloat(uid, amount) {
+  const slot = document.querySelector(`.board-slot[data-uid="${uid}"]`);
+  if (!slot) return;
+  const rect = slot.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = 'dmg-float heal-float';
+  el.textContent = '+' + amount;
   el.style.left = (rect.left + rect.width / 2) + 'px';
   el.style.top = rect.top + 'px';
   document.body.appendChild(el);

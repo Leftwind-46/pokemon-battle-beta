@@ -2809,7 +2809,11 @@ const ATTACK_EFFECTS = {
   },
   "Flip a coin. If heads, your opponent's Active Pokémon is now Paralyzed.": ctx => { if (pocketFlipCoin(ctx) && ctx.defender) ctx.defender.status = 'paralyzed'; },
   "Flip a coin. If tails, this attack does nothing.": ctx => { if (!pocketFlipCoin(ctx)) ctx.rawDamage = 0; },
-  "Heal 30 damage from this Pokémon.": ctx => { ctx.attacker.curHp = Math.min(ctx.attacker.hp, ctx.attacker.curHp + 30); },
+  "Heal 30 damage from this Pokémon.": ctx => {
+    const before = ctx.attacker.curHp;
+    ctx.attacker.curHp = Math.min(ctx.attacker.hp, ctx.attacker.curHp + 30);
+    ctx.healUid = ctx.attacker.uid; ctx.healAmount = ctx.attacker.curHp - before;
+  },
   "Heal from this Pokémon the same amount of damage you did to your opponent's Active Pokémon.": ctx => { ctx.healMirror = true; },
   "If this Pokémon has at least 2 extra {W} Energy attached, this attack does 60 more damage.": ctx => {
     const have = ctx.attacker.energy.filter(e => e === 'Water').length;
@@ -2870,7 +2874,9 @@ const TRAINER_EFFECTS = {
   'P-A-001': (ctx, msg) => { // Potion：治療己方1隻20血
     const target = pocketFindOwn(ctx.side, msg.target);
     if (!target) return '請選擇要治療的寶可夢';
+    const before = target.curHp;
     target.curHp = Math.min(target.hp, target.curHp + 20);
+    ctx.healUid = target.uid; ctx.healAmount = target.curHp - before;
     return null;
   },
   'P-A-002': (ctx) => { ctx.side.retreatDiscountThisTurn = 1; return null; }, // X Speed
@@ -2892,7 +2898,9 @@ const TRAINER_EFFECTS = {
   'A1-219': (ctx, msg) => { // Erika：治療己方1隻草屬性50血
     const target = pocketFindOwn(ctx.side, msg.target);
     if (!target || !(target.types || []).includes('Grass')) return '目標必須是草屬性寶可夢';
+    const before = target.curHp;
     target.curHp = Math.min(target.hp, target.curHp + 50);
+    ctx.healUid = target.uid; ctx.healAmount = target.curHp - before;
     return null;
   },
   'A1-220': (ctx, msg) => { // Misty：選1隻水屬性，連續丟硬幣直到反面，正面各+1水能量
@@ -4709,8 +4717,10 @@ async function handleMessage(ws, msg) {
       // lastEvent，client端的擲硬幣動畫只有pocket_attack這條路徑會播放——結果是效果其實正確
       // 執行了（能量真的有附加），但畫面上完全看不到任何硬幣翻轉，玩家會誤以為卡片沒作用。
       // client的handlePocketEvent本來就是看lastEvent.coinFlips就播動畫，不看kind，這裡補上
-      // 就好，不用動到client。
-      if (ctx.coinFlips?.length) G.lastEvent = { seq: ++G.eventSeq, kind: 'trainer', coinFlips: ctx.coinFlips };
+      // 就好，不用動到client。同一批順便補上補血飄字（Potion/Erika）。
+      if (ctx.coinFlips?.length || ctx.healUid) {
+        G.lastEvent = { seq: ++G.eventSeq, kind: 'trainer', coinFlips: ctx.coinFlips || null, healUid: ctx.healUid || null, healAmount: ctx.healAmount || 0 };
+      }
       if (ctx.peekHand) send(ws, { type: 'pocket_peek', title: '對手手牌', cards: ctx.peekHand });
       if (ctx.peekDeck) send(ws, { type: 'pocket_peek', title: '牌庫頂3張', cards: ctx.peekDeck });
       pocketBroadcastState(pRoom);
@@ -4835,7 +4845,11 @@ async function handleMessage(ws, msg) {
         defender.curHp = Math.max(0, (defender.curHp ?? defender.hp ?? 0) - mainDamage);
       }
       if (ctx.selfDamage) attacker.curHp = Math.max(0, attacker.curHp - ctx.selfDamage);
-      if (ctx.healMirror) attacker.curHp = Math.min(attacker.hp, attacker.curHp + mainDamage);
+      if (ctx.healMirror && mainDamage > 0) {
+        const before = attacker.curHp;
+        attacker.curHp = Math.min(attacker.hp, attacker.curHp + mainDamage);
+        ctx.healUid = attacker.uid; ctx.healAmount = attacker.curHp - before;
+      }
 
       // 攻擊事件紀錄——client端用seq判斷是不是「新的」一次攻擊，藉此播放屬性特效/擲硬幣動畫/
       // 傷害飄字，seq在每次真正攻擊都遞增，state broadcast頻繁但這個值不常變，client不會重複播放
@@ -4844,6 +4858,7 @@ async function handleMessage(ws, msg) {
         seq: ++G.eventSeq, kind: 'attack', attackerRole: role, atkType: atk.type,
         attackerUid: attacker.uid, targetUid: defender.uid, damage: mainDamage,
         selfDamage: ctx.selfDamage || 0, coinFlips,
+        healUid: ctx.healUid || null, healAmount: ctx.healAmount || 0,
       };
 
       // 板凳濺傷造成的擊倒先處理（不會觸發forced_switch，因為主戰沒被打）
