@@ -40,7 +40,7 @@
   .collection-box h2 { margin-bottom:0.6rem; }
 
   /* ── 開包 ── */
-  .pack-box { background:#10132b; border:1px solid var(--border); border-radius:16px; padding:2rem; width:min(94vw,700px); text-align:center; }
+  .pack-box { background:#10132b; border:1px solid var(--border); border-radius:16px; padding:2rem; width:min(94vw,700px); max-height:88vh; overflow-y:auto; text-align:center; }
   .pack-reveal-row { display:flex; gap:0.8rem; justify-content:center; flex-wrap:wrap; margin:1.4rem 0; min-height:180px; }
   .pack-reveal-card { width:110px; opacity:0; transform:translateY(20px) scale(0.8); animation:packCardReveal 0.5s ease forwards; }
   .pack-reveal-card img { width:100%; border-radius:8px; box-shadow:0 6px 20px rgba(0,0,0,0.5); }
@@ -344,7 +344,8 @@
     </div>
     <div class="header-actions">
       <div class="coin-display" id="coin-display" style="display:none">🪙 <span id="coin-amount">0</span></div>
-      <button class="btn btn-secondary" id="open-pack-btn" onclick="openPackFlow()" style="display:none">🎴 開卡包</button>
+      <button class="btn btn-secondary" id="open-pack-btn" onclick="openPackFlow(1)" style="display:none">🎴 開卡包</button>
+      <button class="btn btn-secondary" id="open-pack-10-btn" onclick="openPackFlow(10)" style="display:none">🎴×10 十連抽</button>
       <button class="btn btn-secondary" onclick="openCollectionView()">📚 我的收藏</button>
       <div class="sub" id="pack-info">載入卡池中...</div>
     </div>
@@ -689,6 +690,7 @@ async function loadCollection() {
     } catch (e) { ownedCounts = {}; }
     await refreshCoinDisplay();
     document.getElementById('open-pack-btn').style.display = '';
+    document.getElementById('open-pack-10-btn').style.display = '';
     document.getElementById('coin-display').style.display = '';
   } else {
     let saved = JSON.parse(localStorage.getItem(GUEST_COLLECTION_KEY) || 'null');
@@ -859,20 +861,26 @@ function openCollectionView() {
 }
 function closeCollectionView() { document.getElementById('collection-overlay').style.display = 'none'; }
 
-/* ── 開卡包 ── */
-async function openPackFlow() {
+/* ── 開卡包（2026-08-06新增count參數支援10連抽，預設1）── */
+async function openPackFlow(count = 1) {
   if (!pocketIsLoggedIn()) return;
   document.getElementById('pack-overlay').style.display = 'flex';
-  document.getElementById('pack-title').textContent = '開卡包中...';
+  document.getElementById('pack-title').textContent = count > 1 ? '十連抽開包中...' : '開卡包中...';
   document.getElementById('pack-reveal-row').innerHTML = '';
   document.getElementById('pack-close-btn').style.display = 'none';
   try {
-    const data = await pocketApiFetch('/api/pocket/open-pack', { method: 'POST' });
-    document.getElementById('pack-title').textContent = data.usedFree ? `今日免費開包（${data.freePacksUsedToday}/5）` : '花費 50 金幣開包';
-    const row = document.getElementById('pack-reveal-row');
+    const data = await pocketApiFetch('/api/pocket/open-pack', { method: 'POST', body: JSON.stringify({ count }) });
     const HIGH = new Set(['Two Star', 'Three Star', 'Crown']);
+    const parts = [];
+    if (data.packsOpened < count) parts.push(`⚠️ 金幣不足，只開了 ${data.packsOpened}/${count} 包`);
+    else if (count > 1) parts.push(`十連抽完成（${data.freeUsedCount} 包免費 + ${data.paidUsedCount} 包付費）`);
+    else parts.push(data.usedFree ? `今日免費開包（${data.freePacksUsedToday}/5）` : '花費 50 金幣開包');
+    if (data.pityHits > 0) parts.push(`✨ 保底觸發 ${data.pityHits} 次`);
+    parts.push(`保底進度 ${data.pityCounter}/100`);
+    document.getElementById('pack-title').textContent = parts.join('　');
+    const row = document.getElementById('pack-reveal-row');
     row.innerHTML = data.cards.map((c, i) => `
-      <div class="pack-reveal-card ${HIGH.has(c.rarity) ? 'chase' : ''}" style="animation-delay:${i * 0.15}s">
+      <div class="pack-reveal-card ${HIGH.has(c.rarity) ? 'chase' : ''}" style="animation-delay:${Math.min(i, 20) * 0.08}s">
         <img src="${c.image}" alt="${c.name}">
         <div class="n">${c.name}${HIGH.has(c.rarity) ? ' ✨' : ''}</div>
       </div>`).join('');

@@ -3443,6 +3443,23 @@ function pocketRollPackCard() {
   if (Math.random() < 0.05) return pocketWeightedPick(POCKET_CHASE_CARDS, c => POCKET_CHASE_WEIGHT[c.rarity] || 1).id;
   return pocketWeightedPick(POCKET_PACK_POOL, c => POCKET_PACK_WEIGHT[c.rarity] || 20).id;
 }
+// 保底機制（2026-08-06新增）：連續100包都沒抽到2星以上卡片時，第100包強制保底出1張。
+// pityCounter是「距離上次抽到2星以上卡片，已經開了幾包」的計數，存在pets.pocket_pity_counter，
+// 每包結算一次：這包本來就抽到2星以上就直接歸零；沒抽到但計數滿100就強制把其中一個卡槽換成
+// 保底卡（歸零）；兩者都沒發生就正常+1往下累積。回傳新的counter讓呼叫端接力往下傳（同一次
+// 開包請求可能連續開好幾包，例如10連抽），不直接寫DB——DB只在整個請求結束時寫一次。
+function pocketRollPackWithPity(pityCounter) {
+  const cardIds = Array.from({ length: 5 }, pocketRollPackCard);
+  const hasHighRarity = cardIds.some(id => POCKET_HIGH_RARITIES.has(POCKET_CARDS_BY_ID[id]?.rarity));
+  let counter = pityCounter + 1;
+  let pityTriggered = false;
+  if (!hasHighRarity && counter >= 100) {
+    cardIds[cardIds.length - 1] = pocketWeightedPick(POCKET_CHASE_CARDS, c => POCKET_CHASE_WEIGHT[c.rarity] || 1).id;
+    pityTriggered = true;
+  }
+  if (hasHighRarity || pityTriggered) counter = 0;
+  return { cardIds, pityTriggered, counter };
+}
 
 // 7張Promo-A通用卡不用抽，所有玩家本來就直接擁有——用「讀收藏時lazy補發」而不是只在
 // 註冊時發一次，這樣既有帳號（在這個機制上線前就註冊的）下次讀收藏也會自動補到，不用
@@ -3471,31 +3488,47 @@ app.get('/api/pocket/collection', requireAuth, async (req, res) => {
 
 app.post('/api/pocket/open-pack', requireAuth, async (req, res) => {
   const PACK_COST = 50;
+  // 2026-08-06新增10連抽：目前只開放1或10兩種數量，其餘一律當成單抽處理，避免client亂傳
+  // 巨量count對DB造成過大負擔（例如count=99999）。
+  const count = req.body?.count === 10 ? 10 : 1;
   try {
     // 金幣/每日免費額度都活在pets這張表——如果玩家還沒去「我的寶可夢」選過初始寶可夢，
     // 根本沒有pets列，下面的UPDATE會直接match 0 rows，錯誤訊息會被誤判成「金幣不足」
     // （其實是完全不相關的兩件事）。先擋在這裡給明確提示，不要讓玩家看著「金幣不足」卻
     // 摸不著頭緒（他們可能連coins是什麼都還沒看過）。
-    const { rows: petCheck } = await pool.query('SELECT 1 FROM pets WHERE user_id = $1', [req.user.id]);
+    const { rows: petCheck } = await pool.query('SELECT pocket_pity_counter FROM pets WHERE user_id = $1', [req.user.id]);
     if (!petCheck.length) return res.status(400).json({ error: 'no_pet', message: '請先到「我的寶可夢」選一隻起始寶可夢，開包用的金幣/每日免費額度都是共用同一套系統' });
-    // 先試著扣「今日免費額度」（atomic：跨日自動歸零重算，見pocket_free_packs_date欄位註解）——
-    // 成功就是免費包，rowCount=0代表今天5包免費額度已經用完，改扣金幣
-    const { rowCount: freeHit } = await pool.query(
-      `UPDATE pets SET
-         pocket_free_packs_used = CASE WHEN pocket_free_packs_date IS NULL OR pocket_free_packs_date < CURRENT_DATE THEN 1 ELSE pocket_free_packs_used + 1 END,
-         pocket_free_packs_date = CURRENT_DATE
-       WHERE user_id = $1
-         AND (pocket_free_packs_date IS NULL OR pocket_free_packs_date < CURRENT_DATE OR pocket_free_packs_used < 5)`,
-      [req.user.id]
-    );
-    let usedFree = freeHit > 0;
-    if (!usedFree) {
-      const { rowCount: paidHit } = await pool.query(
-        'UPDATE pets SET coins = coins - $1 WHERE user_id = $2 AND coins >= $1', [PACK_COST, req.user.id]
+    let pity = petCheck[0].pocket_pity_counter || 0;
+    const pulledIds = [];
+    let freeUsedCount = 0, paidUsedCount = 0, pityHits = 0;
+    // 10連抽逐包結算（沿用單抽同一套atomic免費額度/扣款邏輯），金幣不夠時提早停止而不是整批擋下——
+    // 玩家已經付出的免費額度/金幣一律照樣發卡，只是實際開包數會少於要求的10包，client端要處理這個落差
+    for (let i = 0; i < count; i++) {
+      const { rowCount: freeHit } = await pool.query(
+        `UPDATE pets SET
+           pocket_free_packs_used = CASE WHEN pocket_free_packs_date IS NULL OR pocket_free_packs_date < CURRENT_DATE THEN 1 ELSE pocket_free_packs_used + 1 END,
+           pocket_free_packs_date = CURRENT_DATE
+         WHERE user_id = $1
+           AND (pocket_free_packs_date IS NULL OR pocket_free_packs_date < CURRENT_DATE OR pocket_free_packs_used < 5)`,
+        [req.user.id]
       );
-      if (!paidHit) return res.status(400).json({ error: 'insufficient_coins', message: '今日免費開包額度已用完，金幣也不足50' });
+      if (freeHit > 0) {
+        freeUsedCount++;
+      } else {
+        const { rowCount: paidHit } = await pool.query(
+          'UPDATE pets SET coins = coins - $1 WHERE user_id = $2 AND coins >= $1', [PACK_COST, req.user.id]
+        );
+        if (!paidHit) {
+          if (i === 0) return res.status(400).json({ error: 'insufficient_coins', message: '今日免費開包額度已用完，金幣也不足50' });
+          break; // 至少開成功了1包，把已經拿到的卡正常回傳，讓client顯示「只開了N包」
+        }
+        paidUsedCount++;
+      }
+      const { cardIds, pityTriggered, counter } = pocketRollPackWithPity(pity);
+      pity = counter;
+      if (pityTriggered) pityHits++;
+      pulledIds.push(...cardIds);
     }
-    const pulledIds = Array.from({ length: 5 }, pocketRollPackCard);
     for (const cardId of pulledIds) {
       await pool.query(
         `INSERT INTO pocket_collection (user_id, card_id, count) VALUES ($1, $2, 1)
@@ -3503,10 +3536,13 @@ app.post('/api/pocket/open-pack', requireAuth, async (req, res) => {
         [req.user.id, cardId]
       );
     }
+    await pool.query('UPDATE pets SET pocket_pity_counter = $1 WHERE user_id = $2', [pity, req.user.id]);
     const { rows } = await pool.query('SELECT coins, pocket_free_packs_used FROM pets WHERE user_id = $1', [req.user.id]);
     res.json({
       cards: pulledIds.map(id => POCKET_CARDS_BY_ID[id]),
-      usedFree, coins: rows[0]?.coins, freePacksUsedToday: rows[0]?.pocket_free_packs_used,
+      packsOpened: freeUsedCount + paidUsedCount, usedFree: freeUsedCount > 0, freeUsedCount, paidUsedCount,
+      pityHits, pityCounter: pity,
+      coins: rows[0]?.coins, freePacksUsedToday: rows[0]?.pocket_free_packs_used,
     });
   } catch (e) {
     console.error('pocket open-pack error:', e.message);
@@ -6064,6 +6100,8 @@ async function initDB() {
     // CURRENT_DATE比對，不要把DATE讀回JS再轉字串比較」的手法（那邊的註解記錄了時區bug教訓）
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS pocket_free_packs_date DATE`);
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS pocket_free_packs_used INTEGER NOT NULL DEFAULT 0`);
+    // 保底計數（見pocketRollPackWithPity）：連續開幾包沒抽到2星以上，滿100強制觸發保底
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS pocket_pity_counter INTEGER NOT NULL DEFAULT 0`);
     console.log('PostgreSQL connected');
   } catch (e) {
     console.warn('PostgreSQL not available, running without DB:', e.message);
