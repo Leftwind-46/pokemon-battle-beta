@@ -2759,6 +2759,10 @@ function pocketViewFor(G, role) {
       energyAttachedThisTurn: G[role].energyAttachedThisTurn, retreatedThisTurn: G[role].retreatedThisTurn,
       energyTypes: G[role].energyTypes, supporterUsedThisTurn: G[role].supporterUsedThisTurn,
       abilitiesUsedThisTurn: G[role].abilitiesUsedThisTurn,
+      // 2026-08-06修正：X Speed把retreatDiscountThisTurn設成1，server端算真正的撤退成本時
+      // 有正確套用折扣，但這個欄位從來沒有被送進view——client端讀到的永遠是undefined（當0用），
+      // 導致畫面上顯示/擋下的撤退成本沒扣到這1點折扣，玩家會覺得「明明用了X Speed，還是撤退不了」。
+      retreatDiscountThisTurn: G[role].retreatDiscountThisTurn || 0,
     },
     opponent: { ...pub(G[op]), handCount: G[op].hand.length },
   };
@@ -2902,10 +2906,14 @@ const TRAINER_EFFECTS = {
   'P-A-003': (ctx) => { ctx.peekHand = ctx.oppSide.hand; return null; }, // Hand Scope
   'P-A-004': (ctx) => { ctx.peekDeck = ctx.side.deck.slice(0, 3); return null; }, // Pokédex
   'P-A-005': (ctx) => { // Poké Ball
+    // 2026-08-06修正：原本牌庫沒有基礎寶可夢時直接擋下不給打（回傳錯誤訊息，卡片不會被消耗）。
+    // 使用者要求改成「即便沒有基礎寶可夢也可以用」——卡片照樣打出、照樣進棄牌堆，只是這次抽空，
+    // 不算不合法操作。這裡不return錯誤字串，讓外層handler照常把卡片從手牌移到棄牌堆。
     const idxs = ctx.side.deck.map((c, i) => (c.category === 'Pokemon' && c.stage === 'Basic') ? i : -1).filter(i => i >= 0);
-    if (!idxs.length) return '牌庫中沒有基礎寶可夢';
-    const i = idxs[Math.floor(Math.random() * idxs.length)];
-    ctx.side.hand.push(ctx.side.deck.splice(i, 1)[0]);
+    if (idxs.length) {
+      const i = idxs[Math.floor(Math.random() * idxs.length)];
+      ctx.side.hand.push(ctx.side.deck.splice(i, 1)[0]);
+    }
     return null;
   },
   'P-A-006': (ctx) => { // Red Card：對手棄手牌洗回牌庫抽3
@@ -3419,15 +3427,33 @@ function pocketWeightedPick(pool, weightFn) {
   }
   return pool[pool.length - 1];
 }
+// Promo-A（P-A-xxx）這7張是所有玩家本來就直接擁有的通用卡（見POCKET_PROMO_A_IDS/
+// pocketEnsurePromoACards），不該出現在開包池——抽到只會是「浪費一包」的體驗，玩家早就有了。
+const POCKET_PACK_POOL = POCKET_CARDS_BASE.filter(c => !c.id.startsWith('P-A-'));
 // 每張卡獨立骰：95%從基礎卡池（依鑽石數加權，普卡機率高）、5%從2星以上「追逐卡池」抽
 // （追逐卡池內部再依星等加權，Crown最稀有）。5張/包，平均每包0.25張追逐卡，約每4包抽到1張。
 function pocketRollPackCard() {
   if (Math.random() < 0.05) return pocketWeightedPick(POCKET_CHASE_CARDS, c => POCKET_CHASE_WEIGHT[c.rarity] || 1).id;
-  return pocketWeightedPick(POCKET_CARDS_BASE, c => POCKET_PACK_WEIGHT[c.rarity] || 20).id;
+  return pocketWeightedPick(POCKET_PACK_POOL, c => POCKET_PACK_WEIGHT[c.rarity] || 20).id;
+}
+
+// 7張Promo-A通用卡不用抽，所有玩家本來就直接擁有——用「讀收藏時lazy補發」而不是只在
+// 註冊時發一次，這樣既有帳號（在這個機制上線前就註冊的）下次讀收藏也會自動補到，不用
+// 額外寫一次性migration去回填舊帳號。ON CONFLICT DO NOTHING讓這個函式可以放心重複呼叫。
+const POCKET_PROMO_A_IDS = ['P-A-001', 'P-A-002', 'P-A-003', 'P-A-004', 'P-A-005', 'P-A-006', 'P-A-007'];
+async function pocketEnsurePromoACards(userId) {
+  for (const cardId of POCKET_PROMO_A_IDS) {
+    await pool.query(
+      `INSERT INTO pocket_collection (user_id, card_id, count) VALUES ($1, $2, 2)
+       ON CONFLICT (user_id, card_id) DO UPDATE SET count = GREATEST(pocket_collection.count, 2)`,
+      [userId, cardId]
+    );
+  }
 }
 
 app.get('/api/pocket/collection', requireAuth, async (req, res) => {
   try {
+    await pocketEnsurePromoACards(req.user.id);
     const { rows } = await pool.query('SELECT card_id, count FROM pocket_collection WHERE user_id = $1 AND count > 0', [req.user.id]);
     res.json({ collection: rows.map(r => ({ cardId: r.card_id, count: r.count })) });
   } catch (e) {

@@ -144,7 +144,7 @@
     background:rgba(255,255,255,0.02); border:1px dashed rgba(255,255,255,0.15); }
   .zone-tag { font-size:0.6rem; color:var(--muted); letter-spacing:0.08em; font-weight:700; }
   .active-zone .zone-tag { color:#f8d030; }
-  .mid-area { display:flex; align-items:center; justify-content:center; gap:1rem; padding:0.25rem; min-height:30px; }
+  .mid-area { display:flex; align-items:center; justify-content:center; gap:1.2rem; padding:0.3rem; min-height:58px; flex-wrap:wrap; }
   .energy-zone { width:34px; height:34px; border-radius:50%; border:2px dashed var(--border); display:flex; align-items:center; justify-content:center; font-size:0.7rem; cursor:pointer; }
   .energy-zone.has-energy { border-style:solid; cursor:pointer; }
   .energy-zone.picking { box-shadow:0 0 0 3px rgba(248,208,48,0.5); }
@@ -219,6 +219,8 @@
     font-weight:800; border-radius:999px; min-width:18px; height:18px; display:flex; align-items:center; justify-content:center; padding:0 4px; }
   .pile-label { font-size:0.6rem; color:var(--muted); text-align:center; margin-top:2px; }
   .pile-wrap { display:flex; flex-direction:column; align-items:center; gap:0.5rem; }
+  /* 牌庫+棄牌堆原本左右各站一側夾住戰場，改成同一側上下疊放（牌庫在上、棄牌堆在下） */
+  .pile-column { display:flex; flex-direction:column; align-items:center; gap:0.7rem; }
 
   /* ── 手牌扇形排列 + 可拖曳橫向捲動 ── */
   .hand-fan-wrap { overflow-x:auto; overflow-y:visible; padding:1.2rem 1rem 0.4rem; cursor:grab; scrollbar-width:none; }
@@ -233,23 +235,34 @@
   .opp-hand-fan-wrap { padding:0.3rem 1rem 0.1rem; }
   .opp-hand-fan .board-slot:hover { transform:none !important; }
   .opp-hand-fan .card-back { width:42px; }
-  .card-back { width:76px; aspect-ratio:5/7; border-radius:8px; background:
-    repeating-linear-gradient(135deg, #1b2050, #1b2050 6px, #232a5c 6px, #232a5c 12px);
-    border:2px solid rgba(255,255,255,0.15); display:flex; align-items:center; justify-content:center; font-size:1.4rem; }
+  /* 2026-08-06卡背升級——原本只是簡單斜條紋，改成「畫框+內圈金線+中央發光徽章」的集換式卡牌
+     質感：深藍放射狀底色模擬卡紙材質、外圈金色細框、內縮一圈虛線邊界、中央一顆帶光暈的星形
+     徽章。純CSS自製圖案（漸層+box-shadow+一個Unicode符號），不是重製任何官方卡背設計。 */
+  .card-back { width:76px; aspect-ratio:5/7; border-radius:9px; position:relative; overflow:hidden;
+    background:radial-gradient(circle at 50% 38%, #2c3378 0%, #171b48 55%, #0a0c28 100%);
+    border:2px solid #f8d030; box-shadow:0 0 0 1px rgba(0,0,0,0.4), inset 0 0 14px rgba(0,0,0,0.55), 0 3px 8px rgba(0,0,0,0.4);
+    display:flex; align-items:center; justify-content:center; }
+  .card-back::before { content:''; position:absolute; inset:5px; border-radius:6px; border:1px dashed rgba(248,208,48,0.4); }
+  .card-back::after { content:'✦'; font-size:1.5rem; color:#f8d030; text-shadow:0 0 10px rgba(248,208,48,0.85), 0 0 2px #fff; }
+  .opp-hand-fan .card-back::after { font-size:0.9rem; }
 
   /* ── 能量區固定在右下角，可拖曳到寶可夢身上附加 ── */
-  /* 2026-08-05從右下角移到戰場左側——原本擠在螢幕右下角角落，容易被忽略/找不到 */
-  .energy-zone-dock { position:fixed; left:1rem; top:50%; transform:translateY(-50%); z-index:55; display:flex; flex-direction:column; align-items:center; gap:0.2rem; }
+  /* 2026-08-06改回戰場正中央——先前試過右下角/左側都被使用者覺得不好找。改成放進
+     .mid-area（本來就是雙方戰場中間那條分隔帶）的正常文件流，不再用position:fixed
+     釘死在viewport座標，這樣不管手牌高度等其他內容怎麼變，能量區永遠準確卡在兩個戰場正中間，
+     不會跟其他東西的絕對座標打架 */
+  .energy-zone-dock { display:flex; flex-direction:column; align-items:center; gap:0.2rem; }
   .energy-zone-dock .energy-zone { width:52px; height:52px; font-size:0.65rem; }
+  .energy-zone-dock .energy-zone svg { width:56%; height:56%; filter:drop-shadow(0 1px 1px rgba(0,0,0,0.6)); }
   .energy-zone-dock .energy-zone.has-energy { cursor:grab; }
   .energy-zone-dock .energy-zone.has-energy:active { cursor:grabbing; }
   .energy-zone-label { font-size:0.6rem; color:var(--muted); }
 
-  /* ── PTCG風格能量圖示：色底圓圈+屬性符號，取代原本純色小圓點 ── */
-  .energy-icon { width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center;
-    font-size:0.72rem; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.35), 0 1px 2px rgba(0,0,0,0.4); }
-  .energy-icon.mini { width:14px; height:14px; font-size:0.55rem; }
-  .attack-cost .energy-icon { width:16px; height:16px; font-size:0.6rem; }
+  /* ── 能量圖示：漸層發光圓底+原創SVG線稿符號，取代原本純色小圓點/emoji ── */
+  .energy-icon { width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .energy-icon svg { width:60%; height:60%; filter:drop-shadow(0 1px 1px rgba(0,0,0,0.6)); }
+  .energy-icon.mini { width:14px; height:14px; }
+  .attack-cost .energy-icon { width:16px; height:16px; }
 
   /* ── 卡牌詳細資訊側欄 ── */
   .card-detail-panel { position:fixed; top:0; right:-340px; width:320px; height:100%; background:#0c0f24;
@@ -441,9 +454,15 @@
   <div class="arena-zone opp-zone">
     <div class="hand-fan-wrap opp-hand-fan-wrap"><div class="hand-fan opp-hand-fan" id="opp-hand-fan"></div></div>
     <div class="zone-row opp-row">
-      <div class="pile-wrap">
-        <div class="pile-stack deck-pile" id="opp-deck-pile" title="對手牌庫"><div class="pile-card"></div><div class="pile-card">🂠</div><div class="pile-count" id="opp-deck-count">0</div></div>
-        <div class="pile-label">牌庫</div>
+      <div class="pile-column">
+        <div class="pile-wrap">
+          <div class="pile-stack deck-pile" id="opp-deck-pile" title="對手牌庫"><div class="pile-card"></div><div class="pile-card">🂠</div><div class="pile-count" id="opp-deck-count">0</div></div>
+          <div class="pile-label">牌庫</div>
+        </div>
+        <div class="pile-wrap">
+          <div class="pile-stack discard-pile" id="opp-discard-pile" title="點擊查看對手棄牌堆"><div class="pile-card"></div><div class="pile-card">🗑️</div><div class="pile-count" id="opp-discard-count">0</div></div>
+          <div class="pile-label">棄牌堆</div>
+        </div>
       </div>
       <div class="zone-battlefield">
         <div class="field-row">
@@ -451,32 +470,34 @@
           <div class="active-zone"><div class="zone-tag">主戰</div><div class="active-row" id="opp-active"></div></div>
         </div>
       </div>
-      <div class="pile-wrap">
-        <div class="pile-stack discard-pile" id="opp-discard-pile" title="點擊查看對手棄牌堆"><div class="pile-card"></div><div class="pile-card">🗑️</div><div class="pile-count" id="opp-discard-count">0</div></div>
-        <div class="pile-label">棄牌堆</div>
-      </div>
     </div>
   </div>
 
   <div class="mid-area">
+    <div class="energy-zone-dock">
+      <div class="energy-zone" id="energy-zone-chip"></div>
+      <div class="energy-zone-label">能量區</div>
+    </div>
     <div class="action-hint" id="action-hint"></div>
   </div>
 
   <div class="arena-zone my-zone">
     <div class="zone-row my-row">
-      <div class="pile-wrap">
-        <div class="pile-stack deck-pile" id="my-deck-pile" title="我的牌庫"><div class="pile-card"></div><div class="pile-card">🂠</div><div class="pile-count" id="my-deck-count">0</div></div>
-        <div class="pile-label">牌庫</div>
+      <div class="pile-column">
+        <div class="pile-wrap">
+          <div class="pile-stack deck-pile" id="my-deck-pile" title="我的牌庫"><div class="pile-card"></div><div class="pile-card">🂠</div><div class="pile-count" id="my-deck-count">0</div></div>
+          <div class="pile-label">牌庫</div>
+        </div>
+        <div class="pile-wrap">
+          <div class="pile-stack discard-pile" id="my-discard-pile" title="點擊查看我的棄牌堆"><div class="pile-card"></div><div class="pile-card">🗑️</div><div class="pile-count" id="my-discard-count">0</div></div>
+          <div class="pile-label">棄牌堆</div>
+        </div>
       </div>
       <div class="zone-battlefield">
         <div class="field-row">
           <div class="active-zone"><div class="zone-tag">主戰</div><div class="active-row" id="my-active"></div></div>
           <div class="bench-zone"><div class="zone-tag">板凳</div><div class="bench-row" id="my-bench"></div></div>
         </div>
-      </div>
-      <div class="pile-wrap">
-        <div class="pile-stack discard-pile" id="my-discard-pile" title="點擊查看我的棄牌堆"><div class="pile-card"></div><div class="pile-card">🗑️</div><div class="pile-count" id="my-discard-count">0</div></div>
-        <div class="pile-label">棄牌堆</div>
       </div>
     </div>
     <div class="action-bar">
@@ -487,11 +508,6 @@
       </div>
     </div>
     <div class="hand-fan-wrap" id="hand-fan-wrap"><div class="hand-fan hand-row" id="hand-row"></div></div>
-  </div>
-
-  <div class="energy-zone-dock">
-    <div class="energy-zone" id="energy-zone-chip"></div>
-    <div class="energy-zone-label">能量區</div>
   </div>
 
   <div class="card-detail-panel" id="card-detail-panel">
@@ -578,17 +594,32 @@ const TYPE_ZH = {
   Fighting:'格鬥', Darkness:'惡', Dragon:'龍', Colorless:'無色', Grass:'草'
 };
 // 自製能量圖示（不是官方PTCG圖檔——那是任天堂/Creatures的版權美術，這個專案一貫不直接使用
-// 官方遊戲素材，比照8-bit音效用合成取代真實音檔的原則），色底圓圈+emoji符號，看得出屬性就好
-const TYPE_ICON = {
-  Fire:'🔥', Water:'💧', Lightning:'⚡', Psychic:'🔮',
-  Fighting:'👊', Darkness:'🌑', Dragon:'🐉', Colorless:'⭐', Grass:'🌿'
+// 官方遊戲素材，比照8-bit音效用合成取代真實音檔的原則）。2026-08-05：原本用emoji疊在色底圓圈上，
+// 使用者反應「emoji有點醜」——emoji本身自帶多色、跟色底圓圈的顏色打架。改成純白色單色SVG線稿
+// 圖形（每個屬性一個原創幾何符號，不是描官方能量符號），圓圈也改成放射狀漸層+外發光，
+// 看起來更像「發光的能量結晶」而不是貼紙。
+const TYPE_SVG = {
+  Fire: 'M12 22c4.4 0 8-3.4 8-7.6 0-3-1.8-5.4-3.2-7.4-.4 1.8-1.4 3-2.6 3-.2-3-1-5.4-3-7C9.4 5 8 8 8 11c0 1 .4 1.8 1 2.4-2-.6-3-2.4-3-4.4C4.8 11 4 12.8 4 14.4 4 18.6 7.6 22 12 22z',
+  Water: 'M12 2C9 7 5 11.4 5 15.5 5 19.6 8.1 23 12 23s7-3.4 7-7.5C19 11.4 15 7 12 2z',
+  Lightning: 'M13 2 5 14h5l-1.5 8L19 10h-5z',
+  Psychic: 'M12 2 18 9 12 22 6 9z',
+  Fighting: 'M12 2 20 5v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z',
+  Darkness: 'M12.3 3a8 8 0 1 0 8.7 8.7A6.5 6.5 0 0 1 12.3 3z',
+  Dragon: 'M4 20 12 2l2 8 6-4-4 10 4 4-8-2-2 6-2-6-8 2z',
+  Colorless: 'M12 2 14.9 9.1 22 9.9 16.5 14.6 18.2 22 12 18.1 5.8 22 7.5 14.6 2 9.9 9.1 9.1z',
+  Grass: 'M20 4C10 4 4 12 4 20c8 0 16-6 16-16-2 6-6 10-11 12 4-3 8-8 11-12z'
 };
 function energyIconHtml(type, mini) {
-  return `<span class="energy-icon${mini ? ' mini' : ''}" style="background:${TYPE_COLOR[type] || '#888'}" title="${TYPE_ZH[type] || type}">${TYPE_ICON[type] || '?'}</span>`;
+  const color = TYPE_COLOR[type] || '#888';
+  const path = TYPE_SVG[type] || TYPE_SVG.Colorless;
+  const bg = `radial-gradient(circle at 34% 30%, rgba(255,255,255,0.6), ${color} 68%)`;
+  return `<span class="energy-icon${mini ? ' mini' : ''}" style="background:${bg}; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.4), 0 0 6px 1px ${color}99, 0 1px 2px rgba(0,0,0,0.4)" title="${TYPE_ZH[type] || type}"><svg viewBox="0 0 24 24" fill="#fff"><path d="${path}"/></svg></span>`;
 }
 const DECK_SIZE = 20;
 const MAX_COPIES = 2;
 const MAX_SAVED_DECKS = 20;
+// 7張Promo-A通用卡本來就直接擁有，不進開包池——server端pocketEnsurePromoACards同一份清單
+const POCKET_PROMO_A_IDS = ['P-A-001', 'P-A-002', 'P-A-003', 'P-A-004', 'P-A-005', 'P-A-006', 'P-A-007'];
 
 // 2026-08-05抽卡包收藏系統：組牌不再是「全卡池自由選」，改成只能用擁有的卡（ownedCounts）。
 // 已登入玩家的收藏/牌組存在DB（沿用主站的pvpToken，同一組帳號系統，不是Pocket另外登入）；
@@ -649,8 +680,13 @@ async function loadCollection() {
     let saved = JSON.parse(localStorage.getItem(GUEST_COLLECTION_KEY) || 'null');
     if (!saved) {
       saved = {};
+      // 7張Promo-A通用卡（Potion/X Speed/Hand Scope/Pokédex/Poké Ball/Red Card/
+      // Professor's Research）本來就直接擁有，不算在隨機100張裡（跟登入玩家pocketEnsurePromoACards
+      // 保持一致的「保底擁有，不用抽」邏輯，避免訪客隨機到重複的Promo-A卻抽不到其他新卡）
+      POCKET_PROMO_A_IDS.forEach(id => { if (cardById[id]) saved[id] = 2; });
+      const randomPool = ALL_CARDS.filter(c => !POCKET_PROMO_A_IDS.includes(c.id));
       for (let i = 0; i < 100; i++) {
-        const c = ALL_CARDS[Math.floor(Math.random() * ALL_CARDS.length)];
+        const c = randomPool[Math.floor(Math.random() * randomPool.length)];
         saved[c.id] = (saved[c.id] || 0) + 1;
       }
       localStorage.setItem(GUEST_COLLECTION_KEY, JSON.stringify(saved));
@@ -1129,7 +1165,7 @@ function renderBoard() {
 
   // 對手手牌視覺化：不知道內容，用蓋牌背面呈現張數(扇形排列)——只露出張數不露內容
   const oppHandFan = document.getElementById('opp-hand-fan');
-  oppHandFan.innerHTML = Array.from({ length: opponent.handCount || 0 }, () => '<div class="card-back">🎴</div>').join('');
+  oppHandFan.innerHTML = Array.from({ length: opponent.handCount || 0 }, () => '<div class="card-back"></div>').join('');
   applyFanLayout(oppHandFan);
 
   const oppActiveEl = document.getElementById('opp-active');
@@ -1157,8 +1193,9 @@ function renderBoard() {
   const chip = document.getElementById('energy-zone-chip');
   if (you.pendingEnergy && !you.energyAttachedThisTurn && myTurn) {
     chip.className = `energy-zone has-energy ${selectedAction?.mode === 'attach' ? 'picking' : ''}`;
-    chip.style.background = TYPE_COLOR[you.pendingEnergy] || '#888';
-    chip.textContent = TYPE_ICON[you.pendingEnergy] || '?';
+    const pendColor = TYPE_COLOR[you.pendingEnergy] || '#888';
+    chip.style.background = `radial-gradient(circle at 34% 30%, rgba(255,255,255,0.6), ${pendColor} 68%)`;
+    chip.innerHTML = `<svg viewBox="0 0 24 24" fill="#fff"><path d="${TYPE_SVG[you.pendingEnergy] || TYPE_SVG.Colorless}"/></svg>`;
     chip.draggable = true;
     chip.title = `點擊或拖曳到寶可夢身上，附加 ${TYPE_ZH[you.pendingEnergy] || you.pendingEnergy} 能量`;
     chip.onclick = () => {
