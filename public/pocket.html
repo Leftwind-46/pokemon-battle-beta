@@ -22,6 +22,31 @@
   header.top { padding:1rem 1.4rem; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
   header.top h1 { font-size:1.15rem; font-weight:800; background:linear-gradient(135deg,#f8d030 0%,#f05030 50%,#6890f0 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
   header.top .sub { color:var(--muted); font-size:0.8rem; }
+  .header-actions { display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap; }
+  .coin-display { background:var(--surface); border:1px solid rgba(248,208,48,0.4); border-radius:999px; padding:0.4rem 0.9rem; font-weight:700; color:#f8d030; }
+
+  /* ── 已存牌組列（新建/切換/上限20） ── */
+  .deck-list-bar { display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap; padding:0.6rem 1.4rem; border-bottom:1px solid var(--border); }
+  .deck-list-label { color:var(--muted); font-size:0.8rem; flex-shrink:0; }
+  .deck-list-chips { display:flex; gap:0.4rem; flex-wrap:wrap; flex:1; }
+  .deck-chip { background:var(--surface); border:1px solid var(--border); border-radius:999px; padding:0.3rem 0.8rem; font-size:0.8rem; cursor:pointer; white-space:nowrap; }
+  .deck-chip:hover { background:rgba(255,255,255,0.1); }
+  .deck-chip.active { background:rgba(248,208,48,0.15); border-color:#f8d030; color:#f8d030; }
+  .deck-name-input { width:100%; background:var(--surface); border:1px solid var(--border); color:var(--text); padding:0.5rem 0.8rem; border-radius:8px; margin-bottom:0.6rem; font-size:0.9rem; }
+
+  /* ── 收藏頁 ── */
+  .collection-overlay, .pack-overlay { position:fixed; inset:0; z-index:92; background:rgba(0,0,0,0.75); display:flex; align-items:center; justify-content:center; padding:1.5rem; }
+  .collection-box { background:#10132b; border:1px solid var(--border); border-radius:16px; padding:1.6rem; width:min(94vw,900px); max-height:88vh; overflow-y:auto; position:relative; }
+  .collection-box h2 { margin-bottom:0.6rem; }
+
+  /* ── 開包 ── */
+  .pack-box { background:#10132b; border:1px solid var(--border); border-radius:16px; padding:2rem; width:min(94vw,700px); text-align:center; }
+  .pack-reveal-row { display:flex; gap:0.8rem; justify-content:center; flex-wrap:wrap; margin:1.4rem 0; min-height:180px; }
+  .pack-reveal-card { width:110px; opacity:0; transform:translateY(20px) scale(0.8); animation:packCardReveal 0.5s ease forwards; }
+  .pack-reveal-card img { width:100%; border-radius:8px; box-shadow:0 6px 20px rgba(0,0,0,0.5); }
+  .pack-reveal-card.chase img { box-shadow:0 0 24px rgba(248,208,48,0.7); }
+  .pack-reveal-card .n { font-size:0.72rem; margin-top:0.3rem; }
+  @keyframes packCardReveal { 0% { opacity:0; transform:translateY(20px) scale(0.8); } 100% { opacity:1; transform:translateY(0) scale(1); } }
 
   .layout { flex:1; display:grid; grid-template-columns:1fr 340px; gap:0; min-height:0; }
   @media (max-width: 880px) { .layout { grid-template-columns:1fr; } }
@@ -302,10 +327,21 @@
   <header class="top">
     <div>
       <h1>Pokémon TCG Pocket 對戰</h1>
-      <div class="sub">組牌 — 精選 A1 創世紀卡池</div>
+      <div class="sub">組牌 — 只能用收藏到的卡牌</div>
     </div>
-    <div class="sub" id="pack-info">載入卡池中...</div>
+    <div class="header-actions">
+      <div class="coin-display" id="coin-display" style="display:none">🪙 <span id="coin-amount">0</span></div>
+      <button class="btn btn-secondary" id="open-pack-btn" onclick="openPackFlow()" style="display:none">🎴 開卡包</button>
+      <button class="btn btn-secondary" onclick="openCollectionView()">📚 我的收藏</button>
+      <div class="sub" id="pack-info">載入卡池中...</div>
+    </div>
   </header>
+
+  <div class="deck-list-bar">
+    <div class="deck-list-label">已存牌組（<span id="deck-list-count">0</span>/20）：</div>
+    <div class="deck-list-chips" id="deck-list-chips"></div>
+    <button class="btn btn-secondary" onclick="startNewDeck()">➕ 新牌組</button>
+  </div>
 
   <div class="layout">
     <div class="pool">
@@ -325,15 +361,34 @@
     </div>
 
     <aside class="deck-panel">
+      <input id="deck-name-input" class="deck-name-input" placeholder="牌組名稱" maxlength="30">
       <div class="deck-count">牌組 <span id="deck-total">0</span> / 20</div>
       <div class="deck-warn" id="deck-warn"></div>
       <div class="deck-list" id="deck-list"></div>
       <div class="btn-row">
         <button class="btn btn-secondary" onclick="clearDeck()">清空</button>
-        <button class="btn btn-primary" id="save-btn" onclick="saveDeck()">儲存牌組</button>
+        <button class="btn btn-primary" id="save-btn" onclick="saveDeck()">💾 儲存牌組</button>
       </div>
+      <button class="btn btn-secondary" id="delete-deck-btn" onclick="deleteCurrentDeck()" style="display:none;width:100%">🗑️ 刪除這副牌組</button>
       <button class="btn btn-secondary" id="goto-lobby-btn" onclick="openLobby()" disabled style="width:100%">🔗 前往連線對戰</button>
     </aside>
+  </div>
+
+  <div class="collection-overlay" id="collection-overlay" style="display:none">
+    <div class="collection-box">
+      <button class="lobby-close" onclick="closeCollectionView()">✕</button>
+      <h2>我的收藏</h2>
+      <div class="pool-count" id="collection-count"></div>
+      <div class="grid" id="collection-grid"></div>
+    </div>
+  </div>
+
+  <div class="pack-overlay" id="pack-overlay" style="display:none">
+    <div class="pack-box">
+      <h2 id="pack-title">開卡包中...</h2>
+      <div class="pack-reveal-row" id="pack-reveal-row"></div>
+      <button class="btn btn-primary" id="pack-close-btn" onclick="closePackFlow()" style="display:none">關閉</button>
+    </div>
   </div>
 </div>
 
@@ -531,21 +586,37 @@ const TYPE_ICON = {
 function energyIconHtml(type, mini) {
   return `<span class="energy-icon${mini ? ' mini' : ''}" style="background:${TYPE_COLOR[type] || '#888'}" title="${TYPE_ZH[type] || type}">${TYPE_ICON[type] || '?'}</span>`;
 }
-const DECK_KEY = 'pocketDeck';
 const DECK_SIZE = 20;
 const MAX_COPIES = 2;
+const MAX_SAVED_DECKS = 20;
+
+// 2026-08-05抽卡包收藏系統：組牌不再是「全卡池自由選」，改成只能用擁有的卡（ownedCounts）。
+// 已登入玩家的收藏/牌組存在DB（沿用主站的pvpToken，同一組帳號系統，不是Pocket另外登入）；
+// 沒登入的訪客沒有金幣/開包經濟，直接在本地隨機發100張（可重複）當收藏，牌組也存localStorage，
+// 兩條路徑除了資料來源不同，其餘組牌互動完全共用同一套UI/驗證邏輯。
+const myToken = localStorage.getItem('pvpToken') || null;
+function pocketIsLoggedIn() { return !!myToken; }
+async function pocketApiFetch(url, opts) {
+  const headers = { 'Content-Type': 'application/json', ...(opts?.headers || {}) };
+  if (myToken) headers.Authorization = `Bearer ${myToken}`;
+  const res = await fetch(url, { ...opts, headers });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message || data.error || '請求失敗');
+  return data;
+}
 
 let ALL_CARDS = [];
 let cardById = {};
+let ownedCounts = {}; // cardId -> 擁有張數
+let savedDecks = []; // [{id, name, cardIds}]
+let currentDeckId = null; // null = 還沒存過的新牌組
 /** deck: array of card ids (each entry = 1 copy) */
 let deck = [];
 
 async function loadCards() {
-  const res = await fetch('pocket-cards.json');
-  const data = await res.json();
+  const data = await pocketApiFetch('/api/pocket/cards');
   ALL_CARDS = data.cards;
   ALL_CARDS.forEach(c => cardById[c.id] = c);
-  document.getElementById('pack-info').textContent = `卡池 ${ALL_CARDS.length} 張`;
 
   const typeSet = new Set();
   ALL_CARDS.forEach(c => (c.types || []).forEach(t => typeSet.add(t)));
@@ -556,22 +627,94 @@ async function loadCards() {
     typeSel.appendChild(o);
   });
 
-  const saved = JSON.parse(localStorage.getItem(DECK_KEY) || '[]');
-  deck = saved.filter(id => cardById[id]);
-
+  await loadCollection();
+  await loadSavedDecks();
   renderPool();
   renderDeck();
+  renderDeckListChips();
+}
+
+/* ── 收藏 ── */
+const GUEST_COLLECTION_KEY = 'pocketGuestCollection';
+async function loadCollection() {
+  if (pocketIsLoggedIn()) {
+    try {
+      const data = await pocketApiFetch('/api/pocket/collection');
+      ownedCounts = Object.fromEntries(data.collection.map(c => [c.cardId, c.count]));
+    } catch (e) { ownedCounts = {}; }
+    await refreshCoinDisplay();
+    document.getElementById('open-pack-btn').style.display = '';
+    document.getElementById('coin-display').style.display = '';
+  } else {
+    let saved = JSON.parse(localStorage.getItem(GUEST_COLLECTION_KEY) || 'null');
+    if (!saved) {
+      saved = {};
+      for (let i = 0; i < 100; i++) {
+        const c = ALL_CARDS[Math.floor(Math.random() * ALL_CARDS.length)];
+        saved[c.id] = (saved[c.id] || 0) + 1;
+      }
+      localStorage.setItem(GUEST_COLLECTION_KEY, JSON.stringify(saved));
+    }
+    ownedCounts = saved;
+  }
+  document.getElementById('pack-info').textContent = `收藏 ${Object.values(ownedCounts).reduce((a, b) => a + b, 0)} 張 · 卡池共 ${ALL_CARDS.length} 種`;
+}
+async function refreshCoinDisplay() {
+  if (!pocketIsLoggedIn()) return;
+  try {
+    const data = await pocketApiFetch('/api/pet');
+    if (data.pet) document.getElementById('coin-amount').textContent = data.pet.coins;
+  } catch (e) {}
+}
+
+/* ── 已存牌組（最多20副）── */
+const GUEST_DECKS_KEY = 'pocketGuestDecks';
+async function loadSavedDecks() {
+  if (pocketIsLoggedIn()) {
+    try {
+      const data = await pocketApiFetch('/api/pocket/decks');
+      savedDecks = data.decks;
+    } catch (e) { savedDecks = []; }
+  } else {
+    savedDecks = JSON.parse(localStorage.getItem(GUEST_DECKS_KEY) || '[]');
+  }
+}
+function saveGuestDecks() { localStorage.setItem(GUEST_DECKS_KEY, JSON.stringify(savedDecks)); }
+
+function renderDeckListChips() {
+  document.getElementById('deck-list-count').textContent = savedDecks.length;
+  const wrap = document.getElementById('deck-list-chips');
+  wrap.innerHTML = savedDecks.map(d =>
+    `<div class="deck-chip ${d.id === currentDeckId ? 'active' : ''}" onclick="loadDeckIntoEditor('${d.id}')">${d.name}（${d.cardIds.length}）</div>`
+  ).join('') || '<span style="color:var(--muted);font-size:0.8rem">還沒有已存的牌組</span>';
+}
+
+function startNewDeck() {
+  currentDeckId = null;
+  deck = [];
+  document.getElementById('deck-name-input').value = '';
+  renderPool(); renderDeck(); renderDeckListChips();
+}
+
+function loadDeckIntoEditor(deckId) {
+  const d = savedDecks.find(x => String(x.id) === String(deckId));
+  if (!d) return;
+  currentDeckId = d.id;
+  deck = [...d.cardIds];
+  document.getElementById('deck-name-input').value = d.name;
+  renderPool(); renderDeck(); renderDeckListChips();
 }
 
 function countInDeck(id) {
   return deck.filter(x => x === id).length;
 }
+function ownedCap(id) { return Math.min(MAX_COPIES, ownedCounts[id] || 0); }
 
 function addCard(id) {
   const card = cardById[id];
   if (!card) return;
   if (deck.length >= DECK_SIZE) return;
-  if (countInDeck(id) >= MAX_COPIES) return;
+  if (countInDeck(id) >= ownedCap(id)) return;
   deck.push(id);
   renderPool();
   renderDeck();
@@ -590,11 +733,52 @@ function clearDeck() {
   renderDeck();
 }
 
-function saveDeck() {
-  localStorage.setItem(DECK_KEY, JSON.stringify(deck));
+async function saveDeck() {
+  const v = deckValidation();
+  if (!v.valid) return;
+  const name = document.getElementById('deck-name-input').value.trim() || '未命名牌組';
   const toast = document.getElementById('save-toast');
-  toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 1400);
+  try {
+    if (pocketIsLoggedIn()) {
+      const body = JSON.stringify({ name, cardIds: deck });
+      const data = currentDeckId
+        ? await pocketApiFetch(`/api/pocket/decks/${currentDeckId}`, { method: 'PUT', body })
+        : await pocketApiFetch('/api/pocket/decks', { method: 'POST', body });
+      currentDeckId = data.deck.id;
+      await loadSavedDecks();
+    } else {
+      if (currentDeckId) {
+        const d = savedDecks.find(x => x.id === currentDeckId);
+        if (d) { d.name = name; d.cardIds = [...deck]; }
+      } else {
+        if (savedDecks.length >= MAX_SAVED_DECKS) { toast.textContent = '最多只能儲存 20 副牌組'; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 1800); return; }
+        currentDeckId = 'g' + Date.now();
+        savedDecks.push({ id: currentDeckId, name, cardIds: [...deck] });
+      }
+      saveGuestDecks();
+    }
+    document.getElementById('deck-name-input').value = name;
+    renderDeckListChips();
+    toast.textContent = '牌組已儲存';
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 1400);
+  } catch (e) {
+    toast.textContent = e.message || '儲存失敗';
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 1800);
+  }
+}
+
+async function deleteCurrentDeck() {
+  if (!currentDeckId) return;
+  if (pocketIsLoggedIn()) {
+    try { await pocketApiFetch(`/api/pocket/decks/${currentDeckId}`, { method: 'DELETE' }); } catch (e) {}
+    await loadSavedDecks();
+  } else {
+    savedDecks = savedDecks.filter(d => d.id !== currentDeckId);
+    saveGuestDecks();
+  }
+  startNewDeck();
 }
 
 function deckValidation() {
@@ -609,29 +793,75 @@ function deckValidation() {
   return { total, hasBasic, valid: problems.length === 0, problems };
 }
 
+/* ── 收藏頁 ── */
+function openCollectionView() {
+  const grid = document.getElementById('collection-grid');
+  const owned = ALL_CARDS.filter(c => (ownedCounts[c.id] || 0) > 0);
+  document.getElementById('collection-count').textContent = `共擁有 ${owned.length} 種、${Object.values(ownedCounts).reduce((a, b) => a + b, 0)} 張`;
+  grid.innerHTML = owned.map(c => `
+    <div class="card-tile" title="${c.name}">
+      <div class="count-badge">${ownedCounts[c.id]}</div>
+      <img src="${c.image}" loading="lazy" alt="${c.name}">
+      <div class="name">${c.name}</div>
+      <div class="meta">${c.rarity || ''}</div>
+    </div>`).join('') || '<div style="color:var(--muted)">還沒有任何收藏，先去開卡包吧</div>';
+  document.getElementById('collection-overlay').style.display = 'flex';
+}
+function closeCollectionView() { document.getElementById('collection-overlay').style.display = 'none'; }
+
+/* ── 開卡包 ── */
+async function openPackFlow() {
+  if (!pocketIsLoggedIn()) return;
+  document.getElementById('pack-overlay').style.display = 'flex';
+  document.getElementById('pack-title').textContent = '開卡包中...';
+  document.getElementById('pack-reveal-row').innerHTML = '';
+  document.getElementById('pack-close-btn').style.display = 'none';
+  try {
+    const data = await pocketApiFetch('/api/pocket/open-pack', { method: 'POST' });
+    document.getElementById('pack-title').textContent = data.usedFree ? `今日免費開包（${data.freePacksUsedToday}/5）` : '花費 50 金幣開包';
+    const row = document.getElementById('pack-reveal-row');
+    const HIGH = new Set(['Two Star', 'Three Star', 'Crown']);
+    row.innerHTML = data.cards.map((c, i) => `
+      <div class="pack-reveal-card ${HIGH.has(c.rarity) ? 'chase' : ''}" style="animation-delay:${i * 0.15}s">
+        <img src="${c.image}" alt="${c.name}">
+        <div class="n">${c.name}${HIGH.has(c.rarity) ? ' ✨' : ''}</div>
+      </div>`).join('');
+    document.getElementById('pack-close-btn').style.display = '';
+    await loadCollection();
+    renderPool();
+  } catch (e) {
+    document.getElementById('pack-title').textContent = e.message || '開包失敗';
+    document.getElementById('pack-close-btn').style.display = '';
+  }
+}
+function closePackFlow() { document.getElementById('pack-overlay').style.display = 'none'; }
+
 function renderPool() {
   const q = document.getElementById('q').value.trim().toLowerCase();
   const cat = document.getElementById('cat').value;
   const type = document.getElementById('type').value;
-  const filtered = ALL_CARDS.filter(c => {
+  // 2026-08-05：卡池不再是全部ALL_CARDS，只顯示自己擁有至少1張的卡——組牌只能用抽到的卡牌
+  const ownedPool = ALL_CARDS.filter(c => (ownedCounts[c.id] || 0) > 0);
+  const filtered = ownedPool.filter(c => {
     if (q && !c.name.toLowerCase().includes(q)) return false;
     if (cat && c.category !== cat) return false;
     if (type && !(c.types || []).includes(type)) return false;
     return true;
   });
-  document.getElementById('pool-count').textContent = `顯示 ${filtered.length} / ${ALL_CARDS.length} 張`;
+  document.getElementById('pool-count').textContent = `顯示 ${filtered.length} / 擁有 ${ownedPool.length} 種`;
 
   const grid = document.getElementById('grid');
   grid.innerHTML = filtered.map(c => {
     const n = countInDeck(c.id);
-    const maxed = n >= MAX_COPIES || deck.length >= DECK_SIZE;
+    const cap = ownedCap(c.id);
+    const maxed = n >= cap || deck.length >= DECK_SIZE;
     const typeDots = (c.types || []).map(t => `<span class="type-dot" style="background:${TYPE_COLOR[t] || '#888'}"></span>`).join('');
     const metaLine = c.category === 'Pokemon'
       ? `${typeDots}${TYPE_ZH[c.types?.[0]] || ''} · ${c.stage === 'Basic' ? '基礎' : c.stage === 'Stage1' ? '第1階' : '第2階'}${c.ex ? ' · EX' : ''} · HP${c.hp}`
       : c.trainerType === 'Supporter' ? '支援者卡' : '道具卡';
     return `
-      <div class="card-tile ${maxed && n < MAX_COPIES ? 'maxed' : ''}" onclick="addCard('${c.id}')" title="${maxed ? '已達上限或牌組已滿' : '點擊加入牌組'}">
-        ${n > 0 ? `<div class="count-badge">${n}</div>` : ''}
+      <div class="card-tile ${maxed && n < cap ? 'maxed' : ''}" onclick="addCard('${c.id}')" title="擁有${ownedCounts[c.id]}張 · ${maxed ? '已達上限或牌組已滿' : '點擊加入牌組'}">
+        ${n > 0 ? `<div class="count-badge">${n}/${ownedCounts[c.id]}</div>` : `<div class="count-badge" style="opacity:0.5">×${ownedCounts[c.id]}</div>`}
         <img src="${c.image}" loading="lazy" alt="${c.name}">
         <div class="name">${c.name}</div>
         <div class="meta">${metaLine}</div>
@@ -651,6 +881,7 @@ function renderDeck() {
   }
   document.getElementById('save-btn').disabled = !v.valid;
   document.getElementById('goto-lobby-btn').disabled = !v.valid;
+  document.getElementById('delete-deck-btn').style.display = currentDeckId ? '' : 'none';
 
   // group by id, preserve first-seen order
   const groups = [];
@@ -1122,7 +1353,7 @@ function computeHandCardActions(card) {
     if (isSupporter && state.you.supporterUsedThisTurn) {
       return [{ label: '這回合已經用過支援者卡了', disabled: true }];
     }
-    if (TRAINER_NEEDS_TARGET.has(card.id)) {
+    if (TRAINER_NEEDS_TARGET.has(card.effectId || card.id)) {
       return [{ label: '選擇目標寶可夢', primary: true, onClick: () => {
         selectedAction = { mode: 'item-target', handUid: card.uid, isSupporter };
         updateActionHint(); renderBoard();

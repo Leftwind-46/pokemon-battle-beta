@@ -2476,7 +2476,26 @@ function genCode() {
    混在一起只會讓既有PvP的debug變複雜。詳見 /Users/mike/.claude/plans/parsed-dancing-comet.md
 ═══════════════════════════════════════════ */
 const pocketRooms = new Map();
-const POCKET_CARDS = JSON.parse(fs.readFileSync(path.join(__dirname, 'public', 'pocket-cards.json'), 'utf8')).cards;
+const POCKET_CARDS_BASE = JSON.parse(fs.readFileSync(path.join(__dirname, 'public', 'pocket-cards.json'), 'utf8')).cards;
+
+/* ── 高星卡包系統（2026-08-05新增）：106張基礎卡池裡有32張自帶variants欄位（本來是
+   給未來抽卡功能保留的重印版本資料，一直沒用到），把2星以上（Two Star/Three Star/Crown）
+   的variant「升格」成獨立可擁有/可組牌的卡片——數值/招式/特性跟base卡完全相同，只有
+   id/rarity/image不同，真的做到「同一隻寶可夢的不同星等版本」而不是另外發明新卡。
+   Trainer卡（8張角色支援者的高星版）額外標記effectId指回base卡id，因為TRAINER_EFFECTS
+   是用id當key查效果，高星版本必須能查到跟base版一樣的效果，不然使用會直接被判定「效果
+   尚未實作」——這是效果查找機制，不是收藏機制，兩者分開處理。 */
+const POCKET_HIGH_RARITIES = new Set(['Two Star', 'Three Star', 'Crown']);
+const POCKET_CHASE_CARDS = [];
+for (const base of POCKET_CARDS_BASE) {
+  for (const v of (base.variants || [])) {
+    if (!POCKET_HIGH_RARITIES.has(v.rarity)) continue;
+    const variantCard = { ...base, id: v.id, rarity: v.rarity, image: v.image, variants: undefined };
+    if (base.category === 'Trainer') variantCard.effectId = base.id;
+    POCKET_CHASE_CARDS.push(variantCard);
+  }
+}
+const POCKET_CARDS = [...POCKET_CARDS_BASE, ...POCKET_CHASE_CARDS];
 const POCKET_CARDS_BY_ID = Object.fromEntries(POCKET_CARDS.map(c => [c.id, c]));
 
 // server端權威驗證，不信任client算好的合法性（比照現有PvP「不信任client」的慣例）
@@ -3380,6 +3399,162 @@ app.get('/api/pokedex', (req, res) => {
     hp: p.hp, tier: p.tier, ability: p.ability ?? null, mega: p.mega ?? null,
   }));
   res.json({ dex });
+});
+
+/* ── Pocket TCG 抽卡包收藏系統（2026-08-05新增）──
+   卡片池不需要登入就能看（組牌介面/收藏頁都要用），開包/收藏/牌組管理需要登入——
+   訪客走完全不同的路徑（client端本地隨機100張存localStorage，看不到這幾支API）。 */
+app.get('/api/pocket/cards', (req, res) => {
+  res.json({ cards: POCKET_CARDS });
+});
+
+const POCKET_PACK_WEIGHT = { 'One Diamond': 100, 'Two Diamond': 60, 'Three Diamond': 30, 'Four Diamond': 12, 'None': 50, 'Three Star': 3 };
+const POCKET_CHASE_WEIGHT = { 'Two Star': 10, 'Three Star': 3, 'Crown': 1 };
+function pocketWeightedPick(pool, weightFn) {
+  const total = pool.reduce((s, c) => s + weightFn(c), 0);
+  let r = Math.random() * total;
+  for (const c of pool) {
+    r -= weightFn(c);
+    if (r <= 0) return c;
+  }
+  return pool[pool.length - 1];
+}
+// 每張卡獨立骰：95%從基礎卡池（依鑽石數加權，普卡機率高）、5%從2星以上「追逐卡池」抽
+// （追逐卡池內部再依星等加權，Crown最稀有）。5張/包，平均每包0.25張追逐卡，約每4包抽到1張。
+function pocketRollPackCard() {
+  if (Math.random() < 0.05) return pocketWeightedPick(POCKET_CHASE_CARDS, c => POCKET_CHASE_WEIGHT[c.rarity] || 1).id;
+  return pocketWeightedPick(POCKET_CARDS_BASE, c => POCKET_PACK_WEIGHT[c.rarity] || 20).id;
+}
+
+app.get('/api/pocket/collection', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT card_id, count FROM pocket_collection WHERE user_id = $1 AND count > 0', [req.user.id]);
+    res.json({ collection: rows.map(r => ({ cardId: r.card_id, count: r.count })) });
+  } catch (e) {
+    console.error('pocket collection fetch error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+app.post('/api/pocket/open-pack', requireAuth, async (req, res) => {
+  const PACK_COST = 50;
+  try {
+    // 金幣/每日免費額度都活在pets這張表——如果玩家還沒去「我的寶可夢」選過初始寶可夢，
+    // 根本沒有pets列，下面的UPDATE會直接match 0 rows，錯誤訊息會被誤判成「金幣不足」
+    // （其實是完全不相關的兩件事）。先擋在這裡給明確提示，不要讓玩家看著「金幣不足」卻
+    // 摸不著頭緒（他們可能連coins是什麼都還沒看過）。
+    const { rows: petCheck } = await pool.query('SELECT 1 FROM pets WHERE user_id = $1', [req.user.id]);
+    if (!petCheck.length) return res.status(400).json({ error: 'no_pet', message: '請先到「我的寶可夢」選一隻起始寶可夢，開包用的金幣/每日免費額度都是共用同一套系統' });
+    // 先試著扣「今日免費額度」（atomic：跨日自動歸零重算，見pocket_free_packs_date欄位註解）——
+    // 成功就是免費包，rowCount=0代表今天5包免費額度已經用完，改扣金幣
+    const { rowCount: freeHit } = await pool.query(
+      `UPDATE pets SET
+         pocket_free_packs_used = CASE WHEN pocket_free_packs_date IS NULL OR pocket_free_packs_date < CURRENT_DATE THEN 1 ELSE pocket_free_packs_used + 1 END,
+         pocket_free_packs_date = CURRENT_DATE
+       WHERE user_id = $1
+         AND (pocket_free_packs_date IS NULL OR pocket_free_packs_date < CURRENT_DATE OR pocket_free_packs_used < 5)`,
+      [req.user.id]
+    );
+    let usedFree = freeHit > 0;
+    if (!usedFree) {
+      const { rowCount: paidHit } = await pool.query(
+        'UPDATE pets SET coins = coins - $1 WHERE user_id = $2 AND coins >= $1', [PACK_COST, req.user.id]
+      );
+      if (!paidHit) return res.status(400).json({ error: 'insufficient_coins', message: '今日免費開包額度已用完，金幣也不足50' });
+    }
+    const pulledIds = Array.from({ length: 5 }, pocketRollPackCard);
+    for (const cardId of pulledIds) {
+      await pool.query(
+        `INSERT INTO pocket_collection (user_id, card_id, count) VALUES ($1, $2, 1)
+         ON CONFLICT (user_id, card_id) DO UPDATE SET count = pocket_collection.count + 1`,
+        [req.user.id, cardId]
+      );
+    }
+    const { rows } = await pool.query('SELECT coins, pocket_free_packs_used FROM pets WHERE user_id = $1', [req.user.id]);
+    res.json({
+      cards: pulledIds.map(id => POCKET_CARDS_BY_ID[id]),
+      usedFree, coins: rows[0]?.coins, freePacksUsedToday: rows[0]?.pocket_free_packs_used,
+    });
+  } catch (e) {
+    console.error('pocket open-pack error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+// 驗證要存的牌組是不是真的能組出來：20張、同張卡最多2張、擁有量要夠、至少1張基礎寶可夢——
+// 跟validatePocketDeck（對戰用，只驗證卡池存不存在+基本規則）分開，這裡多一層「擁有量」檢查
+async function pocketValidateOwnedDeck(userId, deckIds) {
+  const basicErr = validatePocketDeck(deckIds);
+  if (basicErr) return basicErr;
+  const { rows } = await pool.query('SELECT card_id, count FROM pocket_collection WHERE user_id = $1', [userId]);
+  const owned = Object.fromEntries(rows.map(r => [r.card_id, r.count]));
+  const needed = {};
+  for (const id of deckIds) needed[id] = (needed[id] || 0) + 1;
+  for (const id in needed) {
+    if ((owned[id] || 0) < needed[id]) {
+      return `${POCKET_CARDS_BY_ID[id]?.name || id} 擁有數量不足（需要${needed[id]}張，只有${owned[id] || 0}張）`;
+    }
+  }
+  return null;
+}
+
+app.get('/api/pocket/decks', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT id, name, card_ids, updated_at FROM pocket_decks WHERE user_id = $1 ORDER BY updated_at DESC', [req.user.id]);
+    res.json({ decks: rows.map(r => ({ id: r.id, name: r.name, cardIds: r.card_ids, updatedAt: r.updated_at })) });
+  } catch (e) {
+    console.error('pocket decks fetch error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+app.post('/api/pocket/decks', requireAuth, async (req, res) => {
+  try {
+    const { name, cardIds } = req.body || {};
+    const err = await pocketValidateOwnedDeck(req.user.id, cardIds);
+    if (err) return res.status(400).json({ error: 'invalid_deck', message: err });
+    const { rows: countRows } = await pool.query('SELECT COUNT(*) FROM pocket_decks WHERE user_id = $1', [req.user.id]);
+    if (Number(countRows[0].count) >= 20) return res.status(400).json({ error: 'deck_limit', message: '最多只能儲存 20 副牌組' });
+    const deckName = (typeof name === 'string' && name.trim()) ? name.trim().slice(0, 30) : '未命名牌組';
+    const { rows } = await pool.query(
+      'INSERT INTO pocket_decks (user_id, name, card_ids) VALUES ($1, $2, $3) RETURNING id, name, card_ids, updated_at',
+      [req.user.id, deckName, cardIds]
+    );
+    res.json({ deck: { id: rows[0].id, name: rows[0].name, cardIds: rows[0].card_ids, updatedAt: rows[0].updated_at } });
+  } catch (e) {
+    console.error('pocket deck create error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+app.put('/api/pocket/decks/:id', requireAuth, async (req, res) => {
+  try {
+    const { name, cardIds } = req.body || {};
+    const err = await pocketValidateOwnedDeck(req.user.id, cardIds);
+    if (err) return res.status(400).json({ error: 'invalid_deck', message: err });
+    const deckName = (typeof name === 'string' && name.trim()) ? name.trim().slice(0, 30) : '未命名牌組';
+    const { rows, rowCount } = await pool.query(
+      `UPDATE pocket_decks SET name = $1, card_ids = $2, updated_at = NOW()
+       WHERE id = $3 AND user_id = $4 RETURNING id, name, card_ids, updated_at`,
+      [deckName, cardIds, req.params.id, req.user.id]
+    );
+    if (!rowCount) return res.status(404).json({ error: 'not_found' });
+    res.json({ deck: { id: rows[0].id, name: rows[0].name, cardIds: rows[0].card_ids, updatedAt: rows[0].updated_at } });
+  } catch (e) {
+    console.error('pocket deck update error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+app.delete('/api/pocket/decks/:id', requireAuth, async (req, res) => {
+  try {
+    const { rowCount } = await pool.query('DELETE FROM pocket_decks WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
+    if (!rowCount) return res.status(404).json({ error: 'not_found' });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('pocket deck delete error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
 });
 
 app.post('/api/pet/buy', requireAuth, async (req, res) => {
@@ -4593,6 +4768,12 @@ async function handleMessage(ws, msg) {
       if (pRole !== 'p1' && pRole !== 'p2') return;
       const err = validatePocketDeck(msg.deck);
       if (err) { send(ws, { type: 'error', message: err }); return; }
+      // 已登入玩家額外驗證擁有量——訪客沒有DB收藏紀錄（client端本地隨機100張，server端
+      // 完全不知道），跳過這層檢查，跟訪客一直以來「不做強制驗證，信任client」的既有慣例一致
+      if (ws.userId && pool) {
+        const ownErr = await pocketValidateOwnedDeck(ws.userId, msg.deck);
+        if (ownErr) { send(ws, { type: 'error', message: ownErr }); return; }
+      }
       if (pRole === 'p1') { pRoom.p1Deck = msg.deck; pRoom.p1Ready = true; }
       else                { pRoom.p2Deck = msg.deck; pRoom.p2Ready = true; }
       send(pRoom[pRole === 'p1' ? 'p2' : 'p1'], { type: 'pocket_opponent_ready' });
@@ -4705,7 +4886,7 @@ async function handleMessage(ws, msg) {
           send(ws, { type: 'error', message: '對方的耿鬼ex場上時無法使用支援者卡' }); return;
         }
       }
-      const handler = TRAINER_EFFECTS[card.id];
+      const handler = TRAINER_EFFECTS[card.effectId || card.id]; // 高星版角色支援者卡查回base id的效果
       if (!handler) { send(ws, { type: 'error', message: '這張卡的效果尚未實作' }); return; }
       const ctx = { G, role, op, side, oppSide, pRoom };
       const err = handler(ctx, msg);
@@ -5788,6 +5969,27 @@ async function initDB() {
       await pool.query(`ALTER TABLE pet_decorations DROP CONSTRAINT IF EXISTS pet_decorations_pkey`);
       await pool.query(`ALTER TABLE pet_decorations ADD PRIMARY KEY (id)`);
     });
+    // Pocket TCG 抽卡包收藏系統（2026-08-05新增）：卡片擁有量用(user_id,card_id)複合PK+count
+    // 累加（不是SERIAL多列，因為同一張卡擁有幾張只在乎數量，不需要個別追蹤是哪次開包抽到的）。
+    await pool.query(`CREATE TABLE IF NOT EXISTS pocket_collection (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      card_id TEXT NOT NULL,
+      count INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (user_id, card_id)
+    )`);
+    // 已存牌組——最多20副（server端在新增時檢查數量上限，不是靠資料庫層級約束），card_ids是
+    // 20張卡id的陣列（可重複，同一張卡最多2張的規則在存檔時驗證，不是資料庫約束）
+    await pool.query(`CREATE TABLE IF NOT EXISTS pocket_decks (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL DEFAULT '未命名牌組',
+      card_ids TEXT[] NOT NULL,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    // 每日5包免費開包額度——跟claim-daily-coins同一套「用DATE欄位lazy重置，交給Postgres
+    // CURRENT_DATE比對，不要把DATE讀回JS再轉字串比較」的手法（那邊的註解記錄了時區bug教訓）
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS pocket_free_packs_date DATE`);
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS pocket_free_packs_used INTEGER NOT NULL DEFAULT 0`);
     console.log('PostgreSQL connected');
   } catch (e) {
     console.warn('PostgreSQL not available, running without DB:', e.message);
