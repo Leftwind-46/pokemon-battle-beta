@@ -105,9 +105,12 @@
   @keyframes point-pop { 0%{ transform:scale(1.6); } 100%{ transform:scale(1); } }
   .side-info { text-align:center; font-size:0.75rem; color:var(--muted); padding:0.3rem; }
   .opp-area, .my-area { padding:0.5rem 1rem; }
-  .bench-row { display:flex; gap:0.5rem; justify-content:center; min-height:70px; }
-  .active-row { display:flex; justify-content:center; padding:0.4rem 0; }
-  .mid-area { display:flex; align-items:center; justify-content:center; gap:1rem; padding:0.5rem; min-height:44px; }
+  /* 2026-08-05版面重排：bench-row跟active-row原本各自獨立一整列（上下堆疊），現在包進
+     .field-row用flex橫排在同一列——省掉一整列的垂直高度，順便用上原本沒利用到的左右空間 */
+  .field-row { display:flex; align-items:center; justify-content:center; gap:0.8rem; flex-wrap:wrap; }
+  .bench-row { display:flex; gap:0.4rem; }
+  .active-row { display:flex; }
+  .mid-area { display:flex; align-items:center; justify-content:center; gap:1rem; padding:0.25rem; min-height:30px; }
   .energy-zone { width:34px; height:34px; border-radius:50%; border:2px dashed var(--border); display:flex; align-items:center; justify-content:center; font-size:0.7rem; cursor:pointer; }
   .energy-zone.has-energy { border-style:solid; cursor:pointer; }
   .energy-zone.picking { box-shadow:0 0 0 3px rgba(248,208,48,0.5); }
@@ -135,14 +138,18 @@
   .peek-list { display:flex; gap:0.4rem; justify-content:center; flex-wrap:wrap; margin:1rem 0; }
   .peek-list img { width:70px; border-radius:6px; }
 
-  .attack-row { display:flex; flex-direction:column; gap:0.4rem; max-width:420px; margin:0.5rem auto; }
-  .attack-btn { display:flex; justify-content:space-between; align-items:center; background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:0.5rem 0.8rem; cursor:pointer; font-size:0.82rem; }
+  /* 2026-08-05：招式按鈕原本一個招式一整列（column），4招疊起來佔掉很大一塊垂直高度——
+     改成橫向排列、自動換行，跟「結束回合」按鈕合併進同一條.action-bar，省掉原本
+     額外一整列turn-controls的高度 */
+  .action-bar { display:flex; align-items:center; justify-content:center; gap:0.6rem; flex-wrap:wrap; padding:0.3rem 0.8rem; }
+  .attack-row { display:flex; flex-wrap:wrap; gap:0.4rem; justify-content:center; flex:1 1 auto; max-width:560px; }
+  .attack-btn { display:flex; justify-content:space-between; align-items:center; gap:0.5rem; background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:0.4rem 0.7rem; cursor:pointer; font-size:0.78rem; flex:1 1 240px; }
   .attack-btn:hover:not(:disabled) { background:rgba(255,255,255,0.1); }
   .attack-btn:disabled { opacity:0.35; cursor:not-allowed; }
   .attack-cost { display:flex; gap:2px; }
 
-  .turn-controls { display:flex; gap:0.6rem; justify-content:center; margin:0.5rem 0; }
-  .hand-row { display:flex; gap:0.5rem; justify-content:center; flex-wrap:wrap; padding:0.6rem 0 1.2rem; }
+  .turn-controls { display:flex; gap:0.5rem; flex-shrink:0; }
+  .hand-row { display:flex; gap:0.5rem; justify-content:center; flex-wrap:wrap; padding:0.5rem 0 0.8rem; }
   .hand-row .board-slot img { cursor:pointer; }
   .hand-row .board-slot img:hover { outline:2px solid #ffd54f; }
 
@@ -156,13 +163,13 @@
   /* ══════════════════ 對戰畫面視覺升級 (2026-08-04) ══════════════════ */
 
   /* ── 競技場式分區：每側一個玻璃質感的場地面板，牌庫/棄牌堆放在面板邊緣 ── */
-  .arena-zone { position:relative; border-radius:18px; margin:0.4rem 0.6rem; padding:0.6rem 0.8rem;
+  .arena-zone { position:relative; border-radius:18px; margin:0.25rem 0.6rem; padding:0.4rem 0.8rem;
     background:radial-gradient(ellipse at center, rgba(255,255,255,0.035) 0%, rgba(255,255,255,0.01) 70%);
     border:1px solid var(--border); }
   .arena-zone.opp-zone { border-top:2px solid rgba(255,138,101,0.25); }
   .arena-zone.my-zone { border-bottom:2px solid rgba(105,240,174,0.25); }
-  .zone-row { display:flex; align-items:flex-start; gap:0.6rem; padding-top:0.6rem; }
-  .zone-row .pile-wrap { margin-top:0.4rem; }
+  .zone-row { display:flex; align-items:center; gap:0.6rem; padding-top:0.3rem; }
+  .zone-row .pile-wrap { margin-top:0; }
   .zone-row.opp-row { flex-direction:row; }
   .zone-row.my-row { flex-direction:row-reverse; }
   .zone-battlefield { flex:1; min-width:0; }
@@ -187,7 +194,11 @@
   .hand-fan .board-slot { flex-shrink:0; margin:0 -14px; transition:transform 0.15s ease, margin 0.15s ease, z-index 0s;
     transform-origin:bottom center; }
   .hand-fan .board-slot:hover { transform:translateY(-14px) scale(1.08) !important; z-index:50 !important; margin:0 -2px; }
+  /* 對手手牌只是張數示意（看不到內容），不需要跟自己手牌一樣大一樣需要懸停操作空間——
+     縮小尺寸跟頂部留白，省下的高度讓給場面 */
+  .opp-hand-fan-wrap { padding:0.3rem 1rem 0.1rem; }
   .opp-hand-fan .board-slot:hover { transform:none !important; }
+  .opp-hand-fan .card-back { width:42px; }
   .card-back { width:76px; aspect-ratio:5/7; border-radius:8px; background:
     repeating-linear-gradient(135deg, #1b2050, #1b2050 6px, #232a5c 6px, #232a5c 12px);
     border:2px solid rgba(255,255,255,0.15); display:flex; align-items:center; justify-content:center; font-size:1.4rem; }
@@ -209,8 +220,10 @@
   .card-detail-panel { position:fixed; top:0; right:-340px; width:320px; height:100%; background:#0c0f24;
     border-left:1px solid var(--border); z-index:80; padding:1.2rem; overflow-y:auto; transition:right 0.25s ease; }
   .card-detail-panel.open { right:0; }
-  .detail-close { position:absolute; top:0.7rem; right:0.9rem; background:rgba(255,255,255,0.08); border:1px solid var(--border);
-    color:var(--text); border-radius:50%; width:28px; height:28px; cursor:pointer; }
+  .detail-close { position:absolute; top:0.7rem; right:0.9rem; background:rgba(255,255,255,0.14); border:1.5px solid rgba(255,255,255,0.4);
+    color:var(--text); border-radius:50%; width:34px; height:34px; font-size:1.05rem; line-height:1; cursor:pointer; z-index:1;
+    box-shadow:0 2px 8px rgba(0,0,0,0.4); transition:background 0.15s, border-color 0.15s; }
+  .detail-close:hover { background:rgba(255,82,82,0.25); border-color:#ff5252; }
   .card-detail-panel img.detail-img { width:100%; border-radius:12px; margin-bottom:0.8rem; }
   .card-detail-panel h3 { font-size:1.1rem; margin-bottom:0.3rem; }
   .card-detail-panel .detail-meta { color:var(--muted); font-size:0.78rem; margin-bottom:0.8rem; }
@@ -227,10 +240,18 @@
     background:radial-gradient(circle, currentColor 0%, transparent 70%); }
   @keyframes vfxImpact { 0% { opacity:0; transform:translate(-50%,-50%) scale(0.3); } 30% { opacity:0.85; transform:translate(-50%,-50%) scale(1.3); } 100% { opacity:0; transform:translate(-50%,-50%) scale(1.6); } }
 
-  /* ── 擲硬幣動畫 ── */
+  /* ── 擲硬幣動畫——2026-08版改成看起來像真的金屬硬幣（純CSS，沒有用任何圖檔/官方素材）：
+     金色漸層做出立體感、內圈壓花邊框模擬硬幣的凸緣、正反面用不同底色區分 ── */
   .coin-flip-overlay { position:fixed; inset:0; z-index:95; background:rgba(0,0,0,0.55); display:flex; align-items:center; justify-content:center; gap:0.8rem; }
-  .coin { width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg,#f8d030,#f05030); display:flex; align-items:center; justify-content:center;
-    font-weight:900; font-size:1.6rem; color:#fff; box-shadow:0 4px 20px rgba(248,208,48,0.5); animation:coinSpin 0.55s ease-in-out; }
+  .coin { width:68px; height:68px; border-radius:50%; position:relative;
+    background:radial-gradient(circle at 34% 28%, #fff6d5 0%, #f8d030 32%, #d99a1a 68%, #9a6a10 100%);
+    border:3px solid #c9931a;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:900; font-size:1.35rem; color:#6b4a0c; text-shadow:0 1px 0 rgba(255,255,255,0.5);
+    box-shadow:0 4px 20px rgba(248,208,48,0.45), inset 0 2px 5px rgba(255,255,255,0.65), inset 0 -4px 7px rgba(0,0,0,0.28);
+    animation:coinSpin 0.55s ease-in-out; }
+  .coin::before { content:''; position:absolute; inset:7px; border-radius:50%; border:1.5px dashed rgba(107,74,12,0.4); }
+  .coin.tails { background:radial-gradient(circle at 34% 28%, #f5f5f5 0%, #cfd4dc 32%, #9aa3af 68%, #6b7280 100%); border-color:#7c8390; color:#33383f; }
   @keyframes coinSpin { 0% { transform:rotateY(0deg) scale(0.6); opacity:0; } 50% { transform:rotateY(720deg) scale(1.15); } 100% { transform:rotateY(1080deg) scale(1); opacity:1; } }
 
   /* ── 傷害飄字 + 受擊震動 ── */
@@ -342,8 +363,10 @@
         <div class="pile-label">牌庫</div>
       </div>
       <div class="zone-battlefield">
-        <div class="bench-row" id="opp-bench"></div>
-        <div class="active-row" id="opp-active"></div>
+        <div class="field-row">
+          <div class="bench-row" id="opp-bench"></div>
+          <div class="active-row" id="opp-active"></div>
+        </div>
       </div>
       <div class="pile-wrap">
         <div class="pile-stack discard-pile" id="opp-discard-pile" title="點擊查看對手棄牌堆"><div class="pile-card"></div><div class="pile-card">🗑️</div><div class="pile-count" id="opp-discard-count">0</div></div>
@@ -363,17 +386,21 @@
         <div class="pile-label">牌庫</div>
       </div>
       <div class="zone-battlefield">
-        <div class="active-row" id="my-active"></div>
-        <div class="attack-row" id="attack-row"></div>
-        <div class="turn-controls">
-          <button class="btn btn-secondary" id="cancel-action-btn" onclick="cancelAction()" style="display:none">取消</button>
-          <button class="btn btn-primary" id="end-turn-btn" onclick="endTurn()">結束回合</button>
+        <div class="field-row">
+          <div class="active-row" id="my-active"></div>
+          <div class="bench-row" id="my-bench"></div>
         </div>
-        <div class="bench-row" id="my-bench"></div>
       </div>
       <div class="pile-wrap">
         <div class="pile-stack discard-pile" id="my-discard-pile" title="點擊查看我的棄牌堆"><div class="pile-card"></div><div class="pile-card">🗑️</div><div class="pile-count" id="my-discard-count">0</div></div>
         <div class="pile-label">棄牌堆</div>
+      </div>
+    </div>
+    <div class="action-bar">
+      <div class="attack-row" id="attack-row"></div>
+      <div class="turn-controls">
+        <button class="btn btn-secondary" id="cancel-action-btn" onclick="cancelAction()" style="display:none">取消</button>
+        <button class="btn btn-primary" id="end-turn-btn" onclick="endTurn()">結束回合</button>
       </div>
     </div>
     <div class="hand-fan-wrap" id="hand-fan-wrap"><div class="hand-fan hand-row" id="hand-row"></div></div>
@@ -1224,7 +1251,7 @@ function playCoinFlipAnim(results) {
     coinsEl.innerHTML = results.map(() => `<div class="coin">?</div>`).join('');
     overlay.style.display = 'flex';
     const coinEls = [...coinsEl.children];
-    setTimeout(() => { coinEls.forEach((el, i) => { el.textContent = results[i] ? '正' : '反'; }); }, 550);
+    setTimeout(() => { coinEls.forEach((el, i) => { el.textContent = results[i] ? '正' : '反'; el.classList.toggle('tails', !results[i]); }); }, 550);
     setTimeout(() => { overlay.style.display = 'none'; resolve(); }, 1250);
   });
 }

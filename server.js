@@ -4684,6 +4684,12 @@ async function handleMessage(ws, msg) {
       side.hand = side.hand.filter(c => c.uid !== card.uid);
       side.discard.push(card);
       if (isSupporter) side.supporterUsedThisTurn = true;
+      // 2026-08-05修正：訓練師卡效果裡的擲硬幣（例如小霞連續丟到反面為止）原本完全沒有組
+      // lastEvent，client端的擲硬幣動畫只有pocket_attack這條路徑會播放——結果是效果其實正確
+      // 執行了（能量真的有附加），但畫面上完全看不到任何硬幣翻轉，玩家會誤以為卡片沒作用。
+      // client的handlePocketEvent本來就是看lastEvent.coinFlips就播動畫，不看kind，這裡補上
+      // 就好，不用動到client。
+      if (ctx.coinFlips?.length) G.lastEvent = { seq: ++G.eventSeq, kind: 'trainer', coinFlips: ctx.coinFlips };
       if (ctx.peekHand) send(ws, { type: 'pocket_peek', title: '對手手牌', cards: ctx.peekHand });
       if (ctx.peekDeck) send(ws, { type: 'pocket_peek', title: '牌庫頂3張', cards: ctx.peekDeck });
       pocketBroadcastState(pRoom);
@@ -4700,9 +4706,11 @@ async function handleMessage(ws, msg) {
       const ability = poke?.abilities?.[0];
       if (!poke || !ability || !ABILITY_EFFECTS[ability.name]) return;
       if (side.abilitiesUsedThisTurn.includes(poke.uid)) { send(ws, { type: 'error', message: '這隻寶可夢這回合已經用過特性了' }); return; }
-      const err = ABILITY_EFFECTS[ability.name]({ G, role, op, side, oppSide }, poke);
+      const abilityCtx = { G, role, op, side, oppSide };
+      const err = ABILITY_EFFECTS[ability.name](abilityCtx, poke);
       if (err) { send(ws, { type: 'error', message: err }); return; }
       side.abilitiesUsedThisTurn.push(poke.uid);
+      if (abilityCtx.coinFlips?.length) G.lastEvent = { seq: ++G.eventSeq, kind: 'ability', coinFlips: abilityCtx.coinFlips };
       pocketBroadcastState(pRoom);
       return;
     }
