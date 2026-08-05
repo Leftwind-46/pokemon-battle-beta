@@ -3479,9 +3479,66 @@ app.get('/api/pocket/collection', requireAuth, async (req, res) => {
   try {
     await pocketEnsurePromoACards(req.user.id);
     const { rows } = await pool.query('SELECT card_id, count FROM pocket_collection WHERE user_id = $1 AND count > 0', [req.user.id]);
-    res.json({ collection: rows.map(r => ({ cardId: r.card_id, count: r.count })) });
+    const { rows: shardRows } = await pool.query('SELECT pocket_shards FROM pets WHERE user_id = $1', [req.user.id]);
+    res.json({ collection: rows.map(r => ({ cardId: r.card_id, count: r.count })), shards: shardRows[0]?.pocket_shards ?? 0 });
   } catch (e) {
     console.error('pocket collection fetch error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+// 卡牌分解取得的晶鑽數量 / 合成消耗的晶鑽數量，都依稀有度分級。Crown故意不列在
+// SYNTHESIZE表裡——皇冠卡只能靠開包抽到，不能用晶鑽合成取得（使用者明確要求的限制）。
+const POCKET_DISMANTLE_SHARDS = { 'One Diamond': 5, 'Two Diamond': 10, 'Three Diamond': 20, 'Four Diamond': 40, 'Two Star': 100, 'Three Star': 250, 'Crown': 500 };
+const POCKET_SYNTHESIZE_COST = { 'One Diamond': 20, 'Two Diamond': 50, 'Three Diamond': 120, 'Four Diamond': 300, 'Two Star': 800, 'Three Star': 2000 };
+
+app.post('/api/pocket/dismantle', requireAuth, async (req, res) => {
+  const cardId = req.body?.cardId;
+  const count = Math.max(1, Math.min(99, parseInt(req.body?.count, 10) || 1));
+  const card = POCKET_CARDS_BY_ID[cardId];
+  if (!card) return res.status(400).json({ error: 'invalid_card' });
+  // Promo-A每次讀收藏都會被pocketEnsurePromoACards補回2張（見上面註解）——如果讓這7張
+  // 可以分解，會變成「分解→下次讀收藏自動補回→再分解」的無限晶鑽刷法，必須整類擋掉
+  if (POCKET_PROMO_A_IDS.includes(cardId)) return res.status(400).json({ error: 'cannot_dismantle_promo', message: '這張卡本來就直接擁有，不能分解' });
+  const shardsPerCard = POCKET_DISMANTLE_SHARDS[card.rarity] || 5;
+  try {
+    const { rowCount } = await pool.query(
+      'UPDATE pocket_collection SET count = count - $1 WHERE user_id = $2 AND card_id = $3 AND count >= $1',
+      [count, req.user.id, cardId]
+    );
+    if (!rowCount) return res.status(400).json({ error: 'not_enough_copies', message: '擁有的數量不足，無法分解這麼多張' });
+    const gained = shardsPerCard * count;
+    const { rows } = await pool.query('UPDATE pets SET pocket_shards = pocket_shards + $1 WHERE user_id = $2 RETURNING pocket_shards', [gained, req.user.id]);
+    res.json({ gained, shards: rows[0]?.pocket_shards ?? 0 });
+  } catch (e) {
+    console.error('pocket dismantle error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+app.post('/api/pocket/synthesize', requireAuth, async (req, res) => {
+  const cardId = req.body?.cardId;
+  const card = POCKET_CARDS_BY_ID[cardId];
+  if (!card) return res.status(400).json({ error: 'invalid_card' });
+  if (card.rarity === 'Crown') return res.status(400).json({ error: 'crown_not_synthesizable', message: '皇冠卡不能透過合成取得，只能靠開包抽到' });
+  if (POCKET_PROMO_A_IDS.includes(cardId)) return res.status(400).json({ error: 'already_owned', message: '這張卡本來就直接擁有' });
+  const cost = POCKET_SYNTHESIZE_COST[card.rarity];
+  if (!cost) return res.status(400).json({ error: 'not_synthesizable' });
+  try {
+    // 只給「完全沒有的卡」合成——不是拿晶鑽無限刷同一張卡的複本，這裡故意不做count>=1的加購版本
+    const { rows: ownedRows } = await pool.query('SELECT count FROM pocket_collection WHERE user_id = $1 AND card_id = $2', [req.user.id, cardId]);
+    if ((ownedRows[0]?.count || 0) > 0) return res.status(400).json({ error: 'already_owned', message: '已經擁有這張卡了，合成只能用來補齊尚未獲得的卡' });
+    const { rowCount } = await pool.query('UPDATE pets SET pocket_shards = pocket_shards - $1 WHERE user_id = $2 AND pocket_shards >= $1', [cost, req.user.id]);
+    if (!rowCount) return res.status(400).json({ error: 'insufficient_shards', message: `晶鑽不足，需要 ${cost} 顆` });
+    await pool.query(
+      `INSERT INTO pocket_collection (user_id, card_id, count) VALUES ($1, $2, 1)
+       ON CONFLICT (user_id, card_id) DO UPDATE SET count = pocket_collection.count + 1`,
+      [req.user.id, cardId]
+    );
+    const { rows } = await pool.query('SELECT pocket_shards FROM pets WHERE user_id = $1', [req.user.id]);
+    res.json({ spent: cost, shards: rows[0]?.pocket_shards ?? 0 });
+  } catch (e) {
+    console.error('pocket synthesize error:', e.message);
     res.status(503).json({ error: 'db_error' });
   }
 });
@@ -6102,6 +6159,8 @@ async function initDB() {
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS pocket_free_packs_used INTEGER NOT NULL DEFAULT 0`);
     // 保底計數（見pocketRollPackWithPity）：連續開幾包沒抽到2星以上，滿100強制觸發保底
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS pocket_pity_counter INTEGER NOT NULL DEFAULT 0`);
+    // 卡牌晶鑽（見POCKET_DISMANTLE_SHARDS/POCKET_SYNTHESIZE_COST）：分解卡片獲得、合成卡片消耗
+    await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS pocket_shards INTEGER NOT NULL DEFAULT 0`);
     console.log('PostgreSQL connected');
   } catch (e) {
     console.warn('PostgreSQL not available, running without DB:', e.message);

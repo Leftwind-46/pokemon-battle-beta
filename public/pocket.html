@@ -70,6 +70,8 @@
   .card-tile { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:0.5rem; cursor:pointer; transition:transform .15s, border-color .15s; position:relative; }
   .card-tile:hover:not(.maxed) { transform:translateY(-3px); border-color:rgba(255,255,255,0.28); }
   .card-tile.maxed { opacity:0.35; cursor:not-allowed; }
+  .card-tile.dex-unowned img { filter:grayscale(1) brightness(0.4); }
+  .card-tile.dex-unowned .name { color:var(--muted); }
   .card-tile img { width:100%; border-radius:6px; display:block; background:#111; aspect-ratio:5/7; object-fit:cover; }
   .card-tile .name { font-size:0.72rem; font-weight:700; margin-top:0.4rem; line-height:1.2; }
   .card-tile .meta { font-size:0.65rem; color:var(--muted); margin-top:0.15rem; }
@@ -344,9 +346,11 @@
     </div>
     <div class="header-actions">
       <div class="coin-display" id="coin-display" style="display:none">🪙 <span id="coin-amount">0</span></div>
+      <div class="coin-display" id="shard-display" style="display:none">💎 <span id="shard-amount">0</span></div>
       <button class="btn btn-secondary" id="open-pack-btn" onclick="openPackFlow(1)" style="display:none">🎴 開卡包</button>
       <button class="btn btn-secondary" id="open-pack-10-btn" onclick="openPackFlow(10)" style="display:none">🎴×10 十連抽</button>
       <button class="btn btn-secondary" onclick="openCollectionView()">📚 我的收藏</button>
+      <button class="btn btn-secondary" id="open-dex-btn" onclick="openDexView()" style="display:none">📖 卡牌圖鑑</button>
       <div class="sub" id="pack-info">載入卡池中...</div>
     </div>
   </header>
@@ -394,6 +398,30 @@
       <h2>我的收藏</h2>
       <div class="pool-count" id="collection-count"></div>
       <div class="grid" id="collection-grid"></div>
+    </div>
+  </div>
+
+  <!-- 2026-08-06新增：卡牌圖鑑——顯示全部卡片（含尚未擁有），擁有的可以分解換晶鑽，
+       未擁有的可以花晶鑽合成（皇冠卡除外，只能開包抽到） -->
+  <div class="collection-overlay" id="dex-overlay" style="display:none">
+    <div class="collection-box">
+      <button class="lobby-close" onclick="closeDexView()">✕</button>
+      <h2>卡牌圖鑑</h2>
+      <div class="pool-count" id="dex-count"></div>
+      <div class="grid" id="dex-grid"></div>
+    </div>
+  </div>
+
+  <div class="setup-overlay" id="dex-action-overlay" style="display:none;position:fixed;z-index:95">
+    <div class="setup-box" style="width:min(92vw,380px)">
+      <h2 id="dex-action-title"></h2>
+      <img id="dex-action-img" alt="" style="width:140px;border-radius:10px;margin:0.6rem auto 0.8rem;display:block">
+      <p class="lobby-sub" id="dex-action-sub"></p>
+      <div id="dex-action-controls"></div>
+      <div style="display:flex;gap:0.6rem;margin-top:1.2rem">
+        <button class="btn btn-secondary" onclick="closeDexAction()" style="flex:1">取消</button>
+        <button class="btn btn-primary" id="dex-action-confirm-btn" style="flex:1">確認</button>
+      </div>
     </div>
   </div>
 
@@ -682,16 +710,21 @@ async function loadCards() {
 
 /* ── 收藏 ── */
 const GUEST_COLLECTION_KEY = 'pocketGuestCollection';
+let shardBalance = 0; // 卡牌晶鑽——只有登入玩家有（訪客沒有伺服器端帳號可以存這個數字）
 async function loadCollection() {
   if (pocketIsLoggedIn()) {
     try {
       const data = await pocketApiFetch('/api/pocket/collection');
       ownedCounts = Object.fromEntries(data.collection.map(c => [c.cardId, c.count]));
+      shardBalance = data.shards || 0;
     } catch (e) { ownedCounts = {}; }
     await refreshCoinDisplay();
     document.getElementById('open-pack-btn').style.display = '';
     document.getElementById('open-pack-10-btn').style.display = '';
     document.getElementById('coin-display').style.display = '';
+    document.getElementById('shard-display').style.display = '';
+    document.getElementById('shard-amount').textContent = shardBalance;
+    document.getElementById('open-dex-btn').style.display = '';
   } else {
     let saved = JSON.parse(localStorage.getItem(GUEST_COLLECTION_KEY) || 'null');
     if (!saved) {
@@ -860,6 +893,102 @@ function openCollectionView() {
   document.getElementById('collection-overlay').style.display = 'flex';
 }
 function closeCollectionView() { document.getElementById('collection-overlay').style.display = 'none'; }
+
+/* ── 卡牌圖鑑（2026-08-06新增）：顯示全部卡片，擁有的可以分解換晶鑽，未擁有的可以花晶鑽合成。
+   數字跟server.js的POCKET_DISMANTLE_SHARDS/POCKET_SYNTHESIZE_COST保持一致——這裡只是給玩家
+   看預覽用，實際扣款/發卡一律由server端re-validate，不信任這份client複本 */
+const POCKET_DISMANTLE_SHARDS_CLIENT = { 'One Diamond': 5, 'Two Diamond': 10, 'Three Diamond': 20, 'Four Diamond': 40, 'Two Star': 100, 'Three Star': 250, 'Crown': 500 };
+const POCKET_SYNTHESIZE_COST_CLIENT = { 'One Diamond': 20, 'Two Diamond': 50, 'Three Diamond': 120, 'Four Diamond': 300, 'Two Star': 800, 'Three Star': 2000 };
+
+function openDexView() {
+  if (!pocketIsLoggedIn()) return;
+  renderDexGrid();
+  document.getElementById('dex-overlay').style.display = 'flex';
+}
+function closeDexView() { document.getElementById('dex-overlay').style.display = 'none'; }
+
+function renderDexGrid() {
+  const grid = document.getElementById('dex-grid');
+  const ownedSpecies = ALL_CARDS.filter(c => (ownedCounts[c.id] || 0) > 0).length;
+  document.getElementById('dex-count').textContent = `已收集 ${ownedSpecies} / ${ALL_CARDS.length} 種　·　💎 晶鑽 ${shardBalance}`;
+  grid.innerHTML = ALL_CARDS.map(c => {
+    const owned = ownedCounts[c.id] || 0;
+    return `
+    <div class="card-tile ${owned ? '' : 'dex-unowned'}" title="${c.name}" onclick="openDexAction('${c.id}')">
+      ${owned ? `<div class="count-badge">${owned}</div>` : ''}
+      <img src="${c.image}" loading="lazy" alt="${c.name}">
+      <div class="name">${c.name}</div>
+      <div class="meta">${c.rarity || ''}</div>
+    </div>`;
+  }).join('');
+}
+
+function openDexAction(cardId) {
+  const card = cardById[cardId];
+  if (!card) return;
+  const owned = ownedCounts[cardId] || 0;
+  const isPromo = POCKET_PROMO_A_IDS.includes(cardId);
+  document.getElementById('dex-action-img').src = card.image;
+  document.getElementById('dex-action-title').textContent = card.name;
+  const sub = document.getElementById('dex-action-sub');
+  const controls = document.getElementById('dex-action-controls');
+  const confirmBtn = document.getElementById('dex-action-confirm-btn');
+  confirmBtn.disabled = false;
+  confirmBtn.style.display = '';
+  controls.innerHTML = '';
+
+  if (isPromo) {
+    sub.textContent = '這張卡本來就直接擁有（Promo-A通用卡），不需要分解或合成';
+    confirmBtn.style.display = 'none';
+  } else if (owned > 0) {
+    const shardEach = POCKET_DISMANTLE_SHARDS_CLIENT[card.rarity] || 5;
+    sub.textContent = `目前擁有 ${owned} 張・${card.rarity || ''}　分解每張可得 💎${shardEach}`;
+    controls.innerHTML = `
+      <label class="lobby-sub" style="display:block;margin-bottom:0.3rem">分解數量</label>
+      <input type="number" id="dex-dismantle-count" min="1" max="${owned}" value="1"
+        style="width:100%;padding:0.5rem;border-radius:8px;background:var(--surface);border:1px solid var(--border);color:var(--text)">`;
+    confirmBtn.textContent = '分解換晶鑽';
+    confirmBtn.onclick = () => doDismantle(cardId);
+  } else if (card.rarity === 'Crown') {
+    sub.textContent = '皇冠卡不能透過合成取得，只能靠開包抽到';
+    confirmBtn.style.display = 'none';
+  } else {
+    const cost = POCKET_SYNTHESIZE_COST_CLIENT[card.rarity];
+    sub.textContent = `尚未擁有・${card.rarity || ''}　合成需要 💎${cost}（目前擁有 💎${shardBalance}）`;
+    confirmBtn.textContent = '花晶鑽合成';
+    confirmBtn.disabled = shardBalance < cost;
+    confirmBtn.onclick = () => doSynthesize(cardId);
+  }
+  document.getElementById('dex-action-overlay').style.display = 'flex';
+}
+function closeDexAction() { document.getElementById('dex-action-overlay').style.display = 'none'; }
+
+async function doDismantle(cardId) {
+  const count = Math.max(1, parseInt(document.getElementById('dex-dismantle-count')?.value, 10) || 1);
+  const sub = document.getElementById('dex-action-sub');
+  try {
+    const data = await pocketApiFetch('/api/pocket/dismantle', { method: 'POST', body: JSON.stringify({ cardId, count }) });
+    shardBalance = data.shards;
+    await loadCollection();
+    renderDexGrid();
+    closeDexAction();
+  } catch (e) {
+    sub.textContent = e.message || '分解失敗';
+  }
+}
+async function doSynthesize(cardId) {
+  const sub = document.getElementById('dex-action-sub');
+  try {
+    const data = await pocketApiFetch('/api/pocket/synthesize', { method: 'POST', body: JSON.stringify({ cardId }) });
+    shardBalance = data.shards;
+    await loadCollection();
+    renderDexGrid();
+    renderPool();
+    closeDexAction();
+  } catch (e) {
+    sub.textContent = e.message || '合成失敗';
+  }
+}
 
 /* ── 開卡包（2026-08-06新增count參數支援10連抽，預設1）── */
 async function openPackFlow(count = 1) {
