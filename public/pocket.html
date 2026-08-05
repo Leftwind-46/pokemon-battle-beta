@@ -546,6 +546,20 @@
     <div class="setup-box"><h2>對手的寶可夢倒下了</h2><p class="lobby-sub">等待對方選擇替補寶可夢中...</p></div>
   </div>
 
+  <!-- 2026-08-06新增：招式效果需要玩家自選的情況（例如Moltres ex自選能量分配對象、
+       Abra Teleport自選要換誰上場），跟switch-overlay共用視覺樣式 -->
+  <div class="setup-overlay" id="attack-choice-overlay" style="display:none">
+    <div class="setup-box">
+      <h2 id="attack-choice-title"></h2>
+      <p class="lobby-sub" id="attack-choice-sub"></p>
+      <div class="setup-hand" id="attack-choice-options"></div>
+    </div>
+  </div>
+
+  <div class="setup-overlay" id="attack-choice-wait-overlay" style="display:none">
+    <div class="setup-box"><h2>對手正在選擇招式效果目標</h2><p class="lobby-sub">請稍候...</p></div>
+  </div>
+
   <div class="setup-overlay" id="gameover-overlay" style="display:none">
     <div class="setup-box">
       <h2 id="gameover-title"></h2>
@@ -1275,6 +1289,32 @@ function renderBoard() {
     ).join('');
   }
 
+  // attack_choice overlay——招式效果需要玩家自選目標時暫停在這裡（見server.js的pendingChoice）
+  const pendingChoice = state.pendingChoice;
+  const needMyChoice = phase === 'attack_choice' && pendingChoice?.role === myRole;
+  const needOppChoice = phase === 'attack_choice' && pendingChoice && pendingChoice.role !== myRole;
+  document.getElementById('attack-choice-overlay').style.display = needMyChoice ? 'flex' : 'none';
+  document.getElementById('attack-choice-wait-overlay').style.display = needOppChoice ? 'flex' : 'none';
+  if (needMyChoice) {
+    const titleEl = document.getElementById('attack-choice-title');
+    const subEl = document.getElementById('attack-choice-sub');
+    const optionsEl = document.getElementById('attack-choice-options');
+    if (pendingChoice.kind === 'energy_distribute') {
+      titleEl.textContent = `分配 ${TYPE_ZH[pendingChoice.energyType] || pendingChoice.energyType} 能量`;
+      subEl.textContent = `還剩 ${pendingChoice.count} 點能量可以分配，點擊寶可夢附加（可以重複點同一隻）`;
+      const eligible = (you.bench || []).filter(p => pendingChoice.eligibleUids.includes(p.uid));
+      optionsEl.innerHTML = eligible.map(p =>
+        renderPokeSlot(p, { pickable: true, dataset: { 'attack-choice-pick': '1' } })
+      ).join('');
+    } else if (pendingChoice.kind === 'bench_switch') {
+      titleEl.textContent = '選擇要換上場的寶可夢';
+      subEl.textContent = '';
+      optionsEl.innerHTML = (you.bench || []).map(p =>
+        renderPokeSlot(p, { pickable: true, dataset: { 'attack-choice-pick': '1' } })
+      ).join('');
+    }
+  }
+
   if (phase === 'done') showGameOver(state.winner);
   else document.getElementById('gameover-overlay').style.display = 'none';
 }
@@ -1346,6 +1386,9 @@ document.getElementById('board-overlay').addEventListener('click', e => {
   }
   const switchSlot = e.target.closest('.board-slot[data-switch-pick]');
   if (switchSlot) { wsSend({ type: 'pocket_choose_active', target: switchSlot.dataset.uid }); return; }
+
+  const choiceSlot = e.target.closest('.board-slot[data-attack-choice-pick]');
+  if (choiceSlot) { wsSend({ type: 'pocket_attack_choice', uid: choiceSlot.dataset.uid }); return; }
 
   // 2026-08-05改版：點手牌/己方場上寶可夢不再直接觸發動作（原本一點就出牌/撤退，容易誤觸、
   // 也看不到卡片詳細內容才做決定）——改成先開卡片預覽面板，可用的動作變成面板裡的按鈕，

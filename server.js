@@ -2594,6 +2594,7 @@ function buildPocketG(pRoom) {
   const p2 = pocketDrawOpeningHand(pRoom.p2Deck);
   return {
     turn: pRoom.firstPlayer, turnNumber: 1, phase: 'setup', winner: null, pendingSwitchRole: null, pendingSwitchReason: null,
+    pendingChoice: null,
     eventSeq: 0, lastEvent: null,
     p1: pocketFreshSide(p1, pRoom.p1Deck),
     p2: pocketFreshSide(p2, pRoom.p2Deck),
@@ -2753,6 +2754,7 @@ function pocketViewFor(G, role) {
   const pub = side => ({ active: side.active, bench: side.bench, discard: side.discard, points: side.points, deckCount: side.deck.length });
   return {
     turn: G.turn, turnNumber: G.turnNumber, phase: G.phase, winner: G.winner, pendingSwitchRole: G.pendingSwitchRole,
+    pendingChoice: G.pendingChoice,
     lastEvent: G.lastEvent,
     you: {
       ...pub(G[role]), hand: G[role].hand, pendingEnergy: G[role].pendingEnergy,
@@ -2800,10 +2802,16 @@ const ATTACK_EFFECTS = {
   "During your opponent's next turn, the Defending Pokémon can't retreat.": ctx => { ctx.defender.cantRetreatUntilTurn = ctx.G.turnNumber + 1; },
   "During your opponent’s next turn, attacks used by the Defending Pokémon do −20 damage.": ctx => { ctx.defender.dmgDebuffUntilTurn = ctx.G.turnNumber + 1; ctx.defender.dmgDebuffAmount = 20; },
   "Flip 2 coins. This attack does 80 damage for each heads.": ctx => { ctx.rawDamage = pocketFlipCoins(2, ctx) * 80; },
+  // 2026-08-06修正：原本自動輪流塞給板凳上的火系寶可夢（round-robin），但官方卡面寫的是
+  // "in any way you like"——玩家自己選要怎麼分配（含全部塞同一隻）。改成暫停攻擊流程，
+  // 進入pendingChoice讓玩家逐張能量點選要給哪隻，詳見pocket_attack handler尾端跟
+  // pocket_attack_choice handler。
   "Flip 3 coins. Take an amount of {R} Energy from your Energy Zone equal to the number of heads and attach it to your Benched {R} Pokémon in any way you like.": ctx => {
     const heads = pocketFlipCoins(3, ctx);
     const targets = ctx.side.bench.filter(p => (p.types || []).includes('Fire'));
-    for (let i = 0; i < heads && targets.length; i++) targets[i % targets.length].energy.push('Fire');
+    if (heads > 0 && targets.length) {
+      ctx.needsChoice = { kind: 'energy_distribute', count: heads, energyType: 'Fire', eligibleUids: targets.map(p => p.uid) };
+    }
     ctx.rawDamage = 0;
   },
   "Flip 4 coins. This attack does 40 damage for each heads.": ctx => { ctx.rawDamage = pocketFlipCoins(4, ctx) * 40; },
@@ -2844,13 +2852,12 @@ const ATTACK_EFFECTS = {
     if (have - need >= 2) ctx.rawDamage += 60;
   },
   "If your opponent's Active Pokémon is Poisoned, this attack does 50 more damage.": ctx => { if (ctx.defender?.status === 'poisoned') ctx.rawDamage += 50; },
+  // 2026-08-06修正：原本隨機選一隻板凳換上場，查證卡面文字（沒有"at random"字樣）後
+  // 改成玩家自選要換誰上場——暫停進pendingChoice，實際交換動作延到pocket_attack_choice
+  // handler收到玩家選擇後才執行。
   "Switch this Pokémon with 1 of your Benched Pokémon.": ctx => {
     if (ctx.side.bench.length) {
-      const i = Math.floor(Math.random() * ctx.side.bench.length);
-      const bench = ctx.side.bench[i];
-      ctx.attacker.status = null; // 中毒可以照樣攻擊，這招會把自己換下場，離開主戰要清除異常狀態
-      ctx.side.bench[i] = ctx.attacker;
-      ctx.side.active = bench;
+      ctx.needsChoice = { kind: 'bench_switch' };
     }
     ctx.rawDamage = 0;
   },
@@ -5096,6 +5103,47 @@ async function handleMessage(ws, msg) {
       // 這裡如果已經進入forced_switch/done就不要再往下走
       if (G.phase === 'forced_switch' || G.phase === 'done') { pocketBroadcastState(pRoom); return; }
 
+      // 需要玩家自選的招式效果（例如Moltres ex分配能量、Abra Teleport選要換誰上場）：
+      // 先暫停在這裡，不結束回合，等pocket_attack_choice收到玩家的選擇才真正結束回合。
+      if (ctx.needsChoice) {
+        G.phase = 'attack_choice';
+        G.pendingChoice = { role, ...ctx.needsChoice };
+        pocketBroadcastState(pRoom);
+        return;
+      }
+
+      pocketAdvanceTurn(G);
+      pocketBroadcastState(pRoom);
+      return;
+    }
+
+    if (type === 'pocket_attack_choice') {
+      const pRoom = pocketRooms.get(ws.pocketRoomCode);
+      if (!pRoom?.G || pRoom.G.phase !== 'attack_choice') return;
+      const G = pRoom.G; const role = ws.pocketRole;
+      const pending = G.pendingChoice;
+      if (!pending || pending.role !== role) return;
+      const side = G[role];
+      if (pending.kind === 'energy_distribute') {
+        if (!pending.eligibleUids.includes(msg.uid)) return;
+        const target = side.bench.find(p => p.uid === msg.uid);
+        if (!target) return;
+        target.energy.push(pending.energyType);
+        pending.count--;
+        if (pending.count > 0) { pocketBroadcastState(pRoom); return; }
+      } else if (pending.kind === 'bench_switch') {
+        const idx = side.bench.findIndex(p => p.uid === msg.uid);
+        if (idx < 0) return;
+        const bench = side.bench[idx];
+        const attacker = side.active;
+        attacker.status = null; // 中毒可以照樣攻擊，這招會把自己換下場，離開主戰要清除異常狀態
+        side.bench[idx] = attacker;
+        side.active = bench;
+      } else {
+        return;
+      }
+      G.pendingChoice = null;
+      G.phase = 'active';
       pocketAdvanceTurn(G);
       pocketBroadcastState(pRoom);
       return;
