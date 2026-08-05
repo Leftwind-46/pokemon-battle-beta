@@ -240,6 +240,17 @@
     background:radial-gradient(circle, currentColor 0%, transparent 70%); }
   @keyframes vfxImpact { 0% { opacity:0; transform:translate(-50%,-50%) scale(0.3); } 30% { opacity:0.85; transform:translate(-50%,-50%) scale(1.3); } 100% { opacity:0; transform:translate(-50%,-50%) scale(1.6); } }
 
+  /* ── 上場特效（2026-08-05補上，跟pokemon_battle.html的spawnSummonEffect同一套手法）：
+     寶可夢變成主戰時在卡片上疊一圈屬性色擴散環+粒子爆發。板凳上場（bench_play）不觸發，
+     只有「變成主戰」才算——跟主戰場doAttack那邊的定義一致 ── */
+  .summon-ring { position:absolute; left:50%; top:50%; width:70px; height:70px; margin:-35px;
+    border-radius:50%; border-style:solid; border-width:3px; pointer-events:none; z-index:12;
+    animation:summonRingPulse 0.55s ease-out forwards; }
+  @keyframes summonRingPulse { 0% { transform:scale(0.3); opacity:0.85; } 100% { transform:scale(2.2); opacity:0; } }
+  .summon-particle { position:absolute; left:50%; top:50%; width:6px; height:6px; margin:-3px;
+    border-radius:50%; pointer-events:none; z-index:12; animation:summonParticleFly 0.6s ease-out forwards; }
+  @keyframes summonParticleFly { 0% { transform:translate(0,0) scale(1); opacity:1; } 100% { transform:translate(var(--mpx), var(--mpy)) scale(0.2); opacity:0; } }
+
   /* ── 擲硬幣動畫——2026-08版改成看起來像真的金屬硬幣（純CSS，沒有用任何圖檔/官方素材）：
      金色漸層做出立體感、內圈壓花邊框模擬硬幣的凸緣、正反面用不同底色區分 ── */
   .coin-flip-overlay { position:fixed; inset:0; z-index:95; background:rgba(0,0,0,0.55); display:flex; align-items:center; justify-content:center; gap:0.8rem; }
@@ -659,6 +670,7 @@ loadCards();
 let ws = null;
 let myRole = null; // 'p1' | 'p2'
 let lastMyPoints = 0, lastOppPoints = 0; // 用來判斷分數是否剛好在這次render增加，觸發標記彈跳動畫
+let lastMyActiveUid = null, lastOppActiveUid = null; // 用來判斷主戰是不是剛好換了一隻新的，觸發上場特效
 
 function lobbyShowStep(step) {
   ['choose', 'waiting', 'ready', 'started'].forEach(s => {
@@ -871,13 +883,21 @@ function renderBoard() {
   oppHandFan.innerHTML = Array.from({ length: opponent.handCount || 0 }, () => '<div class="card-back">🎴</div>').join('');
   applyFanLayout(oppHandFan);
 
-  document.getElementById('opp-active').innerHTML = renderPokeSlot(opponent.active);
+  const oppActiveEl = document.getElementById('opp-active');
+  oppActiveEl.innerHTML = renderPokeSlot(opponent.active);
   document.getElementById('opp-bench').innerHTML = (opponent.bench || []).map(p => renderPokeSlot(p)).join('') || '<div class="board-slot empty"></div>'.repeat(3);
-  document.getElementById('my-active').innerHTML = renderPokeSlot(you.active, {
+  const myActiveEl = document.getElementById('my-active');
+  myActiveEl.innerHTML = renderPokeSlot(you.active, {
     pickable: !!selectedAction && selectedAction.mode !== 'retreat',
     dataset: { zone: 'active' },
     own: true,
   });
+  // 上場特效：只在「主戰真的換了一隻新的」時觸發（uid變了且新主戰存在），不是每次state
+  // 廣播都放——HP/能量變化也會走到這裡重繪，不能靠「有沒有畫面」判斷，要比對uid
+  if (opponent.active && opponent.active.uid !== lastOppActiveUid) spawnSummonEffect(oppActiveEl.querySelector('.board-slot'), opponent.active.types?.[0]);
+  if (you.active && you.active.uid !== lastMyActiveUid) spawnSummonEffect(myActiveEl.querySelector('.board-slot'), you.active.types?.[0]);
+  lastOppActiveUid = opponent.active?.uid || null;
+  lastMyActiveUid = you.active?.uid || null;
   document.getElementById('my-bench').innerHTML = (you.bench || []).map(p => renderPokeSlot(p, {
     pickable: !!selectedAction,
     dataset: { zone: 'bench' },
@@ -1253,6 +1273,30 @@ function playCoinFlipAnim(results) {
     setTimeout(() => { coinEls.forEach((el, i) => { el.textContent = results[i] ? '正' : '反'; el.classList.toggle('tails', !results[i]); }); }, 550);
     setTimeout(() => { overlay.style.display = 'none'; resolve(); }, 1250);
   });
+}
+
+// 上場特效——跟pokemon_battle.html的spawnSummonEffect同一套手法（擴散環+粒子），這裡只是
+// 換成pocket的TYPE_COLOR/型別欄位(p.types[0]是字串如'Fire'，不是那邊的小寫type id，直接查表即可)
+function spawnSummonEffect(cardEl, type) {
+  if (!cardEl) return;
+  const color = TYPE_COLOR[type] || '#e8eaf6';
+  cardEl.style.position = 'relative';
+  const ring = document.createElement('div');
+  ring.className = 'summon-ring';
+  ring.style.borderColor = color;
+  cardEl.appendChild(ring);
+  setTimeout(() => ring.remove(), 600);
+  for (let i = 0; i < 10; i++) {
+    const particle = document.createElement('div');
+    const angle = (i / 10) * 2 * Math.PI;
+    const dist = 42 + Math.random() * 24;
+    particle.className = 'summon-particle';
+    particle.style.background = color;
+    particle.style.setProperty('--mpx', Math.cos(angle) * dist + 'px');
+    particle.style.setProperty('--mpy', Math.sin(angle) * dist + 'px');
+    cardEl.appendChild(particle);
+    setTimeout(() => particle.remove(), 650);
+  }
 }
 
 function playAttackVfx(attackerRole, atkType, targetUid) {
