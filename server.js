@@ -2609,6 +2609,12 @@ function pocketAdvanceTurn(G) {
       if (G.phase === 'forced_switch' || G.phase === 'done') return;
     }
   }
+  // 麻痺（跟睡眠/中毒不同）在真實規則裡是限時debuff：只擋這一整個回合的攻擊/撤退，
+  // 回合結束就解除——不是像原本那樣只有「嘗試攻擊失敗」才會清掉。原本的寫法會讓玩家
+  // 選擇不攻擊（例如先蓄能量）時麻痺永遠不會解除，撤退又同時被麻痺擋死，等於卡死。
+  // 這裡在麻痺方回合真正結束時清除，攻擊handler自己觸發的失敗清除（見pocket_attack
+  // 的paralyzed分支）跟這裡不會衝突——那條路徑執行到這裡時status早就已經是null了。
+  if (endingSide.active?.status === 'paralyzed') endingSide.active.status = null;
   G.turn = endingRole === 'p1' ? 'p2' : 'p1';
   G.turnNumber++;
   const side = G[G.turn];
@@ -2789,7 +2795,13 @@ const ATTACK_EFFECTS = {
     if (!pocketFlipCoin(ctx)) { ctx.rawDamage = 0; return; }
     ctx.rawDamage = 0;
     if (ctx.defender) {
-      ctx.oppSide.deck.push(ctx.defender);
+      // 洗回牌庫等同一張全新的卡——傷害/能量/異常狀態都要重置，不然這個物件參照原封不動
+      // 塞回deck，之後抽到重新上場時會帶著舊的殘血/能量/中毒狀態，跟真實規則不符
+      // （洗進牌庫視為重新變成一張未使用過的卡）。
+      const p = ctx.defender;
+      p.curHp = p.hp; p.energy = []; p.status = null; p.boardTurn = null;
+      p.cantAttackUntilTurn = 0; p.cantRetreatUntilTurn = 0; p.dmgDebuffUntilTurn = 0; p.dmgDebuffAmount = 0;
+      ctx.oppSide.deck.push(p);
       ctx.oppSide.deck = pocketShuffle(ctx.oppSide.deck);
       pocketResolveActiveKO(ctx.G, ctx.op, false);
       ctx.skipMainDamage = true;
@@ -2809,6 +2821,7 @@ const ATTACK_EFFECTS = {
     if (ctx.side.bench.length) {
       const i = Math.floor(Math.random() * ctx.side.bench.length);
       const bench = ctx.side.bench[i];
+      ctx.attacker.status = null; // 中毒可以照樣攻擊，這招會把自己換下場，離開主戰要清除異常狀態
       ctx.side.bench[i] = ctx.attacker;
       ctx.side.active = bench;
     }
@@ -2908,6 +2921,7 @@ const TRAINER_EFFECTS = {
     // 這裡刻意不擋「對手沒有其他板凳寶可夢」的情況：active是先push進bench才被清空，所以
     // bench在forced_switch開始時永遠至少有1隻（剛被換下來的那隻自己）可選——對手沒有其他板凳
     // 選項時，選回同一隻只是效果對等於沒發生（浪費一張卡），不會卡死在forced_switch選不到目標。
+    ctx.oppSide.active.status = null; // 異常狀態只作用在主戰位置，離開主戰要清除（同撤退那邊的理由）
     ctx.oppSide.bench.push(ctx.oppSide.active);
     ctx.oppSide.active = null;
     pocketEnterForcedSwitch(ctx.G, ctx.op, 'noEndTurn'); // 支援者卡不會結束回合，換完人回合還是你的
@@ -4763,6 +4777,11 @@ async function handleMessage(ws, msg) {
       const idx = side.bench.findIndex(p => p.uid === msg.target);
       if (idx < 0) return;
       active.energy.splice(0, cost);
+      // 真實規則：異常狀態（中毒等）只作用在主戰位置，撤退到板凳時要清除——不然中毒的寶可夢
+      // 撤退後status還留著，之後又換回主戰時會被誤判成「重新中毒」，繼續扣血。
+      // （asleep/paralyzed已經在上面被擋死不會走到這裡，這裡實務上只會清到poisoned，
+      // 但寫成清全部status比較不會漏未來新增的狀態種類）
+      active.status = null;
       const target = side.bench[idx];
       side.bench[idx] = active;
       side.active = target;
