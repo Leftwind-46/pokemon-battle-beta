@@ -2579,6 +2579,15 @@ function pocketDeckEnergyTypes(deckIds) {
   }
   return set.size ? [...set] : ['Colorless'];
 }
+// 2026-08-06新增：玩家可以手動自選能量區出現的屬性，取代原本純自動偵測。
+// POCKET_ENERGY_TYPE_LIST是合法可選的清單（Colorless不在其中——那不是能量區真的會生成的屬性，
+// 跟pocketDeckEnergyTypes原本排除Colorless的邏輯一致）。
+const POCKET_ENERGY_TYPE_LIST = ['Fire', 'Water', 'Lightning', 'Psychic', 'Fighting', 'Darkness', 'Dragon', 'Grass'];
+function pocketValidateEnergyTypes(types) {
+  if (!Array.isArray(types) || !types.length) return null;
+  const filtered = [...new Set(types.filter(t => POCKET_ENERGY_TYPE_LIST.includes(t)))];
+  return filtered.length ? filtered : null;
+}
 function pocketDrawOpeningHand(deckIds) {
   let instances = pocketShuffle(deckIds.map(makePocketInstance));
   let hand = [];
@@ -2596,15 +2605,15 @@ function buildPocketG(pRoom) {
     turn: pRoom.firstPlayer, turnNumber: 1, phase: 'setup', winner: null, pendingSwitchRole: null, pendingSwitchReason: null,
     pendingChoice: null,
     eventSeq: 0, lastEvent: null,
-    p1: pocketFreshSide(p1, pRoom.p1Deck),
-    p2: pocketFreshSide(p2, pRoom.p2Deck),
+    p1: pocketFreshSide(p1, pRoom.p1Deck, pRoom.p1EnergyTypes),
+    p2: pocketFreshSide(p2, pRoom.p2Deck, pRoom.p2EnergyTypes),
   };
 }
-function pocketFreshSide(drawn, deckIds) {
+function pocketFreshSide(drawn, deckIds, energyTypesOverride) {
   return {
     ...drawn, active: null, bench: [], discard: [], points: 0, pendingEnergy: null,
     energyAttachedThisTurn: false, retreatedThisTurn: false, supporterUsedThisTurn: false,
-    energyTypes: pocketDeckEnergyTypes(deckIds), boardReady: false,
+    energyTypes: energyTypesOverride || pocketDeckEnergyTypes(deckIds), boardReady: false,
     giovanniBoostThisTurn: false, blaineBoostNamesThisTurn: null, retreatDiscountThisTurn: 0,
     abilitiesUsedThisTurn: [], supporterLockedUntilTurn: 0,
   };
@@ -3489,7 +3498,9 @@ app.get('/api/pocket/collection', requireAuth, async (req, res) => {
 
 // 卡牌分解取得的晶鑽數量 / 合成消耗的晶鑽數量，都依稀有度分級。Crown故意不列在
 // SYNTHESIZE表裡——皇冠卡只能靠開包抽到，不能用晶鑽合成取得（使用者明確要求的限制）。
-const POCKET_DISMANTLE_SHARDS = { 'One Diamond': 5, 'Two Diamond': 10, 'Three Diamond': 20, 'Four Diamond': 40, 'Two Star': 100, 'Three Star': 250, 'Crown': 500 };
+// 2026-08-06調高2星以上的分解回饋——原本100/250/500跟合成成本(800/2000)比起來太摳，
+// 拆3張重複的2星卡才勉強湊得到合成1張沒有的2星卡，使用者覺得應該要更慷慨一點
+const POCKET_DISMANTLE_SHARDS = { 'One Diamond': 5, 'Two Diamond': 10, 'Three Diamond': 20, 'Four Diamond': 40, 'Two Star': 300, 'Three Star': 800, 'Crown': 2000 };
 const POCKET_SYNTHESIZE_COST = { 'One Diamond': 20, 'Two Diamond': 50, 'Three Diamond': 120, 'Four Diamond': 300, 'Two Star': 800, 'Three Star': 2000 };
 
 app.post('/api/pocket/dismantle', requireAuth, async (req, res) => {
@@ -3512,6 +3523,33 @@ app.post('/api/pocket/dismantle', requireAuth, async (req, res) => {
     res.json({ gained, shards: rows[0]?.pocket_shards ?? 0 });
   } catch (e) {
     console.error('pocket dismantle error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
+// 2026-08-06新增一鍵分解：把所有擁有數超過2張的卡（Promo-A排除）分解到剩2張，一次結算晶鑽總數。
+// 「留2張」而不是留1張——牌組規則同名卡最多放2張，留2張代表「保留組牌所需的份數，分解真正多餘的」。
+app.post('/api/pocket/dismantle-all', requireAuth, async (req, res) => {
+  const KEEP = 2;
+  try {
+    const { rows } = await pool.query(
+      `SELECT card_id, count FROM pocket_collection WHERE user_id = $1 AND count > $2`,
+      [req.user.id, KEEP]
+    );
+    const eligible = rows.filter(r => !POCKET_PROMO_A_IDS.includes(r.card_id) && POCKET_CARDS_BY_ID[r.card_id]);
+    if (!eligible.length) return res.json({ gained: 0, cardsDismantled: 0, shards: null });
+    let totalGained = 0;
+    for (const r of eligible) {
+      const card = POCKET_CARDS_BY_ID[r.card_id];
+      const extra = r.count - KEEP;
+      const shardsPerCard = POCKET_DISMANTLE_SHARDS[card.rarity] || 5;
+      totalGained += shardsPerCard * extra;
+      await pool.query('UPDATE pocket_collection SET count = $1 WHERE user_id = $2 AND card_id = $3', [KEEP, req.user.id, r.card_id]);
+    }
+    const { rows: shardRows } = await pool.query('UPDATE pets SET pocket_shards = pocket_shards + $1 WHERE user_id = $2 RETURNING pocket_shards', [totalGained, req.user.id]);
+    res.json({ gained: totalGained, cardsDismantled: eligible.length, shards: shardRows[0]?.pocket_shards ?? 0 });
+  } catch (e) {
+    console.error('pocket dismantle-all error:', e.message);
     res.status(503).json({ error: 'db_error' });
   }
 });
@@ -3626,8 +3664,8 @@ async function pocketValidateOwnedDeck(userId, deckIds) {
 
 app.get('/api/pocket/decks', requireAuth, async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT id, name, card_ids, updated_at FROM pocket_decks WHERE user_id = $1 ORDER BY updated_at DESC', [req.user.id]);
-    res.json({ decks: rows.map(r => ({ id: r.id, name: r.name, cardIds: r.card_ids, updatedAt: r.updated_at })) });
+    const { rows } = await pool.query('SELECT id, name, card_ids, energy_types, updated_at FROM pocket_decks WHERE user_id = $1 ORDER BY updated_at DESC', [req.user.id]);
+    res.json({ decks: rows.map(r => ({ id: r.id, name: r.name, cardIds: r.card_ids, energyTypes: r.energy_types || null, updatedAt: r.updated_at })) });
   } catch (e) {
     console.error('pocket decks fetch error:', e.message);
     res.status(503).json({ error: 'db_error' });
@@ -3642,11 +3680,12 @@ app.post('/api/pocket/decks', requireAuth, async (req, res) => {
     const { rows: countRows } = await pool.query('SELECT COUNT(*) FROM pocket_decks WHERE user_id = $1', [req.user.id]);
     if (Number(countRows[0].count) >= 20) return res.status(400).json({ error: 'deck_limit', message: '最多只能儲存 20 副牌組' });
     const deckName = (typeof name === 'string' && name.trim()) ? name.trim().slice(0, 30) : '未命名牌組';
+    const energyTypes = pocketValidateEnergyTypes(req.body?.energyTypes);
     const { rows } = await pool.query(
-      'INSERT INTO pocket_decks (user_id, name, card_ids) VALUES ($1, $2, $3) RETURNING id, name, card_ids, updated_at',
-      [req.user.id, deckName, cardIds]
+      'INSERT INTO pocket_decks (user_id, name, card_ids, energy_types) VALUES ($1, $2, $3, $4) RETURNING id, name, card_ids, energy_types, updated_at',
+      [req.user.id, deckName, cardIds, energyTypes]
     );
-    res.json({ deck: { id: rows[0].id, name: rows[0].name, cardIds: rows[0].card_ids, updatedAt: rows[0].updated_at } });
+    res.json({ deck: { id: rows[0].id, name: rows[0].name, cardIds: rows[0].card_ids, energyTypes: rows[0].energy_types || null, updatedAt: rows[0].updated_at } });
   } catch (e) {
     console.error('pocket deck create error:', e.message);
     res.status(503).json({ error: 'db_error' });
@@ -3659,13 +3698,14 @@ app.put('/api/pocket/decks/:id', requireAuth, async (req, res) => {
     const err = await pocketValidateOwnedDeck(req.user.id, cardIds);
     if (err) return res.status(400).json({ error: 'invalid_deck', message: err });
     const deckName = (typeof name === 'string' && name.trim()) ? name.trim().slice(0, 30) : '未命名牌組';
+    const energyTypes = pocketValidateEnergyTypes(req.body?.energyTypes);
     const { rows, rowCount } = await pool.query(
-      `UPDATE pocket_decks SET name = $1, card_ids = $2, updated_at = NOW()
-       WHERE id = $3 AND user_id = $4 RETURNING id, name, card_ids, updated_at`,
-      [deckName, cardIds, req.params.id, req.user.id]
+      `UPDATE pocket_decks SET name = $1, card_ids = $2, energy_types = $3, updated_at = NOW()
+       WHERE id = $4 AND user_id = $5 RETURNING id, name, card_ids, energy_types, updated_at`,
+      [deckName, cardIds, energyTypes, req.params.id, req.user.id]
     );
     if (!rowCount) return res.status(404).json({ error: 'not_found' });
-    res.json({ deck: { id: rows[0].id, name: rows[0].name, cardIds: rows[0].card_ids, updatedAt: rows[0].updated_at } });
+    res.json({ deck: { id: rows[0].id, name: rows[0].name, cardIds: rows[0].card_ids, energyTypes: rows[0].energy_types || null, updatedAt: rows[0].updated_at } });
   } catch (e) {
     console.error('pocket deck update error:', e.message);
     res.status(503).json({ error: 'db_error' });
@@ -4900,8 +4940,11 @@ async function handleMessage(ws, msg) {
         const ownErr = await pocketValidateOwnedDeck(ws.userId, msg.deck);
         if (ownErr) { send(ws, { type: 'error', message: ownErr }); return; }
       }
-      if (pRole === 'p1') { pRoom.p1Deck = msg.deck; pRoom.p1Ready = true; }
-      else                { pRoom.p2Deck = msg.deck; pRoom.p2Ready = true; }
+      // 玩家自選能量種類（見pocketValidateEnergyTypes）——驗證不過或沒傳就是null，
+      // pocketFreshSide收到null會照舊退回自動偵測，不會整個提交失敗
+      const energyTypes = pocketValidateEnergyTypes(msg.energyTypes);
+      if (pRole === 'p1') { pRoom.p1Deck = msg.deck; pRoom.p1EnergyTypes = energyTypes; pRoom.p1Ready = true; }
+      else                { pRoom.p2Deck = msg.deck; pRoom.p2EnergyTypes = energyTypes; pRoom.p2Ready = true; }
       send(pRoom[pRole === 'p1' ? 'p2' : 'p1'], { type: 'pocket_opponent_ready' });
       if (pRoom.p1Ready && pRoom.p2Ready) {
         pRoom.firstPlayer = Math.random() < 0.5 ? 'p1' : 'p2';
@@ -6153,6 +6196,9 @@ async function initDB() {
       card_ids TEXT[] NOT NULL,
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )`);
+    // 牌組手動自選能量種類（見pocketValidateEnergyTypes）——NULL代表沒有自訂，戰鬥開始時
+    // 退回pocketDeckEnergyTypes自動偵測，不是每副舊牌組都要補值
+    await pool.query(`ALTER TABLE pocket_decks ADD COLUMN IF NOT EXISTS energy_types TEXT[]`);
     // 每日5包免費開包額度——跟claim-daily-coins同一套「用DATE欄位lazy重置，交給Postgres
     // CURRENT_DATE比對，不要把DATE讀回JS再轉字串比較」的手法（那邊的註解記錄了時區bug教訓）
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS pocket_free_packs_date DATE`);

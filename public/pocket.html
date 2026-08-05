@@ -85,6 +85,13 @@
   .deck-count .bad { color:#ff8a80; }
   .deck-warn { font-size:0.78rem; color:#ffab91; background:rgba(255,138,101,0.08); border:1px solid rgba(255,138,101,0.25); border-radius:8px; padding:0.5rem 0.7rem; display:none; }
   .deck-warn.show { display:block; }
+  /* 2026-08-06新增：牌組能量種類手動選擇——預設照牌組寶可夢屬性自動偵測，玩家可以自己勾選調整 */
+  .energy-type-picker { margin-bottom:0.6rem; }
+  .energy-type-chips { display:flex; flex-wrap:wrap; gap:0.35rem; }
+  .energy-type-chip { display:flex; align-items:center; gap:0.3rem; padding:0.25rem 0.55rem; border-radius:999px;
+    border:1.5px solid var(--border); background:var(--surface); cursor:pointer; font-size:0.72rem; opacity:0.4; transition:opacity .15s, border-color .15s; }
+  .energy-type-chip.on { opacity:1; border-color:rgba(255,255,255,0.4); }
+  .energy-type-chip .energy-icon { width:14px; height:14px; }
   .deck-list { display:flex; flex-direction:column; gap:0.35rem; flex:1; overflow-y:auto; }
   .deck-row { display:flex; align-items:center; gap:0.5rem; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:0.4rem 0.5rem; font-size:0.78rem; }
   .deck-row img { width:28px; height:39px; border-radius:4px; object-fit:cover; background:#111; }
@@ -349,7 +356,7 @@
       <div class="coin-display" id="shard-display" style="display:none">💎 <span id="shard-amount">0</span></div>
       <button class="btn btn-secondary" id="open-pack-btn" onclick="openPackFlow(1)" style="display:none">🎴 開卡包</button>
       <button class="btn btn-secondary" id="open-pack-10-btn" onclick="openPackFlow(10)" style="display:none">🎴×10 十連抽</button>
-      <button class="btn btn-secondary" onclick="openCollectionView()">📚 我的收藏</button>
+      <button class="btn btn-secondary" onclick="openCollectionView()">📚 卡牌收藏</button>
       <button class="btn btn-secondary" id="open-dex-btn" onclick="openDexView()" style="display:none">📖 卡牌圖鑑</button>
       <div class="sub" id="pack-info">載入卡池中...</div>
     </div>
@@ -382,6 +389,10 @@
       <input id="deck-name-input" class="deck-name-input" placeholder="牌組名稱" maxlength="30">
       <div class="deck-count">牌組 <span id="deck-total">0</span> / 20</div>
       <div class="deck-warn" id="deck-warn"></div>
+      <div class="energy-type-picker">
+        <div class="lobby-sub" style="margin-bottom:0.3rem">能量區會出現的屬性（可自選，至少選1種）</div>
+        <div class="energy-type-chips" id="energy-type-chips"></div>
+      </div>
       <div class="deck-list" id="deck-list"></div>
       <div class="btn-row">
         <button class="btn btn-secondary" onclick="clearDeck()">清空</button>
@@ -395,7 +406,7 @@
   <div class="collection-overlay" id="collection-overlay" style="display:none">
     <div class="collection-box">
       <button class="lobby-close" onclick="closeCollectionView()">✕</button>
-      <h2>我的收藏</h2>
+      <h2>卡牌收藏</h2>
       <div class="pool-count" id="collection-count"></div>
       <div class="grid" id="collection-grid"></div>
     </div>
@@ -408,6 +419,7 @@
       <button class="lobby-close" onclick="closeDexView()">✕</button>
       <h2>卡牌圖鑑</h2>
       <div class="pool-count" id="dex-count"></div>
+      <button class="btn btn-secondary" onclick="dismantleAllExtra()" style="margin-bottom:0.8rem">🔨 一鍵分解（每張卡留2張）</button>
       <div class="grid" id="dex-grid"></div>
     </div>
   </div>
@@ -686,6 +698,44 @@ let savedDecks = []; // [{id, name, cardIds}]
 let currentDeckId = null; // null = 還沒存過的新牌組
 /** deck: array of card ids (each entry = 1 copy) */
 let deck = [];
+// 2026-08-06新增：能量區出現的屬性種類，預設照牌組寶可夢屬性自動偵測（跟server.js的
+// pocketDeckEnergyTypes同一套邏輯），玩家可以自己手動勾選調整——energyTypesManuallySet
+// 追蹤「玩家有沒有手動改過」，改過之後加/減卡片就不再自動重算蓋掉玩家的選擇
+const POCKET_ENERGY_TYPE_LIST = ['Fire', 'Water', 'Lightning', 'Psychic', 'Fighting', 'Darkness', 'Dragon', 'Grass'];
+let deckEnergyTypes = [];
+let energyTypesManuallySet = false;
+
+function autoDeckEnergyTypes() {
+  const set = new Set();
+  deck.forEach(id => {
+    const c = cardById[id];
+    if (c && c.category === 'Pokemon') (c.types || []).forEach(t => { if (t !== 'Colorless') set.add(t); });
+  });
+  return set.size ? [...set] : [];
+}
+function syncEnergyTypesIfAuto() {
+  if (!energyTypesManuallySet) deckEnergyTypes = autoDeckEnergyTypes();
+}
+function toggleEnergyType(type) {
+  energyTypesManuallySet = true;
+  if (deckEnergyTypes.includes(type)) {
+    if (deckEnergyTypes.length <= 1) return; // 至少要保留1種，不然能量區永遠生不出東西
+    deckEnergyTypes = deckEnergyTypes.filter(t => t !== type);
+  } else {
+    deckEnergyTypes = [...deckEnergyTypes, type];
+  }
+  renderEnergyTypePicker();
+}
+function renderEnergyTypePicker() {
+  const wrap = document.getElementById('energy-type-chips');
+  if (!wrap) return;
+  wrap.innerHTML = POCKET_ENERGY_TYPE_LIST.map(t => {
+    const on = deckEnergyTypes.includes(t);
+    return `<div class="energy-type-chip ${on ? 'on' : ''}" onclick="toggleEnergyType('${t}')">
+      ${energyIconHtml(t, true)}<span>${TYPE_ZH[t] || t}</span>
+    </div>`;
+  }).join('');
+}
 
 async function loadCards() {
   const data = await pocketApiFetch('/api/pocket/cards');
@@ -706,6 +756,7 @@ async function loadCards() {
   renderPool();
   renderDeck();
   renderDeckListChips();
+  renderEnergyTypePicker();
 }
 
 /* ── 收藏 ── */
@@ -777,8 +828,10 @@ function renderDeckListChips() {
 function startNewDeck() {
   currentDeckId = null;
   deck = [];
+  deckEnergyTypes = [];
+  energyTypesManuallySet = false;
   document.getElementById('deck-name-input').value = '';
-  renderPool(); renderDeck(); renderDeckListChips();
+  renderPool(); renderDeck(); renderDeckListChips(); renderEnergyTypePicker();
 }
 
 function loadDeckIntoEditor(deckId) {
@@ -786,8 +839,15 @@ function loadDeckIntoEditor(deckId) {
   if (!d) return;
   currentDeckId = d.id;
   deck = [...d.cardIds];
+  if (d.energyTypes && d.energyTypes.length) {
+    deckEnergyTypes = [...d.energyTypes];
+    energyTypesManuallySet = true;
+  } else {
+    deckEnergyTypes = autoDeckEnergyTypes();
+    energyTypesManuallySet = false;
+  }
   document.getElementById('deck-name-input').value = d.name;
-  renderPool(); renderDeck(); renderDeckListChips();
+  renderPool(); renderDeck(); renderDeckListChips(); renderEnergyTypePicker();
 }
 
 function countInDeck(id) {
@@ -801,21 +861,27 @@ function addCard(id) {
   if (deck.length >= DECK_SIZE) return;
   if (countInDeck(id) >= ownedCap(id)) return;
   deck.push(id);
+  syncEnergyTypesIfAuto();
   renderPool();
   renderDeck();
+  renderEnergyTypePicker();
 }
 
 function removeCard(id) {
   const idx = deck.lastIndexOf(id);
   if (idx >= 0) deck.splice(idx, 1);
+  syncEnergyTypesIfAuto();
   renderPool();
   renderDeck();
+  renderEnergyTypePicker();
 }
 
 function clearDeck() {
   deck = [];
+  syncEnergyTypesIfAuto();
   renderPool();
   renderDeck();
+  renderEnergyTypePicker();
 }
 
 async function saveDeck() {
@@ -825,7 +891,7 @@ async function saveDeck() {
   const toast = document.getElementById('save-toast');
   try {
     if (pocketIsLoggedIn()) {
-      const body = JSON.stringify({ name, cardIds: deck });
+      const body = JSON.stringify({ name, cardIds: deck, energyTypes: deckEnergyTypes });
       const data = currentDeckId
         ? await pocketApiFetch(`/api/pocket/decks/${currentDeckId}`, { method: 'PUT', body })
         : await pocketApiFetch('/api/pocket/decks', { method: 'POST', body });
@@ -834,11 +900,11 @@ async function saveDeck() {
     } else {
       if (currentDeckId) {
         const d = savedDecks.find(x => x.id === currentDeckId);
-        if (d) { d.name = name; d.cardIds = [...deck]; }
+        if (d) { d.name = name; d.cardIds = [...deck]; d.energyTypes = [...deckEnergyTypes]; }
       } else {
         if (savedDecks.length >= MAX_SAVED_DECKS) { toast.textContent = '最多只能儲存 20 副牌組'; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 1800); return; }
         currentDeckId = 'g' + Date.now();
-        savedDecks.push({ id: currentDeckId, name, cardIds: [...deck] });
+        savedDecks.push({ id: currentDeckId, name, cardIds: [...deck], energyTypes: [...deckEnergyTypes] });
       }
       saveGuestDecks();
     }
@@ -897,7 +963,7 @@ function closeCollectionView() { document.getElementById('collection-overlay').s
 /* ── 卡牌圖鑑（2026-08-06新增）：顯示全部卡片，擁有的可以分解換晶鑽，未擁有的可以花晶鑽合成。
    數字跟server.js的POCKET_DISMANTLE_SHARDS/POCKET_SYNTHESIZE_COST保持一致——這裡只是給玩家
    看預覽用，實際扣款/發卡一律由server端re-validate，不信任這份client複本 */
-const POCKET_DISMANTLE_SHARDS_CLIENT = { 'One Diamond': 5, 'Two Diamond': 10, 'Three Diamond': 20, 'Four Diamond': 40, 'Two Star': 100, 'Three Star': 250, 'Crown': 500 };
+const POCKET_DISMANTLE_SHARDS_CLIENT = { 'One Diamond': 5, 'Two Diamond': 10, 'Three Diamond': 20, 'Four Diamond': 40, 'Two Star': 300, 'Three Star': 800, 'Crown': 2000 };
 const POCKET_SYNTHESIZE_COST_CLIENT = { 'One Diamond': 20, 'Two Diamond': 50, 'Three Diamond': 120, 'Four Diamond': 300, 'Two Star': 800, 'Three Star': 2000 };
 
 function openDexView() {
@@ -987,6 +1053,21 @@ async function doSynthesize(cardId) {
     closeDexAction();
   } catch (e) {
     sub.textContent = e.message || '合成失敗';
+  }
+}
+
+// 一鍵分解：把每張擁有超過2張的卡都分解到剩2張（牌組同名卡上限就是2張，留2張代表保留組牌
+// 需要的份數）——不可逆，先跳confirm再送出
+async function dismantleAllExtra() {
+  if (!confirm('確定要把所有超過2張的重複卡片分解成晶鑽嗎？每張卡會保留2張，這個動作無法復原。')) return;
+  try {
+    const data = await pocketApiFetch('/api/pocket/dismantle-all', { method: 'POST' });
+    if (data.shards !== null) shardBalance = data.shards;
+    await loadCollection();
+    renderDexGrid();
+    alert(data.cardsDismantled ? `分解了 ${data.cardsDismantled} 種卡片的重複張數，獲得 ${data.gained} 💎晶鑽` : '沒有超過2張的重複卡片可以分解');
+  } catch (e) {
+    alert(e.message || '一鍵分解失敗');
   }
 }
 
@@ -1097,7 +1178,18 @@ function renderDeck() {
 
 ['q', 'cat', 'type'].forEach(id => document.getElementById(id).addEventListener('input', renderPool));
 
-loadCards();
+// 2026-08-06新增：從「我的寶可夢」頁的「卡牌」入口導過來時，用?open=collection|dex|pack
+// 自動開啟對應畫面——只有登入玩家才會用到這個入口（tamagotchi.html的卡牌icon本來就只有
+// 登入才看得到頁面），訪客直接忽略這個參數
+function handlePocketEntryParam() {
+  const open = new URLSearchParams(location.search).get('open');
+  if (!open || !pocketIsLoggedIn()) return;
+  if (open === 'collection') openCollectionView();
+  else if (open === 'dex') openDexView();
+  else if (open === 'pack') openPackFlow(1);
+  history.replaceState(null, '', location.pathname);
+}
+loadCards().then(handlePocketEntryParam);
 
 /* ─────────────────────────────────────────
    Lobby / WS connection
@@ -1159,12 +1251,12 @@ function handleWsMsg(msg) {
       break;
     case 'pocket_joined':
       myRole = msg.role;
-      wsSend({ type: 'pocket_submit_deck', deck });
+      wsSend({ type: 'pocket_submit_deck', deck, energyTypes: deckEnergyTypes });
       lobbyShowStep('ready');
       document.getElementById('ready-status').textContent = '已送出牌組，等待對手...';
       break;
     case 'pocket_opponent_joined':
-      wsSend({ type: 'pocket_submit_deck', deck });
+      wsSend({ type: 'pocket_submit_deck', deck, energyTypes: deckEnergyTypes });
       lobbyShowStep('ready');
       document.getElementById('ready-status').textContent = '對手已加入，已送出牌組，等待對手送出...';
       break;

@@ -416,9 +416,9 @@
         <div class="pet-action-btn" onclick="feedPet()"><span class="icon">🍖</span>餵食</div>
         <div class="pet-action-btn" onclick="openShopModal()"><span class="icon">🎒</span>道具</div>
         <div class="pet-action-btn" onclick="openVisitModal()"><span class="icon">🚪</span>拜訪朋友</div>
-        <div class="pet-action-btn" onclick="openFishingScene()"><span class="icon">🎣</span>釣魚</div>
+        <div class="pet-action-btn" onclick="openMinigameModal()"><span class="icon">🎮</span>小遊戲</div>
         <div class="pet-action-btn" onclick="openCatchScene()"><img class="icon-img" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png" alt="">捕捉</div>
-        <div class="pet-action-btn" onclick="openSlingshotScene()"><span class="icon">🎯</span>彈弓</div>
+        <div class="pet-action-btn" onclick="openCardMenuModal()"><span class="icon">🎴</span>卡牌</div>
         <div class="pet-action-btn" onclick="openSellPokeModal()"><span class="icon">💰</span>變賣寶可夢</div>
         <div class="pet-action-btn" id="decorate-toggle-btn" onclick="toggleDecorateMode()"><span class="icon">🛠️</span>裝潢模式</div>
         <div class="pet-action-btn" id="decorate-add-btn" onclick="openAddPickModal()" style="display:none"><span class="icon">➕</span>加入房間</div>
@@ -528,6 +528,28 @@
     <h2>隊伍已滿（10/10）</h2>
     <div class="ts-subtitle" style="font-size:0.75rem;color:var(--muted);text-align:center">選一隻放生，讓新捕捉的寶可夢加入隊伍</div>
     <div id="catch-release-list"></div>
+  </div>
+</div>
+<!-- 2026-08-06新增：釣魚+彈弓合併成「小遊戲」入口，跟原本sling-payment-modal同一套modal-overlay/modal-box樣式 -->
+<div id="minigame-modal" class="modal-overlay" onclick="closeMinigameModal()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <h2>🎮 小遊戲</h2>
+    <div class="ts-subtitle" style="font-size:0.75rem;color:var(--muted);text-align:center">選一個想玩的小遊戲</div>
+    <button class="sling-pay-btn" onclick="closeMinigameModal();openFishingScene()">🎣 釣魚</button>
+    <button class="sling-pay-btn" onclick="closeMinigameModal();openSlingshotScene()">🎯 彈弓</button>
+    <div class="back" onclick="closeMinigameModal()" style="text-align:center;cursor:pointer">取消</div>
+  </div>
+</div>
+<!-- 2026-08-06新增：「卡牌」入口——連到Pocket TCG的卡牌收藏/圖鑑/開卡包，三個都是導到獨立的
+     pocket.html（同一套pvpToken登入系統+coins經濟），不是在這頁重刻一份卡牌渲染邏輯 -->
+<div id="card-menu-modal" class="modal-overlay" onclick="closeCardMenuModal()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <h2>🎴 卡牌</h2>
+    <div class="ts-subtitle" style="font-size:0.75rem;color:var(--muted);text-align:center">Pokémon TCG Pocket 對戰模式的卡牌系統</div>
+    <button class="sling-pay-btn" onclick="location.href='pocket.html?open=collection'">📚 卡牌收藏</button>
+    <button class="sling-pay-btn" onclick="location.href='pocket.html?open=dex'">📖 卡牌圖鑑</button>
+    <button class="sling-pay-btn" onclick="openPackFromPetPage()">🎴 開卡包</button>
+    <div class="back" onclick="closeCardMenuModal()" style="text-align:center;cursor:pointer">取消</div>
   </div>
 </div>
 <div id="sling-payment-modal" class="modal-overlay" onclick="closeSlingPaymentModal()">
@@ -2361,6 +2383,20 @@ let slingOpenGen = 0;
 
 // 彈弓開始前先問玩家要花80金幣還是5顆一般精靈球——按鈕依目前擁有的數量disabled，
 // 避免選了付不起的方式才被伺服器打回來
+// 2026-08-06新增：釣魚+彈弓合併成「小遊戲」入口的選擇modal
+function openMinigameModal() { document.getElementById('minigame-modal').classList.add('open'); }
+function closeMinigameModal() { document.getElementById('minigame-modal').classList.remove('open'); }
+
+// 2026-08-06新增：「卡牌」入口——收藏/圖鑑直接連過去pocket.html對應畫面，開卡包要先跳確認
+// 提醒50金幣費用（pocket.html本身開包按鈕沒有這層確認，因為那邊的畫面上金幣數字本來就一直顯示
+// 在旁邊；這裡是從完全不同情境的頁面跳過去，先提醒一次比較不會讓玩家誤觸）
+function openCardMenuModal() { document.getElementById('card-menu-modal').classList.add('open'); }
+function closeCardMenuModal() { document.getElementById('card-menu-modal').classList.remove('open'); }
+function openPackFromPetPage() {
+  if (!confirm('開一包卡包需要花費 50 金幣（每天前 5 包免費），確定要開嗎？')) return;
+  location.href = 'pocket.html?open=pack';
+}
+
 function openSlingshotScene() {
   if (!pet) return;
   document.getElementById('sling-pay-coins-btn').disabled = (pet.coins || 0) < 80;
