@@ -2897,11 +2897,11 @@ const ATTACK_EFFECTS = {
   "This attack also does 10 damage to each of your opponent's Benched Pokémon.": ctx => {
     for (const p of ctx.oppSide.bench) p.curHp = Math.max(0, p.curHp - 10);
   },
+  // 2026-08-06修正：「1 of your Benched Pokémon」沒有寫"at random"，即使是打在自己板凳上
+  // 也是玩家自選要犧牲哪一隻，不能隨機——跟needsChoice的pick_target是同一套（見pocket_attack
+  // handler尾端跟pocket_attack_choice handler對pick_target的處理）
   "This attack also does 30 damage to 1 of your Benched Pokémon.": ctx => {
-    if (ctx.side.bench.length) {
-      const t = ctx.side.bench[Math.floor(Math.random() * ctx.side.bench.length)];
-      t.curHp = Math.max(0, t.curHp - 30);
-    }
+    if (ctx.side.bench.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownBench', eligibleUids: ctx.side.bench.map(p => p.uid), action: 'damage', amount: 30 };
   },
   "This attack does 30 damage for each of your Benched {L} Pokémon.": ctx => {
     const n = ctx.side.bench.filter(p => (p.types || []).includes('Lightning')).length;
@@ -3083,24 +3083,29 @@ const ATTACK_EFFECTS = {
   "Discard 3 {R} Energy from this Pokémon.": ctx => pocketDiscardEnergy(ctx.attacker, 'Fire', 3),
   "Take a {L} Energy from your Energy Zone and attach it to this Pokémon.": ctx => { ctx.attacker.energy.push('Lightning'); },
   "Take 3 {R} Energy from your Energy Zone and attach it to this Pokémon.": ctx => { for (let i = 0; i < 3; i++) ctx.attacker.energy.push('Fire'); },
-  // 「拿能量給1隻板凳寶可夢」沒有寫"in any way you like"，不是玩家自選，隨機挑1隻板凳附加
+  // 2026-08-06修正（使用者第二次糾正同一個問題）：「attach it to 1 of your Benched Pokémon」
+  // 沒有寫"at random"，是玩家自己選要附加給哪一隻板凳，不是隨機——之前的判斷準則「沒寫choose/
+  // in any way you like就隨機挑」是錯的，真實規則裡只有明確寫"at random"/"is chosen at random"
+  // 才是真隨機，其餘「1 of your X」語法一律是操作方自選。詳見memory feedback_pocket_effect_
+  // choice_not_random。改用needsChoice的pick_target暫停讓玩家選，跟bench_switch/
+  // energy_distribute同一套pocket_attack_choice流程。
   "Take a {R} Energy from your Energy Zone and attach it to 1 of your Benched Pokémon.": ctx => {
-    if (ctx.side.bench.length) ctx.side.bench[Math.floor(Math.random() * ctx.side.bench.length)].energy.push('Fire');
+    if (ctx.side.bench.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownBench', eligibleUids: ctx.side.bench.map(p => p.uid), action: 'attachEnergy', energyType: 'Fire', count: 1 };
   },
   "Take a {L} Energy from your Energy Zone and attach it to 1 of your Benched Basic Pokémon.": ctx => {
     const targets = ctx.side.bench.filter(p => p.stage === 'Basic');
-    if (targets.length) targets[Math.floor(Math.random() * targets.length)].energy.push('Lightning');
+    if (targets.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownBench', eligibleUids: targets.map(p => p.uid), action: 'attachEnergy', energyType: 'Lightning', count: 1 };
   },
   "Take a {R} Energy from your Energy Zone and attach it to 1 of your Benched Basic Pokémon.": ctx => {
     const targets = ctx.side.bench.filter(p => p.stage === 'Basic');
-    if (targets.length) targets[Math.floor(Math.random() * targets.length)].energy.push('Fire');
+    if (targets.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownBench', eligibleUids: targets.map(p => p.uid), action: 'attachEnergy', energyType: 'Fire', count: 1 };
   },
   "Take a {W} Energy from your Energy Zone and attach it to 1 of your Benched Basic Pokémon.": ctx => {
     const targets = ctx.side.bench.filter(p => p.stage === 'Basic');
-    if (targets.length) targets[Math.floor(Math.random() * targets.length)].energy.push('Water');
+    if (targets.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownBench', eligibleUids: targets.map(p => p.uid), action: 'attachEnergy', energyType: 'Water', count: 1 };
   },
   "Take 2 {M} Energy from your Energy Zone and attach it to 1 of your Benched Pokémon.": ctx => {
-    if (ctx.side.bench.length) { const t = ctx.side.bench[Math.floor(Math.random() * ctx.side.bench.length)]; t.energy.push('Metal', 'Metal'); }
+    if (ctx.side.bench.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownBench', eligibleUids: ctx.side.bench.map(p => p.uid), action: 'attachEnergy', energyType: 'Metal', count: 2 };
   },
   "Put a random Pokémon from your deck into your hand.": ctx => {
     const idxs = ctx.side.deck.map((c, i) => c.category === 'Pokemon' ? i : -1).filter(i => i >= 0);
@@ -3391,14 +3396,16 @@ const TRAINER_EFFECTS = {
   'B2-153': (ctx) => { ctx.G.activeStadium = { id: 'B2-153', name: 'Training Area' }; return null; }, // 訓練場：雙方Stage1攻擊+10
   'B2-155': (ctx) => { ctx.G.activeStadium = { id: 'B2-155', name: 'Peculiar Plaza' }; return null; }, // 奇異廣場：雙方超能力寶可夢撤退-2
 
-  /* ── 2026-08-06新增：道具卡（Item）第一批——只挑不需要「玩家指定board上特定目標」的
-     效果（自動隨機挑/固定作用於主戰/整側），跟ATTACK_EFFECTS對「沒寫choose/in any way you
-     like」的隨機挑選是同一套判斷準則 ── */
-  'B2a-086': (ctx) => { // Electric Generator：擲硬幣，正面從能量區拿1電能量附給隨機1隻板凳電系
-    if (!pocketFlipCoin(ctx)) return null;
-    if (!ctx.side.energyTypes.includes('Lightning')) return null;
-    const targets = ctx.side.bench.filter(p => (p.types || []).includes('Lightning'));
-    if (targets.length) targets[Math.floor(Math.random() * targets.length)].energy.push('Lightning');
+  /* ── 2026-08-06新增：道具卡（Item）第一批 ── */
+  // 2026-08-06修正（使用者第二次糾正）：原本擲硬幣正面就隨機挑1隻板凳電系附加，改成玩家
+  // 先選好目標（跟Potion/Erika同一套msg.target流程），server只負責擲硬幣決定成不成功，
+  // 不再自己選target——「選哪隻」跟「有沒有成功」是兩件獨立的事，卡面只有後者才寫了機率。
+  'B2a-086': (ctx, msg) => { // Electric Generator
+    const target = pocketFindOwn(ctx.side, msg.target);
+    if (!target || !(target.types || []).includes('Lightning') || !ctx.side.bench.some(p => p.uid === target.uid)) {
+      return '目標必須是板凳上的電屬性寶可夢';
+    }
+    if (pocketFlipCoin(ctx) && ctx.side.energyTypes.includes('Lightning')) target.energy.push('Lightning');
     return null;
   },
   'A1a-065': (ctx) => { // Mythical Slab：看牌庫頂1張，是超能力寶可夢就進手牌，不是就放牌庫底
@@ -3411,32 +3418,35 @@ const TRAINER_EFFECTS = {
     }
     return null;
   },
-  'A1a-064': (ctx) => { // Pokémon Flute：從對手棄牌堆隨機挑1隻基礎寶可夢放上對手板凳
+  // 2026-08-06修正：原本從對手棄牌堆隨機挑1隻基礎寶可夢，改成玩家自己從對手棄牌堆的清單裡選
+  // （client端用discard-target-picker挑，不是board目標）——是「你」在使用這張卡，效果動詞
+  // 是「Put」，沒有註明「your opponent puts/chooses」，比照Sabrina既有的「沒特別註明就是
+  // 操作方自選」慣例，目標由你來挑,不是隨機也不是對手選
+  'A1a-064': (ctx, msg) => { // Pokémon Flute
     if (ctx.oppSide.bench.length >= 3) return '對手板凳已滿';
-    const idxs = ctx.oppSide.discard.map((c, i) => (c.category === 'Pokemon' && c.stage === 'Basic') ? i : -1).filter(i => i >= 0);
-    if (!idxs.length) return null;
-    const i = idxs[Math.floor(Math.random() * idxs.length)];
-    const p = ctx.oppSide.discard.splice(i, 1)[0];
+    const idx = ctx.oppSide.discard.findIndex(c => c.uid === msg.target && c.category === 'Pokemon' && c.stage === 'Basic');
+    if (idx < 0) return '目標必須是對手棄牌堆裡的基礎寶可夢';
+    const p = ctx.oppSide.discard.splice(idx, 1)[0];
     p.curHp = p.hp; p.energy = []; p.status = null; p.boardTurn = ctx.G.turnNumber;
     ctx.oppSide.bench.push(p);
     return null;
   },
   'A4-152': (ctx) => { pocketDiscardEnergy(ctx.oppSide.active, 'Fire', 1); return null; }, // Squirt Bottle（卡面原文就是{R}不是{W}，照實作）
-  'B1-215': (ctx) => { // Hitting Hammer：連續2枚都正面才丟能量
+  'B1-215': (ctx) => { // Hitting Hammer：連續2枚都正面才丟能量（丟哪一點能量文字本身就寫"a random Energy"，維持隨機）
     const h1 = pocketFlipCoin(ctx), h2 = pocketFlipCoin(ctx);
     if (h1 && h2 && ctx.oppSide.active?.energy.length) {
       ctx.oppSide.active.energy.splice(Math.floor(Math.random() * ctx.oppSide.active.energy.length), 1);
     }
     return null;
   },
-  'A4-151': (ctx) => { // Elemental Switch：把1隻板凳身上的R/W/L其中一種能量移給主戰（自動挑有符合能量的板凳）
+  // 2026-08-06修正：原本隨機挑1隻帶R/W/L能量的板凳，改成玩家自己選要從哪隻板凳移能量
+  'A4-151': (ctx, msg) => { // Elemental Switch
     if (!ctx.side.active) return '沒有主戰寶可夢';
     const movable = ['Fire', 'Water', 'Lightning'];
-    const targets = ctx.side.bench.filter(p => p.energy.some(e => movable.includes(e)));
-    if (!targets.length) return null;
-    const p = targets[Math.floor(Math.random() * targets.length)];
-    const type = p.energy.find(e => movable.includes(e));
-    p.energy.splice(p.energy.indexOf(type), 1);
+    const target = ctx.side.bench.find(p => p.uid === msg.target);
+    if (!target || !target.energy.some(e => movable.includes(e))) return '目標必須是身上帶著火/水/電能量的板凳寶可夢';
+    const type = target.energy.find(e => movable.includes(e));
+    target.energy.splice(target.energy.indexOf(type), 1);
     ctx.side.active.energy.push(type);
     return null;
   },
@@ -3498,7 +3508,9 @@ const ABILITY_EFFECTS = {
   /* ── 2026-08-06新增：主動觸發型特性第二批——只做「按鈕觸發、每回合1次」這種現有機制已經
      支援的類型；「打出這張卡來進化時觸發」（Happy Ribbon/Search for Friends等）是完全不同的
      觸發時機（要掛在pocket_evolve handler，不是按鈕），這批先不做，維持「尚未支援」。
-     沒寫"choose"的隨機挑選目標，跟ATTACK_EFFECTS/TRAINER_EFFECTS同一套判斷準則。 ── */
+     單一目標的效果（Water Shuriken/Dark Chase/Captivating Rhythm/Extra Heal/Psychic Connect/
+     Forest Breath/Psychic Healing）後來修正過，改成玩家自選目標(msg.target)，不是隨機挑——
+     見feedback memory「Pocket效果「1 of your X」預設玩家自選不是隨機」。 ── */
   'Broken-Space Bellow': (ctx, poke) => { // 從能量區拿1超能力能量給自己，用了這個特性直接結束回合
     if (!ctx.side.energyTypes.includes('Psychic')) return '你的能量區沒有超能力屬性能量';
     poke.energy.push('Psychic');
@@ -3539,9 +3551,13 @@ const ABILITY_EFFECTS = {
     for (const p of [ctx.side.active, ...ctx.side.bench].filter(Boolean)) p.curHp = Math.min(p.hp, p.curHp + 10);
     return null;
   },
-  'Water Shuriken': (ctx) => { // 對對手隨機1隻造成20傷害
-    const pool = [ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean);
-    if (pool.length) { const t = pool[Math.floor(Math.random() * pool.length)]; t.curHp = Math.max(0, t.curHp - 20); }
+  // 2026-08-06修正（使用者第二次糾正同一個問題）：「1 of your opponent's Pokémon」沒有寫
+  // at random，是使用特性的玩家自己選要打誰，不是隨機——client端先讓玩家點對手場上的目標，
+  // 再把target uid送進msg
+  'Water Shuriken': (ctx, poke, msg) => {
+    const t = [ctx.oppSide.active, ...ctx.oppSide.bench].find(p => p && p.uid === msg.target);
+    if (!t) return '請選擇對手場上的目標';
+    t.curHp = Math.max(0, t.curHp - 20);
     return null;
   },
   'Drive Off': (ctx) => { // 把對手主戰換到板凳，對手選新主戰（跟Sabrina同一套）
@@ -3572,20 +3588,22 @@ const ABILITY_EFFECTS = {
     }
     return null;
   },
-  'Captivating Rhythm': (ctx) => { // 擲硬幣，正面把對手隨機1隻板凳換上主戰
-    if (!pocketFlipCoin(ctx) || !ctx.oppSide.bench.length) return null;
-    const i = Math.floor(Math.random() * ctx.oppSide.bench.length);
-    const chosen = ctx.oppSide.bench.splice(i, 1)[0];
+  // 2026-08-06修正：目標（要換上場的是對手哪隻板凳）改成玩家自選，先選好目標再擲硬幣決定
+  // 成不成功——跟Electric Generator同一種「選目標」跟「有沒有成功」分開處理的修法
+  'Captivating Rhythm': (ctx, poke, msg) => {
+    const idx = ctx.oppSide.bench.findIndex(p => p.uid === msg.target);
+    if (idx < 0) return '請選擇對手板凳上的目標';
+    if (!pocketFlipCoin(ctx)) return null;
+    const chosen = ctx.oppSide.bench.splice(idx, 1)[0];
     if (ctx.oppSide.active) { ctx.oppSide.active.status = null; ctx.oppSide.bench.push(ctx.oppSide.active); }
     ctx.oppSide.active = chosen;
     return null;
   },
-  'Dark Chase': (ctx, poke) => { // 只有在主戰位置時，把對手「身上有傷」的板凳隨機挑1隻換上主戰
+  'Dark Chase': (ctx, poke, msg) => { // 只有在主戰位置時，把對手「身上有傷」的板凳換上主戰——玩家自選是哪一隻
     if (ctx.side.active?.uid !== poke.uid) return '必須在主戰位置才能使用特性';
-    const damaged = ctx.oppSide.bench.filter(p => p.curHp < p.hp);
-    if (!damaged.length) return '對手沒有身上有傷的板凳寶可夢';
-    const chosen = damaged[Math.floor(Math.random() * damaged.length)];
-    ctx.oppSide.bench = ctx.oppSide.bench.filter(p => p.uid !== chosen.uid);
+    const idx = ctx.oppSide.bench.findIndex(p => p.uid === msg.target && p.curHp < p.hp);
+    if (idx < 0) return '請選擇對手身上有傷的板凳寶可夢';
+    const chosen = ctx.oppSide.bench.splice(idx, 1)[0];
     if (ctx.oppSide.active) { ctx.oppSide.active.status = null; ctx.oppSide.bench.push(ctx.oppSide.active); }
     ctx.oppSide.active = chosen;
     return null;
@@ -3615,10 +3633,11 @@ const ABILITY_EFFECTS = {
     return null;
   },
   'Fire Breath': (ctx) => { if (ctx.oppSide.active) ctx.oppSide.active.status = 'burned'; return null; },
-  'Extra Heal': (ctx) => { // 隨機挑1隻己方身上有能量的ex寶可夢，回復60血並丟棄它身上1點隨機能量
-    const pool = [ctx.side.active, ...ctx.side.bench].filter(p => p && p.ex && p.energy.length);
-    if (!pool.length) return '沒有符合條件（帶著能量的ex寶可夢）的目標';
-    const p = pool[Math.floor(Math.random() * pool.length)];
+  // 2026-08-06修正：治療對象改成玩家自選（哪隻ex寶可夢），丟棄的能量本身卡面文字是
+  // "a random Energy"，這部分維持隨機
+  'Extra Heal': (ctx, poke, msg) => {
+    const p = [ctx.side.active, ...ctx.side.bench].find(x => x && x.uid === msg.target && x.ex && x.energy.length);
+    if (!p) return '請選擇己方身上帶著能量的ex寶可夢';
     const before = p.curHp;
     p.curHp = Math.min(p.hp, p.curHp + 60);
     p.energy.splice(Math.floor(Math.random() * p.energy.length), 1);
@@ -3631,11 +3650,11 @@ const ABILITY_EFFECTS = {
     ctx.side.typeBoostThisTurn = { type: 'Fire', amount: 50 };
     return null;
   },
-  'Psychic Connect': (ctx) => { // 把1隻板凳身上的超能力能量全部移給主戰（自動挑有超能力能量的板凳）
+  // 2026-08-06修正：從哪隻板凳移動能量改成玩家自選
+  'Psychic Connect': (ctx, poke, msg) => {
     if (!ctx.side.active) return '沒有主戰寶可夢';
-    const targets = ctx.side.bench.filter(p => p.energy.includes('Psychic'));
-    if (!targets.length) return '板凳沒有帶超能力能量的寶可夢';
-    const p = targets[Math.floor(Math.random() * targets.length)];
+    const p = ctx.side.bench.find(x => x.uid === msg.target && x.energy.includes('Psychic'));
+    if (!p) return '請選擇板凳上帶著超能力能量的寶可夢';
     const moved = p.energy.filter(e => e === 'Psychic');
     p.energy = p.energy.filter(e => e !== 'Psychic');
     ctx.side.active.energy.push(...moved);
@@ -3652,19 +3671,20 @@ const ABILITY_EFFECTS = {
     ctx.side.active = poke;
     return null;
   },
-  'Forest Breath': (ctx, poke) => { // 只有在主戰位置時，從能量區拿1草能量，優先給自己，否則隨機給1隻草系板凳
+  // 2026-08-06修正：要附加給哪隻草系寶可夢（含自己）改成玩家自選
+  'Forest Breath': (ctx, poke, msg) => {
     if (ctx.side.active?.uid !== poke.uid) return '必須在主戰位置才能使用特性';
     if (!ctx.side.energyTypes.includes('Grass')) return '你的能量區沒有草屬性能量';
-    const targets = ctx.side.bench.filter(p => (p.types || []).includes('Grass'));
-    if (targets.length) targets[Math.floor(Math.random() * targets.length)].energy.push('Grass');
-    else poke.energy.push('Grass');
+    const target = [ctx.side.active, ...ctx.side.bench].find(p => p.uid === msg.target && (p.types || []).includes('Grass'));
+    if (!target) return '請選擇己方場上的草屬性寶可夢';
+    target.energy.push('Grass');
     return null;
   },
-  'Psychic Healing': (ctx, poke) => { // 只有在主戰位置時，隨機治療己方1隻30血
+  // 2026-08-06修正：治療對象改成玩家自選，不限定必須已經受傷（卡面沒有這個限制）
+  'Psychic Healing': (ctx, poke, msg) => {
     if (ctx.side.active?.uid !== poke.uid) return '必須在主戰位置才能使用特性';
-    const pool = [ctx.side.active, ...ctx.side.bench].filter(p => p.curHp < p.hp);
-    if (!pool.length) return '己方沒有受傷的寶可夢';
-    const p = pool[Math.floor(Math.random() * pool.length)];
+    const p = [ctx.side.active, ...ctx.side.bench].find(x => x.uid === msg.target);
+    if (!p) return '請選擇己方場上的目標';
     const before = p.curHp;
     p.curHp = Math.min(p.hp, p.curHp + 30);
     ctx.healUid = p.uid; ctx.healAmount = p.curHp - before;
@@ -5815,7 +5835,7 @@ async function handleMessage(ws, msg) {
       if (!poke || !ability || !ABILITY_EFFECTS[ability.name]) return;
       if (side.abilitiesUsedThisTurn.includes(poke.uid)) { send(ws, { type: 'error', message: '這隻寶可夢這回合已經用過特性了' }); return; }
       const abilityCtx = { G, role, op, side, oppSide };
-      const err = ABILITY_EFFECTS[ability.name](abilityCtx, poke);
+      const err = ABILITY_EFFECTS[ability.name](abilityCtx, poke, msg);
       if (err) { send(ws, { type: 'error', message: err }); return; }
       side.abilitiesUsedThisTurn.push(poke.uid);
       if (abilityCtx.coinFlips?.length || abilityCtx.healUid) {
@@ -6062,6 +6082,24 @@ async function handleMessage(ws, msg) {
         attacker.status = null; // 中毒可以照樣攻擊，這招會把自己換下場，離開主戰要清除異常狀態
         side.bench[idx] = attacker;
         side.active = bench;
+      } else if (pending.kind === 'pick_target') {
+        // 通用「1 of your Benched Pokémon」目標選擇——目前所有用到這個kind的效果目標池都是
+        // 己方板凳(ownBench)，之後如果出現目標是對方場上的同類效果，這裡再加pool==='oppBench'分支
+        if (!pending.eligibleUids.includes(msg.uid)) return;
+        const target = side.bench.find(p => p.uid === msg.uid);
+        if (!target) return;
+        if (pending.action === 'attachEnergy') {
+          for (let i = 0; i < (pending.count || 1); i++) target.energy.push(pending.energyType);
+        } else if (pending.action === 'damage') {
+          target.curHp = Math.max(0, target.curHp - pending.amount);
+          // 這個分支的傷害延遲到玩家選完目標才真的套用，跟一般攻擊在pocket_attack當下就結算
+          // 不一樣——原本的pocketResolveBenchKOs/pocketCheckWin是攻擊當下就跑過一次，這裡打的
+          // 是自己板凳，那次跑的時候傷害還沒發生，所以這裡要自己再補一次板凳KO跟勝負判定，
+          // 不然打死自己板凳寶可夢會卡在場上變殭屍卡、對手也拿不到應得的分數。
+          const op = role === 'p1' ? 'p2' : 'p1';
+          pocketResolveBenchKOs(G, side, op);
+          if (pocketCheckWin(G)) { G.pendingChoice = null; pocketBroadcastState(pRoom); return; }
+        }
       } else {
         return;
       }

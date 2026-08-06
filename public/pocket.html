@@ -623,6 +623,17 @@
       <button class="btn btn-secondary" onclick="closePeek()">關閉</button>
     </div>
   </div>
+
+  <!-- 2026-08-06新增：從「對手棄牌堆」挑目標的訓練師卡picker（例如Pokémon Flute）——跟
+       item-target(點board上的寶可夢)是不同的選擇來源，棄牌堆裡的卡不在board上，
+       不能重用同一套board-slot點擊流程，另外做一個可點擊的卡片清單。 -->
+  <div class="peek-overlay" id="discard-target-picker-overlay" style="display:none">
+    <div class="peek-box">
+      <h2 id="discard-target-picker-title"></h2>
+      <div class="peek-list" id="discard-target-picker-list"></div>
+      <button class="btn btn-secondary" onclick="closeDiscardTargetPicker()">取消</button>
+    </div>
+  </div>
 </div>
 
 <!-- 2026-08-06修正：card-detail-panel原本卡在#board-overlay裡面（那個容器只在對戰畫面才
@@ -1621,6 +1632,15 @@ function renderBoard() {
       optionsEl.innerHTML = (you.bench || []).map(p =>
         renderPokeSlot(p, { pickable: true, dataset: { 'attack-choice-pick': '1' } })
       ).join('');
+    } else if (pendingChoice.kind === 'pick_target') {
+      titleEl.textContent = pendingChoice.action === 'attachEnergy'
+        ? `選擇要附加 ${TYPE_ZH[pendingChoice.energyType] || pendingChoice.energyType} 能量的板凳寶可夢`
+        : `選擇要犧牲哪隻板凳寶可夢承受 ${pendingChoice.amount} 傷害`;
+      subEl.textContent = '';
+      const eligible = (you.bench || []).filter(p => pendingChoice.eligibleUids.includes(p.uid));
+      optionsEl.innerHTML = eligible.map(p =>
+        renderPokeSlot(p, { pickable: true, dataset: { 'attack-choice-pick': '1' } })
+      ).join('');
     }
   }
 
@@ -1648,6 +1668,7 @@ function updateActionHint() {
   else if (selectedAction.mode === 'evolve') text = `點擊要進化成 ${selectedAction.name} 的寶可夢`;
   else if (selectedAction.mode === 'retreat') text = '點擊板凳寶可夢來撤退交換';
   else if (selectedAction.mode === 'item-target') text = '點擊己方場上的寶可夢作為目標';
+  else if (selectedAction.mode === 'ability-target') text = selectedAction.side === 'opp' ? '點擊對手場上的寶可夢作為目標' : '點擊己方場上的寶可夢作為目標';
   hint.classList.add('active');
   hint.innerHTML = `<span>${text}</span><button class="hint-cancel" onclick="cancelAction()">取消</button>`;
 }
@@ -1668,12 +1689,19 @@ function doAttack(i) { wsSend({ type: 'pocket_attack', attackIndex: i }); }
 function endTurn() { wsSend({ type: 'pocket_end_turn' }); }
 
 const POCKET_FOSSIL_IDS = new Set(['A1-216', 'A1-217', 'A1-218', 'A1a-063', 'A2-144', 'A2-145', 'B1-214', 'B1-216', 'B2-144', 'B2-146']);
-const TRAINER_NEEDS_TARGET = new Set(['P-A-001', 'A1-219', 'A1-220']); // Potion / Erika / Misty
+const TRAINER_NEEDS_TARGET = new Set(['P-A-001', 'A1-219', 'A1-220', 'B2a-086', 'A4-151']); // Potion / Erika / Misty / Electric Generator / Elemental Switch
+const TRAINER_NEEDS_DISCARD_TARGET = new Set(['A1a-064']); // Pokémon Flute：目標是對手棄牌堆的卡，不是board上的寶可夢
+// 2026-08-06新增：需要玩家指定目標的特性，value是目標池在哪一側（'own'=己方場上/'opp'=對手場上）
+const ABILITY_NEEDS_TARGET = {
+  'Water Shuriken': 'opp', 'Dark Chase': 'opp', 'Captivating Rhythm': 'opp',
+  'Forest Breath': 'own', 'Psychic Connect': 'own', 'Psychic Healing': 'own', 'Extra Heal': 'own',
+};
 // 跟server.js的TRAINER_EFFECTS同一份清單——A1~B2a擴充後訓練師卡從18張暴增到197張，
 // 只有這份清單裡的卡有做效果，其餘先讓玩家看得到卡但打不出去
 // （打了會被server擋+跳「效果尚未實作」錯誤，這裡先在按鈕上明講，不用等玩家點了才知道）
-// 2026-08-06新增：場地卡2張(B2-153/B2-155)+道具卡9張——都是自動隨機挑目標/固定作用於
-// 主戰或整側的效果，不需要玩家額外選board目標
+// 2026-08-06新增：場地卡2張(B2-153/B2-155)+道具卡9張。部分目標選擇後來又修正過
+// （見TRAINER_NEEDS_TARGET/TRAINER_NEEDS_DISCARD_TARGET）：只要卡面沒寫"at random"，
+// 「1 of your X」一律是玩家自選，不是自動隨機挑。
 const TRAINER_EFFECTS_IMPLEMENTED = new Set([
   'P-A-001', 'P-A-002', 'P-A-003', 'P-A-004', 'P-A-005', 'P-A-006', 'P-A-007',
   'A1-219', 'A1-220', 'A1-221', 'A1-222', 'A1-223', 'A1-224', 'A1-225', 'A1-226',
@@ -1685,7 +1713,17 @@ const TRAINER_EFFECTS_IMPLEMENTED = new Set([
 // event delegation：own board (active/bench) 點擊
 document.getElementById('board-overlay').addEventListener('click', e => {
   const abilityBtn = e.target.closest('[data-ability-uid]');
-  if (abilityBtn) { wsSend({ type: 'pocket_use_ability', pokemonUid: abilityBtn.dataset.abilityUid }); return; }
+  if (abilityBtn) {
+    const abilityName = abilityBtn.title;
+    const targetSide = ABILITY_NEEDS_TARGET[abilityName];
+    if (targetSide) {
+      selectedAction = { mode: 'ability-target', side: targetSide, pokemonUid: abilityBtn.dataset.abilityUid };
+      updateActionHint(); renderBoard();
+    } else {
+      wsSend({ type: 'pocket_use_ability', pokemonUid: abilityBtn.dataset.abilityUid });
+    }
+    return;
+  }
   const fossilBtn = e.target.closest('[data-fossil-uid]');
   if (fossilBtn) { wsSend({ type: 'pocket_discard_fossil', target: fossilBtn.dataset.fossilUid }); return; }
 
@@ -1701,6 +1739,9 @@ document.getElementById('board-overlay').addEventListener('click', e => {
     else if (selectedAction.mode === 'item-target') {
       spawnPlayFlourish(pocketFindCardByUid(selectedAction.handUid)?.image, slot);
       wsSend({ type: selectedAction.isSupporter ? 'pocket_play_supporter' : 'pocket_play_item', handUid: selectedAction.handUid, target: uid });
+    }
+    else if (selectedAction.mode === 'ability-target' && selectedAction.side === 'own') {
+      wsSend({ type: 'pocket_use_ability', pokemonUid: selectedAction.pokemonUid, target: uid });
     }
     selectedAction = null;
     return;
@@ -1732,6 +1773,11 @@ document.getElementById('board-overlay').addEventListener('click', e => {
   // 2026-08-06新增：對手場上的卡片（主戰/板凳）也能點開詳情——唯讀，不帶任何動作按鈕，
   // 跟原本只有🔍按鈕才能看對手卡片詳情不一樣，現在點卡片本體也可以
   const oppSlot = e.target.closest('#opp-active .board-slot[data-uid], #opp-bench .board-slot[data-uid]');
+  if (oppSlot && selectedAction?.mode === 'ability-target' && selectedAction.side === 'opp') {
+    wsSend({ type: 'pocket_use_ability', pokemonUid: selectedAction.pokemonUid, target: oppSlot.dataset.uid });
+    selectedAction = null;
+    return;
+  }
   if (oppSlot && !selectedAction) {
     const card = pocketFindCardByUid(oppSlot.dataset.uid);
     if (card) showCardDetail(card);
@@ -1770,6 +1816,15 @@ function computeHandCardActions(card) {
       return [{ label: '選擇目標寶可夢', primary: true, onClick: () => {
         selectedAction = { mode: 'item-target', handUid: card.uid, isSupporter };
         updateActionHint(); renderBoard();
+      } }];
+    }
+    if (TRAINER_NEEDS_DISCARD_TARGET.has(card.effectId || card.id)) {
+      return [{ label: '選擇目標寶可夢', primary: true, onClick: () => {
+        const eligible = (state.opponent?.discard || []).filter(c => c.category === 'Pokemon' && c.stage === 'Basic');
+        openDiscardTargetPicker('選擇要從對手棄牌堆放上場的基礎寶可夢', eligible, (uid) => {
+          spawnPlayFlourish(card.image, document.getElementById('my-discard-pile'));
+          wsSend({ type: isSupporter ? 'pocket_play_supporter' : 'pocket_play_item', handUid: card.uid, target: uid });
+        });
       } }];
     }
     return [{ label: isSupporter ? '使用這張支援者卡' : '使用這張道具卡', primary: true, onClick: () => {
@@ -1839,6 +1894,28 @@ function confirmSetup() {
   state.you.boardSubmitted = true;
   renderBoard();
 }
+
+// 從對手棄牌堆挑1張目標卡打出訓練師卡效果（目前只有Pokémon Flute用）——跟item-target
+// (點board上的寶可夢)是分開的選擇來源，這裡點的是棄牌堆清單裡的卡片。callback存在模組層級
+// 變數而不是序列化進onclick字串，避免卡片名稱裡有引號之類字元跳脫出問題。
+let discardTargetPickerCallback = null;
+function openDiscardTargetPicker(title, cards, onPick) {
+  discardTargetPickerCallback = onPick;
+  document.getElementById('discard-target-picker-title').textContent = title;
+  document.getElementById('discard-target-picker-list').innerHTML = (cards || []).map(c => `
+    <div style="text-align:center;font-size:0.65rem;cursor:pointer" data-discard-pick-uid="${c.uid}">
+      <img src="${c.image}" alt="${c.name}"><div>${c.name}</div>
+    </div>`).join('') || '<div class="lobby-sub">（沒有符合條件的卡片）</div>';
+  document.getElementById('discard-target-picker-overlay').style.display = 'flex';
+}
+function closeDiscardTargetPicker() { document.getElementById('discard-target-picker-overlay').style.display = 'none'; discardTargetPickerCallback = null; }
+document.getElementById('discard-target-picker-list').addEventListener('click', (e) => {
+  const el = e.target.closest('[data-discard-pick-uid]');
+  if (!el || !discardTargetPickerCallback) return;
+  const cb = discardTargetPickerCallback;
+  closeDiscardTargetPicker();
+  cb(el.dataset.discardPickUid);
+});
 
 function showPeek(title, cards) {
   document.getElementById('peek-title').textContent = title;
