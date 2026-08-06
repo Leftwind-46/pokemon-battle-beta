@@ -2476,26 +2476,21 @@ function genCode() {
    混在一起只會讓既有PvP的debug變複雜。詳見 /Users/mike/.claude/plans/parsed-dancing-comet.md
 ═══════════════════════════════════════════ */
 const pocketRooms = new Map();
-const POCKET_CARDS_BASE = JSON.parse(fs.readFileSync(path.join(__dirname, 'public', 'pocket-cards.json'), 'utf8')).cards;
-
-/* ── 高星卡包系統（2026-08-05新增）：106張基礎卡池裡有32張自帶variants欄位（本來是
-   給未來抽卡功能保留的重印版本資料，一直沒用到），把2星以上（Two Star/Three Star/Crown）
-   的variant「升格」成獨立可擁有/可組牌的卡片——數值/招式/特性跟base卡完全相同，只有
-   id/rarity/image不同，真的做到「同一隻寶可夢的不同星等版本」而不是另外發明新卡。
-   Trainer卡（8張角色支援者的高星版）額外標記effectId指回base卡id，因為TRAINER_EFFECTS
-   是用id當key查效果，高星版本必須能查到跟base版一樣的效果，不然使用會直接被判定「效果
-   尚未實作」——這是效果查找機制，不是收藏機制，兩者分開處理。 */
-const POCKET_HIGH_RARITIES = new Set(['Two Star', 'Three Star', 'Crown']);
-const POCKET_CHASE_CARDS = [];
-for (const base of POCKET_CARDS_BASE) {
-  for (const v of (base.variants || [])) {
-    if (!POCKET_HIGH_RARITIES.has(v.rarity)) continue;
-    const variantCard = { ...base, id: v.id, rarity: v.rarity, image: v.image, variants: undefined };
-    if (base.category === 'Trainer') variantCard.effectId = base.id;
-    POCKET_CHASE_CARDS.push(variantCard);
-  }
-}
-const POCKET_CARDS = [...POCKET_CARDS_BASE, ...POCKET_CHASE_CARDS];
+// 2026-08-06大改版：從106張A1精選卡擴充成A1~B2a全15個系列、共2480張官方卡片（TCGdex目前
+// 資料涵蓋到B2a為止，B2b/B3/B3a/B3b/B4這5個更新的系列TCGdex還沒有資料，之後TCGdex補上
+// 再重跑同一套匯入腳本即可——腳本在scratchpad，不進repo，比照原本curation慣例）。
+// 資料結構也跟著簡化：不再用「base卡+nested variants」表示同一張卡的不同星等重印版，
+// 改成每張卡都是獨立的扁平頂層entry（包含原本歸在variants裡的高星重印版），2星以上
+// 直接靠rarity欄位本身判斷要不要進追逐卡池，不用再猜「哪張是base、哪張是variant」。
+const pocketCardsFile = JSON.parse(fs.readFileSync(path.join(__dirname, 'public', 'pocket-cards.json'), 'utf8'));
+const POCKET_CARDS = pocketCardsFile.cards;
+const POCKET_SETS = pocketCardsFile.sets; // [{id, name, cardCount}]，開包/圖鑑選版本用
+// 星等以上（含新系列引入的Shiny）都算「追逐卡池」——高星Trainer卡（角色支援者重印版）
+// 由匯入腳本預先算好effectId指回同系列內最早印刷的那張卡id，TRAINER_EFFECTS才查得到效果
+// （效果查找機制本身沒變，只是分組計算搬到匯入腳本做，不再是server.js runtime現算）。
+const POCKET_HIGH_RARITIES = new Set(['One Star', 'Two Star', 'Three Star', 'Crown', 'One Shiny', 'Two Shiny']);
+const POCKET_CARDS_BASE = POCKET_CARDS.filter(c => !POCKET_HIGH_RARITIES.has(c.rarity));
+const POCKET_CHASE_CARDS = POCKET_CARDS.filter(c => POCKET_HIGH_RARITIES.has(c.rarity));
 const POCKET_CARDS_BY_ID = Object.fromEntries(POCKET_CARDS.map(c => [c.id, c]));
 
 // server端權威驗證，不信任client算好的合法性（比照現有PvP「不信任client」的慣例）
@@ -2582,7 +2577,7 @@ function pocketDeckEnergyTypes(deckIds) {
 // 2026-08-06新增：玩家可以手動自選能量區出現的屬性，取代原本純自動偵測。
 // POCKET_ENERGY_TYPE_LIST是合法可選的清單（Colorless不在其中——那不是能量區真的會生成的屬性，
 // 跟pocketDeckEnergyTypes原本排除Colorless的邏輯一致）。
-const POCKET_ENERGY_TYPE_LIST = ['Fire', 'Water', 'Lightning', 'Psychic', 'Fighting', 'Darkness', 'Dragon', 'Grass'];
+const POCKET_ENERGY_TYPE_LIST = ['Fire', 'Water', 'Lightning', 'Psychic', 'Fighting', 'Darkness', 'Dragon', 'Grass', 'Metal'];
 function pocketValidateEnergyTypes(types) {
   if (!Array.isArray(types) || !types.length) return null;
   const filtered = [...new Set(types.filter(t => POCKET_ENERGY_TYPE_LIST.includes(t)))];
@@ -2636,6 +2631,18 @@ function pocketAdvanceTurn(G) {
     if (endingSide.active.curHp <= 0) {
       pocketResolveActiveKO(G, endingRole);
       if (G.phase === 'forced_switch' || G.phase === 'done') return;
+    }
+  }
+  // 2026-08-06新增：灼傷（Burned）——跟中毒同樣在該側回合結束時扣血，但傷害是20（中毒10）
+  // 且扣完血額外擲一次硬幣，正面直接治癒灼傷（這點中毒沒有，中毒要等到被其他效果解除才會消失，
+  // 灼傷則是真實規則裡本來就會「自己有機會好」的限時debuff，跟中毒設計成兩種不同持續時間的異常）。
+  if (endingSide.active && endingSide.active.status === 'burned') {
+    endingSide.active.curHp = Math.max(0, endingSide.active.curHp - 20);
+    if (endingSide.active.curHp <= 0) {
+      pocketResolveActiveKO(G, endingRole);
+      if (G.phase === 'forced_switch' || G.phase === 'done') return;
+    } else if (pocketFlipCoin()) {
+      endingSide.active.status = null;
     }
   }
   // 麻痺（跟睡眠/中毒不同）在真實規則裡是限時debuff：只擋這一整個回合的攻擊/撤退，
@@ -2899,6 +2906,290 @@ const ATTACK_EFFECTS = {
   "Your opponent reveals their hand.": ctx => { ctx.peekOpponentHand = true; },
   "Your opponent's Active Pokémon is now Asleep.": ctx => { if (ctx.defender) ctx.defender.status = 'asleep'; },
   "Your opponent's Active Pokémon is now Poisoned.": ctx => { if (ctx.defender) ctx.defender.status = 'poisoned'; },
+
+  /* ── 2026-08-06新增：A1~B2a全系列擴充後補上的高頻招式效果（依出現次數排序挑選，
+     完整133種待實作效果清單記在scratchpad，這裡先做最常見的一批；沒做到的效果文字在
+     ATTACK_EFFECTS裡找不到對應key時，doAttack只會照樣打出base傷害、跳過特效，
+     不會crash——這是刻意的優雅降級設計，不是漏洞） ── */
+  "Flip a coin. If heads, this attack does 20 more damage.": ctx => { if (pocketFlipCoin(ctx)) ctx.rawDamage += 20; },
+  "Flip a coin. If heads, this attack does 30 more damage.": ctx => { if (pocketFlipCoin(ctx)) ctx.rawDamage += 30; },
+  "Flip a coin. If heads, this attack does 50 more damage.": ctx => { if (pocketFlipCoin(ctx)) ctx.rawDamage += 50; },
+  "Flip a coin. If heads, this attack does 60 more damage.": ctx => { if (pocketFlipCoin(ctx)) ctx.rawDamage += 60; },
+  "Flip a coin. If heads, this attack does 70 more damage.": ctx => { if (pocketFlipCoin(ctx)) ctx.rawDamage += 70; },
+  "Flip a coin. If heads, this attack does 80 more damage.": ctx => { if (pocketFlipCoin(ctx)) ctx.rawDamage += 80; },
+  "This Pokémon also does 10 damage to itself.": ctx => { ctx.selfDamage = (ctx.selfDamage || 0) + 10; },
+  "This Pokémon also does 30 damage to itself.": ctx => { ctx.selfDamage = (ctx.selfDamage || 0) + 30; },
+  "This Pokémon also does 70 damage to itself.": ctx => { ctx.selfDamage = (ctx.selfDamage || 0) + 70; },
+  "Flip a coin. If tails, this Pokémon also does 30 damage to itself.": ctx => { if (!pocketFlipCoin(ctx)) ctx.selfDamage = (ctx.selfDamage || 0) + 30; },
+  "Your opponent's Active Pokémon is now Confused.": ctx => { if (ctx.defender) ctx.defender.status = 'confused'; },
+  "Your opponent's Active Pokémon is now Burned.": ctx => { if (ctx.defender) ctx.defender.status = 'burned'; },
+  "This Pokémon is now Asleep.": ctx => { ctx.attacker.status = 'asleep'; },
+  "This Pokémon is now Confused.": ctx => { ctx.attacker.status = 'confused'; },
+  "Flip a coin. If heads, your opponent's Active Pokémon is now Paralyzed. If tails, your opponent's Active Pokémon is now Confused.": ctx => {
+    if (!ctx.defender) return;
+    ctx.defender.status = pocketFlipCoin(ctx) ? 'paralyzed' : 'confused';
+  },
+  // 5種異常狀態隨機選1種套用——文字本身就是「隨機」，不是玩家可選，跟其他random-target效果同一套寫法
+  "1 Special Condition from among Asleep, Burned, Confused, Paralyzed, and Poisoned is chosen at random, and your opponent's Active Pokémon is now affected by that Special Condition. Any Special Conditions already affecting that Pokémon will not be chosen.": ctx => {
+    if (!ctx.defender) return;
+    const conditions = ['asleep', 'burned', 'confused', 'paralyzed', 'poisoned'].filter(s => s !== ctx.defender.status);
+    ctx.defender.status = conditions[Math.floor(Math.random() * conditions.length)];
+  },
+  // 自身防禦盾——沿用既有dmgDebuffUntilTurn/dmgDebuffAmount欄位機制，但蓋在自己(attacker)身上
+  // 而不是對手身上：doAttack主傷害計算本來就是看「這次被打的那隻」有沒有這個欄位命中當前回合數，
+  // 蓋在自己身上=下回合被打時會命中減傷，語意上正確對應「這隻寶可夢下回合受到的傷害-20/-30」。
+  "During your opponent's next turn, this Pokémon takes −20 damage from attacks.": ctx => {
+    ctx.attacker.dmgDebuffUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.dmgDebuffAmount = 20;
+  },
+  "During your opponent's next turn, this Pokémon takes −30 damage from attacks.": ctx => {
+    ctx.attacker.dmgDebuffUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.dmgDebuffAmount = 30;
+  },
+  // 「防止下回合受到的所有傷害跟效果」——用新的invulnerableUntilTurn旗標，pocket_attack
+  // handler開頭已經加了短路檢查，這裡只要負責設旗標
+  "Flip a coin. If heads, during your opponent's next turn, prevent all damage from—and effects of—attacks done to this Pokémon.": ctx => {
+    if (pocketFlipCoin(ctx)) ctx.attacker.invulnerableUntilTurn = ctx.G.turnNumber + 1;
+  },
+  "Heal 10 damage from this Pokémon.": ctx => {
+    const before = ctx.attacker.curHp;
+    ctx.attacker.curHp = Math.min(ctx.attacker.hp, ctx.attacker.curHp + 10);
+    ctx.healUid = ctx.attacker.uid; ctx.healAmount = ctx.attacker.curHp - before;
+  },
+  "Heal 20 damage from this Pokémon.": ctx => {
+    const before = ctx.attacker.curHp;
+    ctx.attacker.curHp = Math.min(ctx.attacker.hp, ctx.attacker.curHp + 20);
+    ctx.healUid = ctx.attacker.uid; ctx.healAmount = ctx.attacker.curHp - before;
+  },
+  "Draw a card.": ctx => { if (ctx.side.deck.length) ctx.side.hand.push(ctx.side.deck.shift()); },
+  "This attack also does 20 damage to 1 of your opponent's Benched Pokémon.": ctx => {
+    if (ctx.oppSide.bench.length) {
+      const t = ctx.oppSide.bench[Math.floor(Math.random() * ctx.oppSide.bench.length)];
+      t.curHp = Math.max(0, t.curHp - 20);
+    }
+  },
+  "This attack also does 10 damage to 1 of your opponent's Benched Pokémon.": ctx => {
+    if (ctx.oppSide.bench.length) {
+      const t = ctx.oppSide.bench[Math.floor(Math.random() * ctx.oppSide.bench.length)];
+      t.curHp = Math.max(0, t.curHp - 10);
+    }
+  },
+  "This attack also does 30 damage to 1 of your opponent's Benched Pokémon.": ctx => {
+    if (ctx.oppSide.bench.length) {
+      const t = ctx.oppSide.bench[Math.floor(Math.random() * ctx.oppSide.bench.length)];
+      t.curHp = Math.max(0, t.curHp - 30);
+    }
+  },
+  "This attack also does 20 damage to each of your opponent's Benched Pokémon.": ctx => {
+    for (const p of ctx.oppSide.bench) p.curHp = Math.max(0, p.curHp - 20);
+  },
+  "This attack does 50 damage to 1 of your opponent's Pokémon.": ctx => {
+    ctx.rawDamage = 0;
+    const pool = [ctx.defender, ...ctx.oppSide.bench].filter(Boolean);
+    if (pool.length) { const t = pool[Math.floor(Math.random() * pool.length)]; t.curHp = Math.max(0, t.curHp - 50); }
+  },
+  "This attack does 40 damage to 1 of your opponent's Pokémon.": ctx => {
+    ctx.rawDamage = 0;
+    const pool = [ctx.defender, ...ctx.oppSide.bench].filter(Boolean);
+    if (pool.length) { const t = pool[Math.floor(Math.random() * pool.length)]; t.curHp = Math.max(0, t.curHp - 40); }
+  },
+  "This attack does 20 damage to 1 of your opponent's Pokémon.": ctx => {
+    ctx.rawDamage = 0;
+    const pool = [ctx.defender, ...ctx.oppSide.bench].filter(Boolean);
+    if (pool.length) { const t = pool[Math.floor(Math.random() * pool.length)]; t.curHp = Math.max(0, t.curHp - 20); }
+  },
+  "This attack does 10 damage to 1 of your opponent's Pokémon.": ctx => {
+    ctx.rawDamage = 0;
+    const pool = [ctx.defender, ...ctx.oppSide.bench].filter(Boolean);
+    if (pool.length) { const t = pool[Math.floor(Math.random() * pool.length)]; t.curHp = Math.max(0, t.curHp - 10); }
+  },
+  "This attack does 20 damage to 1 of your opponent's Benched Pokémon.": ctx => {
+    ctx.rawDamage = 0;
+    if (ctx.oppSide.bench.length) { const t = ctx.oppSide.bench[Math.floor(Math.random() * ctx.oppSide.bench.length)]; t.curHp = Math.max(0, t.curHp - 20); }
+  },
+  "This attack does 20 more damage for each Energy attached to your opponent's Active Pokémon.": ctx => {
+    ctx.rawDamage += 20 * (ctx.defender?.energy.length || 0);
+  },
+  "This attack does 20 more damage for each of your Benched Pokémon.": ctx => { ctx.rawDamage += 20 * ctx.side.bench.length; },
+  "This attack does 30 more damage for each of your Benched Pokémon.": ctx => { ctx.rawDamage += 30 * ctx.side.bench.length; },
+  "This attack does 20 more damage for each of your opponent's Benched Pokémon.": ctx => { ctx.rawDamage += 20 * ctx.oppSide.bench.length; },
+  "This attack does 20 more damage for each Energy attached to this Pokémon.": ctx => { ctx.rawDamage += 20 * (ctx.attacker.energy?.length || 0); },
+  "This attack does 20 damage for each Benched Pokémon (both yours and your opponent's).": ctx => {
+    ctx.rawDamage = 20 * (ctx.side.bench.length + ctx.oppSide.bench.length);
+  },
+  "Flip 2 coins. This attack does 20 damage for each heads.": ctx => { ctx.rawDamage = pocketFlipCoins(2, ctx) * 20; },
+  "Flip 2 coins. This attack does 30 damage for each heads.": ctx => { ctx.rawDamage = pocketFlipCoins(2, ctx) * 30; },
+  "Flip 2 coins. This attack does 50 damage for each heads.": ctx => { ctx.rawDamage = pocketFlipCoins(2, ctx) * 50; },
+  "Flip 3 coins. This attack does 10 damage for each heads.": ctx => { ctx.rawDamage = pocketFlipCoins(3, ctx) * 10; },
+  "Flip 3 coins. This attack does 20 damage for each heads.": ctx => { ctx.rawDamage = pocketFlipCoins(3, ctx) * 20; },
+  "Flip 3 coins. This attack does 40 damage for each heads.": ctx => { ctx.rawDamage = pocketFlipCoins(3, ctx) * 40; },
+  "Flip 3 coins. This attack does 60 damage for each heads.": ctx => { ctx.rawDamage = pocketFlipCoins(3, ctx) * 60; },
+  // 「翻到反面才停」——用while迴圈持續丟，跟既有pocketFlipCoin(ctx)同一套會自動記錄進
+  // ctx.coinFlips的機制，client端動畫會照實際丟的次數全部播出來
+  "Flip a coin until you get tails. This attack does 20 damage for each heads.": ctx => {
+    let heads = 0;
+    while (pocketFlipCoin(ctx)) heads++;
+    ctx.rawDamage = heads * 20;
+  },
+  "Flip a coin until you get tails. This attack does 40 more damage for each heads.": ctx => {
+    let heads = 0;
+    while (pocketFlipCoin(ctx)) heads++;
+    ctx.rawDamage += heads * 40;
+  },
+  "Flip a coin until you get tails. For each heads, discard a random Energy from your opponent's Active Pokémon.": ctx => {
+    let heads = 0;
+    while (pocketFlipCoin(ctx)) heads++;
+    for (let i = 0; i < heads && ctx.defender?.energy.length; i++) {
+      ctx.defender.energy.splice(Math.floor(Math.random() * ctx.defender.energy.length), 1);
+    }
+  },
+  "During your next turn, this Pokémon can't attack.": ctx => { ctx.attacker.cantAttackUntilTurn = ctx.G.turnNumber + 1; },
+  "Flip a coin. If tails, during your next turn, this Pokémon can't attack.": ctx => {
+    if (!pocketFlipCoin(ctx)) ctx.attacker.cantAttackUntilTurn = ctx.G.turnNumber + 1;
+  },
+  "Flip a coin. If heads, discard a random Energy from your opponent's Active Pokémon.": ctx => {
+    if (pocketFlipCoin(ctx) && ctx.defender?.energy.length) {
+      ctx.defender.energy.splice(Math.floor(Math.random() * ctx.defender.energy.length), 1);
+    }
+  },
+  "Discard a random Energy from your opponent's Active Pokémon.": ctx => {
+    if (ctx.defender?.energy.length) ctx.defender.energy.splice(Math.floor(Math.random() * ctx.defender.energy.length), 1);
+  },
+  "Discard a random Energy from this Pokémon.": ctx => {
+    if (ctx.attacker.energy.length) ctx.attacker.energy.splice(Math.floor(Math.random() * ctx.attacker.energy.length), 1);
+  },
+  "Discard a random Energy from both Active Pokémon.": ctx => {
+    if (ctx.attacker.energy.length) ctx.attacker.energy.splice(Math.floor(Math.random() * ctx.attacker.energy.length), 1);
+    if (ctx.defender?.energy.length) ctx.defender.energy.splice(Math.floor(Math.random() * ctx.defender.energy.length), 1);
+  },
+  "Discard a {R}, {W}, and {L} Energy from this Pokémon.": ctx => {
+    pocketDiscardEnergy(ctx.attacker, 'Fire', 1); pocketDiscardEnergy(ctx.attacker, 'Water', 1); pocketDiscardEnergy(ctx.attacker, 'Lightning', 1);
+  },
+  "Discard all {R} Energy from this Pokémon.": ctx => { ctx.attacker.energy = ctx.attacker.energy.filter(e => e !== 'Fire'); },
+  "Discard a {F} Energy from this Pokémon.": ctx => pocketDiscardEnergy(ctx.attacker, 'Fighting', 1),
+  "Discard 3 {R} Energy from this Pokémon.": ctx => pocketDiscardEnergy(ctx.attacker, 'Fire', 3),
+  "Take a {L} Energy from your Energy Zone and attach it to this Pokémon.": ctx => { ctx.attacker.energy.push('Lightning'); },
+  "Take 3 {R} Energy from your Energy Zone and attach it to this Pokémon.": ctx => { for (let i = 0; i < 3; i++) ctx.attacker.energy.push('Fire'); },
+  // 「拿能量給1隻板凳寶可夢」沒有寫"in any way you like"，不是玩家自選，隨機挑1隻板凳附加
+  "Take a {R} Energy from your Energy Zone and attach it to 1 of your Benched Pokémon.": ctx => {
+    if (ctx.side.bench.length) ctx.side.bench[Math.floor(Math.random() * ctx.side.bench.length)].energy.push('Fire');
+  },
+  "Take a {L} Energy from your Energy Zone and attach it to 1 of your Benched Basic Pokémon.": ctx => {
+    const targets = ctx.side.bench.filter(p => p.stage === 'Basic');
+    if (targets.length) targets[Math.floor(Math.random() * targets.length)].energy.push('Lightning');
+  },
+  "Take a {R} Energy from your Energy Zone and attach it to 1 of your Benched Basic Pokémon.": ctx => {
+    const targets = ctx.side.bench.filter(p => p.stage === 'Basic');
+    if (targets.length) targets[Math.floor(Math.random() * targets.length)].energy.push('Fire');
+  },
+  "Take a {W} Energy from your Energy Zone and attach it to 1 of your Benched Basic Pokémon.": ctx => {
+    const targets = ctx.side.bench.filter(p => p.stage === 'Basic');
+    if (targets.length) targets[Math.floor(Math.random() * targets.length)].energy.push('Water');
+  },
+  "Take 2 {M} Energy from your Energy Zone and attach it to 1 of your Benched Pokémon.": ctx => {
+    if (ctx.side.bench.length) { const t = ctx.side.bench[Math.floor(Math.random() * ctx.side.bench.length)]; t.energy.push('Metal', 'Metal'); }
+  },
+  "Put a random Pokémon from your deck into your hand.": ctx => {
+    const idxs = ctx.side.deck.map((c, i) => c.category === 'Pokemon' ? i : -1).filter(i => i >= 0);
+    if (idxs.length) { const i = idxs[Math.floor(Math.random() * idxs.length)]; ctx.side.hand.push(ctx.side.deck.splice(i, 1)[0]); }
+  },
+  "Put 1 random Basic Pokémon from your deck onto your Bench.": ctx => {
+    if (ctx.side.bench.length >= 3) return;
+    const idxs = ctx.side.deck.map((c, i) => (c.category === 'Pokemon' && c.stage === 'Basic') ? i : -1).filter(i => i >= 0);
+    if (idxs.length) {
+      const i = idxs[Math.floor(Math.random() * idxs.length)];
+      const p = ctx.side.deck.splice(i, 1)[0];
+      p.curHp = p.hp; p.energy = [];
+      ctx.side.bench.push(p);
+    }
+  },
+  "Discard the top card of your opponent's deck.": ctx => { if (ctx.oppSide.deck.length) ctx.oppSide.deck.shift(); },
+  "Discard the top 3 cards of your opponent's deck.": ctx => { ctx.oppSide.deck.splice(0, 3); },
+  "Discard a random card from your opponent's hand.": ctx => {
+    if (ctx.oppSide.hand.length) ctx.oppSide.hand.splice(Math.floor(Math.random() * ctx.oppSide.hand.length), 1);
+  },
+  "Discard a card from your hand. If you can't, this attack does nothing.": ctx => {
+    if (!ctx.side.hand.length) { ctx.rawDamage = 0; return; }
+    ctx.side.hand.splice(Math.floor(Math.random() * ctx.side.hand.length), 1);
+  },
+  "This attack's damage isn't affected by Weakness.": ctx => { ctx.ignoreWeakness = true; },
+  "This attack does more damage equal to the damage this Pokémon has on it.": ctx => {
+    const dmgOn = (ctx.attacker.hp || 0) - (ctx.attacker.curHp || 0);
+    ctx.rawDamage += Math.max(0, dmgOn);
+  },
+  "If this Pokémon has damage on it, this attack does 60 more damage.": ctx => {
+    if ((ctx.attacker.curHp ?? ctx.attacker.hp) < ctx.attacker.hp) ctx.rawDamage += 60;
+  },
+  "If your opponent's Active Pokémon has damage on it, this attack does 40 more damage.": ctx => {
+    if (ctx.defender && (ctx.defender.curHp ?? ctx.defender.hp) < ctx.defender.hp) ctx.rawDamage += 40;
+  },
+  "If your opponent's Active Pokémon has damage on it, this attack does 60 more damage.": ctx => {
+    if (ctx.defender && (ctx.defender.curHp ?? ctx.defender.hp) < ctx.defender.hp) ctx.rawDamage += 60;
+  },
+  "If your opponent's Active Pokémon is Poisoned, this attack does 60 more damage.": ctx => { if (ctx.defender?.status === 'poisoned') ctx.rawDamage += 60; },
+  "If this Pokémon evolved during this turn, this attack does 20 more damage.": ctx => {
+    if (ctx.attacker.boardTurn === ctx.G.turnNumber) ctx.rawDamage += 20;
+  },
+  "If this Pokémon has at least 1 extra {W} Energy attached, this attack does 40 more damage.": ctx => {
+    const have = ctx.attacker.energy.filter(e => e === 'Water').length;
+    const need = (ctx.atk.cost || []).filter(t => t === 'Water').length;
+    if (have - need >= 1) ctx.rawDamage += 40;
+  },
+  "If this Pokémon has any {W} Energy attached, this attack does 40 more damage.": ctx => {
+    if (ctx.attacker.energy.includes('Water')) ctx.rawDamage += 40;
+  },
+  "If this Pokémon has at least 2 extra {F} Energy attached, this attack does 50 more damage.": ctx => {
+    const have = ctx.attacker.energy.filter(e => e === 'Fighting').length;
+    const need = (ctx.atk.cost || []).filter(t => t === 'Fighting').length;
+    if (have - need >= 2) ctx.rawDamage += 50;
+  },
+  "If this Pokémon has at least 2 extra {F} Energy attached, this attack does 60 more damage.": ctx => {
+    const have = ctx.attacker.energy.filter(e => e === 'Fighting').length;
+    const need = (ctx.atk.cost || []).filter(t => t === 'Fighting').length;
+    if (have - need >= 2) ctx.rawDamage += 60;
+  },
+  "If this Pokémon has at least 2 extra {R} Energy attached, this attack does 60 more damage.": ctx => {
+    const have = ctx.attacker.energy.filter(e => e === 'Fire').length;
+    const need = (ctx.atk.cost || []).filter(t => t === 'Fire').length;
+    if (have - need >= 2) ctx.rawDamage += 60;
+  },
+  "If this Pokémon has at least 3 extra {W} Energy attached, this attack does 70 more damage.": ctx => {
+    const have = ctx.attacker.energy.filter(e => e === 'Water').length;
+    const need = (ctx.atk.cost || []).filter(t => t === 'Water').length;
+    if (have - need >= 3) ctx.rawDamage += 70;
+  },
+  "If your opponent's Active Pokémon is a Pokémon ex, this attack does 70 more damage.": ctx => { if (ctx.defender?.ex) ctx.rawDamage += 70; },
+  "Halve your opponent's Active Pokémon's remaining HP, rounded down.": ctx => {
+    ctx.rawDamage = 0;
+    if (ctx.defender) ctx.defender.curHp = Math.floor((ctx.defender.curHp ?? ctx.defender.hp) / 2);
+  },
+  "Switch out your opponent's Active Pokémon to the Bench. (Your opponent chooses the new Active Pokémon.)": ctx => {
+    if (!ctx.oppSide.bench.length || !ctx.defender) return;
+    ctx.oppSide.bench.push(ctx.defender);
+    ctx.oppSide.active = null;
+    ctx.forceOpponentSwitch = true;
+  },
+  "You may switch this Pokémon with 1 of your Benched Pokémon.": ctx => {
+    if (ctx.side.bench.length) ctx.needsChoice = { kind: 'bench_switch' };
+  },
+  "1 of your opponent's Pokémon is chosen at random 3 times. For each time a Pokémon was chosen, do 50 damage to it.": ctx => {
+    ctx.rawDamage = 0;
+    const pool = [ctx.defender, ...ctx.oppSide.bench].filter(Boolean);
+    for (let i = 0; i < 3 && pool.length; i++) {
+      const t = pool[Math.floor(Math.random() * pool.length)];
+      t.curHp = Math.max(0, t.curHp - 50);
+    }
+  },
+  "1 of your opponent's Benched Pokémon is chosen at random 3 times. For each time a Pokémon was chosen, also do 20 damage to it.": ctx => {
+    if (!ctx.oppSide.bench.length) return;
+    for (let i = 0; i < 3; i++) {
+      const t = ctx.oppSide.bench[Math.floor(Math.random() * ctx.oppSide.bench.length)];
+      t.curHp = Math.max(0, t.curHp - 20);
+    }
+  },
+  "This attack does 20 damage to each of your opponent's Pokémon.": ctx => {
+    ctx.rawDamage = 0;
+    if (ctx.defender) ctx.defender.curHp = Math.max(0, ctx.defender.curHp - 20);
+    for (const p of ctx.oppSide.bench) p.curHp = Math.max(0, p.curHp - 20);
+  },
 };
 function pocketDiscardEnergy(pokemon, type, n) {
   for (let i = 0; i < n; i++) {
@@ -3431,9 +3722,13 @@ app.get('/api/pokedex', (req, res) => {
 app.get('/api/pocket/cards', (req, res) => {
   res.json({ cards: POCKET_CARDS });
 });
+// 2026-08-06新增：開包/圖鑑選版本用的系列清單（id/name/cardCount），不含卡片本體資料
+app.get('/api/pocket/sets', (req, res) => {
+  res.json({ sets: POCKET_SETS });
+});
 
-const POCKET_PACK_WEIGHT = { 'One Diamond': 100, 'Two Diamond': 60, 'Three Diamond': 30, 'Four Diamond': 12, 'None': 50, 'Three Star': 3 };
-const POCKET_CHASE_WEIGHT = { 'Two Star': 10, 'Three Star': 3, 'Crown': 1 };
+const POCKET_PACK_WEIGHT = { 'One Diamond': 100, 'Two Diamond': 60, 'Three Diamond': 30, 'Four Diamond': 12, 'None': 50 };
+const POCKET_CHASE_WEIGHT = { 'One Star': 20, 'One Shiny': 12, 'Two Star': 10, 'Two Shiny': 6, 'Three Star': 3, 'Crown': 1 };
 function pocketWeightedPick(pool, weightFn) {
   const total = pool.reduce((s, c) => s + weightFn(c), 0);
   let r = Math.random() * total;
@@ -3443,27 +3738,41 @@ function pocketWeightedPick(pool, weightFn) {
   }
   return pool[pool.length - 1];
 }
+// 2026-08-06改版：原本只有A1一個系列，卡包池是單一全域陣列；現在每個系列各自開自己的包
+// （真實遊戲的包也是照系列分開賣，不會A1的包抽到B2a的卡），改成依系列預先分組好基礎池/
+// 追逐池，開包時依玩家選的setId查表，避免每次骰都重新掃描全部2480張卡。
 // Promo-A（P-A-xxx）這7張是所有玩家本來就直接擁有的通用卡（見POCKET_PROMO_A_IDS/
 // pocketEnsurePromoACards），不該出現在開包池——抽到只會是「浪費一包」的體驗，玩家早就有了。
-const POCKET_PACK_POOL = POCKET_CARDS_BASE.filter(c => !c.id.startsWith('P-A-'));
-// 每張卡獨立骰：95%從基礎卡池（依鑽石數加權，普卡機率高）、5%從2星以上「追逐卡池」抽
+const POCKET_PACK_POOL_BY_SET = {};
+const POCKET_CHASE_POOL_BY_SET = {};
+for (const s of POCKET_SETS) {
+  POCKET_PACK_POOL_BY_SET[s.id] = POCKET_CARDS_BASE.filter(c => c.set === s.id && !c.id.startsWith('P-A-'));
+  POCKET_CHASE_POOL_BY_SET[s.id] = POCKET_CHASE_CARDS.filter(c => c.set === s.id);
+}
+// 每張卡獨立骰：95%從該系列基礎卡池（依鑽石數加權，普卡機率高）、5%從該系列2星以上「追逐卡池」抽
 // （追逐卡池內部再依星等加權，Crown最稀有）。5張/包，平均每包0.25張追逐卡，約每4包抽到1張。
-function pocketRollPackCard() {
-  if (Math.random() < 0.05) return pocketWeightedPick(POCKET_CHASE_CARDS, c => POCKET_CHASE_WEIGHT[c.rarity] || 1).id;
-  return pocketWeightedPick(POCKET_PACK_POOL, c => POCKET_PACK_WEIGHT[c.rarity] || 20).id;
+// 系列本身沒有追逐卡（例如卡片全部都是基礎鑽石等級）時，5%那球會自動退回基礎池，不會抽出undefined。
+function pocketRollPackCard(setId) {
+  const chasePool = POCKET_CHASE_POOL_BY_SET[setId] || [];
+  const basePool = POCKET_PACK_POOL_BY_SET[setId] || [];
+  if (chasePool.length && Math.random() < 0.05) return pocketWeightedPick(chasePool, c => POCKET_CHASE_WEIGHT[c.rarity] || 1).id;
+  return pocketWeightedPick(basePool, c => POCKET_PACK_WEIGHT[c.rarity] || 20).id;
 }
 // 保底機制（2026-08-06新增）：連續100包都沒抽到2星以上卡片時，第100包強制保底出1張。
 // pityCounter是「距離上次抽到2星以上卡片，已經開了幾包」的計數，存在pets.pocket_pity_counter，
 // 每包結算一次：這包本來就抽到2星以上就直接歸零；沒抽到但計數滿100就強制把其中一個卡槽換成
 // 保底卡（歸零）；兩者都沒發生就正常+1往下累積。回傳新的counter讓呼叫端接力往下傳（同一次
 // 開包請求可能連續開好幾包，例如10連抽），不直接寫DB——DB只在整個請求結束時寫一次。
-function pocketRollPackWithPity(pityCounter) {
-  const cardIds = Array.from({ length: 5 }, pocketRollPackCard);
+// 2026-08-06：保底計數是玩家帳號全域共用（不分系列），不是「每系列各自計100包」——玩家
+// 選哪個系列開包不影響保底進度的累積，比較貼近玩家對「保底」的直覺理解（開好開滿都算數）。
+function pocketRollPackWithPity(setId, pityCounter) {
+  const cardIds = Array.from({ length: 5 }, () => pocketRollPackCard(setId));
   const hasHighRarity = cardIds.some(id => POCKET_HIGH_RARITIES.has(POCKET_CARDS_BY_ID[id]?.rarity));
   let counter = pityCounter + 1;
   let pityTriggered = false;
-  if (!hasHighRarity && counter >= 100) {
-    cardIds[cardIds.length - 1] = pocketWeightedPick(POCKET_CHASE_CARDS, c => POCKET_CHASE_WEIGHT[c.rarity] || 1).id;
+  const chasePool = POCKET_CHASE_POOL_BY_SET[setId] || [];
+  if (!hasHighRarity && counter >= 100 && chasePool.length) {
+    cardIds[cardIds.length - 1] = pocketWeightedPick(chasePool, c => POCKET_CHASE_WEIGHT[c.rarity] || 1).id;
     pityTriggered = true;
   }
   if (hasHighRarity || pityTriggered) counter = 0;
@@ -3500,8 +3809,10 @@ app.get('/api/pocket/collection', requireAuth, async (req, res) => {
 // SYNTHESIZE表裡——皇冠卡只能靠開包抽到，不能用晶鑽合成取得（使用者明確要求的限制）。
 // 2026-08-06調高2星以上的分解回饋——原本100/250/500跟合成成本(800/2000)比起來太摳，
 // 拆3張重複的2星卡才勉強湊得到合成1張沒有的2星卡，使用者覺得應該要更慷慨一點
-const POCKET_DISMANTLE_SHARDS = { 'One Diamond': 5, 'Two Diamond': 10, 'Three Diamond': 20, 'Four Diamond': 40, 'Two Star': 300, 'Three Star': 800, 'Crown': 2000 };
-const POCKET_SYNTHESIZE_COST = { 'One Diamond': 20, 'Two Diamond': 50, 'Three Diamond': 120, 'Four Diamond': 300, 'Two Star': 800, 'Three Star': 2000 };
+// 2026-08-06新增系列引入了One Star/Shiny這幾種原本沒有的星等，補進兩張分級表（沿用既有
+// 數值級距的比例往上外推，跟開包機率權重POCKET_CHASE_WEIGHT的稀有度排序一致）
+const POCKET_DISMANTLE_SHARDS = { 'One Diamond': 5, 'Two Diamond': 10, 'Three Diamond': 20, 'Four Diamond': 40, 'One Star': 150, 'One Shiny': 200, 'Two Star': 300, 'Two Shiny': 500, 'Three Star': 800, 'Crown': 2000 };
+const POCKET_SYNTHESIZE_COST = { 'One Diamond': 20, 'Two Diamond': 50, 'Three Diamond': 120, 'Four Diamond': 300, 'One Star': 500, 'One Shiny': 650, 'Two Star': 800, 'Two Shiny': 1400, 'Three Star': 2000 };
 
 app.post('/api/pocket/dismantle', requireAuth, async (req, res) => {
   const cardId = req.body?.cardId;
@@ -3586,6 +3897,9 @@ app.post('/api/pocket/open-pack', requireAuth, async (req, res) => {
   // 2026-08-06新增10連抽：目前只開放1或10兩種數量，其餘一律當成單抽處理，避免client亂傳
   // 巨量count對DB造成過大負擔（例如count=99999）。
   const count = req.body?.count === 10 ? 10 : 1;
+  // 2026-08-06新增選版本開包：沒帶set或帶了不存在的系列一律退回A1（最初也是唯一舊資料能保證
+  // 一定有卡的系列），不會因為client傳壞資料就整包開不出東西
+  const setId = POCKET_SETS.some(s => s.id === req.body?.set) ? req.body.set : 'A1';
   try {
     // 金幣/每日免費額度都活在pets這張表——如果玩家還沒去「我的寶可夢」選過初始寶可夢，
     // 根本沒有pets列，下面的UPDATE會直接match 0 rows，錯誤訊息會被誤判成「金幣不足」
@@ -3619,7 +3933,7 @@ app.post('/api/pocket/open-pack', requireAuth, async (req, res) => {
         }
         paidUsedCount++;
       }
-      const { cardIds, pityTriggered, counter } = pocketRollPackWithPity(pity);
+      const { cardIds, pityTriggered, counter } = pocketRollPackWithPity(setId, pity);
       pity = counter;
       if (pityTriggered) pityHits++;
       pulledIds.push(...cardIds);
@@ -3635,6 +3949,7 @@ app.post('/api/pocket/open-pack', requireAuth, async (req, res) => {
     const { rows } = await pool.query('SELECT coins, pocket_free_packs_used FROM pets WHERE user_id = $1', [req.user.id]);
     res.json({
       cards: pulledIds.map(id => POCKET_CARDS_BY_ID[id]),
+      set: setId,
       packsOpened: freeUsedCount + paidUsedCount, usedFree: freeUsedCount > 0, freeUsedCount, paidUsedCount,
       pityHits, pityCounter: pity,
       coins: rows[0]?.coins, freePacksUsedToday: rows[0]?.pocket_free_packs_used,
@@ -5197,14 +5512,39 @@ async function handleMessage(ws, msg) {
         }
         attacker.status = null;
       }
+      // 2026-08-06新增：混亂（Confused）——攻擊前擲硬幣，反面攻擊失敗且自己受到30傷害，
+      // 正面攻擊照常進行、混亂繼續留著（不像睡眠醒來就解除，混亂要撤退才會清除，見既有
+      // 撤退時清status的邏輯）。
+      let confusionCoinFlip = null;
+      if (attacker.status === 'confused') {
+        const ok = pocketFlipCoin();
+        confusionCoinFlip = ok;
+        if (!ok) {
+          attacker.curHp = Math.max(0, attacker.curHp - 30);
+          send(ws, { type: 'error', message: '混亂中，攻擊失敗，自己受到30傷害' });
+          G.lastEvent = { seq: ++G.eventSeq, kind: 'attackFailed', reason: 'confused', attackerRole: role, attackerUid: attacker.uid, coinFlips: [false] };
+          if (attacker.curHp <= 0) { pocketResolveActiveKO(G, role); pocketBroadcastState(pRoom); return; }
+          pocketAdvanceTurn(G); pocketBroadcastState(pRoom); return;
+        }
+      }
       if (attacker.cantAttackUntilTurn === G.turnNumber) { send(ws, { type: 'error', message: '這回合這隻寶可夢不能攻擊' }); pocketAdvanceTurn(G); pocketBroadcastState(pRoom); return; }
       if (!pocketCanPayCost(attacker, atk.cost)) { send(ws, { type: 'error', message: '能量不足，無法使用這個招式' }); return; }
       const defender = oppSide.active;
       if (!defender) return;
 
       const ctx = { G, role, op, side, oppSide, attacker, defender, atk, rawDamage: parseInt(String(atk.damage || '0').replace(/\D+/g, ''), 10) || 0, selfDamage: 0 };
-      const effectFn = atk.effect && ATTACK_EFFECTS[atk.effect];
-      if (effectFn) effectFn(ctx);
+      // 2026-08-06新增「無敵/免疫」機制：某些招式效果會讓自己下回合完全免疫傷害跟附加效果
+      // （防禦方的invulnerableUntilTurn），命中就直接把這次攻擊的傷害跟效果都短路掉，
+      // 用掉了要清掉旗標避免殘留到下下回合繼續檔。
+      if (defender.invulnerableUntilTurn === G.turnNumber) {
+        defender.invulnerableUntilTurn = 0;
+        ctx.rawDamage = 0;
+        ctx.skipMainDamage = true;
+        ctx.invulnerableBlocked = true;
+      } else {
+        const effectFn = atk.effect && ATTACK_EFFECTS[atk.effect];
+        if (effectFn) effectFn(ctx);
+      }
 
       let mainDamage = 0;
       if (!ctx.skipMainDamage && ctx.rawDamage > 0) {
@@ -5225,7 +5565,8 @@ async function handleMessage(ws, msg) {
 
       // 攻擊事件紀錄——client端用seq判斷是不是「新的」一次攻擊，藉此播放屬性特效/擲硬幣動畫/
       // 傷害飄字，seq在每次真正攻擊都遞增，state broadcast頻繁但這個值不常變，client不會重複播放
-      const coinFlips = wakeCoinFlip != null ? [wakeCoinFlip, ...(ctx.coinFlips || [])] : (ctx.coinFlips || null);
+      const preCoinFlips = [wakeCoinFlip, confusionCoinFlip].filter(v => v != null);
+      const coinFlips = preCoinFlips.length ? [...preCoinFlips, ...(ctx.coinFlips || [])] : (ctx.coinFlips || null);
       G.lastEvent = {
         seq: ++G.eventSeq, kind: 'attack', attackerRole: role, atkType: atk.type,
         attackerUid: attacker.uid, targetUid: defender.uid, damage: mainDamage,

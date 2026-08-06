@@ -354,8 +354,8 @@
     <div class="header-actions">
       <div class="coin-display" id="coin-display" style="display:none">🪙 <span id="coin-amount">0</span></div>
       <div class="coin-display" id="shard-display" style="display:none">💎 <span id="shard-amount">0</span></div>
-      <button class="btn btn-secondary" id="open-pack-btn" onclick="openPackFlow(1)" style="display:none">🎴 開卡包</button>
-      <button class="btn btn-secondary" id="open-pack-10-btn" onclick="openPackFlow(10)" style="display:none">🎴×10 十連抽</button>
+      <button class="btn btn-secondary" id="open-pack-btn" onclick="openPackSetPicker(1)" style="display:none">🎴 開卡包</button>
+      <button class="btn btn-secondary" id="open-pack-10-btn" onclick="openPackSetPicker(10)" style="display:none">🎴×10 十連抽</button>
       <button class="btn btn-secondary" onclick="openCollectionView()">📚 卡牌收藏</button>
       <button class="btn btn-secondary" id="open-dex-btn" onclick="openDexView()" style="display:none">📖 卡牌圖鑑</button>
       <div class="sub" id="pack-info">載入卡池中...</div>
@@ -419,7 +419,10 @@
       <button class="lobby-close" onclick="closeDexView()">✕</button>
       <h2>卡牌圖鑑</h2>
       <div class="pool-count" id="dex-count"></div>
-      <button class="btn btn-secondary" onclick="dismantleAllExtra()" style="margin-bottom:0.8rem">🔨 一鍵分解（每張卡留2張）</button>
+      <div style="display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;margin-bottom:0.8rem">
+        <select id="dex-set-filter" onchange="renderDexGrid()"><option value="">全部系列</option></select>
+        <button class="btn btn-secondary" onclick="dismantleAllExtra()">🔨 一鍵分解（每張卡留2張）</button>
+      </div>
       <div class="grid" id="dex-grid"></div>
     </div>
   </div>
@@ -442,6 +445,16 @@
       <h2 id="pack-title">開卡包中...</h2>
       <div class="pack-reveal-row" id="pack-reveal-row"></div>
       <button class="btn btn-primary" id="pack-close-btn" onclick="closePackFlow()" style="display:none">關閉</button>
+    </div>
+  </div>
+
+  <!-- 2026-08-06新增：開包前先選要抽哪個系列的卡包（真實遊戲的包本來就是各系列分開賣） -->
+  <div class="pack-overlay" id="pack-set-picker-overlay" style="display:none">
+    <div class="pack-box" style="max-width:520px">
+      <h2>選擇卡包版本</h2>
+      <div class="pool-count" id="pack-set-picker-sub"></div>
+      <div class="grid" id="pack-set-picker-grid" style="max-height:50vh;overflow-y:auto"></div>
+      <button class="btn btn-secondary" onclick="closePackSetPicker()">取消</button>
     </div>
   </div>
 </div>
@@ -648,11 +661,13 @@
 ───────────────────────────────────────── */
 const TYPE_COLOR = {
   Fire:'#f08030', Water:'#6890f0', Lightning:'#f8d030', Psychic:'#f85888',
-  Fighting:'#c03028', Darkness:'#705848', Dragon:'#7038f8', Colorless:'#a8a878', Grass:'#78c850'
+  Fighting:'#c03028', Darkness:'#705848', Dragon:'#7038f8', Colorless:'#a8a878', Grass:'#78c850',
+  Metal:'#a8b8c8'
 };
 const TYPE_ZH = {
   Fire:'火', Water:'水', Lightning:'電', Psychic:'超能力',
-  Fighting:'格鬥', Darkness:'惡', Dragon:'龍', Colorless:'無色', Grass:'草'
+  Fighting:'格鬥', Darkness:'惡', Dragon:'龍', Colorless:'無色', Grass:'草',
+  Metal:'鋼'
 };
 // 自製能量圖示（不是官方PTCG圖檔——那是任天堂/Creatures的版權美術，這個專案一貫不直接使用
 // 官方遊戲素材，比照8-bit音效用合成取代真實音檔的原則）。2026-08-05：原本用emoji疊在色底圓圈上，
@@ -668,7 +683,8 @@ const TYPE_SVG = {
   Darkness: 'M12.3 3a8 8 0 1 0 8.7 8.7A6.5 6.5 0 0 1 12.3 3z',
   Dragon: 'M4 20 12 2l2 8 6-4-4 10 4 4-8-2-2 6-2-6-8 2z',
   Colorless: 'M12 2 14.9 9.1 22 9.9 16.5 14.6 18.2 22 12 18.1 5.8 22 7.5 14.6 2 9.9 9.1 9.1z',
-  Grass: 'M20 4C10 4 4 12 4 20c8 0 16-6 16-16-2 6-6 10-11 12 4-3 8-8 11-12z'
+  Grass: 'M20 4C10 4 4 12 4 20c8 0 16-6 16-16-2 6-6 10-11 12 4-3 8-8 11-12z',
+  Metal: 'M12 2 20 7v10l-8 5-8-5V7z'
 };
 function energyIconHtml(type, mini) {
   const color = TYPE_COLOR[type] || '#888';
@@ -681,6 +697,9 @@ const MAX_COPIES = 2;
 const MAX_SAVED_DECKS = 20;
 // 7張Promo-A通用卡本來就直接擁有，不進開包池——server端pocketEnsurePromoACards同一份清單
 const POCKET_PROMO_A_IDS = ['P-A-001', 'P-A-002', 'P-A-003', 'P-A-004', 'P-A-005', 'P-A-006', 'P-A-007'];
+// 跟server.js的POCKET_HIGH_RARITIES同一份清單——判斷2星以上（含新系列的Shiny）用
+const POCKET_HIGH_RARITIES = new Set(['One Star', 'Two Star', 'Three Star', 'Crown', 'One Shiny', 'Two Shiny']);
+let ALL_SETS = []; // [{id,name,cardCount}]，開包選版本/圖鑑篩選用
 
 // 2026-08-05抽卡包收藏系統：組牌不再是「全卡池自由選」，改成只能用擁有的卡（ownedCounts）。
 // 已登入玩家的收藏/牌組存在DB（沿用主站的pvpToken，同一組帳號系統，不是Pocket另外登入）；
@@ -707,7 +726,7 @@ let deck = [];
 // 2026-08-06新增：能量區出現的屬性種類，預設照牌組寶可夢屬性自動偵測（跟server.js的
 // pocketDeckEnergyTypes同一套邏輯），玩家可以自己手動勾選調整——energyTypesManuallySet
 // 追蹤「玩家有沒有手動改過」，改過之後加/減卡片就不再自動重算蓋掉玩家的選擇
-const POCKET_ENERGY_TYPE_LIST = ['Fire', 'Water', 'Lightning', 'Psychic', 'Fighting', 'Darkness', 'Dragon', 'Grass'];
+const POCKET_ENERGY_TYPE_LIST = ['Fire', 'Water', 'Lightning', 'Psychic', 'Fighting', 'Darkness', 'Dragon', 'Grass', 'Metal'];
 let deckEnergyTypes = [];
 let energyTypesManuallySet = false;
 
@@ -747,6 +766,10 @@ async function loadCards() {
   const data = await pocketApiFetch('/api/pocket/cards');
   ALL_CARDS = data.cards;
   ALL_CARDS.forEach(c => cardById[c.id] = c);
+  try {
+    const setsData = await pocketApiFetch('/api/pocket/sets');
+    ALL_SETS = setsData.sets;
+  } catch (e) { ALL_SETS = []; }
 
   const typeSet = new Set();
   ALL_CARDS.forEach(c => (c.types || []).forEach(t => typeSet.add(t)));
@@ -969,21 +992,29 @@ function closeCollectionView() { document.getElementById('collection-overlay').s
 /* ── 卡牌圖鑑（2026-08-06新增）：顯示全部卡片，擁有的可以分解換晶鑽，未擁有的可以花晶鑽合成。
    數字跟server.js的POCKET_DISMANTLE_SHARDS/POCKET_SYNTHESIZE_COST保持一致——這裡只是給玩家
    看預覽用，實際扣款/發卡一律由server端re-validate，不信任這份client複本 */
-const POCKET_DISMANTLE_SHARDS_CLIENT = { 'One Diamond': 5, 'Two Diamond': 10, 'Three Diamond': 20, 'Four Diamond': 40, 'Two Star': 300, 'Three Star': 800, 'Crown': 2000 };
-const POCKET_SYNTHESIZE_COST_CLIENT = { 'One Diamond': 20, 'Two Diamond': 50, 'Three Diamond': 120, 'Four Diamond': 300, 'Two Star': 800, 'Three Star': 2000 };
+const POCKET_DISMANTLE_SHARDS_CLIENT = { 'One Diamond': 5, 'Two Diamond': 10, 'Three Diamond': 20, 'Four Diamond': 40, 'One Star': 150, 'One Shiny': 200, 'Two Star': 300, 'Two Shiny': 500, 'Three Star': 800, 'Crown': 2000 };
+const POCKET_SYNTHESIZE_COST_CLIENT = { 'One Diamond': 20, 'Two Diamond': 50, 'Three Diamond': 120, 'Four Diamond': 300, 'One Star': 500, 'One Shiny': 650, 'Two Star': 800, 'Two Shiny': 1400, 'Three Star': 2000 };
 
 function openDexView() {
   if (!pocketIsLoggedIn()) return;
+  const filterEl = document.getElementById('dex-set-filter');
+  if (filterEl.options.length <= 1) {
+    filterEl.innerHTML = '<option value="">全部系列</option>' +
+      ALL_SETS.map(s => `<option value="${s.id}">${s.name}（${s.id}）</option>`).join('');
+  }
   renderDexGrid();
   document.getElementById('dex-overlay').style.display = 'flex';
 }
 function closeDexView() { document.getElementById('dex-overlay').style.display = 'none'; }
 
+// 2026-08-06新增依系列篩選——已收集統計維持看「全部系列」的總進度，篩選只影響下面網格顯示哪些卡
 function renderDexGrid() {
   const grid = document.getElementById('dex-grid');
   const ownedSpecies = ALL_CARDS.filter(c => (ownedCounts[c.id] || 0) > 0).length;
   document.getElementById('dex-count').textContent = `已收集 ${ownedSpecies} / ${ALL_CARDS.length} 種　·　💎 晶鑽 ${shardBalance}`;
-  grid.innerHTML = ALL_CARDS.map(c => {
+  const setFilter = document.getElementById('dex-set-filter').value;
+  const filtered = setFilter ? ALL_CARDS.filter(c => c.set === setFilter) : ALL_CARDS;
+  grid.innerHTML = filtered.map(c => {
     const owned = ownedCounts[c.id] || 0;
     return `
     <div class="card-tile ${owned ? '' : 'dex-unowned'}" title="${c.name}" onclick="openDexAction('${c.id}')">
@@ -1077,17 +1108,19 @@ async function dismantleAllExtra() {
   }
 }
 
-/* ── 開卡包（2026-08-06新增count參數支援10連抽，預設1）── */
-async function openPackFlow(count = 1) {
+/* ── 開卡包（2026-08-06新增count參數支援10連抽+set參數支援選版本）── */
+// 點「開卡包」/「十連抽」按鈕不再直接開包，先跳版本選擇modal（見下面openPackSetPicker），
+// 選完系列才真的呼叫這支函式送出count+set
+async function openPackFlow(count = 1, setId = 'A1') {
   if (!pocketIsLoggedIn()) return;
   document.getElementById('pack-overlay').style.display = 'flex';
   document.getElementById('pack-title').textContent = count > 1 ? '十連抽開包中...' : '開卡包中...';
   document.getElementById('pack-reveal-row').innerHTML = '';
   document.getElementById('pack-close-btn').style.display = 'none';
   try {
-    const data = await pocketApiFetch('/api/pocket/open-pack', { method: 'POST', body: JSON.stringify({ count }) });
-    const HIGH = new Set(['Two Star', 'Three Star', 'Crown']);
-    const parts = [];
+    const data = await pocketApiFetch('/api/pocket/open-pack', { method: 'POST', body: JSON.stringify({ count, set: setId }) });
+    const setName = ALL_SETS.find(s => s.id === data.set)?.name || data.set;
+    const parts = [`【${setName}】`];
     if (data.packsOpened < count) parts.push(`⚠️ 金幣不足，只開了 ${data.packsOpened}/${count} 包`);
     else if (count > 1) parts.push(`十連抽完成（${data.freeUsedCount} 包免費 + ${data.paidUsedCount} 包付費）`);
     else parts.push(data.usedFree ? `今日免費開包（${data.freePacksUsedToday}/5）` : '花費 50 金幣開包');
@@ -1096,9 +1129,9 @@ async function openPackFlow(count = 1) {
     document.getElementById('pack-title').textContent = parts.join('　');
     const row = document.getElementById('pack-reveal-row');
     row.innerHTML = data.cards.map((c, i) => `
-      <div class="pack-reveal-card ${HIGH.has(c.rarity) ? 'chase' : ''}" style="animation-delay:${Math.min(i, 20) * 0.08}s">
+      <div class="pack-reveal-card ${POCKET_HIGH_RARITIES.has(c.rarity) ? 'chase' : ''}" style="animation-delay:${Math.min(i, 20) * 0.08}s">
         <img src="${c.image}" alt="${c.name}">
-        <div class="n">${c.name}${HIGH.has(c.rarity) ? ' ✨' : ''}</div>
+        <div class="n">${c.name}${POCKET_HIGH_RARITIES.has(c.rarity) ? ' ✨' : ''}</div>
       </div>`).join('');
     document.getElementById('pack-close-btn').style.display = '';
     await loadCollection();
@@ -1109,6 +1142,21 @@ async function openPackFlow(count = 1) {
   }
 }
 function closePackFlow() { document.getElementById('pack-overlay').style.display = 'none'; }
+
+// 2026-08-06新增：開包前先選版本——每個系列一張卡片，點下去才真的呼叫openPackFlow(count, setId)
+let pendingPackCount = 1;
+function openPackSetPicker(count = 1) {
+  if (!pocketIsLoggedIn()) return;
+  pendingPackCount = count;
+  document.getElementById('pack-set-picker-sub').textContent = count > 1 ? '選擇要十連抽哪個系列的卡包' : '選擇要開哪個系列的卡包';
+  document.getElementById('pack-set-picker-grid').innerHTML = ALL_SETS.map(s => `
+    <div class="card-tile" onclick="openPackFlow(${count}, '${s.id}');closePackSetPicker()" title="${s.name}">
+      <div class="name">${s.name}</div>
+      <div class="meta">${s.id} · 共 ${s.cardCount} 張</div>
+    </div>`).join('');
+  document.getElementById('pack-set-picker-overlay').style.display = 'flex';
+}
+function closePackSetPicker() { document.getElementById('pack-set-picker-overlay').style.display = 'none'; }
 
 function renderPool() {
   const q = document.getElementById('q').value.trim().toLowerCase();
@@ -1204,7 +1252,7 @@ function handlePocketEntryParam() {
   if (!open || !pocketIsLoggedIn()) return;
   if (open === 'collection') openCollectionView();
   else if (open === 'dex') openDexView();
-  else if (open === 'pack') openPackFlow(1);
+  else if (open === 'pack') openPackSetPicker(1);
   history.replaceState(null, '', location.pathname);
 }
 loadCards().then(handlePocketEntryParam);
@@ -1371,7 +1419,7 @@ function pocketDetailAction(i) {
 }
 function closeCardDetail() { document.getElementById('card-detail-panel').classList.remove('open'); }
 
-const STATUS_LABEL = { asleep: '😴 睡眠', poisoned: '☠️ 中毒', paralyzed: '⚡ 麻痺' };
+const STATUS_LABEL = { asleep: '😴 睡眠', poisoned: '☠️ 中毒', paralyzed: '⚡ 麻痺', confused: '😵 混亂', burned: '🔥 灼傷' };
 function renderPokeSlot(p, { pickable = false, dataset = {}, own = false } = {}) {
   if (!p) return '<div class="board-slot empty"></div>';
   const hpPct = p.hp ? Math.max(0, Math.round(((p.curHp ?? p.hp) / p.hp) * 100)) : 100;
@@ -1607,6 +1655,10 @@ function endTurn() { wsSend({ type: 'pocket_end_turn' }); }
 
 const POCKET_FOSSIL_IDS = new Set(['A1-216', 'A1-217', 'A1-218']);
 const TRAINER_NEEDS_TARGET = new Set(['P-A-001', 'A1-219', 'A1-220']); // Potion / Erika / Misty
+// 跟server.js的TRAINER_EFFECTS同一份清單——A1~B2a擴充後訓練師卡從18張暴增到197張，
+// 只有原本這15張（8張角色支援者+7張Promo-A）有做效果，其餘先讓玩家看得到卡但打不出去
+// （打了會被server擋+跳「效果尚未實作」錯誤，這裡先在按鈕上明講，不用等玩家點了才知道）
+const TRAINER_EFFECTS_IMPLEMENTED = new Set(['P-A-001', 'P-A-002', 'P-A-003', 'P-A-004', 'P-A-005', 'P-A-006', 'P-A-007', 'A1-219', 'A1-220', 'A1-221', 'A1-222', 'A1-223', 'A1-224', 'A1-225', 'A1-226']);
 
 // event delegation：own board (active/bench) 點擊
 document.getElementById('board-overlay').addEventListener('click', e => {
@@ -1686,6 +1738,9 @@ function computeHandCardActions(card) {
   }
   if (card.category === 'Trainer') {
     const isSupporter = card.trainerType === 'Supporter';
+    if (!TRAINER_EFFECTS_IMPLEMENTED.has(card.effectId || card.id)) {
+      return [{ label: '⚠️ 這張卡的效果尚未支援', disabled: true }];
+    }
     if (isSupporter && state.you.supporterUsedThisTurn) {
       return [{ label: '這回合已經用過支援者卡了', disabled: true }];
     }
