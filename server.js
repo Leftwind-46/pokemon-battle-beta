@@ -2816,7 +2816,10 @@ const ATTACK_EFFECTS = {
   "Discard all Energy from this Pokémon.": ctx => { ctx.attacker.energy = []; },
   "During your opponent's next turn, the Defending Pokémon can't attack.": ctx => { ctx.defender.cantAttackUntilTurn = ctx.G.turnNumber + 1; },
   "During your opponent's next turn, the Defending Pokémon can't retreat.": ctx => { ctx.defender.cantRetreatUntilTurn = ctx.G.turnNumber + 1; },
-  "During your opponent’s next turn, attacks used by the Defending Pokémon do −20 damage.": ctx => { ctx.defender.dmgDebuffUntilTurn = ctx.G.turnNumber + 1; ctx.defender.dmgDebuffAmount = 20; },
+  // 2026-08-06修正：原本key用了彎引號’，TCGdex實際卡片文字全部是直引號'，兩者bytes不同
+  // 導致這條規則從加入以來從沒真的match過任何卡片（優雅降級=看起來正常運作但其實效果沒生效，
+  // 沒有crash所以完全不會被發現）——同一批新增的其他key都是直引號，只有這條手誤打成彎引號。
+  "During your opponent's next turn, attacks used by the Defending Pokémon do −20 damage.": ctx => { ctx.defender.dmgDebuffUntilTurn = ctx.G.turnNumber + 1; ctx.defender.dmgDebuffAmount = 20; },
   "Flip 2 coins. This attack does 80 damage for each heads.": ctx => { ctx.rawDamage = pocketFlipCoins(2, ctx) * 80; },
   // 2026-08-06修正：原本自動輪流塞給板凳上的火系寶可夢（round-robin），但官方卡面寫的是
   // "in any way you like"——玩家自己選要怎麼分配（含全部塞同一隻）。改成暫停攻擊流程，
@@ -2826,7 +2829,7 @@ const ATTACK_EFFECTS = {
     const heads = pocketFlipCoins(3, ctx);
     const targets = ctx.side.bench.filter(p => (p.types || []).includes('Fire'));
     if (heads > 0 && targets.length) {
-      ctx.needsChoice = { kind: 'energy_distribute', count: heads, energyType: 'Fire', eligibleUids: targets.map(p => p.uid) };
+      ctx.needsChoice = { kind: 'energy_distribute', energyQueue: Array(heads).fill('Fire'), eligibleUids: targets.map(p => p.uid) };
     }
     ctx.rawDamage = 0;
   },
@@ -3190,7 +3193,98 @@ const ATTACK_EFFECTS = {
     if (ctx.defender) ctx.defender.curHp = Math.max(0, ctx.defender.curHp - 20);
     for (const p of ctx.oppSide.bench) p.curHp = Math.max(0, p.curHp - 20);
   },
+
+  /* ── 2026-08-06第二批新增：修完彎引號bug後，依出現頻率繼續補高頻效果 ── */
+  "This attack does 30 damage to 1 of your opponent's Benched Pokémon.": ctx => {
+    ctx.rawDamage = 0;
+    if (ctx.oppSide.bench.length) { const t = ctx.oppSide.bench[Math.floor(Math.random() * ctx.oppSide.bench.length)]; t.curHp = Math.max(0, t.curHp - 30); }
+  },
+  // 新機制：攻擊前擲硬幣，反面攻擊直接失敗——旗標蓋在「被打的那隻」身上，實際檢查在
+  // pocket_attack handler最前面（跟paralyzed/asleep同一批前置檢查）
+  "During your opponent's next turn, if the Defending Pokémon tries to use an attack, your opponent flips a coin. If tails, that attack doesn't happen.": ctx => {
+    ctx.defender.attackFlipLockUntilTurn = ctx.G.turnNumber + 1;
+  },
+  // 新機制：道具卡封鎖——蓋在對方side上，pocket_play_item/pocket_play_supporter handler檢查
+  "During your opponent's next turn, they can't play any Item cards from their hand.": ctx => {
+    ctx.oppSide.itemLockedUntilTurn = ctx.G.turnNumber + 1;
+  },
+  // 新機制：能量鎖定——只封鎖附加到「主戰位置」，卡面原文只講Active Pokémon，板凳不受影響
+  "During your opponent's next turn, they can't take any Energy from their Energy Zone to attach to their Active Pokémon.": ctx => {
+    ctx.oppSide.energyLockedUntilTurn = ctx.G.turnNumber + 1;
+  },
+  // 三種不同屬性能量、玩家自選怎麼分配——沿用既有energy_distribute的needsChoice流程，
+  // 把energyQueue從單一屬性重複N次，改成三種屬性各1個排成隊列
+  "Take a {R}, {W}, and {L} Energy from your Energy Zone and attach them to your Benched Basic Pokémon in any way you like.": ctx => {
+    const targets = ctx.side.bench.filter(p => p.stage === 'Basic');
+    if (targets.length) {
+      ctx.needsChoice = { kind: 'energy_distribute', energyQueue: ['Fire', 'Water', 'Lightning'], eligibleUids: targets.map(p => p.uid) };
+    }
+    ctx.rawDamage = 0;
+  },
+  "Put 1 random {G} Pokémon from your deck into your hand.": ctx => {
+    const idxs = ctx.side.deck.map((c, i) => (c.category === 'Pokemon' && (c.types || []).includes('Grass')) ? i : -1).filter(i => i >= 0);
+    if (idxs.length) { const i = idxs[Math.floor(Math.random() * idxs.length)]; ctx.side.hand.push(ctx.side.deck.splice(i, 1)[0]); }
+  },
+  "Flip a coin for each Energy attached to this Pokémon. This attack does 50 damage for each heads.": ctx => {
+    ctx.rawDamage = pocketFlipCoins(ctx.attacker.energy.length, ctx) * 50;
+  },
+  "Discard a random Energy from among the Energy attached to all Pokémon (both yours and your opponent's).": ctx => {
+    pocketDiscardRandomEnergyInPlay(ctx.G, 1);
+  },
+  "Discard 2 random Energy from among the Energy attached to all Pokémon (both yours and your opponent's).": ctx => {
+    pocketDiscardRandomEnergyInPlay(ctx.G, 2);
+  },
+  "Flip a coin. If heads, your opponent reveals a random card from their hand and shuffles it into their deck.": ctx => {
+    if (!pocketFlipCoin(ctx) || !ctx.oppSide.hand.length) return;
+    const i = Math.floor(Math.random() * ctx.oppSide.hand.length);
+    const [card] = ctx.oppSide.hand.splice(i, 1);
+    ctx.oppSide.deck = pocketShuffle([...ctx.oppSide.deck, card]);
+  },
+  "This attack does 100 damage to 1 of your opponent's Pokémon that have damage on them.": ctx => {
+    ctx.rawDamage = 0;
+    const pool = [ctx.defender, ...ctx.oppSide.bench].filter(p => p && p.curHp < p.hp);
+    if (pool.length) { const t = pool[Math.floor(Math.random() * pool.length)]; t.curHp = Math.max(0, t.curHp - 100); }
+  },
+  "This attack does 30 more damage for each Energy in your opponent's Active Pokémon's Retreat Cost.": ctx => {
+    ctx.rawDamage += 30 * (ctx.defender?.retreat || 0);
+  },
+  "Discard Fire{R} Energy from this Pokémon. Your opponent's Active Pokémon is now Burned.": ctx => {
+    pocketDiscardEnergy(ctx.attacker, 'Fire', 1);
+    if (ctx.defender) ctx.defender.status = 'burned';
+  },
+  "If the amount of Energy attached to both Active Pokémon is 5 or more, this attack does 60 more damage.": ctx => {
+    if (ctx.attacker.energy.length + (ctx.defender?.energy.length || 0) >= 5) ctx.rawDamage += 60;
+  },
+  "This attack also does 30 damage to each of your opponent's Benched Pokémon that has damage on it.": ctx => {
+    for (const p of ctx.oppSide.bench) { if (p.curHp < p.hp) p.curHp = Math.max(0, p.curHp - 30); }
+  },
+  "Take 3 {P} Energy from your Energy Zone and attach it to your {P} Pokémon in any way you like.": ctx => {
+    const targets = [ctx.side.active, ...ctx.side.bench].filter(p => p && (p.types || []).includes('Psychic'));
+    if (targets.length) {
+      ctx.needsChoice = { kind: 'energy_distribute', energyQueue: ['Psychic', 'Psychic', 'Psychic'], eligibleUids: targets.map(p => p.uid), includeActive: true };
+    }
+    ctx.rawDamage = 0;
+  },
+  // 指名招式封鎖（generic機制，見pocket_attack handler的moveLockUntilTurn/moveLockName檢查）
+  "During your next turn, this Pokémon can't use Frenzy Plant.": ctx => { ctx.attacker.moveLockUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.moveLockName = 'Frenzy Plant'; },
+  "During your next turn, this Pokémon can't use Big Beat.": ctx => { ctx.attacker.moveLockUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.moveLockName = 'Big Beat'; },
+  "During your next turn, this Pokémon can't use Sacred Sword.": ctx => { ctx.attacker.moveLockUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.moveLockName = 'Sacred Sword'; },
+  "During your next turn, this Pokémon can't use Gigaton Hammer.": ctx => { ctx.attacker.moveLockUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.moveLockName = 'Gigaton Hammer'; },
+  // 指名招式下回合加成（generic機制，見pocket_attack handler的moveBuffUntilTurn/moveBuffName/moveBuffAmount）
+  "During your next turn, this Pokémon's Insatiable Striking attack does +40 damage.": ctx => {
+    ctx.attacker.moveBuffUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.moveBuffName = 'Insatiable Striking'; ctx.attacker.moveBuffAmount = 40;
+  },
 };
+// 場上所有寶可夢（雙方主戰+板凳）裡隨機選n次、每次隨機丟掉1點能量——「both yours and your
+// opponent's」代表池子橫跨雙方場面，不是各自獨立各丟一次，且身上沒能量的寶可夢不會被選中
+function pocketDiscardRandomEnergyInPlay(G, n) {
+  for (let i = 0; i < n; i++) {
+    const pool = [G.p1.active, ...G.p1.bench, G.p2.active, ...G.p2.bench].filter(p => p && p.energy.length);
+    if (!pool.length) return;
+    const p = pool[Math.floor(Math.random() * pool.length)];
+    p.energy.splice(Math.floor(Math.random() * p.energy.length), 1);
+  }
+}
 function pocketDiscardEnergy(pokemon, type, n) {
   for (let i = 0; i < n; i++) {
     const idx = pokemon.energy.indexOf(type);
@@ -5341,6 +5435,11 @@ async function handleMessage(ws, msg) {
       if (!side.pendingEnergy || side.energyAttachedThisTurn) { send(ws, { type: 'error', message: '沒有可附加的能量' }); return; }
       const target = [side.active, ...side.bench].find(p => p && p.uid === msg.target);
       if (!target) return;
+      // 2026-08-06新增：能量鎖定——只封鎖「附加到主戰位置」，卡片原文是"attach...to their Active
+      // Pokémon"，板凳寶可夢不受影響，所以只在目標是主戰時才擋
+      if (target.uid === side.active?.uid && side.energyLockedUntilTurn === G.turnNumber) {
+        send(ws, { type: 'error', message: '能量鎖定中，這回合無法把能量附加到主戰寶可夢' }); return;
+      }
       target.energy.push(side.pendingEnergy);
       side.pendingEnergy = null;
       side.energyAttachedThisTurn = true;
@@ -5397,6 +5496,8 @@ async function handleMessage(ws, msg) {
         if (oppSide.active?.abilities?.some(a => a.name === 'Shadowy Spellbind')) {
           send(ws, { type: 'error', message: '對方的耿鬼ex場上時無法使用支援者卡' }); return;
         }
+      } else if (side.itemLockedUntilTurn === G.turnNumber) {
+        send(ws, { type: 'error', message: '這回合不能使用道具卡' }); return;
       }
       const handler = TRAINER_EFFECTS[card.effectId || card.id]; // 高星版角色支援者卡查回base id的效果
       if (!handler) { send(ws, { type: 'error', message: '這張卡的效果尚未實作' }); return; }
@@ -5534,9 +5635,27 @@ async function handleMessage(ws, msg) {
         }
       }
       if (attacker.cantAttackUntilTurn === G.turnNumber) { send(ws, { type: 'error', message: '這回合這隻寶可夢不能攻擊' }); pocketAdvanceTurn(G); pocketBroadcastState(pRoom); return; }
+      // 2026-08-06新增：指名招式封鎖（例如Torterra用完「巨型植物」後下回合不能再用同一招）——
+      // 只擋住那一個招式，玩家還是可以選別的招式，所以跟能量不足一樣單純return，不結束回合。
+      if (attacker.moveLockUntilTurn === G.turnNumber && attacker.moveLockName === atk.name) {
+        send(ws, { type: 'error', message: `這回合不能使用【${atk.name}】` }); return;
+      }
       if (!pocketCanPayCost(attacker, atk.cost)) { send(ws, { type: 'error', message: '能量不足，無法使用這個招式' }); return; }
       const defender = oppSide.active;
       if (!defender) return;
+      // 2026-08-06新增：「攻擊前擲硬幣，反面攻擊失敗」的封印效果（跟混亂不同，這個是對手招式
+      // 施加在自己身上的debuff，不是自身異常狀態）——命中一次就清掉旗標，不會連續卡好幾回合。
+      let flipLockCoinFlip = null;
+      if (attacker.attackFlipLockUntilTurn === G.turnNumber) {
+        attacker.attackFlipLockUntilTurn = 0;
+        const ok = pocketFlipCoin();
+        flipLockCoinFlip = ok;
+        if (!ok) {
+          send(ws, { type: 'error', message: '對方的封印效果生效，這次攻擊被擋下' });
+          G.lastEvent = { seq: ++G.eventSeq, kind: 'attackFailed', reason: 'flipLock', attackerRole: role, attackerUid: attacker.uid, coinFlips: [false] };
+          pocketAdvanceTurn(G); pocketBroadcastState(pRoom); return;
+        }
+      }
 
       const ctx = { G, role, op, side, oppSide, attacker, defender, atk, rawDamage: parseInt(String(atk.damage || '0').replace(/\D+/g, ''), 10) || 0, selfDamage: 0 };
       // 2026-08-06新增「無敵/免疫」機制：某些招式效果會讓自己下回合完全免疫傷害跟附加效果
@@ -5557,6 +5676,9 @@ async function handleMessage(ws, msg) {
         mainDamage = ctx.rawDamage;
         if (side.giovanniBoostThisTurn) mainDamage += 10;
         if (side.blaineBoostNamesThisTurn?.includes(attacker.name)) mainDamage += 30;
+        // 2026-08-06新增：指名招式下回合加成（例如Crabominable ex用完「大快朵頤」後預告下回合的
+        // 「貪食連擊」+40）——跟moveLock是同一組欄位設計理念，只是這邊是加傷而不是封鎖
+        if (attacker.moveBuffUntilTurn === G.turnNumber && attacker.moveBuffName === atk.name) mainDamage += attacker.moveBuffAmount;
         const weak = (defender.weaknesses || []).find(w => (attacker.types || []).includes(w.type));
         if (weak) mainDamage += parseInt(String(weak.value).replace(/\D+/g, ''), 10) || 0;
         if (defender.dmgDebuffUntilTurn === G.turnNumber) mainDamage = Math.max(0, mainDamage - defender.dmgDebuffAmount);
@@ -5571,7 +5693,7 @@ async function handleMessage(ws, msg) {
 
       // 攻擊事件紀錄——client端用seq判斷是不是「新的」一次攻擊，藉此播放屬性特效/擲硬幣動畫/
       // 傷害飄字，seq在每次真正攻擊都遞增，state broadcast頻繁但這個值不常變，client不會重複播放
-      const preCoinFlips = [wakeCoinFlip, confusionCoinFlip].filter(v => v != null);
+      const preCoinFlips = [wakeCoinFlip, confusionCoinFlip, flipLockCoinFlip].filter(v => v != null);
       const coinFlips = preCoinFlips.length ? [...preCoinFlips, ...(ctx.coinFlips || [])] : (ctx.coinFlips || null);
       G.lastEvent = {
         seq: ++G.eventSeq, kind: 'attack', attackerRole: role, atkType: atk.type,
@@ -5631,11 +5753,11 @@ async function handleMessage(ws, msg) {
       const side = G[role];
       if (pending.kind === 'energy_distribute') {
         if (!pending.eligibleUids.includes(msg.uid)) return;
-        const target = side.bench.find(p => p.uid === msg.uid);
+        const pool = pending.includeActive ? [side.active, ...side.bench] : side.bench;
+        const target = pool.find(p => p && p.uid === msg.uid);
         if (!target) return;
-        target.energy.push(pending.energyType);
-        pending.count--;
-        if (pending.count > 0) { pocketBroadcastState(pRoom); return; }
+        target.energy.push(pending.energyQueue.shift());
+        if (pending.energyQueue.length > 0) { pocketBroadcastState(pRoom); return; }
       } else if (pending.kind === 'bench_switch') {
         const idx = side.bench.findIndex(p => p.uid === msg.uid);
         if (idx < 0) return;

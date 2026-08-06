@@ -1600,9 +1600,11 @@ function renderBoard() {
     const subEl = document.getElementById('attack-choice-sub');
     const optionsEl = document.getElementById('attack-choice-options');
     if (pendingChoice.kind === 'energy_distribute') {
-      titleEl.textContent = `分配 ${TYPE_ZH[pendingChoice.energyType] || pendingChoice.energyType} 能量`;
-      subEl.textContent = `還剩 ${pendingChoice.count} 點能量可以分配，點擊寶可夢附加（可以重複點同一隻）`;
-      const eligible = (you.bench || []).filter(p => pendingChoice.eligibleUids.includes(p.uid));
+      const queue = pendingChoice.energyQueue || [];
+      titleEl.textContent = `分配 ${TYPE_ZH[queue[0]] || queue[0]} 能量`;
+      subEl.textContent = `還剩 ${queue.length} 點能量可以分配（依序：${queue.map(t => TYPE_ZH[t] || t).join('、')}），點擊寶可夢附加（可以重複點同一隻）`;
+      const pool = pendingChoice.includeActive ? [you.active, ...(you.bench || [])] : (you.bench || []);
+      const eligible = pool.filter(p => p && pendingChoice.eligibleUids.includes(p.uid));
       optionsEl.innerHTML = eligible.map(p =>
         renderPokeSlot(p, { pickable: true, dataset: { 'attack-choice-pick': '1' } })
       ).join('');
