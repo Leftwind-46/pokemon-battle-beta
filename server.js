@@ -2621,6 +2621,9 @@ function pocketFreshSide(drawn, deckIds, energyTypesOverride) {
     // 可以直接重用，不用每張卡都各自加一個新欄位+一段mainDamage判斷式。
     namedBoostThisTurn: null, typeBoostThisTurn: null,
     itemLockedUntilTurn: 0, energyLockedUntilTurn: 0,
+    // 2026-08-07新增：Red「己方全體攻擊對ex目標+20」——namedBoostThisTurn是「限定寶可夢」，
+    // 這個是「不限定寶可夢，但限定目標是ex」，維度不同所以另開一個欄位而不是硬塞進既有的
+    exOnlyBoostThisTurn: 0,
   };
 }
 function pocketPickEnergy(types) {
@@ -2674,6 +2677,7 @@ function pocketAdvanceTurn(G) {
   side.blaineBoostNamesThisTurn = null;
   side.namedBoostThisTurn = null;
   side.typeBoostThisTurn = null;
+  side.exOnlyBoostThisTurn = 0;
   side.retreatDiscountThisTurn = 0;
   side.abilitiesUsedThisTurn = [];
 }
@@ -3479,6 +3483,268 @@ const TRAINER_EFFECTS = {
     return null;
   },
   'B1a-066': (ctx) => { ctx.side.namedBoostThisTurn = { names: ['Magneton', 'Heliolisk'], amount: 20 }; return null; }, // Clemont's Backpack
+
+  /* ── 2026-08-07新增：支援者卡（Supporter）第一批——依全卡池出現頻率排序挑選 ── */
+  // Iono：雙方各自洗手牌回牌庫再抽回原本張數。這張卡本身此時還在side.hand裡（外層handler
+  // 要等這裡return之後才會把它移到棄牌堆），所以「己方的手牌」要先扣掉Iono自己這張再洗，
+  // 不然會把正在使用中的這張卡也一起洗進牌庫——用msg.handUid精準排除，外層事後的
+  // side.hand.filter(uid)/discard.push(card)在全新抽好的hand陣列上找不到舊uid會是no-op，
+  // 不影響剛抽到的新手牌，最後card物件參照依然正確進到棄牌堆。
+  'A2b-069': (ctx, msg) => {
+    const myRest = ctx.side.hand.filter(c => c.uid !== msg.handUid);
+    ctx.side.deck = pocketShuffle([...ctx.side.deck, ...myRest]);
+    ctx.side.hand = ctx.side.deck.splice(0, myRest.length);
+    const oppCount = ctx.oppSide.hand.length;
+    ctx.oppSide.deck = pocketShuffle([...ctx.oppSide.deck, ...ctx.oppSide.hand]);
+    ctx.oppSide.hand = ctx.oppSide.deck.splice(0, oppCount);
+    return null;
+  },
+  'A3-155': (ctx, msg) => { // Lillie：治療己方1隻二階寶可夢60血
+    const target = pocketFindOwn(ctx.side, msg.target);
+    if (!target || target.stage !== 'Stage2') return '目標必須是二階寶可夢';
+    const before = target.curHp;
+    target.curHp = Math.min(target.hp, target.curHp + 60);
+    ctx.healUid = target.uid; ctx.healAmount = target.curHp - before;
+    return null;
+  },
+  'B2a-091': (ctx) => { // Arven：擲硬幣，正面隨機道具卡進手牌，反面隨機寶可夢工具卡進手牌
+    const wantType = pocketFlipCoin(ctx) ? 'Item' : 'Tool';
+    const idxs = ctx.side.deck.map((c, i) => (c.category === 'Trainer' && c.trainerType === wantType) ? i : -1).filter(i => i >= 0);
+    if (idxs.length) { const i = idxs[Math.floor(Math.random() * idxs.length)]; ctx.side.hand.push(ctx.side.deck.splice(i, 1)[0]); }
+    return null;
+  },
+  // Blue/Adaman/Jasmine：「對手下回合，己方(符合條件的)全體寶可夢受到的傷害-N」——蓋在
+  // 「現在場上這些寶可夢」的dmgDebuffUntilTurn/dmgDebuffAmount上（跟招式那組自身減傷欄位共用），
+  // 之後才上場的不會補上這個buff，跟卡面「all of your Pokémon」讀作「打出當下場上這些」一致
+  'A1a-067': (ctx) => { // Blue：己方全體-10
+    for (const p of [ctx.side.active, ...ctx.side.bench].filter(Boolean)) {
+      p.dmgDebuffUntilTurn = ctx.G.turnNumber + 1; p.dmgDebuffAmount = 10;
+    }
+    return null;
+  },
+  'A2a-075': (ctx) => { // Adaman：己方鋼屬性-20
+    for (const p of [ctx.side.active, ...ctx.side.bench].filter(p => p && (p.types || []).includes('Metal'))) {
+      p.dmgDebuffUntilTurn = ctx.G.turnNumber + 1; p.dmgDebuffAmount = 20;
+    }
+    return null;
+  },
+  'A4-160': (ctx) => { // Jasmine：己方Steelix/Skarmory ex -50
+    for (const p of [ctx.side.active, ...ctx.side.bench].filter(p => p && ['Steelix', 'Skarmory ex'].includes(p.name))) {
+      p.dmgDebuffUntilTurn = ctx.G.turnNumber + 1; p.dmgDebuffAmount = 50;
+    }
+    return null;
+  },
+  'A2-152': (ctx) => { ctx.side.namedBoostThisTurn = { names: ['Garchomp', 'Togekiss'], amount: 50 }; return null; }, // Cynthia
+  'A3-153': (ctx) => { ctx.side.namedBoostThisTurn = { names: ['Alolan Golem', 'Vikavolt', 'Togedemaru'], amount: 30 }; return null; }, // Sophocles
+  'A3b-068': (ctx) => { ctx.side.namedBoostThisTurn = { names: ['Decidueye ex', 'Incineroar ex', 'Primarina ex'], amount: 30 }; return null; }, // Hau
+  'B2a-090': (ctx) => { ctx.side.namedBoostThisTurn = { names: ['Pawmot'], amount: 80, exOnly: true }; return null; }, // Nemona：限定對手主戰是ex才加成
+  'A2b-071': (ctx) => { ctx.side.exOnlyBoostThisTurn = 20; return null; }, // Red：不限定寶可夢，限定目標是ex
+  'A2-154': (ctx, msg) => { // Dawn：把1隻板凳身上的任意1點能量移給主戰（板凳由玩家指定，能量種類自動挑該寶可夢身上現有的）
+    if (!ctx.side.active) return '沒有主戰寶可夢';
+    const target = ctx.side.bench.find(p => p.uid === msg.target);
+    if (!target || !target.energy.length) return '請選擇板凳上帶著能量的寶可夢';
+    const type = target.energy[0];
+    target.energy.splice(0, 1);
+    ctx.side.active.energy.push(type);
+    return null;
+  },
+  'A2-153': (ctx, msg) => { // Volkner：選場上的Electivire/Luxray，從棄牌堆拿2電能量附加
+    const target = pocketFindOwn(ctx.side, msg.target);
+    if (!target || !['Electivire', 'Luxray'].includes(target.name)) return '目標必須是Electivire或Luxray';
+    let moved = 0;
+    if (pocketTakeEnergyFromDiscard(ctx.side, 'Lightning')) moved++;
+    if (pocketTakeEnergyFromDiscard(ctx.side, 'Lightning')) moved++;
+    for (let i = 0; i < moved; i++) target.energy.push('Lightning');
+    return null;
+  },
+  'B1-224': (ctx) => { // Fantina：從能量區各拿1超能力能量給場上每隻Drifblim跟Mismagius
+    if (!ctx.side.energyTypes.includes('Psychic')) return '你的能量區沒有超能力屬性能量';
+    for (const p of [ctx.side.active, ...ctx.side.bench].filter(p => p && ['Drifblim', 'Mismagius'].includes(p.name))) {
+      p.energy.push('Psychic');
+    }
+    return null;
+  },
+  'A2b-070': (ctx, msg) => { // Pokémon Center Lady：治療己方1隻30血+清除全部異常狀態
+    const target = pocketFindOwn(ctx.side, msg.target);
+    if (!target) return '請選擇目標寶可夢';
+    const before = target.curHp;
+    target.curHp = Math.min(target.hp, target.curHp + 30);
+    target.status = null;
+    ctx.healUid = target.uid; ctx.healAmount = target.curHp - before;
+    return null;
+  },
+  'B1-221': (ctx, msg) => { // Marlon：治療己方1隻Carracosta/Jellicent 70血
+    const target = pocketFindOwn(ctx.side, msg.target);
+    if (!target || !['Carracosta', 'Jellicent'].includes(target.name)) return '目標必須是Carracosta或Jellicent';
+    const before = target.curHp;
+    target.curHp = Math.min(target.hp, target.curHp + 70);
+    ctx.healUid = target.uid; ctx.healAmount = target.curHp - before;
+    return null;
+  },
+  'A4a-069': (ctx, msg) => { // Whitney：治療己方1隻Miltank 60血，解除睡眠/麻痺/混亂（不含中毒/灼傷）
+    const target = pocketFindOwn(ctx.side, msg.target);
+    if (!target || target.name !== 'Miltank') return '目標必須是Miltank';
+    const before = target.curHp;
+    target.curHp = Math.min(target.hp, target.curHp + 60);
+    if (['asleep', 'paralyzed', 'confused'].includes(target.status)) target.status = null;
+    ctx.healUid = target.uid; ctx.healAmount = target.curHp - before;
+    return null;
+  },
+  'A3-154': (ctx, msg) => { // Mallow：己方1隻Shiinotic/Tsareena全回血，並丟棄它身上全部能量
+    const target = pocketFindOwn(ctx.side, msg.target);
+    if (!target || !['Shiinotic', 'Tsareena'].includes(target.name)) return '目標必須是Shiinotic或Tsareena';
+    const before = target.curHp;
+    target.curHp = target.hp;
+    target.energy = [];
+    ctx.healUid = target.uid; ctx.healAmount = target.curHp - before;
+    return null;
+  },
+  'B2-149': (ctx, msg) => { // Diantha：己方1隻超能力+至少2點超能力能量的寶可夢，治療90血，成功的話丟棄2點超能力能量
+    const target = pocketFindOwn(ctx.side, msg.target);
+    if (!target || !(target.types || []).includes('Psychic') || target.energy.filter(e => e === 'Psychic').length < 2) {
+      return '目標必須是身上帶著至少2點超能力能量的超能力寶可夢';
+    }
+    const before = target.curHp;
+    target.curHp = Math.min(target.hp, target.curHp + 90);
+    if (target.curHp > before) { pocketDiscardEnergy(target, 'Psychic', 2); }
+    ctx.healUid = target.uid; ctx.healAmount = target.curHp - before;
+    return null;
+  },
+  'A2-151': (ctx) => { // Team Galactic Grunt：牌庫隨機1隻Glameow/Stunky/Croagunk進手牌
+    const idxs = ctx.side.deck.map((c, i) => ['Glameow', 'Stunky', 'Croagunk'].includes(c.name) ? i : -1).filter(i => i >= 0);
+    if (idxs.length) { const i = idxs[Math.floor(Math.random() * idxs.length)]; ctx.side.hand.push(ctx.side.deck.splice(i, 1)[0]); }
+    return null;
+  },
+  'A2a-073': (ctx) => { // Celestic Town Elder：己方棄牌堆隨機1隻基礎寶可夢進手牌
+    const idxs = ctx.side.discard.map((c, i) => (c.category === 'Pokemon' && c.stage === 'Basic') ? i : -1).filter(i => i >= 0);
+    if (idxs.length) { const i = idxs[Math.floor(Math.random() * idxs.length)]; ctx.side.hand.push(ctx.side.discard.splice(i, 1)[0]); }
+    return null;
+  },
+  'A3a-067': (ctx) => { // Gladion：牌庫隨機1隻Type: Null或Silvally進手牌
+    const idxs = ctx.side.deck.map((c, i) => ['Type: Null', 'Silvally'].includes(c.name) ? i : -1).filter(i => i >= 0);
+    if (idxs.length) { const i = idxs[Math.floor(Math.random() * idxs.length)]; ctx.side.hand.push(ctx.side.deck.splice(i, 1)[0]); }
+    return null;
+  },
+  'B1-225': (ctx, msg) => { // Copycat：洗手牌回牌庫，抽跟對手手牌等量的牌（同Iono要排除自己這張）
+    const myRest = ctx.side.hand.filter(c => c.uid !== msg.handUid);
+    const drawCount = ctx.oppSide.hand.length;
+    ctx.side.deck = pocketShuffle([...ctx.side.deck, ...myRest]);
+    ctx.side.hand = ctx.side.deck.splice(0, Math.min(drawCount, ctx.side.deck.length));
+    return null;
+  },
+  'A2-155': (ctx) => { // Mars：對手洗手牌回牌庫，抽「距離贏還差幾分」張牌
+    const drawCount = Math.max(0, 3 - ctx.oppSide.points);
+    ctx.oppSide.deck = pocketShuffle([...ctx.oppSide.deck, ...ctx.oppSide.hand]);
+    ctx.oppSide.hand = ctx.oppSide.deck.splice(0, Math.min(drawCount, ctx.oppSide.deck.length));
+    return null;
+  },
+  'A2b-072': (ctx) => { // Team Rocket Grunt：連續丟到反面為止，每次正面丟掉對手主戰1點隨機能量
+    while (pocketFlipCoin(ctx)) {
+      if (!ctx.oppSide.active?.energy.length) break;
+      ctx.oppSide.active.energy.splice(Math.floor(Math.random() * ctx.oppSide.active.energy.length), 1);
+    }
+    return null;
+  },
+  'A1a-066': (ctx) => { // Budding Expeditioner：主戰必須是Mew ex，收回手牌（需要板凳補位，同Koga的邏輯）
+    if (!ctx.side.active || ctx.side.active.name !== 'Mew ex') return '主戰必須是Mew ex';
+    if (!ctx.side.bench.length) return '沒有板凳寶可夢可以補位，無法使用';
+    ctx.side.hand.push(ctx.side.active);
+    ctx.side.active = ctx.side.bench.shift();
+    return null;
+  },
+  'A3-149': (ctx, msg) => { // Ilima：己方1隻身上有傷的無色寶可夢收回手牌（若是主戰，需要板凳補位）
+    const target = [ctx.side.active, ...ctx.side.bench].find(p => p && p.uid === msg.target);
+    if (!target || !(target.types || []).includes('Colorless') || target.curHp >= target.hp) {
+      return '目標必須是身上有傷的無色寶可夢';
+    }
+    if (ctx.side.active?.uid === target.uid) {
+      if (!ctx.side.bench.length) return '沒有板凳寶可夢可以補位，無法使用';
+      ctx.side.active = ctx.side.bench.shift();
+    } else {
+      ctx.side.bench = ctx.side.bench.filter(p => p.uid !== target.uid);
+    }
+    target.curHp = target.hp; target.energy = []; target.status = null;
+    ctx.side.hand.push(target);
+    return null;
+  },
+  'A4-157': (ctx, msg) => { // Lyra：主戰必須有傷，跟玩家指定的板凳互換
+    if (!ctx.side.active || ctx.side.active.curHp >= ctx.side.active.hp) return '主戰必須是身上有傷的寶可夢';
+    const idx = ctx.side.bench.findIndex(p => p.uid === msg.target);
+    if (idx < 0) return '請選擇板凳上的目標';
+    const bench = ctx.side.bench[idx];
+    const oldActive = ctx.side.active;
+    oldActive.status = null;
+    ctx.side.bench[idx] = oldActive;
+    ctx.side.active = bench;
+    return null;
+  },
+  'A4a-070': (ctx) => { // Traveling Merchant：看牌庫頂4張，把裡面的寶可夢工具卡收進手牌，其餘洗回牌庫
+    const top = ctx.side.deck.splice(0, 4);
+    const tools = top.filter(c => c.category === 'Trainer' && c.trainerType === 'Tool');
+    const rest = top.filter(c => !tools.includes(c));
+    ctx.side.hand.push(...tools);
+    ctx.side.deck = pocketShuffle([...ctx.side.deck, ...rest]);
+    return null;
+  },
+  'B2-150': (ctx) => { // Sightseer：看牌庫頂4張，把裡面的一階寶可夢收進手牌，其餘洗回牌庫
+    const top = ctx.side.deck.splice(0, 4);
+    const stage1s = top.filter(c => c.category === 'Pokemon' && c.stage === 'Stage1');
+    const rest = top.filter(c => !stage1s.includes(c));
+    ctx.side.hand.push(...stage1s);
+    ctx.side.deck = pocketShuffle([...ctx.side.deck, ...rest]);
+    return null;
+  },
+  'A3a-068': (ctx) => { // Looker：公開對手牌庫裡全部的支援者卡（唯讀，不改變牌庫內容/順序）
+    ctx.peekDeck = ctx.oppSide.deck.filter(c => c.trainerType === 'Supporter');
+    return null;
+  },
+  'A4-159': (ctx) => { // Fisher：丟3枚硬幣，每次正面從己方棄牌堆隨機挑1隻水系寶可夢進手牌
+    const heads = pocketFlipCoins(3, ctx);
+    for (let i = 0; i < heads; i++) {
+      const idxs = ctx.side.discard.map((c, j) => (c.category === 'Pokemon' && (c.types || []).includes('Water')) ? j : -1).filter(j => j >= 0);
+      if (!idxs.length) break;
+      const j = idxs[Math.floor(Math.random() * idxs.length)];
+      ctx.side.hand.push(ctx.side.discard.splice(j, 1)[0]);
+    }
+    return null;
+  },
+  'B2-152': (ctx) => { // Piers：場上必須有己方的Galarian Obstagoon，丟棄對手主戰2點隨機能量
+    const has = [ctx.side.active, ...ctx.side.bench].some(p => p && p.name === 'Galarian Obstagoon');
+    if (!has) return '場上必須有己方的Galarian Obstagoon';
+    for (let i = 0; i < 2 && ctx.oppSide.active?.energy.length; i++) {
+      ctx.oppSide.active.energy.splice(Math.floor(Math.random() * ctx.oppSide.active.energy.length), 1);
+    }
+    return null;
+  },
+  'B2-151': (ctx) => { // Juggler：己方場上寶可夢身上的能量種類必須有3種以上，把全部板凳能量集中給主戰
+    if (!ctx.side.active) return '沒有主戰寶可夢';
+    const allTypes = new Set([ctx.side.active, ...ctx.side.bench].flatMap(p => p.energy));
+    if (allTypes.size < 3) return '己方場上寶可夢身上帶的能量種類必須有3種以上';
+    for (const p of ctx.side.bench) { ctx.side.active.energy.push(...p.energy); p.energy = []; }
+    return null;
+  },
+  'B2a-088': (ctx) => { // Team Star Grunt：對手場上「有特性」的寶可夢，把它們身上所有能量攤平成一個池子，均勻隨機丟棄其中1點
+    const flat = [];
+    for (const p of [ctx.oppSide.active, ...ctx.oppSide.bench].filter(p => p && p.abilities?.length)) {
+      p.energy.forEach((_, i) => flat.push([p, i]));
+    }
+    if (!flat.length) return null;
+    const [p, i] = flat[Math.floor(Math.random() * flat.length)];
+    p.energy.splice(i, 1);
+    return null;
+  },
+  // Hiker/Morty："look at...and put them back in any order"——只做「看」的部分，重新排序
+  // 沒有UI可以讓玩家實際操作，牌庫順序原封不動放回去(splice(0,n)+unshift回去)，不算竄改內容
+  'A4-161': (ctx) => { // Hiker：依己方場上格鬥寶可夢數量，看牌庫頂那麼多張
+    const n = [ctx.side.active, ...ctx.side.bench].filter(p => p && (p.types || []).includes('Fighting')).length;
+    if (n > 0) ctx.peekDeck = ctx.side.deck.slice(0, n);
+    return null;
+  },
+  'A4a-071': (ctx) => { // Morty：依己方場上超能力寶可夢數量，看對手牌庫頂那麼多張
+    const n = [ctx.side.active, ...ctx.side.bench].filter(p => p && (p.types || []).includes('Psychic')).length;
+    if (n > 0) ctx.peekDeck = ctx.oppSide.deck.slice(0, n);
+    return null;
+  },
 };
 
 /* ── 特性(ability)：每回合限用1次的主動觸發型（key用ability.name）。
@@ -5987,8 +6253,9 @@ async function handleMessage(ws, msg) {
         mainDamage = ctx.rawDamage;
         if (side.giovanniBoostThisTurn) mainDamage += 10;
         if (side.blaineBoostNamesThisTurn?.includes(attacker.name)) mainDamage += 30;
-        if (side.namedBoostThisTurn?.names.includes(attacker.name)) mainDamage += side.namedBoostThisTurn.amount;
+        if (side.namedBoostThisTurn?.names.includes(attacker.name) && (!side.namedBoostThisTurn.exOnly || defender.ex)) mainDamage += side.namedBoostThisTurn.amount;
         if (side.typeBoostThisTurn && (attacker.types || []).includes(side.typeBoostThisTurn.type)) mainDamage += side.typeBoostThisTurn.amount;
+        if (side.exOnlyBoostThisTurn && defender.ex) mainDamage += side.exOnlyBoostThisTurn;
         // 訓練場（Training Area）：雙方Stage1寶可夢的攻擊都+10——場地卡沒有「自己/對方」之分，
         // 不管是哪一方打出這張場地卡，雙方符合條件的攻擊都吃得到加成
         if (G.activeStadium?.id === 'B2-153' && attacker.stage === 'Stage1') mainDamage += 10;

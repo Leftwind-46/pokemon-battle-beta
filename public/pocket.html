@@ -1689,7 +1689,11 @@ function doAttack(i) { wsSend({ type: 'pocket_attack', attackIndex: i }); }
 function endTurn() { wsSend({ type: 'pocket_end_turn' }); }
 
 const POCKET_FOSSIL_IDS = new Set(['A1-216', 'A1-217', 'A1-218', 'A1a-063', 'A2-144', 'A2-145', 'B1-214', 'B1-216', 'B2-144', 'B2-146']);
-const TRAINER_NEEDS_TARGET = new Set(['P-A-001', 'A1-219', 'A1-220', 'B2a-086', 'A4-151']); // Potion / Erika / Misty / Electric Generator / Elemental Switch
+const TRAINER_NEEDS_TARGET = new Set([
+  'P-A-001', 'A1-219', 'A1-220', 'B2a-086', 'A4-151', // Potion / Erika / Misty / Electric Generator / Elemental Switch
+  'A3-155', 'A2-154', 'A2-153', 'A2b-070', 'B1-221', 'A4a-069', 'A3-154', 'B2-149', 'A3-149', 'A4-157',
+  // Lillie / Dawn / Volkner / Pokémon Center Lady / Marlon / Whitney / Mallow / Diantha / Ilima / Lyra
+]);
 const TRAINER_NEEDS_DISCARD_TARGET = new Set(['A1a-064']); // Pokémon Flute：目標是對手棄牌堆的卡，不是board上的寶可夢
 // 2026-08-06新增：需要玩家指定目標的特性，value是目標池在哪一側（'own'=己方場上/'opp'=對手場上）
 const ABILITY_NEEDS_TARGET = {
@@ -1708,6 +1712,11 @@ const TRAINER_EFFECTS_IMPLEMENTED = new Set([
   'B2-153', 'B2-155',
   'A1a-064', 'A4-152', 'B1-215', 'A4-151', 'A3-142', 'A3-143', 'A3-145', 'A3a-064', 'B1a-066',
   'B2a-086', 'A1a-065',
+  // 2026-08-07新增：支援者卡第一批
+  'A2b-069', 'A3-155', 'B2a-091', 'A1a-067', 'A2a-075', 'A4-160', 'A2-152', 'A3-153', 'A3b-068',
+  'B2a-090', 'A2b-071', 'A2-154', 'A2-153', 'B1-224', 'A2b-070', 'B1-221', 'A4a-069', 'A3-154',
+  'B2-149', 'A2-151', 'A2a-073', 'A3a-067', 'B1-225', 'A2-155', 'A2b-072', 'A1a-066', 'A3-149',
+  'A4-157', 'A4a-070', 'B2-150', 'A3a-068', 'A4-159', 'B2-152', 'B2-151', 'B2a-088', 'A4-161', 'A4a-071',
 ]);
 
 // event delegation：own board (active/bench) 點擊
