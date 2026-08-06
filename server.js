@@ -3295,6 +3295,113 @@ const ATTACK_EFFECTS = {
   "During your next turn, this Pokémon's Insatiable Striking attack does +40 damage.": ctx => {
     ctx.attacker.moveBuffUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.moveBuffName = 'Insatiable Striking'; ctx.attacker.moveBuffAmount = 40;
   },
+
+  /* ── 2026-08-07第三批新增：依出現頻率繼續補高頻效果，同時修正了另一個彎引號變體
+     （A1-151/A1-239 Cubone跟B2a那批不同，是原始資料裡真實存在的另一種變體，不是bug） ── */
+  "During your opponent’s next turn, attacks used by the Defending Pokémon do −20 damage.": ctx => {
+    ctx.defender.dmgDebuffUntilTurn = ctx.G.turnNumber + 1; ctx.defender.dmgDebuffAmount = 20;
+  },
+  "Discard 3 {W} Energy from this Pokémon. This attack also does 20 damage to each of your opponent's Benched Pokémon.": ctx => {
+    pocketDiscardEnergy(ctx.attacker, 'Water', 3);
+    for (const p of ctx.oppSide.bench) p.curHp = Math.max(0, p.curHp - 20);
+  },
+  "Flip 2 coins. This attack does 90 damage for each heads. Your opponent's Active Pokémon is now Confused.": ctx => {
+    ctx.rawDamage = pocketFlipCoins(2, ctx) * 90;
+    if (ctx.defender) ctx.defender.status = 'confused';
+  },
+  // 2026-08-07修正：這條文字「1 of your opponent's Pokémon」沒寫at random，改成pick_target
+  // 讓玩家自選（跟修皮丘那批同一個原則），target的pool是oppAll(對手主戰+板凳都能選)
+  "This attack does 140 damage to 1 of your opponent's Pokémon. During your next turn, this Pokémon can't attack.": ctx => {
+    ctx.rawDamage = 0;
+    const pool = [ctx.defender, ...ctx.oppSide.bench].filter(Boolean);
+    if (pool.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: pool.map(p => p.uid), action: 'damage', amount: 140 };
+    ctx.attacker.cantAttackUntilTurn = ctx.G.turnNumber + 1;
+  },
+  "Discard all Water Energy from this Pokémon. This attack does 130 damage to 1 of your opponent's Pokémon.": ctx => {
+    ctx.attacker.energy = ctx.attacker.energy.filter(e => e !== 'Water');
+    ctx.rawDamage = 0;
+    const pool = [ctx.defender, ...ctx.oppSide.bench].filter(Boolean);
+    if (pool.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: pool.map(p => p.uid), action: 'damage', amount: 130 };
+  },
+  "If you have 4 or more Lightning Energy in play, this attack does 70 more damage.": ctx => {
+    const total = [ctx.side.active, ...ctx.side.bench].filter(Boolean).reduce((n, p) => n + p.energy.filter(e => e === 'Lightning').length, 0);
+    if (total >= 4) ctx.rawDamage += 70;
+  },
+  "Flip 2 coins. This attack does 100 damage for each heads.": ctx => { ctx.rawDamage = pocketFlipCoins(2, ctx) * 100; },
+  "This attack does 30 damage for each of your Benched Pokémon.": ctx => { ctx.rawDamage = 30 * ctx.side.bench.length; },
+  "Discard 2 {R} Energy from this Pokémon. This attack does 80 damage to 1 of your opponent's Pokémon.": ctx => {
+    pocketDiscardEnergy(ctx.attacker, 'Fire', 2);
+    ctx.rawDamage = 0;
+    const pool = [ctx.defender, ...ctx.oppSide.bench].filter(Boolean);
+    if (pool.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: pool.map(p => p.uid), action: 'damage', amount: 80 };
+  },
+  "If this Pokémon has at least 2 extra {L} Energy attached, this attack does 80 more damage.": ctx => {
+    const have = ctx.attacker.energy.filter(e => e === 'Lightning').length;
+    const need = (ctx.atk.cost || []).filter(t => t === 'Lightning').length;
+    if (have - need >= 2) ctx.rawDamage += 80;
+  },
+  "If your opponent's Active Pokémon is Poisoned, this attack does 40 more damage.": ctx => { if (ctx.defender?.status === 'poisoned') ctx.rawDamage += 40; },
+  "Heal 20 damage from each of your Pokémon.": ctx => {
+    for (const p of [ctx.side.active, ...ctx.side.bench].filter(Boolean)) p.curHp = Math.min(p.hp, p.curHp + 20);
+  },
+  // 「Choose 2」語法要選2隻不同的板凳，各附加1點水能量——新的pick_target_multi機制
+  "Choose 2 of your Benched Pokémon. For each of those Pokémon, take a {W} Energy from your Energy Zone and attach it to that Pokémon.": ctx => {
+    if (ctx.side.bench.length) {
+      ctx.needsChoice = { kind: 'pick_target_multi', eligibleUids: ctx.side.bench.map(p => p.uid), energyType: 'Water', remaining: Math.min(2, ctx.side.bench.length) };
+    }
+  },
+  "Discard the top 3 cards of your deck.": ctx => { ctx.side.deck.splice(0, 3); },
+  "Flip 2 coins. This attack does 20 more damage for each heads.": ctx => { ctx.rawDamage += pocketFlipCoins(2, ctx) * 20; },
+  "This attack does 10 damage to each of your opponent's Pokémon.": ctx => {
+    ctx.rawDamage = 0;
+    if (ctx.defender) ctx.defender.curHp = Math.max(0, ctx.defender.curHp - 10);
+    for (const p of ctx.oppSide.bench) p.curHp = Math.max(0, p.curHp - 10);
+  },
+  "Flip a coin for each Pokémon you have in play. This attack does 20 damage for each heads.": ctx => {
+    const n = 1 + ctx.side.bench.length;
+    ctx.rawDamage = pocketFlipCoins(n, ctx) * 20;
+  },
+  "Flip 2 coins. This attack does 40 damage for each heads.": ctx => { ctx.rawDamage = pocketFlipCoins(2, ctx) * 40; },
+  "Flip 4 coins. This attack does 20 damage for each heads.": ctx => { ctx.rawDamage = pocketFlipCoins(4, ctx) * 20; },
+  "Flip a coin for each {M} Energy attached to this Pokémon. This attack does 50 damage for each heads.": ctx => {
+    ctx.rawDamage = pocketFlipCoins(ctx.attacker.energy.filter(e => e === 'Metal').length, ctx) * 50;
+  },
+  "Flip 3 coins. This attack does 50 damage for each heads.": ctx => { ctx.rawDamage = pocketFlipCoins(3, ctx) * 50; },
+  "Flip a coin. If tails, this Pokémon also does 20 damage to itself.": ctx => { if (!pocketFlipCoin(ctx)) ctx.selfDamage = (ctx.selfDamage || 0) + 20; },
+  "Flip 2 coins. This attack does 70 damage for each heads. If at least 1 of them is heads, your opponent's Active Pokémon is now Burned.": ctx => {
+    const heads = pocketFlipCoins(2, ctx);
+    ctx.rawDamage = heads * 70;
+    if (heads >= 1 && ctx.defender) ctx.defender.status = 'burned';
+  },
+  "Take a {W} Energy from your Energy Zone and attach it to this Pokémon.": ctx => { ctx.attacker.energy.push('Water'); },
+  // type-filtered bench_switch：跟既有「Switch this Pokémon with 1 of your Benched Pokémon」
+  // 同一個kind，多帶一個eligibleUids篩選限定電系板凳
+  "Switch this Pokémon with 1 of your Benched {L} Pokémon.": ctx => {
+    const targets = ctx.side.bench.filter(p => (p.types || []).includes('Lightning'));
+    if (targets.length) ctx.needsChoice = { kind: 'bench_switch', eligibleUids: targets.map(p => p.uid) };
+    ctx.rawDamage = 0;
+  },
+  // 傷害依「被選中的目標」自己身上的能量數決定，選目標的當下還不知道數值，用damagePerEnergy
+  // 這個新action，實際傷害在pocket_attack_choice handler解析目標之後才計算
+  "This attack does 20 damage to 1 of your opponent's Pokémon for each Energy attached to that Pokémon.": ctx => {
+    ctx.rawDamage = 0;
+    const pool = [ctx.defender, ...ctx.oppSide.bench].filter(Boolean);
+    if (pool.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: pool.map(p => p.uid), action: 'damagePerEnergy', perEnergy: 20 };
+  },
+  "Put a random card that evolves from Rockruff from your deck into your hand.": ctx => {
+    const idxs = ctx.side.deck.map((c, i) => c.evolveFrom === 'Rockruff' ? i : -1).filter(i => i >= 0);
+    if (idxs.length) { const i = idxs[Math.floor(Math.random() * idxs.length)]; ctx.side.hand.push(ctx.side.deck.splice(i, 1)[0]); }
+  },
+  "This Pokémon also does 40 damage to itself.": ctx => { ctx.selfDamage = (ctx.selfDamage || 0) + 40; },
+  "Flip a coin until you get tails. This attack does 70 damage for each heads.": ctx => {
+    let heads = 0;
+    while (pocketFlipCoin(ctx)) heads++;
+    ctx.rawDamage = heads * 70;
+  },
+  "If your opponent's Active Pokémon has an Ability, this attack does 40 more damage.": ctx => { if (ctx.defender?.abilities?.length) ctx.rawDamage += 40; },
+  "If any of your Benched Pokémon have damage on them, this attack does 50 more damage.": ctx => {
+    if (ctx.side.bench.some(p => p.curHp < p.hp)) ctx.rawDamage += 50;
+  },
 };
 // 場上所有寶可夢（雙方主戰+板凳）裡隨機選n次、每次隨機丟掉1點能量——「both yours and your
 // opponent's」代表池子橫跨雙方場面，不是各自獨立各丟一次，且身上沒能量的寶可夢不會被選中
@@ -3954,6 +4061,49 @@ const ABILITY_EFFECTS = {
     const before = p.curHp;
     p.curHp = Math.min(p.hp, p.curHp + 30);
     ctx.healUid = p.uid; ctx.healAmount = p.curHp - before;
+    return null;
+  },
+
+  /* ── 2026-08-07新增：主動觸發型特性第三批 ── */
+  'Fragrance Trap': (ctx, poke, msg) => { // 必須在主戰位置，把對手指定的1隻基礎板凳換上場
+    if (ctx.side.active?.uid !== poke.uid) return '必須在主戰位置才能使用特性';
+    const idx = ctx.oppSide.bench.findIndex(p => p.uid === msg.target && p.stage === 'Basic');
+    if (idx < 0) return '請選擇對手板凳上的基礎寶可夢';
+    const chosen = ctx.oppSide.bench.splice(idx, 1)[0];
+    if (ctx.oppSide.active) { ctx.oppSide.active.status = null; ctx.oppSide.bench.push(ctx.oppSide.active); }
+    ctx.oppSide.active = chosen;
+    return null;
+  },
+  // Ultra Beast是官方一個固定的物種分類（Nihilego/Buzzwole/Pheromosa/Xurkitree/Celesteela/
+  // Kartana/Guzzlord/Poipole/Naganadel/Stakataka/Blacephalon），卡片資料裡沒有對應的tag欄位，
+  // 用名字清單比對——跟Blaine/Kiawe這類指名寶可夢清單同一種做法，不是猜測
+  'Ultra Thrusters': (ctx, poke, msg) => {
+    const ULTRA_BEASTS = ['Nihilego', 'Buzzwole', 'Pheromosa', 'Xurkitree', 'Celesteela', 'Kartana', 'Guzzlord', 'Poipole', 'Naganadel', 'Stakataka', 'Blacephalon'];
+    const activeName = ctx.side.active?.name?.replace(/ ex$/, '');
+    if (!ctx.side.active || !ULTRA_BEASTS.includes(activeName)) return '主戰必須是究極異獸';
+    const idx = ctx.side.bench.findIndex(p => p.uid === msg.target && ULTRA_BEASTS.includes(p.name.replace(/ ex$/, '')));
+    if (idx < 0) return '請選擇板凳上的究極異獸';
+    const bench = ctx.side.bench[idx];
+    const oldActive = ctx.side.active;
+    oldActive.status = null;
+    ctx.side.bench[idx] = oldActive;
+    ctx.side.active = bench;
+    return null;
+  },
+  'Catching Tail': (ctx) => { // 牌庫隨機1張寶可夢工具卡進手牌（卡面文字本身寫"random"）
+    const idxs = ctx.side.deck.map((c, i) => (c.category === 'Trainer' && c.trainerType === 'Tool') ? i : -1).filter(i => i >= 0);
+    if (idxs.length) { const i = idxs[Math.floor(Math.random() * idxs.length)]; ctx.side.hand.push(ctx.side.deck.splice(i, 1)[0]); }
+    return null;
+  },
+  'Shifting Stream': (ctx, poke, msg) => { // 主戰必須是水屬性，跟玩家指定的板凳互換（不限自己是不是主戰持有者）
+    if (!ctx.side.active || !(ctx.side.active.types || []).includes('Water')) return '主戰必須是水屬性';
+    const idx = ctx.side.bench.findIndex(p => p.uid === msg.target);
+    if (idx < 0) return '請選擇板凳上的目標';
+    const bench = ctx.side.bench[idx];
+    const oldActive = ctx.side.active;
+    oldActive.status = null;
+    ctx.side.bench[idx] = oldActive;
+    ctx.side.active = bench;
     return null;
   },
 };
@@ -6055,8 +6205,16 @@ async function handleMessage(ws, msg) {
       if (side.bench.length >= 3) { send(ws, { type: 'error', message: '板凳已滿' }); return; }
       const card = side.hand.find(c => c.uid === msg.handUid);
       if (!card || !pocketIsPlayableAsBasic(card)) { send(ws, { type: 'error', message: '只能上場基礎寶可夢' }); return; }
-      side.bench.push(pocketInstantiateBoardCard(card, G.turnNumber));
+      const boardCard = pocketInstantiateBoardCard(card, G.turnNumber);
+      side.bench.push(boardCard);
       side.hand = side.hand.filter(c => c.uid !== card.uid);
+      // 2026-08-07新增：第三種特性觸發時機——「從手牌上場到板凳時」（跟按鈕觸發/進化觸發都不同），
+      // 目前只有Infiltrating Inspection這一種，直接內嵌判定，沒必要為了1張卡另開一個像
+      // EVOLVE_TRIGGER_ABILITIES那樣的table
+      if (boardCard.abilities?.[0]?.name === 'Infiltrating Inspection') {
+        const op = role === 'p1' ? 'p2' : 'p1';
+        send(ws, { type: 'pocket_peek', title: '對手手牌', cards: G[op].hand });
+      }
       pocketBroadcastState(pRoom);
       return;
     }
@@ -6378,6 +6536,9 @@ async function handleMessage(ws, msg) {
         target.energy.push(pending.energyQueue.shift());
         if (pending.energyQueue.length > 0) { pocketBroadcastState(pRoom); return; }
       } else if (pending.kind === 'bench_switch') {
+        // 2026-08-07擴充：加了可選的eligibleUids篩選（例如「跟1隻電系板凳互換」這種限定屬性的
+        // 版本），沒帶這個欄位的舊卡（純粹「跟1隻板凳互換」不限屬性）維持全板凳皆可選
+        if (pending.eligibleUids && !pending.eligibleUids.includes(msg.uid)) return;
         const idx = side.bench.findIndex(p => p.uid === msg.uid);
         if (idx < 0) return;
         const bench = side.bench[idx];
@@ -6386,23 +6547,43 @@ async function handleMessage(ws, msg) {
         side.bench[idx] = attacker;
         side.active = bench;
       } else if (pending.kind === 'pick_target') {
-        // 通用「1 of your Benched Pokémon」目標選擇——目前所有用到這個kind的效果目標池都是
-        // 己方板凳(ownBench)，之後如果出現目標是對方場上的同類效果，這裡再加pool==='oppBench'分支
+        // 通用「1 of your (opponent's) (Benched) Pokémon」目標選擇——pool='ownBench'只能選
+        // 自己板凳，pool='oppAll'可以選對手主戰+板凳（例如打對手任一寶可夢的攻擊效果）
         if (!pending.eligibleUids.includes(msg.uid)) return;
-        const target = side.bench.find(p => p.uid === msg.uid);
+        const op = role === 'p1' ? 'p2' : 'p1';
+        const oppSide = G[op];
+        const target = pending.pool === 'oppAll'
+          ? [oppSide.active, ...oppSide.bench].find(p => p && p.uid === msg.uid)
+          : side.bench.find(p => p.uid === msg.uid);
         if (!target) return;
         if (pending.action === 'attachEnergy') {
           for (let i = 0; i < (pending.count || 1); i++) target.energy.push(pending.energyType);
-        } else if (pending.action === 'damage') {
-          target.curHp = Math.max(0, target.curHp - pending.amount);
+        } else if (pending.action === 'damage' || pending.action === 'damagePerEnergy') {
+          const amount = pending.action === 'damagePerEnergy' ? target.energy.length * pending.perEnergy : pending.amount;
+          target.curHp = Math.max(0, target.curHp - amount);
           // 這個分支的傷害延遲到玩家選完目標才真的套用，跟一般攻擊在pocket_attack當下就結算
-          // 不一樣——原本的pocketResolveBenchKOs/pocketCheckWin是攻擊當下就跑過一次，這裡打的
-          // 是自己板凳，那次跑的時候傷害還沒發生，所以這裡要自己再補一次板凳KO跟勝負判定，
-          // 不然打死自己板凳寶可夢會卡在場上變殭屍卡、對手也拿不到應得的分數。
-          const op = role === 'p1' ? 'p2' : 'p1';
-          pocketResolveBenchKOs(G, side, op);
+          // 不一樣——原本的pocketResolveBenchKOs/pocketResolveActiveKO/pocketCheckWin是攻擊當下
+          // 就跑過一次，這裡打的傷害那次還沒發生，所以要自己再補一次KO跟勝負判定，不然打死
+          // 目標會卡在場上變殭屍卡（或者主戰死亡時沒進forced_switch）、該加分的一方也沒拿到分。
+          if (pending.pool === 'oppAll') {
+            pocketResolveBenchKOs(G, oppSide, role);
+            if (oppSide.active?.uid === target.uid && target.curHp <= 0) pocketResolveActiveKO(G, op);
+          } else {
+            pocketResolveBenchKOs(G, side, op);
+          }
           if (pocketCheckWin(G)) { G.pendingChoice = null; pocketBroadcastState(pRoom); return; }
+          if (G.phase === 'forced_switch' || G.phase === 'done') { G.pendingChoice = null; pocketBroadcastState(pRoom); return; }
         }
+      } else if (pending.kind === 'pick_target_multi') {
+        // 「Choose N of your Benched Pokémon」——跟pick_target不同的是要選N隻「不同的」，
+        // 選過的要從候選池排除，避免同一隻重複選好幾次
+        if (!pending.eligibleUids.includes(msg.uid)) return;
+        const target = side.bench.find(p => p.uid === msg.uid);
+        if (!target) return;
+        target.energy.push(pending.energyType);
+        pending.eligibleUids = pending.eligibleUids.filter(u => u !== msg.uid);
+        pending.remaining--;
+        if (pending.remaining > 0 && pending.eligibleUids.length > 0) { pocketBroadcastState(pRoom); return; }
       } else {
         return;
       }

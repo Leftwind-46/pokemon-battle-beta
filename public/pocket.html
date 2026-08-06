@@ -1477,6 +1477,7 @@ const ABILITY_NAMES_SUPPORTED = new Set([
   'Data Scan', 'Poison Coating', 'Energy Plunder', 'Captivating Rhythm', 'Dark Chase',
   'Slow Sear', 'Ice Maker', 'Cunning Link', 'Melodious Healing', 'Illuminate', 'Fire Breath',
   'Extra Heal', 'Passionate Voice', 'Psychic Connect', 'Rising Road', 'Forest Breath', 'Psychic Healing',
+  'Fragrance Trap', 'Ultra Thrusters', 'Catching Tail', 'Shifting Stream',
 ]);
 
 function renderBoard() {
@@ -1629,14 +1630,24 @@ function renderBoard() {
     } else if (pendingChoice.kind === 'bench_switch') {
       titleEl.textContent = '選擇要換上場的寶可夢';
       subEl.textContent = '';
-      optionsEl.innerHTML = (you.bench || []).map(p =>
+      const pool = (you.bench || []).filter(p => !pendingChoice.eligibleUids || pendingChoice.eligibleUids.includes(p.uid));
+      optionsEl.innerHTML = pool.map(p =>
         renderPokeSlot(p, { pickable: true, dataset: { 'attack-choice-pick': '1' } })
       ).join('');
     } else if (pendingChoice.kind === 'pick_target') {
+      const isOwn = pendingChoice.pool !== 'oppAll';
       titleEl.textContent = pendingChoice.action === 'attachEnergy'
-        ? `選擇要附加 ${TYPE_ZH[pendingChoice.energyType] || pendingChoice.energyType} 能量的板凳寶可夢`
-        : `選擇要犧牲哪隻板凳寶可夢承受 ${pendingChoice.amount} 傷害`;
+        ? `選擇要附加 ${TYPE_ZH[pendingChoice.energyType] || pendingChoice.energyType} 能量的${isOwn ? '板凳' : ''}寶可夢`
+        : `選擇要${isOwn ? '犧牲哪隻板凳寶可夢承受傷害' : '攻擊對手場上的哪隻寶可夢'}`;
       subEl.textContent = '';
+      const boardPool = isOwn ? (you.bench || []) : [opponent.active, ...(opponent.bench || [])];
+      const eligible = boardPool.filter(p => p && pendingChoice.eligibleUids.includes(p.uid));
+      optionsEl.innerHTML = eligible.map(p =>
+        renderPokeSlot(p, { pickable: true, dataset: { 'attack-choice-pick': '1' } })
+      ).join('');
+    } else if (pendingChoice.kind === 'pick_target_multi') {
+      titleEl.textContent = `選擇 ${pendingChoice.remaining} 隻板凳寶可夢附加 ${TYPE_ZH[pendingChoice.energyType] || pendingChoice.energyType} 能量`;
+      subEl.textContent = '每隻只能選一次';
       const eligible = (you.bench || []).filter(p => pendingChoice.eligibleUids.includes(p.uid));
       optionsEl.innerHTML = eligible.map(p =>
         renderPokeSlot(p, { pickable: true, dataset: { 'attack-choice-pick': '1' } })
@@ -1699,6 +1710,7 @@ const TRAINER_NEEDS_DISCARD_TARGET = new Set(['A1a-064']); // Pokémon Flute：�
 const ABILITY_NEEDS_TARGET = {
   'Water Shuriken': 'opp', 'Dark Chase': 'opp', 'Captivating Rhythm': 'opp',
   'Forest Breath': 'own', 'Psychic Connect': 'own', 'Psychic Healing': 'own', 'Extra Heal': 'own',
+  'Fragrance Trap': 'opp', 'Ultra Thrusters': 'own', 'Shifting Stream': 'own',
 };
 // 跟server.js的TRAINER_EFFECTS同一份清單——A1~B2a擴充後訓練師卡從18張暴增到197張，
 // 只有這份清單裡的卡有做效果，其餘先讓玩家看得到卡但打不出去
