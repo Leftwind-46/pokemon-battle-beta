@@ -2536,9 +2536,13 @@ function makePocketInstance(cardId) {
     isFossil: false,
   };
 }
-// 化石道具卡（Helix/Dome/Old Amber）：文字是「當作40HP無色基礎寶可夢上場」，
-// 上場時把Trainer卡臨時轉成一張虛擬的寶可夢卡放進board，不進TRAINER_EFFECTS的一般道具流程
-const POCKET_FOSSIL_IDS = new Set(['A1-216', 'A1-217', 'A1-218']);
+// 化石道具卡（Helix/Dome/Old Amber等）：文字是「當作40HP無色基礎寶可夢上場」，
+// 上場時把Trainer卡臨時轉成一張虛擬的寶可夢卡放進board，不進TRAINER_EFFECTS的一般道具流程。
+// 2026-08-06擴充：原本只列了A1的3張，其實A1a/A2/B1/B2都各自有新的化石卡（Skull/Armor/
+// Plume/Cover/Jaw/Sail Fossil）跟Old Amber的重印(A1a-063)，效果文字逐字相同，
+// makePocketFossilInstance本來就是從卡片原始資料讀name/image動態生成，不用額外改邏輯，
+// 只要把id補進這個Set就全部能用了。
+const POCKET_FOSSIL_IDS = new Set(['A1-216', 'A1-217', 'A1-218', 'A1a-063', 'A2-144', 'A2-145', 'B1-214', 'B1-216', 'B2-144', 'B2-146']);
 function makePocketFossilInstance(cardId) {
   const base = POCKET_CARDS_BY_ID[cardId];
   return {
@@ -2611,6 +2615,12 @@ function pocketFreshSide(drawn, deckIds, energyTypesOverride) {
     energyTypes: energyTypesOverride || pocketDeckEnergyTypes(deckIds), boardReady: false,
     giovanniBoostThisTurn: false, blaineBoostNamesThisTurn: null, retreatDiscountThisTurn: 0,
     abilitiesUsedThisTurn: [], supporterLockedUntilTurn: 0,
+    // 2026-08-06新增：通用版「指名寶可夢/指名屬性本回合加傷」——跟blaineBoostNamesThisTurn
+    // 是同一種概念，但把加傷數值也一起存進物件裡，不像giovanni/blaine那樣寫死+10/+30，
+    // 讓之後新卡（例如Clemont's Backpack指名Magneton/Heliolisk +20、熱情之聲對火屬性+50）
+    // 可以直接重用，不用每張卡都各自加一個新欄位+一段mainDamage判斷式。
+    namedBoostThisTurn: null, typeBoostThisTurn: null,
+    itemLockedUntilTurn: 0, energyLockedUntilTurn: 0,
   };
 }
 function pocketPickEnergy(types) {
@@ -2662,6 +2672,8 @@ function pocketAdvanceTurn(G) {
   side.supporterUsedThisTurn = false;
   side.giovanniBoostThisTurn = false;
   side.blaineBoostNamesThisTurn = null;
+  side.namedBoostThisTurn = null;
+  side.typeBoostThisTurn = null;
   side.retreatDiscountThisTurn = 0;
   side.abilitiesUsedThisTurn = [];
 }
@@ -3371,6 +3383,92 @@ const TRAINER_EFFECTS = {
     }
     return null;
   },
+
+  /* ── 2026-08-06新增：場地卡（Stadium）——只做效果清楚的2張，另外2張（Starting Plains
+     全體基礎寶可夢+20HP、Mesagoza每回合可選擇擲硬幣的常駐主動效果）分別需要「動態最大HP」跟
+     「場地本身的每回合主動觸發」這兩種目前engine完全沒有的機制，先不做，卡片停留在「尚未支援」。
+     場地卡沒有「己方/對方」之分，蓋在G.activeStadium上是全場共用，兩邊都受影響。 */
+  'B2-153': (ctx) => { ctx.G.activeStadium = { id: 'B2-153', name: 'Training Area' }; return null; }, // 訓練場：雙方Stage1攻擊+10
+  'B2-155': (ctx) => { ctx.G.activeStadium = { id: 'B2-155', name: 'Peculiar Plaza' }; return null; }, // 奇異廣場：雙方超能力寶可夢撤退-2
+
+  /* ── 2026-08-06新增：道具卡（Item）第一批——只挑不需要「玩家指定board上特定目標」的
+     效果（自動隨機挑/固定作用於主戰/整側），跟ATTACK_EFFECTS對「沒寫choose/in any way you
+     like」的隨機挑選是同一套判斷準則 ── */
+  'B2a-086': (ctx) => { // Electric Generator：擲硬幣，正面從能量區拿1電能量附給隨機1隻板凳電系
+    if (!pocketFlipCoin(ctx)) return null;
+    if (!ctx.side.energyTypes.includes('Lightning')) return null;
+    const targets = ctx.side.bench.filter(p => (p.types || []).includes('Lightning'));
+    if (targets.length) targets[Math.floor(Math.random() * targets.length)].energy.push('Lightning');
+    return null;
+  },
+  'A1a-065': (ctx) => { // Mythical Slab：看牌庫頂1張，是超能力寶可夢就進手牌，不是就放牌庫底
+    if (!ctx.side.deck.length) return null;
+    const top = ctx.side.deck[0];
+    if (top.category === 'Pokemon' && (top.types || []).includes('Psychic')) {
+      ctx.side.hand.push(ctx.side.deck.shift());
+    } else {
+      ctx.side.deck.push(ctx.side.deck.shift());
+    }
+    return null;
+  },
+  'A1a-064': (ctx) => { // Pokémon Flute：從對手棄牌堆隨機挑1隻基礎寶可夢放上對手板凳
+    if (ctx.oppSide.bench.length >= 3) return '對手板凳已滿';
+    const idxs = ctx.oppSide.discard.map((c, i) => (c.category === 'Pokemon' && c.stage === 'Basic') ? i : -1).filter(i => i >= 0);
+    if (!idxs.length) return null;
+    const i = idxs[Math.floor(Math.random() * idxs.length)];
+    const p = ctx.oppSide.discard.splice(i, 1)[0];
+    p.curHp = p.hp; p.energy = []; p.status = null; p.boardTurn = ctx.G.turnNumber;
+    ctx.oppSide.bench.push(p);
+    return null;
+  },
+  'A4-152': (ctx) => { pocketDiscardEnergy(ctx.oppSide.active, 'Fire', 1); return null; }, // Squirt Bottle（卡面原文就是{R}不是{W}，照實作）
+  'B1-215': (ctx) => { // Hitting Hammer：連續2枚都正面才丟能量
+    const h1 = pocketFlipCoin(ctx), h2 = pocketFlipCoin(ctx);
+    if (h1 && h2 && ctx.oppSide.active?.energy.length) {
+      ctx.oppSide.active.energy.splice(Math.floor(Math.random() * ctx.oppSide.active.energy.length), 1);
+    }
+    return null;
+  },
+  'A4-151': (ctx) => { // Elemental Switch：把1隻板凳身上的R/W/L其中一種能量移給主戰（自動挑有符合能量的板凳）
+    if (!ctx.side.active) return '沒有主戰寶可夢';
+    const movable = ['Fire', 'Water', 'Lightning'];
+    const targets = ctx.side.bench.filter(p => p.energy.some(e => movable.includes(e)));
+    if (!targets.length) return null;
+    const p = targets[Math.floor(Math.random() * targets.length)];
+    const type = p.energy.find(e => movable.includes(e));
+    p.energy.splice(p.energy.indexOf(type), 1);
+    ctx.side.active.energy.push(type);
+    return null;
+  },
+  'A3-142': (ctx) => { // Big Malasada：主戰回10血+清除異常狀態
+    if (!ctx.side.active) return '沒有主戰寶可夢';
+    const before = ctx.side.active.curHp;
+    ctx.side.active.curHp = Math.min(ctx.side.active.hp, ctx.side.active.curHp + 10);
+    ctx.side.active.status = null;
+    ctx.healUid = ctx.side.active.uid; ctx.healAmount = ctx.side.active.curHp - before;
+    return null;
+  },
+  'A3-143': (ctx) => { // Fishing Net：從己方棄牌堆隨機挑1隻基礎水系放進手牌
+    const idxs = ctx.side.discard.map((c, i) => (c.category === 'Pokemon' && c.stage === 'Basic' && (c.types || []).includes('Water')) ? i : -1).filter(i => i >= 0);
+    if (!idxs.length) return null;
+    const i = idxs[Math.floor(Math.random() * idxs.length)];
+    ctx.side.hand.push(ctx.side.discard.splice(i, 1)[0]);
+    return null;
+  },
+  // Rotom Dex：只做「看牌庫頂1張」的部分，"you may shuffle your deck"沒有UI可以讓玩家決定
+  // 要不要洗牌，刻意不做那一半（不洗＝安全的保守選擇，洗牌對玩家沒有淨損失風險）
+  'A3-145': (ctx) => { if (ctx.side.deck.length) ctx.peekDeck = [ctx.side.deck[0]]; return null; },
+  'A3a-064': (ctx) => { // Repel：對手主戰必須是基礎寶可夢才能發動
+    if (!ctx.oppSide.active) return '對手沒有主戰寶可夢';
+    if (ctx.oppSide.active.stage !== 'Basic') return '對手主戰不是基礎寶可夢，無法使用';
+    if (!ctx.oppSide.bench.length) return '對手沒有板凳寶可夢可以換上';
+    ctx.oppSide.active.status = null;
+    ctx.oppSide.bench.push(ctx.oppSide.active);
+    ctx.oppSide.active = null;
+    pocketEnterForcedSwitch(ctx.G, ctx.op, 'noEndTurn');
+    return null;
+  },
+  'B1a-066': (ctx) => { ctx.side.namedBoostThisTurn = { names: ['Magneton', 'Heliolisk'], amount: 20 }; return null; }, // Clemont's Backpack
 };
 
 /* ── 特性(ability)：每回合限用1次的主動觸發型（key用ability.name）。
@@ -3396,7 +3494,192 @@ const ABILITY_EFFECTS = {
     if (ctx.oppSide.active) ctx.oppSide.active.status = 'poisoned';
     return null;
   },
+
+  /* ── 2026-08-06新增：主動觸發型特性第二批——只做「按鈕觸發、每回合1次」這種現有機制已經
+     支援的類型；「打出這張卡來進化時觸發」（Happy Ribbon/Search for Friends等）是完全不同的
+     觸發時機（要掛在pocket_evolve handler，不是按鈕），這批先不做，維持「尚未支援」。
+     沒寫"choose"的隨機挑選目標，跟ATTACK_EFFECTS/TRAINER_EFFECTS同一套判斷準則。 ── */
+  'Broken-Space Bellow': (ctx, poke) => { // 從能量區拿1超能力能量給自己，用了這個特性直接結束回合
+    if (!ctx.side.energyTypes.includes('Psychic')) return '你的能量區沒有超能力屬性能量';
+    poke.energy.push('Psychic');
+    ctx.endTurnAfter = true;
+    return null;
+  },
+  'Roar in Unison': (ctx, poke) => { // 從能量區拿2惡屬性能量給自己，自己受到30傷害
+    if (!ctx.side.energyTypes.includes('Darkness')) return '你的能量區沒有惡屬性能量';
+    poke.energy.push('Darkness', 'Darkness');
+    poke.curHp = Math.max(0, poke.curHp - 30);
+    return null;
+  },
+  'Combust': (ctx, poke) => { // 從棄牌堆拿1火能量給自己，自己受到20傷害
+    if (!pocketTakeEnergyFromDiscard(ctx.side, 'Fire')) return '棄牌堆沒有火屬性能量可以拿';
+    poke.energy.push('Fire');
+    poke.curHp = Math.max(0, poke.curHp - 20);
+    return null;
+  },
+  'Watch Over': (ctx) => { // 治療主戰20血（不需要自己在主戰位置）
+    if (!ctx.side.active) return '沒有主戰寶可夢';
+    const before = ctx.side.active.curHp;
+    ctx.side.active.curHp = Math.min(ctx.side.active.hp, ctx.side.active.curHp + 20);
+    ctx.healUid = ctx.side.active.uid; ctx.healAmount = ctx.side.active.curHp - before;
+    return null;
+  },
+  'Comforting Song': (ctx) => { // 效果文字跟Watch Over完全一樣，共用同一段邏輯
+    if (!ctx.side.active) return '沒有主戰寶可夢';
+    const before = ctx.side.active.curHp;
+    ctx.side.active.curHp = Math.min(ctx.side.active.hp, ctx.side.active.curHp + 20);
+    ctx.healUid = ctx.side.active.uid; ctx.healAmount = ctx.side.active.curHp - before;
+    return null;
+  },
+  'Powder Heal': (ctx) => { // 治療己方全體20血
+    for (const p of [ctx.side.active, ...ctx.side.bench].filter(Boolean)) p.curHp = Math.min(p.hp, p.curHp + 20);
+    return null;
+  },
+  'Fragrant Flower Garden': (ctx) => { // 治療己方全體10血
+    for (const p of [ctx.side.active, ...ctx.side.bench].filter(Boolean)) p.curHp = Math.min(p.hp, p.curHp + 10);
+    return null;
+  },
+  'Water Shuriken': (ctx) => { // 對對手隨機1隻造成20傷害
+    const pool = [ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean);
+    if (pool.length) { const t = pool[Math.floor(Math.random() * pool.length)]; t.curHp = Math.max(0, t.curHp - 20); }
+    return null;
+  },
+  'Drive Off': (ctx) => { // 把對手主戰換到板凳，對手選新主戰（跟Sabrina同一套）
+    if (!ctx.oppSide.active) return '對手沒有主戰寶可夢';
+    ctx.oppSide.active.status = null;
+    ctx.oppSide.bench.push(ctx.oppSide.active);
+    ctx.oppSide.active = null;
+    pocketEnterForcedSwitch(ctx.G, ctx.op, 'noEndTurn');
+    return null;
+  },
+  'Repelling Wind': (ctx) => { // 同Drive Off但限定對手主戰必須是基礎寶可夢
+    if (!ctx.oppSide.active) return '對手沒有主戰寶可夢';
+    if (ctx.oppSide.active.stage !== 'Basic') return '對手主戰不是基礎寶可夢';
+    if (!ctx.oppSide.bench.length) return '對手沒有板凳寶可夢可以換上';
+    ctx.oppSide.active.status = null;
+    ctx.oppSide.bench.push(ctx.oppSide.active);
+    ctx.oppSide.active = null;
+    pocketEnterForcedSwitch(ctx.G, ctx.op, 'noEndTurn');
+    return null;
+  },
+  'Data Scan': (ctx) => { if (ctx.side.deck.length) ctx.peekDeck = [ctx.side.deck[0]]; return null; },
+  'Poison Coating': (ctx) => { if (ctx.oppSide.active && pocketFlipCoin(ctx)) ctx.oppSide.active.status = 'poisoned'; return null; },
+  'Energy Plunder': (ctx, poke) => { // 把己方全部場上寶可夢身上的惡屬性能量集中給自己
+    for (const p of [ctx.side.active, ...ctx.side.bench].filter(Boolean)) {
+      if (p.uid === poke.uid) continue;
+      const moved = p.energy.filter(e => e === 'Darkness');
+      if (moved.length) { p.energy = p.energy.filter(e => e !== 'Darkness'); poke.energy.push(...moved); }
+    }
+    return null;
+  },
+  'Captivating Rhythm': (ctx) => { // 擲硬幣，正面把對手隨機1隻板凳換上主戰
+    if (!pocketFlipCoin(ctx) || !ctx.oppSide.bench.length) return null;
+    const i = Math.floor(Math.random() * ctx.oppSide.bench.length);
+    const chosen = ctx.oppSide.bench.splice(i, 1)[0];
+    if (ctx.oppSide.active) { ctx.oppSide.active.status = null; ctx.oppSide.bench.push(ctx.oppSide.active); }
+    ctx.oppSide.active = chosen;
+    return null;
+  },
+  'Dark Chase': (ctx, poke) => { // 只有在主戰位置時，把對手「身上有傷」的板凳隨機挑1隻換上主戰
+    if (ctx.side.active?.uid !== poke.uid) return '必須在主戰位置才能使用特性';
+    const damaged = ctx.oppSide.bench.filter(p => p.curHp < p.hp);
+    if (!damaged.length) return '對手沒有身上有傷的板凳寶可夢';
+    const chosen = damaged[Math.floor(Math.random() * damaged.length)];
+    ctx.oppSide.bench = ctx.oppSide.bench.filter(p => p.uid !== chosen.uid);
+    if (ctx.oppSide.active) { ctx.oppSide.active.status = null; ctx.oppSide.bench.push(ctx.oppSide.active); }
+    ctx.oppSide.active = chosen;
+    return null;
+  },
+  'Slow Sear': (ctx) => { if (ctx.oppSide.deck.length) ctx.oppSide.deck.shift(); return null; },
+  'Ice Maker': (ctx) => { // 主戰必須是水屬性，從能量區拿1水能量給主戰
+    if (!ctx.side.active || !(ctx.side.active.types || []).includes('Water')) return '主戰必須是水屬性';
+    if (!ctx.side.energyTypes.includes('Water')) return '你的能量區沒有水屬性能量';
+    ctx.side.active.energy.push('Water');
+    return null;
+  },
+  'Cunning Link': (ctx) => { // 場上有Arceus/Arceus ex才能發動，對對手主戰造成30傷害
+    const hasArceus = [ctx.side.active, ...ctx.side.bench].some(p => p && (p.name === 'Arceus' || p.name === 'Arceus ex'));
+    if (!hasArceus) return '場上沒有Arceus或Arceus ex';
+    if (ctx.oppSide.active) ctx.oppSide.active.curHp = Math.max(0, ctx.oppSide.active.curHp - 30);
+    return null;
+  },
+  'Melodious Healing': (ctx) => { // 治療己方全體水屬性30血
+    for (const p of [ctx.side.active, ...ctx.side.bench].filter(p => p && (p.types || []).includes('Water'))) {
+      p.curHp = Math.min(p.hp, p.curHp + 30);
+    }
+    return null;
+  },
+  'Illuminate': (ctx) => { // 從牌庫隨機拿1隻寶可夢進手牌
+    const idxs = ctx.side.deck.map((c, i) => c.category === 'Pokemon' ? i : -1).filter(i => i >= 0);
+    if (idxs.length) { const i = idxs[Math.floor(Math.random() * idxs.length)]; ctx.side.hand.push(ctx.side.deck.splice(i, 1)[0]); }
+    return null;
+  },
+  'Fire Breath': (ctx) => { if (ctx.oppSide.active) ctx.oppSide.active.status = 'burned'; return null; },
+  'Extra Heal': (ctx) => { // 隨機挑1隻己方身上有能量的ex寶可夢，回復60血並丟棄它身上1點隨機能量
+    const pool = [ctx.side.active, ...ctx.side.bench].filter(p => p && p.ex && p.energy.length);
+    if (!pool.length) return '沒有符合條件（帶著能量的ex寶可夢）的目標';
+    const p = pool[Math.floor(Math.random() * pool.length)];
+    const before = p.curHp;
+    p.curHp = Math.min(p.hp, p.curHp + 60);
+    p.energy.splice(Math.floor(Math.random() * p.energy.length), 1);
+    ctx.healUid = p.uid; ctx.healAmount = p.curHp - before;
+    return null;
+  },
+  'Passionate Voice': (ctx, poke) => { // 棄掉自己身上1點火能量，這回合己方火屬性攻擊+50
+    if (!poke.energy.includes('Fire')) return '這隻寶可夢身上沒有火屬性能量';
+    poke.energy.splice(poke.energy.indexOf('Fire'), 1);
+    ctx.side.typeBoostThisTurn = { type: 'Fire', amount: 50 };
+    return null;
+  },
+  'Psychic Connect': (ctx) => { // 把1隻板凳身上的超能力能量全部移給主戰（自動挑有超能力能量的板凳）
+    if (!ctx.side.active) return '沒有主戰寶可夢';
+    const targets = ctx.side.bench.filter(p => p.energy.includes('Psychic'));
+    if (!targets.length) return '板凳沒有帶超能力能量的寶可夢';
+    const p = targets[Math.floor(Math.random() * targets.length)];
+    const moved = p.energy.filter(e => e === 'Psychic');
+    p.energy = p.energy.filter(e => e !== 'Psychic');
+    ctx.side.active.energy.push(...moved);
+    return null;
+  },
+  'Rising Road': (ctx, poke) => { // 只有在板凳時可以跟主戰互換上場
+    if (ctx.side.active?.uid === poke.uid) return '這隻寶可夢已經在主戰位置';
+    if (!ctx.side.active) return '沒有主戰寶可夢可以互換';
+    const idx = ctx.side.bench.findIndex(p => p.uid === poke.uid);
+    if (idx < 0) return null;
+    const oldActive = ctx.side.active;
+    oldActive.status = null;
+    ctx.side.bench[idx] = oldActive;
+    ctx.side.active = poke;
+    return null;
+  },
+  'Forest Breath': (ctx, poke) => { // 只有在主戰位置時，從能量區拿1草能量，優先給自己，否則隨機給1隻草系板凳
+    if (ctx.side.active?.uid !== poke.uid) return '必須在主戰位置才能使用特性';
+    if (!ctx.side.energyTypes.includes('Grass')) return '你的能量區沒有草屬性能量';
+    const targets = ctx.side.bench.filter(p => (p.types || []).includes('Grass'));
+    if (targets.length) targets[Math.floor(Math.random() * targets.length)].energy.push('Grass');
+    else poke.energy.push('Grass');
+    return null;
+  },
+  'Psychic Healing': (ctx, poke) => { // 只有在主戰位置時，隨機治療己方1隻30血
+    if (ctx.side.active?.uid !== poke.uid) return '必須在主戰位置才能使用特性';
+    const pool = [ctx.side.active, ...ctx.side.bench].filter(p => p.curHp < p.hp);
+    if (!pool.length) return '己方沒有受傷的寶可夢';
+    const p = pool[Math.floor(Math.random() * pool.length)];
+    const before = p.curHp;
+    p.curHp = Math.min(p.hp, p.curHp + 30);
+    ctx.healUid = p.uid; ctx.healAmount = p.curHp - before;
+    return null;
+  },
 };
+// 從棄牌堆裡任何一張還留有該屬性能量的寶可夢卡上拿1點能量（真實Pocket規則的棄牌堆同時
+// 存放卡片跟已丟棄的能量——我們的引擎沒有獨立的能量棄牌堆，改成直接掃discard裡的寶可夢
+// 卡物件本身殘留的.energy陣列，找到就扣掉那一點，語意上等價）
+function pocketTakeEnergyFromDiscard(side, type) {
+  for (const c of side.discard) {
+    if (c.energy?.includes(type)) { c.energy.splice(c.energy.indexOf(type), 1); return true; }
+  }
+  return false;
+}
 function pocketBroadcastState(pRoom) {
   const G = pRoom.G;
   send(pRoom.p1, { type: 'pocket_turn_state', ...pocketViewFor(G, 'p1') });
@@ -5535,7 +5818,12 @@ async function handleMessage(ws, msg) {
       const err = ABILITY_EFFECTS[ability.name](abilityCtx, poke);
       if (err) { send(ws, { type: 'error', message: err }); return; }
       side.abilitiesUsedThisTurn.push(poke.uid);
-      if (abilityCtx.coinFlips?.length) G.lastEvent = { seq: ++G.eventSeq, kind: 'ability', coinFlips: abilityCtx.coinFlips };
+      if (abilityCtx.coinFlips?.length || abilityCtx.healUid) {
+        G.lastEvent = { seq: ++G.eventSeq, kind: 'ability', coinFlips: abilityCtx.coinFlips || null, healUid: abilityCtx.healUid || null, healAmount: abilityCtx.healAmount || 0 };
+      }
+      if (abilityCtx.peekDeck) send(ws, { type: 'pocket_peek', title: '牌庫頂1張', cards: abilityCtx.peekDeck });
+      // Broken-Space Bellow文字寫明「用了這個特性，你的回合結束」——跟一般特性用完還能繼續行動不同
+      if (abilityCtx.endTurnAfter) { pocketAdvanceTurn(G); pocketBroadcastState(pRoom); return; }
       pocketBroadcastState(pRoom);
       return;
     }
@@ -5576,7 +5864,10 @@ async function handleMessage(ws, msg) {
       if (active.status === 'asleep') { send(ws, { type: 'error', message: '睡眠中無法撤退' }); return; }
       if (active.status === 'paralyzed') { send(ws, { type: 'error', message: '麻痺中無法撤退' }); return; }
       if (active.isFossil || active.retreat == null) { send(ws, { type: 'error', message: '這隻沒有撤退成本可以撤退（化石卡不能撤退）' }); return; }
-      const cost = Math.max(0, (active.retreat || 0) - (side.retreatDiscountThisTurn || 0));
+      // 奇異廣場（Peculiar Plaza）：雙方超能力寶可夢撤退成本-2，跟retreatDiscountThisTurn(X Speed)
+      // 是同一個「扣減」概念但來源不同（場地常駐 vs 單次道具buff），兩者疊加直接一起扣
+      const plazaDiscount = (G.activeStadium?.id === 'B2-155' && (active.types || []).includes('Psychic')) ? 2 : 0;
+      const cost = Math.max(0, (active.retreat || 0) - (side.retreatDiscountThisTurn || 0) - plazaDiscount);
       if (active.energy.length < cost) { send(ws, { type: 'error', message: '能量不足，無法撤退' }); return; }
       const idx = side.bench.findIndex(p => p.uid === msg.target);
       if (idx < 0) return;
@@ -5676,6 +5967,11 @@ async function handleMessage(ws, msg) {
         mainDamage = ctx.rawDamage;
         if (side.giovanniBoostThisTurn) mainDamage += 10;
         if (side.blaineBoostNamesThisTurn?.includes(attacker.name)) mainDamage += 30;
+        if (side.namedBoostThisTurn?.names.includes(attacker.name)) mainDamage += side.namedBoostThisTurn.amount;
+        if (side.typeBoostThisTurn && (attacker.types || []).includes(side.typeBoostThisTurn.type)) mainDamage += side.typeBoostThisTurn.amount;
+        // 訓練場（Training Area）：雙方Stage1寶可夢的攻擊都+10——場地卡沒有「自己/對方」之分，
+        // 不管是哪一方打出這張場地卡，雙方符合條件的攻擊都吃得到加成
+        if (G.activeStadium?.id === 'B2-153' && attacker.stage === 'Stage1') mainDamage += 10;
         // 2026-08-06新增：指名招式下回合加成（例如Crabominable ex用完「大快朵頤」後預告下回合的
         // 「貪食連擊」+40）——跟moveLock是同一組欄位設計理念，只是這邊是加傷而不是封鎖
         if (attacker.moveBuffUntilTurn === G.turnNumber && attacker.moveBuffName === atk.name) mainDamage += attacker.moveBuffAmount;

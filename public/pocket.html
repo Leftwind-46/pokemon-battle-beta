@@ -1459,7 +1459,14 @@ function renderPokeSlot(p, { pickable = false, dataset = {}, own = false } = {})
       ${extraBtns}
     </div>`;
 }
-const ABILITY_NAMES_SUPPORTED = new Set(['Volt Charge', 'Sleep Pendulum', 'Psy Shadow', 'Gas Leak']);
+const ABILITY_NAMES_SUPPORTED = new Set([
+  'Volt Charge', 'Sleep Pendulum', 'Psy Shadow', 'Gas Leak',
+  'Broken-Space Bellow', 'Roar in Unison', 'Combust', 'Watch Over', 'Comforting Song',
+  'Powder Heal', 'Fragrant Flower Garden', 'Water Shuriken', 'Drive Off', 'Repelling Wind',
+  'Data Scan', 'Poison Coating', 'Energy Plunder', 'Captivating Rhythm', 'Dark Chase',
+  'Slow Sear', 'Ice Maker', 'Cunning Link', 'Melodious Healing', 'Illuminate', 'Fire Breath',
+  'Extra Heal', 'Passionate Voice', 'Psychic Connect', 'Rising Road', 'Forest Breath', 'Psychic Healing',
+]);
 
 function renderBoard() {
   if (!state) return;
@@ -1660,12 +1667,20 @@ function pocketCanPayCostClient(pokemon, cost) {
 function doAttack(i) { wsSend({ type: 'pocket_attack', attackIndex: i }); }
 function endTurn() { wsSend({ type: 'pocket_end_turn' }); }
 
-const POCKET_FOSSIL_IDS = new Set(['A1-216', 'A1-217', 'A1-218']);
+const POCKET_FOSSIL_IDS = new Set(['A1-216', 'A1-217', 'A1-218', 'A1a-063', 'A2-144', 'A2-145', 'B1-214', 'B1-216', 'B2-144', 'B2-146']);
 const TRAINER_NEEDS_TARGET = new Set(['P-A-001', 'A1-219', 'A1-220']); // Potion / Erika / Misty
 // 跟server.js的TRAINER_EFFECTS同一份清單——A1~B2a擴充後訓練師卡從18張暴增到197張，
-// 只有原本這15張（8張角色支援者+7張Promo-A）有做效果，其餘先讓玩家看得到卡但打不出去
+// 只有這份清單裡的卡有做效果，其餘先讓玩家看得到卡但打不出去
 // （打了會被server擋+跳「效果尚未實作」錯誤，這裡先在按鈕上明講，不用等玩家點了才知道）
-const TRAINER_EFFECTS_IMPLEMENTED = new Set(['P-A-001', 'P-A-002', 'P-A-003', 'P-A-004', 'P-A-005', 'P-A-006', 'P-A-007', 'A1-219', 'A1-220', 'A1-221', 'A1-222', 'A1-223', 'A1-224', 'A1-225', 'A1-226']);
+// 2026-08-06新增：場地卡2張(B2-153/B2-155)+道具卡9張——都是自動隨機挑目標/固定作用於
+// 主戰或整側的效果，不需要玩家額外選board目標
+const TRAINER_EFFECTS_IMPLEMENTED = new Set([
+  'P-A-001', 'P-A-002', 'P-A-003', 'P-A-004', 'P-A-005', 'P-A-006', 'P-A-007',
+  'A1-219', 'A1-220', 'A1-221', 'A1-222', 'A1-223', 'A1-224', 'A1-225', 'A1-226',
+  'B2-153', 'B2-155',
+  'A1a-064', 'A4-152', 'B1-215', 'A4-151', 'A3-142', 'A3-143', 'A3-145', 'A3a-064', 'B1a-066',
+  'B2a-086', 'A1a-065',
+]);
 
 // event delegation：own board (active/bench) 點擊
 document.getElementById('board-overlay').addEventListener('click', e => {
