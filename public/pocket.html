@@ -696,7 +696,10 @@ const DECK_SIZE = 20;
 const MAX_COPIES = 2;
 const MAX_SAVED_DECKS = 20;
 // 7張Promo-A通用卡本來就直接擁有，不進開包池——server端pocketEnsurePromoACards同一份清單
-const POCKET_PROMO_A_IDS = ['P-A-001', 'P-A-002', 'P-A-003', 'P-A-004', 'P-A-005', 'P-A-006', 'P-A-007'];
+// 2026-08-06改版：從固定7張改成動態撈全部P-A系列id（目前100張）——loadCards()拿到
+// ALL_CARDS後才填值，這裡先給空陣列佔位，元件初始化順序上不會有東西提早讀到舊的7張清單
+// （guest收藏種子/dex分解合成排除邏輯都是在loadCards()完成之後才會被呼叫到）
+let POCKET_PROMO_A_IDS = [];
 // 跟server.js的POCKET_HIGH_RARITIES同一份清單——判斷2星以上（含新系列的Shiny）用
 const POCKET_HIGH_RARITIES = new Set(['One Star', 'Two Star', 'Three Star', 'Crown', 'One Shiny', 'Two Shiny']);
 let ALL_SETS = []; // [{id,name,cardCount}]，開包選版本/圖鑑篩選用
@@ -766,6 +769,7 @@ async function loadCards() {
   const data = await pocketApiFetch('/api/pocket/cards');
   ALL_CARDS = data.cards;
   ALL_CARDS.forEach(c => cardById[c.id] = c);
+  POCKET_PROMO_A_IDS = ALL_CARDS.filter(c => c.set === 'P-A').map(c => c.id);
   try {
     const setsData = await pocketApiFetch('/api/pocket/sets');
     ALL_SETS = setsData.sets;
@@ -1149,7 +1153,8 @@ function openPackSetPicker(count = 1) {
   if (!pocketIsLoggedIn()) return;
   pendingPackCount = count;
   document.getElementById('pack-set-picker-sub').textContent = count > 1 ? '選擇要十連抽哪個系列的卡包' : '選擇要開哪個系列的卡包';
-  document.getElementById('pack-set-picker-grid').innerHTML = ALL_SETS.map(s => `
+  // Promo-A不開放開包——那組卡全部直接發放給玩家，不用抽（見POCKET_PROMO_A_IDS）
+  document.getElementById('pack-set-picker-grid').innerHTML = ALL_SETS.filter(s => s.id !== 'P-A').map(s => `
     <div class="card-tile" onclick="openPackFlow(${count}, '${s.id}');closePackSetPicker()" title="${s.name}">
       <div class="name">${s.name}</div>
       <div class="meta">${s.id} · 共 ${s.cardCount} 張</div>

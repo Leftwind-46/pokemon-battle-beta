@@ -3779,10 +3779,13 @@ function pocketRollPackWithPity(setId, pityCounter) {
   return { cardIds, pityTriggered, counter };
 }
 
-// 7張Promo-A通用卡不用抽，所有玩家本來就直接擁有——用「讀收藏時lazy補發」而不是只在
-// 註冊時發一次，這樣既有帳號（在這個機制上線前就註冊的）下次讀收藏也會自動補到，不用
-// 額外寫一次性migration去回填舊帳號。ON CONFLICT DO NOTHING讓這個函式可以放心重複呼叫。
-const POCKET_PROMO_A_IDS = ['P-A-001', 'P-A-002', 'P-A-003', 'P-A-004', 'P-A-005', 'P-A-006', 'P-A-007'];
+// 2026-08-06改版：原本只curate了7張最常用的Promo-A卡自動發放，其餘93張完全沒有取得管道
+// （不在開包池、也沒自動發），使用者要求維持「Promo-A整組都直接擁有」的設計——改成動態
+// 從卡池撈出全部P-A系列的id（目前100張，以後TCGdex的P-A系列擴增也會自動跟著長，不用
+// 每次手動加id）。全部Promo-A卡不用抽，所有玩家本來就直接擁有——用「讀收藏時lazy補發」
+// 而不是只在註冊時發一次，這樣既有帳號（在這個機制上線前就註冊的）下次讀收藏也會自動補到，
+// 不用額外寫一次性migration去回填舊帳號。ON CONFLICT DO NOTHING讓這個函式可以放心重複呼叫。
+const POCKET_PROMO_A_IDS = POCKET_CARDS.filter(c => c.set === 'P-A').map(c => c.id);
 async function pocketEnsurePromoACards(userId) {
   for (const cardId of POCKET_PROMO_A_IDS) {
     await pool.query(
@@ -3899,7 +3902,10 @@ app.post('/api/pocket/open-pack', requireAuth, async (req, res) => {
   const count = req.body?.count === 10 ? 10 : 1;
   // 2026-08-06新增選版本開包：沒帶set或帶了不存在的系列一律退回A1（最初也是唯一舊資料能保證
   // 一定有卡的系列），不會因為client傳壞資料就整包開不出東西
-  const setId = POCKET_SETS.some(s => s.id === req.body?.set) ? req.body.set : 'A1';
+  // P-A（Promo-A）不能開包——那組卡全部直接發放，包池本身就是空的（見POCKET_PACK_POOL_BY_SET
+  // 排除P-A-開頭id的邏輯），選到P-A一律退回A1，避免真的打進pocketRollPackCard抽到空池出錯
+  const requestedSet = req.body?.set;
+  const setId = POCKET_SETS.some(s => s.id === requestedSet) && requestedSet !== 'P-A' ? requestedSet : 'A1';
   try {
     // 金幣/每日免費額度都活在pets這張表——如果玩家還沒去「我的寶可夢」選過初始寶可夢，
     // 根本沒有pets列，下面的UPDATE會直接match 0 rows，錯誤訊息會被誤判成「金幣不足」
