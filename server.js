@@ -3966,6 +3966,36 @@ function pocketTakeEnergyFromDiscard(side, type) {
   }
   return false;
 }
+/* ── 2026-08-07新增：進化觸發型特性（"when you play this Pokémon from your hand to evolve
+   1 of your Pokémon, you may..."）——跟按鈕觸發型是完全不同的時機，掛在pocket_evolve handler，
+   進化完成後自動判定。全部都是"you may"(可選)，但沒有UI可以問玩家「要不要用」，也沒有明顯
+   會讓玩家想拒絕的理由（都是純粹利己的效果），簡化成一律自動觸發。
+   Healing Ripples/Search for Friends這2個因為效果裡「1 of your X」/「a Supporter card」
+   沒寫random，照上面「單一目標要玩家自選」的規則不能隨機選，但進化流程目前沒有像攻擊/特性
+   那樣「暫停選目標」的機制，這裡先不做，維持「尚未支援」（沒有按鈕UI可以顯示，效果就是
+   單純不會觸發，不會crash也不會誤判成隨機挑）。 ── */
+const EVOLVE_TRIGGER_ABILITIES = {
+  'Happy Ribbon': (ctx) => { ctx.side.hand.push(...ctx.side.deck.splice(0, Math.min(2, ctx.side.deck.length))); },
+  'Dig Up': (ctx) => { // 從己方棄牌堆隨機挑最多2張寶可夢工具卡進手牌（卡面文字本身寫的是"random"）
+    for (let i = 0; i < 2; i++) {
+      const idxs = ctx.side.discard.map((c, j) => (c.category === 'Trainer' && c.trainerType === 'Tool') ? j : -1).filter(j => j >= 0);
+      if (!idxs.length) break;
+      const j = idxs[Math.floor(Math.random() * idxs.length)];
+      ctx.side.hand.push(ctx.side.discard.splice(j, 1)[0]);
+    }
+  },
+  'Unruly Claw': (ctx) => { if (ctx.oppSide.active?.energy.length) ctx.oppSide.active.energy.splice(Math.floor(Math.random() * ctx.oppSide.active.energy.length), 1); },
+  'Ignition': (ctx, poke) => { // 目標固定是「主戰位置上的火屬性寶可夢」，不是「1 of」語法，不用玩家選
+    if (ctx.side.active && (ctx.side.active.types || []).includes('Fire') && ctx.side.energyTypes.includes('Fire')) {
+      ctx.side.active.energy.push('Fire');
+    }
+  },
+  'Refreshing Tea': (ctx) => {
+    const drawCount = Math.max(0, 3 - ctx.oppSide.points);
+    ctx.oppSide.deck = pocketShuffle([...ctx.oppSide.deck, ...ctx.oppSide.hand]);
+    ctx.oppSide.hand = ctx.oppSide.deck.splice(0, Math.min(drawCount, ctx.oppSide.deck.length));
+  },
+};
 function pocketBroadcastState(pRoom) {
   const G = pRoom.G;
   send(pRoom.p1, { type: 'pocket_turn_state', ...pocketViewFor(G, 'p1') });
@@ -6134,6 +6164,12 @@ async function handleMessage(ws, msg) {
       target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
       target.boardTurn = G.turnNumber;
       side.hand = side.hand.filter(c => c.uid !== handCard.uid);
+      // 進化觸發型特性：進化「成」的這張新卡（target已經是進化後的資料）如果帶著這種特性，
+      // 進化完成當下自動判定——跟按鈕觸發型特性是分開的兩套機制，見EVOLVE_TRIGGER_ABILITIES註解
+      const evolveAbility = target.abilities?.[0]?.name;
+      if (evolveAbility && EVOLVE_TRIGGER_ABILITIES[evolveAbility]) {
+        EVOLVE_TRIGGER_ABILITIES[evolveAbility]({ G, role, op: role === 'p1' ? 'p2' : 'p1', side, oppSide: G[role === 'p1' ? 'p2' : 'p1'] }, target);
+      }
       pocketBroadcastState(pRoom);
       return;
     }
