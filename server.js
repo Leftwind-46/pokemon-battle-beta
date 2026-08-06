@@ -2753,6 +2753,54 @@ function pocketCheckWin(G) {
   if (G.p2.points >= 3) { G.winner = 'p2'; G.phase = 'done'; return true; }
   return false;
 }
+// 2026-08-07新增：被動型特性（不用按鈕觸發，只要條件符合就一直生效）——這是跟按鈕觸發/進化
+// 觸發/上場觸發完全不同的第四種類型，只做「防禦方減傷/免疫」跟「攻擊方加傷」這兩類，因為
+// 它們剛好都只有一個檢查點（mainDamage計算當下），不用額外新增hook。狀態免疫/回合結束觸發/
+// 反傷/附加能量觸發這幾類還沒做，需要在更多地方加檢查點，先不擴大範圍。
+function pocketHasArceus(side) {
+  return [side.active, ...side.bench].some(p => p && (p.name === 'Arceus' || p.name === 'Arceus ex'));
+}
+// 回傳「這次要扣掉多少傷害」，Infinity代表完全免疫這次攻擊
+function pocketPassiveDamageReduction(defender, defenderSide, attacker) {
+  const ability = defender.abilities?.[0]?.name;
+  switch (ability) {
+    case 'Fur Coat': case 'Solid Shell': case 'Exoskeleton': return 20;
+    case 'Armor': return 30;
+    case 'Thick Fat': return (attacker.types || []).some(t => t === 'Fire' || t === 'Water') ? 20 : 0;
+    case 'Resilience Link': return pocketHasArceus(defenderSide) ? 30 : 0;
+    case 'Ice Face': return defender.curHp === defender.hp ? 40 : 0;
+    case 'Safeguard': return attacker.ex ? Infinity : 0;
+    default: return 0;
+  }
+}
+// 「Attacks used by your {F} Pokémon do +30 damage」這種是「持有特性的這隻」給「全隊符合條件的
+// 攻擊者」加傷，跟持有者自己是不是正在攻擊無關（Power Link例外，文字是"this Pokémon"限定自己），
+// 所以要掃整個攻擊方場上（主戰+板凳）每一隻的特性，不能只看attacker自己身上的特性
+function pocketPassiveDamageBonus(attacker, attackerSide) {
+  let bonus = 0;
+  for (const holder of [attackerSide.active, ...attackerSide.bench]) {
+    if (!holder?.abilities?.length) continue;
+    const ability = holder.abilities[0].name;
+    if (ability === 'Fighting Coach' && (attacker.types || []).includes('Fighting')) bonus += 20;
+    if (ability === 'Cursed Metal' && (attacker.types || []).some(t => t === 'Psychic' || t === 'Metal')) bonus += 30;
+    if (ability === 'Power Link' && holder.uid === attacker.uid && pocketHasArceus(attackerSide)) bonus += 30;
+  }
+  return bonus;
+}
+// 回傳true代表這次撤退完全免費（Infinity概念用boolean表示更直觀，跟上面的減傷用Infinity不同）
+function pocketPassiveFreeRetreat(active, side) {
+  const ability = active.abilities?.[0]?.name;
+  if (ability === 'Levitate' && active.energy.length > 0) return true;
+  if (ability === 'Speed Link' && pocketHasArceus(side)) return true;
+  if (ability === 'Retreat Directive' && active.name === 'Dondozo') return true;
+  return false;
+}
+// Sky Support是「在板凳上才生效」的被動，讓主戰的基礎寶可夢撤退-1——跟上面幾個「在主戰位置才
+// 生效」的被動剛好相反方向，獨立算一個函式比較不會跟active-only的邏輯混在一起搞混
+function pocketPassiveBenchRetreatDiscount(active, side) {
+  if (active.stage !== 'Basic') return 0;
+  return side.bench.filter(p => p.abilities?.[0]?.name === 'Sky Support').length;
+}
 // ctx可選：如果有傳，會把每次擲的結果記進ctx.coinFlips，讓client端可以重播真實的擲硬幣過程
 // （而不是只顯示「反正最後結果是這樣」，玩家會覺得動畫跟結果對不上）
 function pocketFlipCoin(ctx) {
@@ -6347,7 +6395,10 @@ async function handleMessage(ws, msg) {
       // 奇異廣場（Peculiar Plaza）：雙方超能力寶可夢撤退成本-2，跟retreatDiscountThisTurn(X Speed)
       // 是同一個「扣減」概念但來源不同（場地常駐 vs 單次道具buff），兩者疊加直接一起扣
       const plazaDiscount = (G.activeStadium?.id === 'B2-155' && (active.types || []).includes('Psychic')) ? 2 : 0;
-      const cost = Math.max(0, (active.retreat || 0) - (side.retreatDiscountThisTurn || 0) - plazaDiscount);
+      // 被動特性：Levitate/Speed Link/Retreat Directive這類「撤退免費」，Sky Support是「板凳上
+      // 的隊友讓主戰撤退-1」——都是2026-08-07新增的被動特性機制的一部分
+      const cost = pocketPassiveFreeRetreat(active, side) ? 0 : Math.max(0,
+        (active.retreat || 0) - (side.retreatDiscountThisTurn || 0) - plazaDiscount - pocketPassiveBenchRetreatDiscount(active, side));
       if (active.energy.length < cost) { send(ws, { type: 'error', message: '能量不足，無法撤退' }); return; }
       const idx = side.bench.findIndex(p => p.uid === msg.target);
       if (idx < 0) return;
@@ -6456,9 +6507,13 @@ async function handleMessage(ws, msg) {
         // 2026-08-06新增：指名招式下回合加成（例如Crabominable ex用完「大快朵頤」後預告下回合的
         // 「貪食連擊」+40）——跟moveLock是同一組欄位設計理念，只是這邊是加傷而不是封鎖
         if (attacker.moveBuffUntilTurn === G.turnNumber && attacker.moveBuffName === atk.name) mainDamage += attacker.moveBuffAmount;
+        mainDamage += pocketPassiveDamageBonus(attacker, side); // 被動特性：Fighting Coach/Power Link/Cursed Metal這類「全隊加傷」
         const weak = (defender.weaknesses || []).find(w => (attacker.types || []).includes(w.type));
         if (weak) mainDamage += parseInt(String(weak.value).replace(/\D+/g, ''), 10) || 0;
         if (defender.dmgDebuffUntilTurn === G.turnNumber) mainDamage = Math.max(0, mainDamage - defender.dmgDebuffAmount);
+        // 被動特性：Fur Coat/Thick Fat/Resilience Link這類「自己減傷/免疫」，Infinity代表完全免疫
+        const passiveReduction = pocketPassiveDamageReduction(defender, oppSide, attacker);
+        mainDamage = passiveReduction === Infinity ? 0 : Math.max(0, mainDamage - passiveReduction);
         defender.curHp = Math.max(0, (defender.curHp ?? defender.hp ?? 0) - mainDamage);
       }
       if (ctx.selfDamage) attacker.curHp = Math.max(0, attacker.curHp - ctx.selfDamage);
