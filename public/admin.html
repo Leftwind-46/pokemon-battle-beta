@@ -223,6 +223,7 @@ function renderUsers() {
           <button class="btn btn-secondary" onclick="togglePanel('pw-${u.id}')">重設密碼</button>
           <button class="btn btn-secondary" onclick="togglePanel('stats-${u.id}')">改勝敗</button>
           <button class="btn btn-secondary" onclick="togglePanel('badge-${u.id}')">設定徽章</button>
+          <button class="btn btn-secondary" onclick="grantPocketCards(${u.id})">🎴Pocket全卡</button>
           <button class="btn btn-danger" onclick="confirmDelete(${u.id})">${pendingDeleteId === u.id ? '確定刪除？再按一次' : '刪除'}</button>
         </div>
         <div id="pw-${u.id}" class="inline-panel" style="display:none">
@@ -310,6 +311,19 @@ async function awardBadge(id) {
   const { ok } = await api(`/api/admin/users/${id}/badges/award`, { method: 'POST', body: JSON.stringify({ badgeId }) });
   if (!ok) { errEl.textContent = '頒發徽章失敗，請稍後再試'; return; }
   loadUsers();
+}
+
+// 2026-08-06新增：GM一鍵開通某玩家帳戶的全部Pocket TCG卡牌（每張2張）——沒有徽章那種可以
+// 一眼看出結果的表格欄位，借用#dash-err當通用狀態列，成功時暫時改成綠色顯示3秒後恢復
+async function grantPocketCards(id) {
+  const errEl = document.getElementById('dash-err');
+  errEl.style.color = '';
+  errEl.textContent = '';
+  const { ok, data } = await api(`/api/admin/users/${id}/pocket/grant-all`, { method: 'POST' });
+  if (!ok) { errEl.textContent = '開通 Pocket 全卡牌失敗，請稍後再試'; return; }
+  errEl.style.color = '#69f0ae';
+  errEl.textContent = `已開通帳號 #${id} 的全部 ${data.granted} 張 Pocket 卡牌（每張2張）`;
+  setTimeout(() => { errEl.textContent = ''; errEl.style.color = ''; }, 3000);
 }
 
 async function revokeBadge(id, badgeId) {

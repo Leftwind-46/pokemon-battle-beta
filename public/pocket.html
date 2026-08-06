@@ -93,7 +93,7 @@
   .energy-type-chip.on { opacity:1; border-color:rgba(255,255,255,0.4); }
   .energy-type-chip .energy-icon { width:14px; height:14px; }
   .deck-list { display:flex; flex-direction:column; gap:0.35rem; flex:1; overflow-y:auto; }
-  .deck-row { display:flex; align-items:center; gap:0.5rem; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:0.4rem 0.5rem; font-size:0.78rem; }
+  .deck-row { display:flex; align-items:center; gap:0.5rem; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:0.4rem 0.5rem; font-size:0.78rem; cursor:pointer; }
   .deck-row img { width:28px; height:39px; border-radius:4px; object-fit:cover; background:#111; }
   .deck-row .n { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .deck-row .x { color:var(--muted); font-weight:700; }
@@ -551,11 +551,6 @@
     <div class="hand-fan-wrap" id="hand-fan-wrap"><div class="hand-fan hand-row" id="hand-row"></div></div>
   </div>
 
-  <div class="card-detail-panel" id="card-detail-panel">
-    <button class="detail-close" onclick="closeCardDetail()">✕</button>
-    <div id="card-detail-body"></div>
-  </div>
-
   <div class="vfx-layer" id="vfx-layer"></div>
 
   <div class="coin-flip-overlay" id="coin-flip-overlay" style="display:none">
@@ -615,6 +610,17 @@
       <button class="btn btn-secondary" onclick="closePeek()">關閉</button>
     </div>
   </div>
+</div>
+
+<!-- 2026-08-06修正：card-detail-panel原本卡在#board-overlay裡面（那個容器只在對戰畫面才
+     display:flex，其他時候是display:none），從組牌頁（卡池/牌組列表）呼叫showCardDetail()時
+     面板雖然classList多了open、內容也正確填好，卻整個被父層的display:none吃掉、完全看不到
+     （getBoundingClientRect量出來是0,0,0,0）。搬到board-overlay外面當獨立的頂層元素，
+     不管現在是哪個畫面都能正常顯示，本來就是position:fixed，搬出來不影響它原本疊在battle
+     畫面上的定位跟外觀。 -->
+<div class="card-detail-panel" id="card-detail-panel">
+  <button class="detail-close" onclick="closeCardDetail()">✕</button>
+  <div id="card-detail-body"></div>
 </div>
 
 <script>
@@ -1128,7 +1134,7 @@ function renderPool() {
       ? `${typeDots}${TYPE_ZH[c.types?.[0]] || ''} · ${c.stage === 'Basic' ? '基礎' : c.stage === 'Stage1' ? '第1階' : '第2階'}${c.ex ? ' · EX' : ''} · HP${c.hp}`
       : c.trainerType === 'Supporter' ? '支援者卡' : '道具卡';
     return `
-      <div class="card-tile ${maxed && n < cap ? 'maxed' : ''}" onclick="addCard('${c.id}')" title="擁有${ownedCounts[c.id]}張 · ${maxed ? '已達上限或牌組已滿' : '點擊加入牌組'}">
+      <div class="card-tile ${maxed && n < cap ? 'maxed' : ''}" onclick="showCardDetail(cardById['${c.id}'], computePoolCardActions(cardById['${c.id}']))" title="擁有${ownedCounts[c.id]}張 · 點擊查看詳情">
         ${n > 0 ? `<div class="count-badge">${n}/${ownedCounts[c.id]}</div>` : `<div class="count-badge" style="opacity:0.5">×${ownedCounts[c.id]}</div>`}
         <img src="${c.image}" loading="lazy" alt="${c.name}">
         <div class="name">${c.name}</div>
@@ -1167,13 +1173,25 @@ function renderDeck() {
   list.innerHTML = groups.map(g => {
     const c = cardById[g.id];
     return `
-      <div class="deck-row">
+      <div class="deck-row" onclick="showCardDetail(cardById['${g.id}'], computeDeckCardActions(cardById['${g.id}']))">
         <img src="${c.image}" alt="${c.name}">
         <div class="n">${c.name}</div>
         <div class="x">×${g.count}</div>
-        <button onclick="removeCard('${g.id}')">−</button>
+        <button onclick="event.stopPropagation();removeCard('${g.id}')">−</button>
       </div>`;
   }).join('');
+}
+
+// 2026-08-06新增：組牌頁點卡片改成先開放大詳情面板（跟對戰畫面「點卡看詳情→按鈕確認」同一套
+// 既有模式），不再一點就直接加入/移除牌組——使用者反應原本點了就直接動作，容易誤觸也看不清卡片內容
+function computePoolCardActions(card) {
+  if (deck.length >= DECK_SIZE) return [{ label: '牌組已滿20張', disabled: true }];
+  const cap = ownedCap(card.id);
+  if (countInDeck(card.id) >= cap) return [{ label: `已達持有上限（${cap}張）`, disabled: true }];
+  return [{ label: '加入牌組', primary: true, onClick: () => addCard(card.id) }];
+}
+function computeDeckCardActions(card) {
+  return [{ label: '從牌組移除', primary: true, onClick: () => removeCard(card.id) }];
 }
 
 ['q', 'cat', 'type'].forEach(id => document.getElementById(id).addEventListener('input', renderPool));
@@ -1634,6 +1652,15 @@ document.getElementById('board-overlay').addEventListener('click', e => {
   if (ownSlot && !selectedAction) {
     const card = pocketFindCardByUid(ownSlot.dataset.uid);
     if (card) showCardDetail(card, computeOwnBoardActions(card));
+    return;
+  }
+
+  // 2026-08-06新增：對手場上的卡片（主戰/板凳）也能點開詳情——唯讀，不帶任何動作按鈕，
+  // 跟原本只有🔍按鈕才能看對手卡片詳情不一樣，現在點卡片本體也可以
+  const oppSlot = e.target.closest('#opp-active .board-slot[data-uid], #opp-bench .board-slot[data-uid]');
+  if (oppSlot && !selectedAction) {
+    const card = pocketFindCardByUid(oppSlot.dataset.uid);
+    if (card) showCardDetail(card);
   }
 });
 

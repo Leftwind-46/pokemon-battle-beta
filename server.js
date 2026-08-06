@@ -4699,6 +4699,28 @@ app.post('/api/admin/users/:id/badges/revoke', requireAuth, requireAdmin, async 
   }
 });
 
+// 2026-08-06新增：GM一鍵開通某個玩家帳戶的全部Pocket TCG卡牌（每張2張，跟牌組同名卡上限一致）。
+// pocket_collection的user_id只FK到users，不需要那個玩家先選過起始寶可夢（不像開包/收藏頁那些
+// 動到pets.coins的功能）。用GREATEST(count,2)而不是直接SET——玩家如果已經靠正常抽卡/合成
+// 擁有比2還多張，不該被這個操作往下砍。
+app.post('/api/admin/users/:id/pocket/grant-all', requireAuth, requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) return res.status(400).json({ error: 'invalid_id' });
+  try {
+    for (const card of POCKET_CARDS) {
+      await pool.query(
+        `INSERT INTO pocket_collection (user_id, card_id, count) VALUES ($1, $2, 2)
+         ON CONFLICT (user_id, card_id) DO UPDATE SET count = GREATEST(pocket_collection.count, 2)`,
+        [id, card.id]
+      );
+    }
+    res.json({ granted: POCKET_CARDS.length });
+  } catch (e) {
+    console.error('admin pocket grant-all error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  }
+});
+
 /* 硬刪除，靠 teams/weekly_stats 的 ON DELETE CASCADE 一起清掉——這是唯一真的會讓資料消失的操作 */
 app.delete('/api/admin/users/:id', requireAuth, requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
