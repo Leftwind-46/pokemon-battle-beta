@@ -1455,6 +1455,7 @@ function renderPokeSlot(p, { pickable = false, dataset = {}, own = false } = {})
   if (p.cantAttackUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合不能攻擊">🚫⚔</span>`);
   if (p.cantRetreatUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合不能撤退">🚫🔄</span>`);
   if (p.dmgDebuffUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合攻擊傷害-${p.dmgDebuffAmount}">↓${p.dmgDebuffAmount}</span>`);
+  if (p.tool) badges.push(`<span class="status-chip" title="裝備：${p.tool.name}">🔧${p.tool.name}</span>`);
   const statusHtml = badges.length ? `<div class="status-badges">${badges.join('')}</div>` : '';
   // own卡片的🔍要跟直接點卡片本體一樣帶出可用動作（撤退/附加能量），不然點🔍看到的畫面
   // 反而比點卡片本身少了按鈕，兩個入口行為不一致會讓人以為🔍是唯讀、卡片本體才有功能
@@ -1712,6 +1713,13 @@ const TRAINER_NEEDS_TARGET = new Set([
   'P-A-001', 'A1-219', 'A1-220', 'B2a-086', 'A4-151', // Potion / Erika / Misty / Electric Generator / Elemental Switch
   'A3-155', 'A2-154', 'A2-153', 'A2b-070', 'B1-221', 'A4a-069', 'A3-154', 'B2-149', 'A3-149', 'A4-157',
   // Lillie / Dawn / Volkner / Pokémon Center Lady / Marlon / Whitney / Mallow / Diantha / Ilima / Lyra
+  // 2026-08-07新增：Pokémon Tool系統——裝備類道具卡全部需要選裝備目標，跟Potion共用同一套
+  // item-target流程（見server.js的pocketAttachTool說明），Beastite(A3a-066)/Memory Light(A4a-068)
+  // 因為缺少Ultra Beast標籤/需要合併進化鏈招式，複雜度太高刻意跳過，不在這份清單裡
+  'A2-147', 'A2-148', 'A2-149', 'A3-146', 'A3-147', 'A3a-065', 'A3b-067', 'A4-153', 'A4-154',
+  'A4-155', 'A4a-067', 'B1-218', 'B1-219', 'B1-220', 'B2-147', 'B2-148', 'B2a-087',
+  // 2026-08-07新增：第二批支援者/道具卡，只有下面4張需要選board目標
+  'A2-150', 'A3-152', 'A3-144', 'B1a-067', // Cyrus / Lana / Rare Candy / Quick-Grow Extract
 ]);
 const TRAINER_NEEDS_DISCARD_TARGET = new Set(['A1a-064']); // Pokémon Flute：目標是對手棄牌堆的卡，不是board上的寶可夢
 // 2026-08-06新增：需要玩家指定目標的特性，value是目標池在哪一側（'own'=己方場上/'opp'=對手場上）
@@ -1737,6 +1745,12 @@ const TRAINER_EFFECTS_IMPLEMENTED = new Set([
   'B2a-090', 'A2b-071', 'A2-154', 'A2-153', 'B1-224', 'A2b-070', 'B1-221', 'A4a-069', 'A3-154',
   'B2-149', 'A2-151', 'A2a-073', 'A3a-067', 'B1-225', 'A2-155', 'A2b-072', 'A1a-066', 'A3-149',
   'A4-157', 'A4a-070', 'B2-150', 'A3a-068', 'A4-159', 'B2-152', 'B2-151', 'B2a-088', 'A4-161', 'A4a-071',
+  // 2026-08-07新增：Pokémon Tool系統，17張（Beastite/Memory Light跳過，理由見TRAINER_NEEDS_TARGET）
+  'A2-147', 'A2-148', 'A2-149', 'A3-146', 'A3-147', 'A3a-065', 'A3b-067', 'A4-153', 'A4-154',
+  'A4-155', 'A4a-067', 'B1-218', 'B1-219', 'B1-220', 'B2-147', 'B2-148', 'B2a-087',
+  // 2026-08-07新增：第二批支援者/道具卡，12張
+  'A1a-068', 'A2-150', 'A2a-072', 'A2a-074', 'A3-144', 'A3-151', 'A3-152', 'B1-226',
+  'B1a-067', 'B1a-068', 'B1a-069', 'B2-145',
 ]);
 
 // event delegation：own board (active/bench) 點擊
