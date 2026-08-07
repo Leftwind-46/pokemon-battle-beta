@@ -2911,6 +2911,14 @@ function pocketPassiveDamageReduction(defender, defenderSide, attacker) {
     case 'Resilience Link': return pocketHasArceus(defenderSide) ? 30 : 0;
     case 'Ice Face': return defender.curHp === defender.hp ? 40 : 0;
     case 'Safeguard': return attacker.ex ? Infinity : 0;
+    // 2026-08-07新增：機率型防禦——每次呼叫都重新骰一次，這個函式只會被主流程呼叫恰好一次，
+    // 不會有骰兩次結果不一致的風險
+    case 'Guarded Grill': return Math.random() < 0.5 ? 100 : 0;
+    case 'Celestial Blessing': case 'Carefree Steps': return Math.random() < 0.5 ? Infinity : 0;
+    // Coordinated Unit：需要「除了defender自己以外，還有另一隻Falinks」才生效，跟其他case
+    // 不同的地方是要排除自己（"another"字面意思）
+    case 'Coordinated Unit':
+      return [defenderSide.active, ...defenderSide.bench].some(p => p && p.name === 'Falinks' && p.uid !== defender.uid) ? 20 : 0;
     default: return 0;
   }
 }
@@ -2938,6 +2946,13 @@ function pocketPassiveDamageBonus(attacker, attackerSide) {
     if (ability === 'Fighting Coach' && (attacker.types || []).includes('Fighting')) bonus += 20;
     if (ability === 'Cursed Metal' && (attacker.types || []).some(t => t === 'Psychic' || t === 'Metal')) bonus += 30;
     if (ability === 'Power Link' && holder.uid === attacker.uid && pocketHasArceus(attackerSide)) bonus += 30;
+    // Torrent原文限定「this Pokémon」自己攻擊時才加傷，跟上面幾個「全隊掃描」的case不同，
+    // 要另外檢查holder.uid===attacker.uid（跟Power Link的判斷方式一樣）
+    if (ability === 'Torrent' && holder.uid === attacker.uid && holder.curHp <= 50) bonus += 60;
+    // Coordinated Unit的+20傷害半段——跟pocketPassiveDamageReduction那邊的-20是同一張卡的
+    // 兩個方向效果，都要求「除了自己以外還有另一隻Falinks在場」
+    if (ability === 'Coordinated Unit' && holder.uid === attacker.uid &&
+        [attackerSide.active, ...attackerSide.bench].some(p => p && p.name === 'Falinks' && p.uid !== holder.uid)) bonus += 20;
   }
   return bonus;
 }
@@ -2962,6 +2977,13 @@ function pocketPassiveFreeRetreat(active, side, G) {
 function pocketPassiveBenchRetreatDiscount(active, side) {
   if (active.stage !== 'Basic') return 0;
   return side.bench.filter(p => p.abilities?.[0]?.name === 'Sky Support').length;
+}
+// Trap Territory：卡面「Your opponent's Active Pokémon's Retreat Cost is 1 more」——跟上面
+// discount系列方向相反，是對手場上（不限主戰，板凳也算，卡面沒限定持有者位置）的Ariados
+// 讓「我方」主戰撤退+1。呼叫端傳oppSide（對手的side），不是active自己的side
+function pocketPassiveRetreatIncrease(oppSide) {
+  if (!oppSide) return 0;
+  return [oppSide.active, ...oppSide.bench].filter(p => p?.abilities?.[0]?.name === 'Trap Territory').length;
 }
 // ctx可選：如果有傳，會把每次擲的結果記進ctx.coinFlips，讓client端可以重播真實的擲硬幣過程
 // （而不是只顯示「反正最後結果是這樣」，玩家會覺得動畫跟結果對不上）
@@ -4555,10 +4577,52 @@ function pocketSnapshotBenchHp(side) {
 }
 function pocketEnforceBenchImmunity(side, snapshot) {
   side.bench.forEach(p => {
-    if (snapshot.has(p.uid) && p.curHp < snapshot.get(p.uid) && p.tool?.id === 'B2-147') {
+    if (snapshot.has(p.uid) && p.curHp < snapshot.get(p.uid) &&
+        (p.tool?.id === 'B2-147' || p.abilities?.[0]?.name === 'Shell Shield')) { // Shell Shield：2026-08-07新增，Protective Poncho同一機制的特性版本
       p.curHp = snapshot.get(p.uid);
     }
   });
+}
+// Crystal Body（2026-08-07新增）：「Prevent all effects of attacks used by your opponent's
+// Pokémon done to this Pokémon」——傷害本身不算在內（真實規則的effect不含damage），只擋
+// 招式效果對defender造成的非傷害副作用。跟status immunity同一招snapshot-before/compare-after，
+// 但這裡額外多記幾個「效果handler常寫進defender身上」的欄位（cantAttack/dmgDebuff/
+// attackFlipLock/energy），呼叫端只在effectFn呼叫前後這一個點包一層，不用碰任何handler內部
+function pocketSnapshotDefenderEffect(defender) {
+  return {
+    cantAttackUntilTurn: defender.cantAttackUntilTurn,
+    dmgDebuffUntilTurn: defender.dmgDebuffUntilTurn,
+    dmgDebuffAmount: defender.dmgDebuffAmount,
+    attackFlipLockUntilTurn: defender.attackFlipLockUntilTurn,
+    energy: [...defender.energy],
+  };
+}
+function pocketEnforceDefenderEffectImmunity(defender, snapshot) {
+  if (defender.abilities?.[0]?.name !== 'Crystal Body') return;
+  defender.cantAttackUntilTurn = snapshot.cantAttackUntilTurn;
+  defender.dmgDebuffUntilTurn = snapshot.dmgDebuffUntilTurn;
+  defender.dmgDebuffAmount = snapshot.dmgDebuffAmount;
+  defender.attackFlipLockUntilTurn = snapshot.attackFlipLockUntilTurn;
+  defender.energy = snapshot.energy;
+}
+// Heal Block（2026-08-07新增）：「Pokémon (both yours and your opponent's) can't be healed」——
+// 跟Crystal Body等「持有者自己被保護」不同方向，這是「持有者在場上（不限主戰/板凳/哪一方）
+// 時，雙方所有寶可夢的治療全部失效」的全域鎖，用同一套snapshot-before/compare-after招數，
+// 只是這次snapshot範圍是雙方全場（不是單一defender/單一side的板凳），呼叫端在每個「可能
+// 觸發治療」的handler呼叫點包一層即可，不用逐一改治療handler本身
+function pocketHasHealBlock(G) {
+  return ['p1', 'p2'].some(r => [G[r].active, ...G[r].bench].some(p => p?.abilities?.[0]?.name === 'Heal Block'));
+}
+function pocketSnapshotAllHp(G) {
+  const m = new Map();
+  for (const r of ['p1', 'p2']) for (const p of [G[r].active, ...G[r].bench]) if (p) m.set(p.uid, p.curHp);
+  return m;
+}
+function pocketEnforceHealBlock(G, snapshot) {
+  if (!pocketHasHealBlock(G)) return;
+  for (const r of ['p1', 'p2']) for (const p of [G[r].active, ...G[r].bench]) {
+    if (p && snapshot.has(p.uid) && p.curHp > snapshot.get(p.uid)) p.curHp = snapshot.get(p.uid);
+  }
 }
 
 /* ── 特性(ability)：每回合限用1次的主動觸發型（key用ability.name）。
@@ -6998,10 +7062,12 @@ async function handleMessage(ws, msg) {
       const ctx = { G, role, op, side, oppSide, pRoom };
       const statusSnapA = pocketSnapshotStatus(side), statusSnapB = pocketSnapshotStatus(oppSide);
       const benchSnap = pocketSnapshotBenchHp(oppSide);
+      const healSnap = pocketSnapshotAllHp(G);
       const err = handler(ctx, msg);
       if (err) { send(ws, { type: 'error', message: err }); return; }
       pocketEnforceStatusImmunity(side, statusSnapA); pocketEnforceStatusImmunity(oppSide, statusSnapB);
       pocketEnforceBenchImmunity(oppSide, benchSnap);
+      pocketEnforceHealBlock(G, healSnap);
       side.hand = side.hand.filter(c => c.uid !== card.uid);
       // Lucky Ice Pop（2026-08-07新增）：真的有回到血且硬幣正面時，這張卡直接回手牌而不進棄牌堆
       if (ctx.keepInHand) side.hand.push(card); else side.discard.push(card);
@@ -7033,10 +7099,12 @@ async function handleMessage(ws, msg) {
       const abilityCtx = { G, role, op, side, oppSide };
       const statusSnapA = pocketSnapshotStatus(side), statusSnapB = pocketSnapshotStatus(oppSide);
       const benchSnap = pocketSnapshotBenchHp(oppSide);
+      const healSnap = pocketSnapshotAllHp(G);
       const err = ABILITY_EFFECTS[ability.name](abilityCtx, poke, msg);
       if (err) { send(ws, { type: 'error', message: err }); return; }
       pocketEnforceStatusImmunity(side, statusSnapA); pocketEnforceStatusImmunity(oppSide, statusSnapB);
       pocketEnforceBenchImmunity(oppSide, benchSnap);
+      pocketEnforceHealBlock(G, healSnap);
       side.abilitiesUsedThisTurn.push(poke.uid);
       if (abilityCtx.coinFlips?.length || abilityCtx.healUid) {
         G.lastEvent = { seq: ++G.eventSeq, kind: 'ability', coinFlips: abilityCtx.coinFlips || null, healUid: abilityCtx.healUid || null, healAmount: abilityCtx.healAmount || 0 };
@@ -7059,6 +7127,13 @@ async function handleMessage(ws, msg) {
       if (!handCard || !target) return;
       if (handCard.evolveFrom !== target.name) { send(ws, { type: 'error', message: '進化對象不符' }); return; }
       if (target.boardTurn >= G.turnNumber) { send(ws, { type: 'error', message: '這隻寶可夢這回合不能進化' }); return; }
+      // Primeval Law：卡面「Your opponent can't play any Pokémon from their hand to evolve
+      // their Active Pokémon」——只擋「對手」進化「主戰位置」，board上只要有Aerodactyl ex在
+      // （不限主戰/板凳）就生效，跟其他板凳進化不衝突
+      const oppSideForEvolve = G[role === 'p1' ? 'p2' : 'p1'];
+      if (target === side.active && [oppSideForEvolve.active, ...oppSideForEvolve.bench].some(p => p?.abilities?.[0]?.name === 'Primeval Law')) {
+        send(ws, { type: 'error', message: '對方場上的Primeval Law讓你的主戰無法進化' }); return;
+      }
       const preservedDamage = (target.hp || 0) - (target.curHp ?? target.hp ?? 0);
       const preservedEnergy = target.energy;
       const preservedUid = target.uid;
@@ -7097,8 +7172,9 @@ async function handleMessage(ws, msg) {
       // 的隊友讓主戰撤退-1」——都是2026-08-07新增的被動特性機制的一部分
       // Tool：Big Air Balloon(Stage2免費撤退)、Inflatable Boat(水屬性-1)，同一批新增
       const toolRetreat = pocketToolRetreatDiscount(active);
+      const oppSide = G[role === 'p1' ? 'p2' : 'p1'];
       const cost = (pocketPassiveFreeRetreat(active, side, G) || toolRetreat.free) ? 0 : Math.max(0,
-        (active.retreat || 0) - (side.retreatDiscountThisTurn || 0) - plazaDiscount - pocketPassiveBenchRetreatDiscount(active, side) - toolRetreat.discount);
+        (active.retreat || 0) - (side.retreatDiscountThisTurn || 0) - plazaDiscount - pocketPassiveBenchRetreatDiscount(active, side) - toolRetreat.discount + pocketPassiveRetreatIncrease(oppSide));
       if (active.energy.length < cost) { send(ws, { type: 'error', message: '能量不足，無法撤退' }); return; }
       const idx = side.bench.findIndex(p => p.uid === msg.target);
       if (idx < 0) return;
@@ -7173,6 +7249,11 @@ async function handleMessage(ws, msg) {
         let toRemove = side.namedCostDiscountThisTurn.amount;
         effectiveCost = effectiveCost.filter(c => { if (c === 'Colorless' && toRemove > 0) { toRemove--; return false; } return true; });
       }
+      // Vigor Link：限定持有者自己攻擊時、我方場上有Arceus/Arceus ex，無色能量-1
+      if (attacker.abilities?.[0]?.name === 'Vigor Link' && pocketHasArceus(side)) {
+        let removed = false;
+        effectiveCost = effectiveCost.filter(c => { if (!removed && c === 'Colorless') { removed = true; return false; } return true; });
+      }
       if (!pocketCanPayCost(attacker, effectiveCost)) { send(ws, { type: 'error', message: '能量不足，無法使用這個招式' }); return; }
       const defender = oppSide.active;
       if (!defender) return;
@@ -7204,9 +7285,13 @@ async function handleMessage(ws, msg) {
         if (effectFn) {
           const statusSnapA = pocketSnapshotStatus(side), statusSnapB = pocketSnapshotStatus(oppSide);
           const benchSnap = pocketSnapshotBenchHp(oppSide);
+          const defenderEffectSnap = pocketSnapshotDefenderEffect(defender);
+          const healSnap = pocketSnapshotAllHp(G);
           effectFn(ctx);
           pocketEnforceStatusImmunity(side, statusSnapA); pocketEnforceStatusImmunity(oppSide, statusSnapB);
           pocketEnforceBenchImmunity(oppSide, benchSnap);
+          pocketEnforceDefenderEffectImmunity(defender, defenderEffectSnap);
+          pocketEnforceHealBlock(G, healSnap);
         }
       }
 
@@ -7261,7 +7346,7 @@ async function handleMessage(ws, msg) {
         }
       }
       if (ctx.selfDamage) attacker.curHp = Math.max(0, attacker.curHp - ctx.selfDamage);
-      if (ctx.healMirror && mainDamage > 0) {
+      if (ctx.healMirror && mainDamage > 0 && !pocketHasHealBlock(G)) {
         const before = attacker.curHp;
         attacker.curHp = Math.min(attacker.hp, attacker.curHp + mainDamage);
         ctx.healUid = attacker.uid; ctx.healAmount = attacker.curHp - before;
@@ -7286,8 +7371,16 @@ async function handleMessage(ws, msg) {
 
       if (pocketCheckWin(G)) { pocketBroadcastState(pRoom); return; }
 
-      const attackerDied0 = !ctx.skipMainDamage && attacker.curHp <= 0 && side.active === attacker;
-      const defenderDied = !ctx.skipMainDamage && defender.curHp <= 0 && oppSide.active === defender;
+      let attackerDied0 = !ctx.skipMainDamage && attacker.curHp <= 0 && side.active === attacker;
+      let defenderDied = !ctx.skipMainDamage && defender.curHp <= 0 && oppSide.active === defender;
+      // Guts：即將被攻擊傷害擊倒時擲硬幣，正面則不被擊倒、殘餘HP強制變成10——要在KO觸發特性
+      // /雙殺判斷之前處理，一旦生效這隻就不算「死亡」，後面所有分支自然不會走到
+      if (defenderDied && defender.abilities?.[0]?.name === 'Guts' && pocketFlipCoin()) {
+        defender.curHp = 10; defenderDied = false;
+      }
+      if (attackerDied0 && attacker.abilities?.[0]?.name === 'Guts' && pocketFlipCoin()) {
+        attacker.curHp = 10; attackerDied0 = false;
+      }
       // Lucky Mittens（2026-08-07新增Tool）：裝備者的攻擊擊倒對手主戰時，裝備者的擁有者抽1張牌
       // ——不管attacker自己這次交鋒有沒有也一起死掉（雙殺），只要defender真的被這次攻擊打倒就算
       if (defenderDied && attacker.tool?.id === 'B1-220' && side.deck.length > 0) {
@@ -7405,7 +7498,7 @@ async function handleMessage(ws, msg) {
         if (pending.action === 'attachEnergy') {
           for (let i = 0; i < (pending.count || 1); i++) target.energy.push(pending.energyType);
         } else if (pending.action === 'heal') {
-          target.curHp = Math.min(target.hp, target.curHp + pending.amount);
+          if (!pocketHasHealBlock(G)) target.curHp = Math.min(target.hp, target.curHp + pending.amount);
         } else if (pending.action === 'damage' || pending.action === 'damagePerEnergy') {
           const amount = pending.action === 'damagePerEnergy' ? target.energy.length * pending.perEnergy : pending.amount;
           target.curHp = Math.max(0, target.curHp - amount);
