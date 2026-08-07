@@ -731,6 +731,14 @@ async function pocketApiFetch(url, opts) {
 }
 
 let ALL_CARDS = [];
+// 卡片縮圖：圖鑑格/開包展示/牌組列表/手牌/場上小圖這類「同時顯示一大堆卡片」的地方不需要
+// 載入完整高解析度圖，TCGdex CDN本身就提供low.webp縮圖版本（實測600×825→245×337，檔案
+// 大小47.7KB→15.1KB，減少約68%），只有showCardDetail的放大詳情面板才真的需要high.webp。
+// Limitless CDN（B2a系列116張，見project-pocket-tcg記憶的B2a補圖那次）的圖片URL格式不同
+// 且沒有分尺寸版本，字串裡找不到'/high.webp'就會原樣通過，不受影響。
+function pocketThumbUrl(image) {
+  return image ? image.replace('/high.webp', '/low.webp') : image;
+}
 let cardById = {};
 let ownedCounts = {}; // cardId -> 擁有張數
 let savedDecks = []; // [{id, name, cardIds}]
@@ -996,7 +1004,7 @@ function openCollectionView() {
   grid.innerHTML = owned.map(c => `
     <div class="card-tile" title="${c.name}">
       <div class="count-badge">${ownedCounts[c.id]}</div>
-      <img src="${c.image}" loading="lazy" alt="${c.name}">
+      <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${c.name}">
       <div class="name">${c.name}</div>
       <div class="meta">${c.rarity || ''}</div>
     </div>`).join('') || '<div style="color:var(--muted)">還沒有任何收藏，先去開卡包吧</div>';
@@ -1034,7 +1042,7 @@ function renderDexGrid() {
     return `
     <div class="card-tile ${owned ? '' : 'dex-unowned'}" title="${c.name}" onclick="openDexAction('${c.id}')">
       ${owned ? `<div class="count-badge">${owned}</div>` : ''}
-      <img src="${c.image}" loading="lazy" alt="${c.name}">
+      <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${c.name}">
       <div class="name">${c.name}</div>
       <div class="meta">${c.rarity || ''}</div>
     </div>`;
@@ -1046,7 +1054,7 @@ function openDexAction(cardId) {
   if (!card) return;
   const owned = ownedCounts[cardId] || 0;
   const isPromo = POCKET_PROMO_A_IDS.includes(cardId);
-  document.getElementById('dex-action-img').src = card.image;
+  document.getElementById('dex-action-img').src = pocketThumbUrl(card.image); // 只顯示140px寬，縮圖已經綽綽有餘
   document.getElementById('dex-action-title').textContent = card.name;
   const sub = document.getElementById('dex-action-sub');
   const controls = document.getElementById('dex-action-controls');
@@ -1145,7 +1153,7 @@ async function openPackFlow(count = 1, setId = 'A1') {
     const row = document.getElementById('pack-reveal-row');
     row.innerHTML = data.cards.map((c, i) => `
       <div class="pack-reveal-card ${POCKET_HIGH_RARITIES.has(c.rarity) ? 'chase' : ''}" style="animation-delay:${Math.min(i, 20) * 0.08}s">
-        <img src="${c.image}" alt="${c.name}">
+        <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${c.name}">
         <div class="n">${c.name}${POCKET_HIGH_RARITIES.has(c.rarity) ? ' ✨' : ''}</div>
       </div>`).join('');
     document.getElementById('pack-close-btn').style.display = '';
@@ -1200,7 +1208,7 @@ function renderPool() {
     return `
       <div class="card-tile ${maxed && n < cap ? 'maxed' : ''}" onclick="showCardDetail(cardById['${c.id}'], computePoolCardActions(cardById['${c.id}']))" title="擁有${ownedCounts[c.id]}張 · 點擊查看詳情">
         ${n > 0 ? `<div class="count-badge">${n}/${ownedCounts[c.id]}</div>` : `<div class="count-badge" style="opacity:0.5">×${ownedCounts[c.id]}</div>`}
-        <img src="${c.image}" loading="lazy" alt="${c.name}">
+        <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${c.name}">
         <div class="name">${c.name}</div>
         <div class="meta">${metaLine}</div>
       </div>`;
@@ -1238,7 +1246,7 @@ function renderDeck() {
     const c = cardById[g.id];
     return `
       <div class="deck-row" onclick="showCardDetail(cardById['${g.id}'], computeDeckCardActions(cardById['${g.id}']))">
-        <img src="${c.image}" alt="${c.name}">
+        <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${c.name}">
         <div class="n">${c.name}</div>
         <div class="x">×${g.count}</div>
         <button onclick="event.stopPropagation();removeCard('${g.id}')">−</button>
@@ -1461,7 +1469,7 @@ function renderPokeSlot(p, { pickable = false, dataset = {}, own = false } = {})
   }
   return `
     <div class="board-slot ${pickable ? 'pickable' : ''}" data-uid="${p.uid}" ${attrs}>
-      <img src="${p.image}" alt="${p.name}">
+      <img src="${pocketThumbUrl(p.image)}" loading="lazy" alt="${p.name}">
       <div class="board-name">${p.name}${p.ex ? ' EX' : ''}</div>
       <div class="hp-bar"><div class="hp-fill ${hpPct <= 30 ? 'low' : ''}" style="width:${hpPct}%"></div></div>
       <div>${p.curHp ?? p.hp}/${p.hp}</div>
@@ -1580,7 +1588,7 @@ function renderBoard() {
     const label = c.category === 'Pokemon' ? `${c.stage === 'Basic' ? '基礎' : c.stage === 'Stage1' ? '第1階' : '第2階'}` : (c.trainerType === 'Supporter' ? '支援者' : '道具');
     const locked = c.trainerType === 'Supporter' && you.supporterUsedThisTurn;
     return `<div class="board-slot ${locked ? 'maxed' : ''}" data-hand-uid="${c.uid}" data-hand-kind="${c.category}">
-      <img src="${c.image}" alt="${c.name}">
+      <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${c.name}">
       <div class="board-name">${c.name}</div>
       <div>${label}</div>
       <button class="mini-btn" onclick="event.stopPropagation();showCardDetail(pocketFindCardByUid('${c.uid}'), computeHandCardActions(pocketFindCardByUid('${c.uid}')))" title="查看詳細資訊">🔍</button>
@@ -1753,12 +1761,12 @@ document.getElementById('board-overlay').addEventListener('click', e => {
     const uid = slot.dataset.uid;
     if (selectedAction.mode === 'attach') wsSend({ type: 'pocket_attach_energy', target: uid });
     else if (selectedAction.mode === 'evolve') {
-      spawnPlayFlourish(pocketFindCardByUid(selectedAction.handUid)?.image, slot);
+      spawnPlayFlourish(pocketThumbUrl(pocketFindCardByUid(selectedAction.handUid)?.image), slot);
       wsSend({ type: 'pocket_evolve', handUid: selectedAction.handUid, target: uid });
     }
     else if (selectedAction.mode === 'retreat' && slot.closest('#my-bench')) wsSend({ type: 'pocket_retreat', target: uid });
     else if (selectedAction.mode === 'item-target') {
-      spawnPlayFlourish(pocketFindCardByUid(selectedAction.handUid)?.image, slot);
+      spawnPlayFlourish(pocketThumbUrl(pocketFindCardByUid(selectedAction.handUid)?.image), slot);
       wsSend({ type: selectedAction.isSupporter ? 'pocket_play_supporter' : 'pocket_play_item', handUid: selectedAction.handUid, target: uid });
     }
     else if (selectedAction.mode === 'ability-target' && selectedAction.side === 'own') {
@@ -1809,7 +1817,7 @@ document.getElementById('board-overlay').addEventListener('click', e => {
 function computeHandCardActions(card) {
   if (card.category === 'Pokemon' && card.stage === 'Basic') {
     return [{ label: '上場（加入板凳）', primary: true, onClick: () => {
-      spawnPlayFlourish(card.image, document.getElementById('my-bench'));
+      spawnPlayFlourish(pocketThumbUrl(card.image), document.getElementById('my-bench'));
       wsSend({ type: 'pocket_bench_play', handUid: card.uid });
     } }];
   }
@@ -1821,7 +1829,7 @@ function computeHandCardActions(card) {
   }
   if (card.category === 'Trainer' && POCKET_FOSSIL_IDS.has(card.id)) {
     return [{ label: '上場（化石，可隨時棄置）', primary: true, onClick: () => {
-      spawnPlayFlourish(card.image, document.getElementById('my-bench'));
+      spawnPlayFlourish(pocketThumbUrl(card.image), document.getElementById('my-bench'));
       wsSend({ type: 'pocket_bench_play', handUid: card.uid });
     } }];
   }
@@ -1843,13 +1851,13 @@ function computeHandCardActions(card) {
       return [{ label: '選擇目標寶可夢', primary: true, onClick: () => {
         const eligible = (state.opponent?.discard || []).filter(c => c.category === 'Pokemon' && c.stage === 'Basic');
         openDiscardTargetPicker('選擇要從對手棄牌堆放上場的基礎寶可夢', eligible, (uid) => {
-          spawnPlayFlourish(card.image, document.getElementById('my-discard-pile'));
+          spawnPlayFlourish(pocketThumbUrl(card.image), document.getElementById('my-discard-pile'));
           wsSend({ type: isSupporter ? 'pocket_play_supporter' : 'pocket_play_item', handUid: card.uid, target: uid });
         });
       } }];
     }
     return [{ label: isSupporter ? '使用這張支援者卡' : '使用這張道具卡', primary: true, onClick: () => {
-      spawnPlayFlourish(card.image, document.getElementById('my-discard-pile'));
+      spawnPlayFlourish(pocketThumbUrl(card.image), document.getElementById('my-discard-pile'));
       wsSend({ type: isSupporter ? 'pocket_play_supporter' : 'pocket_play_item', handUid: card.uid });
     } }];
   }
@@ -1891,7 +1899,7 @@ function renderSetupHand() {
     const isBasic = c.category === 'Pokemon' && c.stage === 'Basic';
     const cls = c.uid === setupActive ? 'chosen-active' : setupBench.includes(c.uid) ? 'chosen-bench' : '';
     return `<div class="board-slot ${cls}" data-setup-uid="${c.uid}" data-basic="${isBasic}">
-      <img src="${c.image}" alt="${c.name}">
+      <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${c.name}">
       <div class="board-name">${c.name}</div>
       <div>${isBasic ? '基礎' : (c.category === 'Pokemon' ? c.stage : c.trainerType)}</div>
     </div>`;
@@ -1925,7 +1933,7 @@ function openDiscardTargetPicker(title, cards, onPick) {
   document.getElementById('discard-target-picker-title').textContent = title;
   document.getElementById('discard-target-picker-list').innerHTML = (cards || []).map(c => `
     <div style="text-align:center;font-size:0.65rem;cursor:pointer" data-discard-pick-uid="${c.uid}">
-      <img src="${c.image}" alt="${c.name}"><div>${c.name}</div>
+      <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${c.name}"><div>${c.name}</div>
     </div>`).join('') || '<div class="lobby-sub">（沒有符合條件的卡片）</div>';
   document.getElementById('discard-target-picker-overlay').style.display = 'flex';
 }
@@ -1942,7 +1950,7 @@ function showPeek(title, cards) {
   document.getElementById('peek-title').textContent = title;
   document.getElementById('peek-list').innerHTML = (cards || []).map(c => `
     <div style="text-align:center;font-size:0.65rem">
-      <img src="${c.image}" alt="${c.name}"><div>${c.name}</div>
+      <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${c.name}"><div>${c.name}</div>
     </div>`).join('') || '<div class="lobby-sub">（沒有卡片）</div>';
   document.getElementById('peek-overlay').style.display = 'flex';
 }
