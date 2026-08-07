@@ -1432,8 +1432,8 @@
       transition: background 0.15s;
     }
     .guide-close:hover { background: rgba(255,255,255,0.15); }
-    .guide-tabs { display:flex; gap:0.5rem; margin-bottom:1.2rem; }
-    .guide-tab { flex:1; padding:0.45rem; border:1px solid var(--border); border-radius:8px; background:transparent; color:var(--muted); font-size:0.8rem; font-weight:700; cursor:pointer; transition:all 0.15s; }
+    .guide-tabs { display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:1.2rem; }
+    .guide-tab { flex:1 1 30%; min-width:110px; padding:0.4rem 0.3rem; border:1px solid var(--border); border-radius:8px; background:transparent; color:var(--muted); font-size:0.74rem; font-weight:700; cursor:pointer; transition:all 0.15s; }
     .guide-tab.active { background:rgba(248,208,48,0.15); color:#f8d030; border-color:rgba(248,208,48,0.35); }
     .dex-tier-label { font-size:0.72rem; font-weight:700; color:#f8d030; letter-spacing:0.08em; text-transform:uppercase; margin:0.8rem 0 0.4rem; }
     .dex-card { display:flex; align-items:flex-start; gap:0.6rem; padding:0.5rem 0.7rem; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:10px; margin-bottom:0.4rem; }
@@ -1445,6 +1445,17 @@
     .dex-move-badge { display:inline-block; font-size:0.58rem; font-weight:700; padding:0.04rem 0.3rem; border-radius:4px; color:#fff; margin-right:0.22rem; vertical-align:middle; }
     .dex-mega-section { margin-top:0.3rem; padding-top:0.3rem; border-top:1px dashed var(--border); display:flex; gap:0.5rem; align-items:flex-start; }
     .dex-mega-sprite { width:40px; height:40px; image-rendering:pixelated; flex-shrink:0; }
+    /* 快速索引搜尋框：4個圖鑑分頁(寶可夢/道具卡/支援者卡/競技場卡)共用同一套樣式 */
+    .dex-search-wrap { position:sticky; top:0; z-index:2; background:#0f1228; padding-bottom:0.6rem; margin-bottom:0.4rem; }
+    .dex-search-input { width:100%; box-sizing:border-box; padding:0.55rem 0.8rem; border-radius:10px; border:1px solid var(--border); background:rgba(255,255,255,0.05); color:var(--text); font-size:0.82rem; }
+    .dex-search-input:focus { outline:none; border-color:rgba(248,208,48,0.5); }
+    .dex-search-count { font-size:0.68rem; color:var(--muted); margin-top:0.3rem; }
+    .dex-empty-msg { font-size:0.8rem; color:var(--muted); text-align:center; padding:1.5rem 0; }
+    .tcard-dex-card { display:flex; align-items:flex-start; gap:0.6rem; padding:0.5rem 0.7rem; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:10px; margin-bottom:0.4rem; }
+    .tcard-dex-icon { width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:1.15rem; flex-shrink:0; background:rgba(255,255,255,0.06); }
+    .tcard-dex-info { flex:1; min-width:0; }
+    .tcard-dex-name { font-size:0.85rem; font-weight:700; margin-bottom:0.15rem; display:flex; align-items:center; gap:0.35rem; flex-wrap:wrap; }
+    .tcard-dex-desc { font-size:0.75rem; color:#b0b8e0; line-height:1.4; }
     #discard-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
     #discard-modal.open { display:flex; }
     #trade-modal, #trade-choose-modal, #switch-confirm-modal, #mad-scientist-modal, #type-orb-modal, #hunt-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
@@ -1548,8 +1559,11 @@
     <button class="guide-close" onclick="closeGuide()">✕</button>
     <h2>遊戲說明</h2>
     <div class="guide-tabs">
-      <button class="guide-tab active" id="tab-btn-rules" onclick="showGuideTab('rules')">規則說明</button>
+      <button class="guide-tab active" id="tab-btn-rules" onclick="showGuideTab('rules')">基本規則</button>
       <button class="guide-tab" id="tab-btn-dex" onclick="showGuideTab('dex')">寶可夢圖鑑</button>
+      <button class="guide-tab" id="tab-btn-items" onclick="showGuideTab('items')">道具卡圖鑑</button>
+      <button class="guide-tab" id="tab-btn-supporters" onclick="showGuideTab('supporters')">支援者卡圖鑑</button>
+      <button class="guide-tab" id="tab-btn-stadiums" onclick="showGuideTab('stadiums')">競技場卡圖鑑</button>
     </div>
 
     <div id="guide-tab-rules">
@@ -1617,6 +1631,17 @@
         <li>共 16 種屬性，含妖精（克制龍・惡・格鬥；被鋼屬性 ×1.2）。</li>
       </ul>
 
+      <h3>💥 傷害如何計算</h3>
+      <ul>
+        <li>每次攻擊的傷害分三層計算：先把所有「固定加成」加總，再乘上所有「倍率」，最後扣掉「固定減傷」。</li>
+        <li><b>① 固定加成（相加）</b>：招式本身的基礎威力，加上場地卡／特性／訓練師卡給的固定攻擊力加成（例如「攻擊傷害 +40」「+70」這類數字）全部加總在一起。</li>
+        <li><b>② 倍率（相乘）</b>：屬性相剋（×0～×1.6）、STAB 屬性加成（×1.1 或 ×1.2）、燒傷降低攻擊力（×0.94）、部分特性或場地卡的傷害倍率（例如猛火系特性 HP 過低時 ×1.1）全部連乘在一起。</li>
+        <li><b>③ 固定減傷（相減）</b>：對方的護盾牌／防禦強化、部分場地卡（岩石地帶、鋼鐵堡壘等）的固定減傷數值，會在最後一步直接扣除——最多扣到 0，不會讓攻擊方倒扣血量、反而幫對方加血。</li>
+        <li>只要攻擊沒有被完全無效化（×0）、閃避或格擋，最終傷害至少為 1。</li>
+        <li><b>Mega 進化對傷害的影響</b>：不能 Mega 進化的寶可夢，攻擊傷害固定 +40；能 Mega 進化但還沒進化的，反而 −20；已經 Mega 進化的，+100（同時招式消耗能量打 8 折）——刻意讓「已進化」明顯比「不能進化」更強、「能進化卻還沒進化」略弱一截，鼓勵盡快湊滿 Mega 能量進化，而不是一直維持在原形態觀望。</li>
+        <li>部分特性、護盾、招式效果可以「無視」對方的護盾或反彈鏡（在③固定減傷那一步直接視為 0）——戰鬥中點擊招式的屬性圖示，可以查看該招式是否帶有這類附加效果。</li>
+      </ul>
+
       <h3>異常狀態</h3>
       <ul>
         <li><b>☠ 中毒</b>：損失 1/8 最大 HP，在該回合的行動（攻擊或格擋）結束後才扣血，不會搶在攻擊之前把你打倒。</li>
@@ -1628,210 +1653,41 @@
         <li>每隻寶可夢同一時間最多可以疊加 2 種異常狀態（任意組合，例如睡眠+中毒、麻痺+混亂皆可）；若同時中了會阻擋行動的狀態（睡眠／結凍／麻痺／混亂），依睡眠→結凍→麻痺→混亂的順序，每次攻擊只判定一個。使用<b>萬能藥</b>或<b>治療師</b>會一次解除全部異常狀態。</li>
       </ul>
 
-      <h3>訓練師牌</h3>
-      <p style="font-size:0.82rem;color:var(--muted);margin-bottom:0.5rem">部分道具卡／競技場卡有屬性標示，只有場上寶可夢符合該屬性（雙屬性則兩者皆可）時才會抽到；沒有標示屬性的是通用卡，任何時候都抽得到。</p>
-      <p style="font-size:0.82rem;color:var(--muted);margin-bottom:0.5rem">⚠ 「下次攻擊威力 +N」（固定加傷害）與「下次攻擊傷害 ×N」（傷害倍率）都<b>不會疊加</b>：固定加傷害是後蓋前，連續使用多張只有最後一張生效（不是取最高）；傷害倍率則是取數值最高的那一個生效。兩者都不會加總或連乘。</p>
-      <ul>
-        <li><b>道具牌</b>（綠框）每回合可使用多張，但抽牌／搶奪對方手牌類的卡（隨機應變、換氣追擊、群聚共鳴、掠奪、夜襲、暗夜掠奪）每回合只能用其中 1 張。開局後每回合只會抽到道具牌：</li>
-        <ul>
-          <li>傷藥（中／大／特大）— 回復上場寶可夢 40／60／80 HP</li>
-          <li>攻擊強化 — 下次攻擊 +40 傷害</li>
-          <li>防禦強化 — 下次承受傷害 −40</li>
-          <li>能量強化 — 下次攻擊傷害 ×1.2，但自身損失 50 HP</li>
-          <li>萬能藥 — 解除上場寶可夢的所有異常狀態</li>
-          <li>火焰彈（火屬性） — 讓對手上場寶可夢陷入燒傷</li>
-          <li>瓦斯攻擊（毒屬性） — 讓對手上場寶可夢陷入中毒</li>
-          <li>交換器 — 強制讓對手上場寶可夢與隨機備戰寶可夢互換</li>
-          <li>反彈鏡 — 下次對手攻擊傷害全數反彈回自身</li>
-          <li>屬性轉換 — 選擇一個屬性，本回合攻擊視為該屬性（享有屬性加成）</li>
-          <li>盧恩啟示 — 下次攻擊無視對方反彈鏡；並免疫下一次搏命效果（若對手使用搏命，只有對手的寶可夢會倒下）</li>
-          <li>撤退背心 — 下次換場不會結束回合</li>
-          <li>混亂藥（超能力屬性） — 讓對手上場寶可夢陷入混亂</li>
-          <li>絕對零度（冰屬性） — 讓對手上場寶可夢陷入結凍</li>
-          <li>能量補丁 — 回復 8 點能量</li>
-          <li>手牌破壞 — 讓對方隨機棄掉 1 張手牌</li>
-          <li>能量剝奪 — 讓對方損失 6 點能量</li>
-          <li>一擲千金 — 30% 機率下次攻擊傷害 ×1.6；70% 機率自身損失 40% 最大HP</li>
-          <li>背水一戰 — HP 越低，下次攻擊威力加成越高（最高 +50）</li>
-          <li>連擊 — 下次攻擊傷害 +40，異常狀態機率額外判定一次</li>
-          <li>掠奪 — 隨機搶奪對手一張手牌</li>
-          <li>通訊封印 — 下回合對手不能使用支援者卡</li>
-          <li>封印特性 — 封印對手的特性 2 回合，期間視為沒有特性</li>
-          <li>詛咒 — 對手的恢復效果 2 回合內全部失效（道具回血／特性回血／招式回血皆無效）</li>
-          <li>電擊誘餌（電屬性） — 讓對手上場寶可夢陷入麻痺</li>
-          <li>詛咒波動（幽靈屬性） — 讓對方損失 8 點能量，自身回復 20 HP</li>
-          <li>鋼鐵裝甲（鋼屬性） — 下次受到傷害減少 70</li>
-          <li>夜襲（惡屬性） — 消耗 5 點能量，隨機搶奪對手 2 張手牌</li>
-          <li>順風（飛行屬性） — 下次攻擊若為飛行屬性，傷害 +40</li>
-          <li>妖精之光（妖精屬性） — 解除上場寶可夢異常狀態並回復 40 HP</li>
-          <li>群聚針刺（蟲屬性） — 讓對手陷入中毒，並損失 3 點能量</li>
-          <li>潮汐回復（水屬性） — 回復上場寶可夢 30% 最大HP</li>
-          <li>龍之波動（龍屬性） — 下次攻擊若為龍屬性，傷害 ×1.12</li>
-          <li>捨身猛擊（格鬥屬性） — 下次攻擊威力 +40，但自身 HP ×0.8</li>
-          <li>灼焒爆發（火屬性） — 下次攻擊威力 +60，30% 機率讓對手灼傷</li>
-          <li>深海之力（水屬性） — 下次攻擊消耗能量減半</li>
-          <li>大地壁壘（地面屬性） — 下次受到攻擊傷害減少 90</li>
-          <li>電光石火（電屬性） — 下次電屬性寶可夢或電屬性招式攻擊不消耗能量</li>
-          <li>寄生種子（草屬性） — 接下來 3 回合，每回合開始吸取對方 3 點能量轉為自己能量</li>
-          <li>心靈感應（超能力屬性） — 下次攻擊的異常狀態機率視為 100%，並讓對手陷入 1 回合睡眠</li>
-          <li>直搗黃龍（格鬥屬性） — 下次攻擊威力 +40，且無視對方的「受傷減少」效果</li>
-          <li>亡靈詛咒（幽靈屬性） — 封印對手 Mega 進化 2 回合，並讓對方損失 5 點能量</li>
-          <li>龍神顯現（龍屬性） — 自身損失 25% 最大HP，下次攻擊威力 ×1.5</li>
-          <li>鋼鐵壁壘（鋼屬性） — 下次受到攻擊傷害減少 100</li>
-          <li>冰凍護甲（冰屬性） — 下次受到攻擊傷害減少 60；若對方該次攻擊為冰屬性則完全無效</li>
-          <li>隨機應變（一般屬性） — 立即抽 2 張手牌</li>
-          <li>暗影封鎖（惡屬性） — 封印對手 Mega 進化 2 回合，並讓對方隨機棄 1 張手牌</li>
-          <li>疾風迴避（飛行屬性） — 下次受到攻擊有 50% 機率完全迴避</li>
-          <li>地殼變動（岩石屬性） — 立即清除目前的競技場效果</li>
-          <li>妖精結界（妖精屬性） — 接下來 2 回合，我方上場寶可夢免疫異常狀態；若為妖精屬性額外回復 5% 最大HP</li>
-          <li>劇毒契約（毒屬性） — 讓對方陷入中毒，並讓對方損失 10 點能量</li>
-          <li>蟲群啃食（蟲屬性） — 讓對方損失 8 點能量，其中 4 點轉給自己</li>
-          <li>業火燎原（火屬性） — 若對手已有異常狀態，下次攻擊威力 +70；否則 +25</li>
-          <li>灰燼決意（火屬性） — 下次攻擊威力 ×1.3，自身損失 60 HP；若非火屬性寶可夢額外陷入燒傷</li>
-          <li>水流恢復（水屬性） — 立即回復 8 點能量</li>
-          <li>大海之盾（水屬性） — 下次受到攻擊傷害減少 50，並立即回復 3 點能量</li>
-          <li>大地治癒（地面屬性） — 立即回復上場寶可夢 15% 最大HP</li>
-          <li>磐石防禦（地面屬性） — 下次受到攻擊傷害減少 70，並讓對手下次攻擊威力 ×0.9</li>
-          <li>高速充能（電屬性） — 立即回復 10 點能量</li>
-          <li>連鎖閃電（電屬性） — 讓對手有 40% 機率立即陷入麻痺</li>
-          <li>藤蔓束縛（草屬性） — 讓對手立即損失 6 點能量</li>
-          <li>光合作用（草屬性） — 立即回復 10 點能量；若自身HP低於50%額外回復 8 HP</li>
-          <li>精神干擾（超能力屬性） — 讓對方隨機棄掉 1 張手牌</li>
-          <li>未來視（超能力屬性） — 下次攻擊威力 +50；若對手已有異常狀態額外 +30</li>
-          <li>崩拳（格鬥屬性） — 下次攻擊威力 +60；若對手當下持有防禦加成額外 +30</li>
-          <li>鋼鐵之拳（格鬥屬性） — 讓對手下次攻擊威力 ×0.85</li>
-          <li>幽冥追跡（幽靈屬性） — 讓對手損失 8 點能量，並讓對方隨機棄掉 1 張手牌</li>
-          <li>怨念集中（幽靈屬性） — 下次攻擊異常狀態機率視為 100%；若對手為 Mega 型態額外 +40 威力</li>
-          <li>逆鱗（龍屬性） — 下次攻擊威力 +90，自身損失 5 點能量</li>
-          <li>龍息滌蕩（龍屬性） — 解除自身異常狀態，並回復 5 HP</li>
-          <li>鋼鐵意志（鋼屬性） — 下次受到攻擊傷害減少 50，並立即回復 5 點能量</li>
-          <li>鎂光反射（鋼屬性） — 下次受到攻擊傷害減少 40，且對手下次施放的負面效果會反彈回對手自己身上</li>
-          <li>冰霜咆哮（冰屬性） — 下次冰屬性攻擊威力 ×1.2，並額外有 40% 機率附加結凍</li>
-          <li>極寒屏障（冰屬性） — 下次受到攻擊傷害減少 40，接下來 1 回合免疫異常狀態</li>
-          <li>全力以赴（一般屬性） — 下次攻擊威力 +35，一般屬性寶可夢或一般屬性招式攻擊不消耗能量</li>
-          <li>換氣追擊（一般屬性） — 立即抽 1 張手牌，並回復 4 點能量</li>
-          <li>暗夜掠奪（惡屬性） — 隨機搶奪對手 1 張手牌到自己手上</li>
-          <li>不意打擊（惡屬性） — 下次攻擊威力 +50，並讓對手下次攻擊威力 ×0.9</li>
-          <li>疾風之舞（飛行屬性） — 下次攻擊威力 ×1.2，且下次受到攻擊傷害減少 30</li>
-          <li>暴風捲（飛行屬性） — 讓對手立即損失 8 點能量</li>
-          <li>岩崩（岩石屬性） — 下次攻擊威力 +55；若場上有競技場效果額外 +25</li>
-          <li>坐地為王（岩石屬性） — 下次受到攻擊傷害減少 60</li>
-          <li>妖精之歌（妖精屬性） — 讓對手有 30% 機率立即陷入混亂</li>
-          <li>治癒之風（妖精屬性） — 解除自身異常狀態，並回復 10 HP</li>
-          <li>劇毒孢子（毒屬性） — 讓對手有 50% 機率立即陷入中毒</li>
-          <li>猛毒突襲（毒屬性） — 下次攻擊威力 +40；若對手已中毒額外 +40</li>
-          <li>蟲網束縛（蟲屬性） — 讓對手損失 6 點能量，自身下次攻擊威力 +20</li>
-          <li>群聚共鳴（蟲屬性） — 立即回復 6 點能量，並抽 1 張手牌</li>
-        </ul>
-        <li><b>支援者牌</b>（藍框）每回合限用 1 張，沒有場次上限。僅開局手牌中會出現：</li>
-        <ul>
-          <li>復活藥 — 復活備戰欄第一隻倒下的寶可夢（回復 40 HP，每場限用一次）</li>
-          <li>治療師 — 上場寶可夢完全回復 HP 並解除異常狀態</li>
-          <li>全力出擊 — 下次攻擊傷害 ×1.2，但下回合無法回復能量</li>
-          <li>搏命 — 我方與對方上場寶可夢同歸於盡，雙方各自選下一隻上場</li>
-          <li>瘋狂博士 — 選我方一隻寶可夢，變身成我方或對方一隻陣亡的寶可夢（回復變身後 50% HP）</li>
-          <li>啦啦隊 — 將能量補滿到 20</li>
-          <li>獵捕 — 指定對手一隻備戰寶可夢強制上場（不觸發上場特性），並造成 40 點固定傷害（會計算屬性相剋）</li>
-        </ul>
-        <li><b>競技場牌</b>（橘框）效果持續整場，放置新競技場會取代舊的：</li>
-        <ul>
-          <li>訓練場 — 場上所有技能威力 +25（雙方均有效）</li>
-          <li>地熱溫泉 — 每回合結束，雙方上場寶可夢各回復 30 HP</li>
-          <li>逆轉鬥技場 — HP 低於 50% 時，攻擊威力 +30</li>
-          <li>反轉世界 — 場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×1.2）；反轉後仍是克制的攻擊額外 +25 固定傷害</li>
-          <li>龍之谷（龍屬性） — 龍屬性寶可夢對妖精、冰系招式最多×1效果；龍屬性攻擊不會被減免或無效，且額外 +35 固定傷害</li>
-          <li>邪惡森林（草屬性） — 原本克制草屬性的寶可夢（火／冰／飛行／毒／蟲），全部變成弱草屬性（草屬性攻擊 ×1.2）；每回合結束，草屬性上場寶可夢回復 70 HP</li>
-          <li>Mega 稜鏡塔 — 雙方每個自己的回合開始時，獲得 16 點 Mega 能量；可 Mega 進化或已經 Mega 進化的寶可夢，受到的攻擊傷害 ×0.6</li>
-          <li>尖峰陷阱 — 寶可夢上場時，受到最大HP 25% 的傷害（雙方對等）</li>
-          <li>劇毒領域（毒屬性） — 寶可夢上場時，陷入中毒（雙方對等）；此場地下中毒傷害 ×2；每回合結束，毒屬性上場寶可夢回復 70 HP，並有 50% 機率完全閃避攻擊（不疊加）</li>
-          <li>羅馬鬥技場（格鬥屬性） — 格鬥屬性招式傷害 ×1.2；格鬥屬性攻擊不再被幽靈屬性完全免疫；格鬥屬性攻擊會連續發動兩次，第二次傷害 ×0.5（若第一次就打倒對手，第二次改攻擊新上場的寶可夢）</li>
-          <li>魔幻空間（超能力屬性） — 超能力屬性寶可夢受到的傷害 ×0.75；弱點消失（不受超效傷害影響）</li>
-          <li>熔岩火山（火屬性） — 火屬性招式傷害 +30；水屬性招式傷害 ×0.65</li>
-          <li>海洋世界（水屬性） — 水屬性招式消耗能量 ×0.3；電屬性招式傷害 ×1.4；水屬性寶可夢傷害額外 +40</li>
-          <li>莊嚴神社（一般屬性） — 一般屬性招式一律視為剋制對手（效果拉滿 ×1.2）；一般屬性攻擊方命中後回復等同傷害量的HP；一般屬性寶可夢受到的攻擊傷害 -30</li>
-          <li>沙塵暴（地面屬性） — 非地面／岩石／鋼屬性寶可夢，每回合結束損失最大HP的12%</li>
-          <li>岩石地帶（岩石屬性） — 岩石／地面／鋼屬性寶可夢，受到的攻擊傷害 -50，且不會再被剋制（弱點消除）</li>
-          <li>雷雲庇護所（電屬性） — 電屬性招式傷害 +30；每回合結束，雙方上場寶可夢若無異常狀態，20% 機率陷入麻痺</li>
-          <li>永凍冰原（冰屬性） — 冰屬性招式傷害 +30；每回合結束，雙方上場寶可夢若無異常狀態，15% 機率陷入結凍</li>
-          <li>暗夜詛咒領域（惡屬性） — 惡屬性招式傷害 ×1.2；此場地啟用中，雙方的所有恢復效果全部失效</li>
-          <li>鋼鐵堡壘（鋼屬性） — 鋼屬性招式傷害 +30；此場地下，雙方受到的攻擊傷害固定減少 20</li>
-          <li>疾風之翼（飛行屬性） — 飛行屬性招式傷害 ×1.2；飛行屬性寶可夢有 50% 機率完全閃避攻擊（不與其他閃避來源疊加判定）</li>
-          <li>蟲群巢穴（蟲屬性） — 蟲屬性招式傷害 +30；此場地下，抽牌／搶奪對方手牌類卡片不受每回合1次限制</li>
-          <li>亡靈墓園（幽靈屬性） — 幽靈屬性招式傷害 ×1.2；此場地下，異常狀態無法被解除</li>
-          <li>妖精結界原野（妖精屬性） — 妖精屬性招式傷害 +30；此場地下，雙方招式的異常狀態附加機率降低 10%（下限0%）</li>
-        </ul>
-      </ul>
-
-      <h3>特性</h3>
-      <p style="font-size:0.82rem;color:var(--muted);margin-bottom:0.5rem">部分寶可夢擁有特性，會在特定時機自動發動：</p>
-      <ul>
-        <li>妖精氣場／適應力（哲爾尼亞斯、鐵螯龍蝦）— 屬性加成（STAB）提升為 ×1.2（原本 ×1.1）</li>
-        <li>茂盛／激流／猛火／蟲之預感／葉綠素／沙之力（妙蛙花、大力鱷、噴火龍、水箭龜、大竺葵、蜥蜴王、巨鉗螳螂、巨沼怪、黑魯加、火焰雞、大食花、炎武王、龍頭地鼠、布里卡隆、妖火紅狐）— HP 低於 1/3 時，本系招式傷害 ×1.1</li>
-        <li>蟲群支配（鐵蟻）— 上場時場地切換為蟲群巢穴；蟲屬性攻擊傷害額外 +40</li>
-        <li>穿透（哥德小姐、風鈴鈴、超能妙喵）— 攻擊命中後 25% 機率讓對方下次攻擊傷害 ×0.9</li>
-        <li>緋紅脈動（故勒頓）— HP 低於 1/3 時，本系招式傷害 ×1.1；每回合開始必定額外抽到一張直搗黃龍</li>
-        <li>暗夜支配（熾焰咆哮虎）— 上場時場地切換為暗夜詛咒領域；惡屬性攻擊傷害額外 +40</li>
-        <li>背水之刃／輕盈（蔥遊兵、長毛狗、鍬農炮蟲、摔角鷹人）— HP 低於 50% 時，攻擊傷害 +40</li>
-        <li>龍域降臨（帝牙盧卡、帕路奇亞）— 上場時場地切換為龍之谷；龍屬性攻擊傷害額外 +40</li>
-        <li>海洋支配（拉普拉斯、蓋歐卡、毒刺水母、水伊布）— 上場時場地切換為海洋世界；水／冰屬性攻擊傷害額外 +40</li>
-        <li>熔岩大地（火爆獸、固拉多）— 上場時場地切換為熔岩火山；地面／火屬性攻擊傷害額外 +40</li>
-        <li>雷霆支配（電擊魔獸）— 上場時場地切換為雷雲庇護所；電屬性攻擊傷害額外 +40</li>
-        <li>妖精支配（仙子伊布）— 上場時場地切換為妖精結界原野；妖精屬性攻擊傷害額外 +40</li>
-        <li>鬥氣支配（怪力、鐵掌力士）— 上場時場地切換為羅馬鬥技場；格鬥屬性攻擊傷害額外 +40</li>
-        <li>火焰之軀（鴨嘴炎獸、烈箭鷹）— 受到攻擊後 20% 機率讓攻擊者陷入燒傷</li>
-        <li>引火（水晶燈火靈、席多藍恩）— 受到火屬性攻擊時完全免疫，下次攻擊威力 +20</li>
-        <li>沙隱／雪隱／神秘之守／牽制／自然回復／魅力／花之守護（烈咬陸鯊、雪妖女、寶石海星、大比鳥、七夕青鳥、長耳兔、花葉蒂）— 25% 機率將受到的傷害 ×0.9</li>
-        <li>亡靈支配（黑夜魔靈）— 上場時場地切換為亡靈墓園；幽靈屬性攻擊傷害額外 +40</li>
-        <li>密林支配（狙射樹梟、巨蔓藤）— 上場時場地切換為邪惡森林；草屬性攻擊傷害額外 +40</li>
-        <li>風沙支配（穿山王、超甲狂犀）— 上場時場地切換為沙塵暴；地面屬性攻擊傷害額外 +40</li>
-        <li>堅韌／毅力／崩潰／熱交換（路卡利歐、赫拉克羅斯、嘎啦嘎啦、堵攔熊、劈斬司令、老翁龍、戟脊龍）— 自身帶有異常狀態時，攻擊傷害 +40</li>
-        <li>強子引擎（密勒頓）— HP 低於 1/3 時，本系招式傷害 ×1.1；每回合開始必定額外抽到一張電光石火</li>
-        <li>治癒彩虹（鳳王）— 被擊倒後可以復活一次，HP 回復 50%（整場戰鬥限一次）；不會受到任何負面狀態</li>
-        <li>超幸運／驚人怪力／心之力（阿勃梭魯、恰雷姆、瑪機雅娜）— 攻擊傷害固定 +40</li>
-        <li>冰霜支配（凍原熊）— 上場時場地切換為永凍冰原；冰屬性攻擊傷害額外 +40</li>
-        <li>不眠（烏鴉頭頭、狠辣椒）— 不會陷入睡眠狀態</li>
-        <li>威嚇（風速狗、布魯皇、肯泰羅、流氓鱷、姆克鷹、大嘴娃、暴飛龍）— 上場時讓對方下一次攻擊傷害 ×0.9</li>
-        <li>機械之心（三合一磁怪、大鋼蛇）— 本回合使用過道具卡時，攻擊傷害 +40</li>
-        <li>指揮（白海獅、米立龍）— 陣亡或被換下場時，下一隻上場的我方寶可夢首次攻擊：能量消耗×0.5、傷害+40</li>
-        <li>魔法防守（皮可西）— 不會受到中毒／燒傷的傷害</li>
-        <li>破格（凱羅斯）— 攻擊時無視對方的防禦型特性</li>
-        <li>飄浮／蓄電（拉帝亞斯、拉帝歐斯、麻麻鰻魚王、捷拉奧拉）— 受到電屬性攻擊時完全免疫，並回復 3 點能量</li>
-        <li>多重鱗片（快龍）— HP 全滿時，受到的攻擊傷害 ×0.9</li>
-        <li>深淵支配（暴鯉龍、化石翼龍、冰岩怪）— 不會受到超效傷害；10% 機率完全閃避攻擊</li>
-        <li>深淵支配（伊裴爾塔爾）— 對方無法使用 Mega 進化；這隻寶可夢在場上時，對方的寶可夢無法回復 HP</li>
-        <li>神域支配（卡比獸、貓老大）— 上場時場地切換為莊嚴神社；一般屬性攻擊傷害額外 +40</li>
-        <li>我行我素（呆殼獸）— 不會陷入混亂狀態</li>
-        <li>劇毒支配（阿柏怪、龍王蠍）— 上場時場地切換為劇毒領域；毒屬性攻擊傷害額外 +40</li>
-        <li>毒療（耿鬼）— 中毒時每回合回復 1/8 最大HP，而非扣血</li>
-        <li>毒刺／毒素碎片（大針蜂、羅絲雷朵、蜈蚣王、毒藻龍、晶光花）— 受到攻擊後 20% 機率讓攻擊者中毒</li>
-        <li>惡作劇之心（龍捲雲）— 每回合開始 50% 機率抽到一張精神干擾；沒抽到時下次攻擊威力 +20</li>
-        <li>壓迫感／緊張感（鋼鎧鴉、超夢、急凍鳥、閃電鳥、火焰鳥、火炎獅）— 上場時讓對方損失 3 點能量</li>
-        <li>幻境支配（太陽岩）— 上場時場地切換為魔幻空間；超能力屬性攻擊傷害額外 +40</li>
-        <li>反骨（泥偶巨人、具甲武者）— 受到攻擊後，下次攻擊傷害 ×1.1</li>
-        <li>磐岩支配（龐岩怪、護城龍）— 上場時場地切換為岩石地帶；岩石屬性攻擊傷害額外 +40</li>
-        <li>粗糙皮膚（甲賀忍蛙、巨牙鯊）— 受到攻擊傷害時，反彈攻擊者 1/8 最大HP 傷害</li>
-        <li>顛倒之心（勾魂眼、詛咒娃娃、烏賊王）— 對手的防禦加成效果對自己反而變成傷害加成</li>
-        <li>硬岩／揚沙／降雪／恆淨之軀／終結之地（巨金怪、班基拉斯、噴火駝、暴雪王、蒂安希、基格爾德）— 受到剋制（×1.2以上）的攻擊傷害再減少 5%</li>
-        <li>靜電（雷丘、電龍、雷電獸）— 受到攻擊後 20% 機率讓攻擊者陷入麻痺</li>
-        <li>淬鍊之心（岩殿居蟹、袋獸、頭巾混混）— 首次被施加異常狀態時解除並免疫，之後攻擊傷害永久 +40</li>
-        <li>鋼鐵支配（蒼響、藏瑪然特）— 上場時場地切換為鋼鐵堡壘；鋼屬性攻擊傷害額外 +40</li>
-        <li>劍之王氣魄（蒼響 Mega／劍之王型態專屬）— 攻擊傷害固定 +70，且無視對方護盾</li>
-        <li>盾之王神威（藏瑪然特 Mega／盾之王型態專屬）— 受到的攻擊傷害固定 -70，且免疫所有異常狀態</li>
-        <li>結實／頑強／戰鬥盔甲（波士可多拉、盔甲鳥、列陣兵）— HP 全滿時，受到會直接擊倒的攻擊會保留 1 HP</li>
-        <li>同步（胡地、沙奈朵）— 陷入中毒／麻痺／燒傷時，會將該狀態傳染給攻擊者</li>
-        <li>厚脂肪／冰凍之軀／回復力（雷吉艾斯、冰鬼護、差不多娃娃）— 受到火／冰屬性攻擊傷害 ×0.92</li>
-        <li>惡夢／硬爪（達克萊伊、龜足巨鎧）— 攻擊傷害 +40</li>
-        <li>不動如山（爆音怪、遠古巨蜓、掘地兔、艾路雷朵、好勝毛蟹）— 攻擊傷害不會被對方的防禦特性、閃避或撐住效果影響</li>
-        <li>漩渦威壓（洛奇亞）— 牠在場上時，對手攻擊消耗的能量持續 +3；每回合開始 50% 機率抽到一張大海之盾</li>
-        <li>乾燥皮膚（毒骷蛙）— 受到水屬性攻擊時完全免疫，並回復最大HP的1/4</li>
-        <li>威壓氣場（烈空坐、象牙豬）— 對手的攻擊力提升效果減半</li>
-      </ul>
-
       <h3>電腦 AI</h3>
       <p>HP 低於 40% 時優先補血；有異常狀態時嘗試解除；發現可讓對手陷入狀態時使用火焰彈、瓦斯攻擊、混亂藥或絕對零度；每回合攻擊前使用增幅牌。</p>
     </div>
 
-    <div id="guide-tab-dex" style="display:none"></div>
+    <div id="guide-tab-dex" style="display:none">
+      <div class="dex-search-wrap">
+        <input type="text" class="dex-search-input" id="dex-search-dex" placeholder="🔍 搜尋寶可夢名稱…" oninput="filterDexSearch('dex')">
+        <div class="dex-search-count" id="dex-search-count-dex"></div>
+      </div>
+      <div id="dex-list-dex"></div>
+    </div>
+
+    <div id="guide-tab-items" style="display:none">
+      <div class="dex-search-wrap">
+        <input type="text" class="dex-search-input" id="dex-search-items" placeholder="🔍 搜尋道具卡名稱…" oninput="filterDexSearch('items')">
+        <div class="dex-search-count" id="dex-search-count-items"></div>
+      </div>
+      <div id="dex-list-items"></div>
+    </div>
+
+    <div id="guide-tab-supporters" style="display:none">
+      <div class="dex-search-wrap">
+        <input type="text" class="dex-search-input" id="dex-search-supporters" placeholder="🔍 搜尋支援者卡名稱…" oninput="filterDexSearch('supporters')">
+        <div class="dex-search-count" id="dex-search-count-supporters"></div>
+      </div>
+      <div id="dex-list-supporters"></div>
+    </div>
+
+    <div id="guide-tab-stadiums" style="display:none">
+      <div class="dex-search-wrap">
+        <input type="text" class="dex-search-input" id="dex-search-stadiums" placeholder="🔍 搜尋競技場卡名稱…" oninput="filterDexSearch('stadiums')">
+        <div class="dex-search-count" id="dex-search-count-stadiums"></div>
+      </div>
+      <div id="dex-list-stadiums"></div>
+    </div>
   </div>
 </div>
 
@@ -7206,18 +7062,45 @@ function chooseTrade(type) {
 /* ─────────────────────────────────────────
    GUIDE TABS + DEX
 ───────────────────────────────────────── */
+const GUIDE_TABS = ['rules', 'dex', 'items', 'supporters', 'stadiums'];
 function showGuideTab(tab) {
-  document.getElementById('guide-tab-rules').style.display = tab === 'rules' ? '' : 'none';
-  document.getElementById('guide-tab-dex').style.display   = tab === 'dex'   ? '' : 'none';
-  document.getElementById('tab-btn-rules').classList.toggle('active', tab === 'rules');
-  document.getElementById('tab-btn-dex').classList.toggle('active',   tab === 'dex');
+  GUIDE_TABS.forEach(t => {
+    document.getElementById(`guide-tab-${t}`).style.display = t === tab ? '' : 'none';
+    document.getElementById(`tab-btn-${t}`).classList.toggle('active', t === tab);
+  });
   if (tab === 'dex') renderDex();
+  if (tab === 'items') renderCardDex('items', 'item');
+  if (tab === 'supporters') renderCardDex('supporters', 'supporter');
+  if (tab === 'stadiums') renderCardDex('stadiums', 'stadium');
+}
+
+/* 招式效果文字：showMoveInfo()彈窗跟圖鑑各自維護一份同樣邏輯的文字組合，2026-08-07新增
+   megaDraw/megaSeal/bonusVsType/ignoreShield/status2幾個欄位（原本兩處都漏了，見battle-logic
+   skill的說明），抽成共用function，兩處都呼叫這個，之後新增欄位只要改一個地方 */
+function moveEffectDescParts(a) {
+  const descParts = [];
+  if (a.support) {
+    descParts.push(SUPPORT_EFFECT_ZH[a.effect] || '輔助技能');
+    return descParts;
+  }
+  if (a.status) descParts.push(`${STATUS_EFFECT_ZH[a.status.effect]} ${Math.round(a.status.chance*100)}%`);
+  if (a.status2) descParts.push(`附加${STATUS_EFFECT_ZH[a.status2.effect]} ${Math.round(a.status2.chance*100)}%`);
+  if (a.megaBoost) descParts.push('Mega 能量 ×2');
+  else if (a.bonusEnergy) descParts.push(`下回合 +${a.bonusEnergy} 能量`);
+  else if (a.selfHeal) descParts.push('附帶回復自身 HP');
+  if (a.rider) descParts.push(RIDER_EFFECT_ZH[a.rider] || '');
+  if (a.bonusVsType) descParts.push(`對${TYPE_ZH[a.bonusVsType]||a.bonusVsType}系額外+50傷害`);
+  if (a.ignoreReflect) descParts.push('無視對方反彈鏡');
+  if (a.ignoreShield) descParts.push('無視對方護盾');
+  if (a.megaDraw) descParts.push('命中後抽1張手牌');
+  if (a.megaSeal) descParts.push('命中後封鎖對方下回合支援者卡');
+  return descParts;
 }
 
 function renderDex() {
-  const container = document.getElementById('guide-tab-dex');
-  if (container.dataset.rendered) return;
-  container.dataset.rendered = '1';
+  const listEl = document.getElementById('dex-list-dex');
+  if (listEl.dataset.rendered) { updateDexSearchCount('dex'); return; }
+  listEl.dataset.rendered = '1';
   const tiers = [
     { tier:1, label:'第 1 關（弱）' },
     { tier:2, label:'第 2 關（中）' },
@@ -7230,22 +7113,7 @@ function renderDex() {
       const col = TYPE_COLOR[p.type] || '#888';
       const movesHtml = p.attacks.map(a => {
         const mc = TYPE_COLOR[a.type] || '#888';
-        // 2026-07-30應使用者回報「圖鑑看不到招式/特性的完整說明」修正：原本只顯示威力/能量/
-        // 異常狀態機率，輔助技能的實際效果（SUPPORT_EFFECT_ZH）、附加效果（RIDER_EFFECT_ZH）、
-        // Mega能量加成／下回合能量／自我回復等欄位完全沒顯示——這些文字既有的招式詳情彈窗
-        // （showMoveInfo）本來就有，圖鑑只是沒有複用，這裡補齊（拿掉需要對手屬性才能算的
-        // 相剋/STAB部分，圖鑑沒有固定對手，不適用）。
-        const descParts = [];
-        if (a.support) {
-          descParts.push(SUPPORT_EFFECT_ZH[a.effect] || '輔助技能');
-        } else {
-          if (a.status) descParts.push(`${STATUS_EFFECT_ZH[a.status.effect]} ${Math.round(a.status.chance*100)}%`);
-          if (a.megaBoost) descParts.push('Mega 能量 ×2');
-          else if (a.bonusEnergy) descParts.push(`下回合 +${a.bonusEnergy} 能量`);
-          else if (a.selfHeal) descParts.push('附帶回復自身 HP');
-          if (a.rider) descParts.push(RIDER_EFFECT_ZH[a.rider] || '');
-          if (a.ignoreReflect) descParts.push('無視對方反彈鏡');
-        }
+        const descParts = moveEffectDescParts(a);
         const descHtml = descParts.length
           ? `<div class="dex-move-desc" style="color:var(--muted);font-size:0.6rem;margin-left:0.3rem">${descParts.join('・')}</div>` : '';
         return `<div class="dex-move">
@@ -7266,7 +7134,7 @@ function renderDex() {
             ${p.mega.ability ? `<div class="ability-badge">✨ ${p.mega.ability.name}</div><div class="dex-ability-desc" style="color:var(--muted);font-size:0.62rem;margin-top:0.1rem">${p.mega.ability.desc}</div>` : ''}
           </div>
         </div>` : '';
-      html += `<div class="dex-card">
+      html += `<div class="dex-card" data-name="${p.name}">
         <img class="dex-sprite" src="${spriteUrl(p.id)}" alt="${p.name}" onerror="this.onerror=null;this.src='${officialArtworkUrl(p.id)}'">
         <div class="dex-info">
           <div class="dex-name">${p.name}&nbsp;<span class="type-badge" style="background:${col};font-size:0.58rem;padding:0.04rem 0.28rem;vertical-align:middle">${TYPE_ZH[p.type]||p.type}</span>${type2Badge}</div>
@@ -7278,7 +7146,70 @@ function renderDex() {
       </div>`;
     });
   });
-  container.innerHTML = html;
+  listEl.innerHTML = html;
+  updateDexSearchCount('dex');
+}
+
+/* 道具卡／支援者卡／競技場卡圖鑑：三個分頁共用同一個函式，只是依cat篩選TRAINERS——
+   直接用TRAINERS本身的desc欄位（手牌顯示已經在用的同一份文字），不另外手寫一份容易漂移的說明，
+   同時解決了原本規則說明頁裡那份手寫清單容易跟實際卡片效果脫節的問題（見pokemon-data skill
+   關於guide-text roster list容易stale的教訓，卡片說明同樣適用） */
+function renderCardDex(tabKey, cat) {
+  const listEl = document.getElementById(`dex-list-${tabKey}`);
+  if (listEl.dataset.rendered) { updateDexSearchCount(tabKey); return; }
+  listEl.dataset.rendered = '1';
+  // type-orb/rune-revelation因為權重設計刻意在TRAINERS裡重複6次（見battle-logic skill），
+  // 圖鑑只需要顯示一次，用Map依id去重
+  const seen = new Map();
+  TRAINERS.filter(c => c.cat === cat).forEach(c => { if (!seen.has(c.id)) seen.set(c.id, c); });
+  const cards = [...seen.values()].sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'));
+  const html = cards.map(c => {
+    const icon = getTrainerIcon(c);
+    const typeBadge = c.type ? `<span class="type-badge" style="background:${TYPE_COLOR[c.type]||'#888'};font-size:0.58rem;padding:0.04rem 0.28rem">${TYPE_ZH[c.type]||c.type}</span>` : '';
+    return `<div class="tcard-dex-card" data-name="${c.name}">
+      <div class="tcard-dex-icon">${icon}</div>
+      <div class="tcard-dex-info">
+        <div class="tcard-dex-name">${c.name}${typeBadge}</div>
+        <div class="tcard-dex-desc">${c.desc}</div>
+      </div>
+    </div>`;
+  }).join('');
+  listEl.innerHTML = html || '<div class="dex-empty-msg">目前沒有卡片</div>';
+  updateDexSearchCount(tabKey);
+}
+
+/* 快速索引：4個圖鑑分頁共用的搜尋框邏輯，依名稱即時過濾（不重新渲染，只切換display，
+   Chinese子字串比對不用擔心大小寫問題，跟showMoveInfo/renderDex這類既有function一樣簡單直接） */
+function filterDexSearch(tabKey) {
+  const query = (document.getElementById(`dex-search-${tabKey}`).value || '').trim();
+  const listEl = document.getElementById(`dex-list-${tabKey}`);
+  const cards = listEl.querySelectorAll('[data-name]');
+  cards.forEach(card => {
+    card.style.display = card.dataset.name.includes(query) ? '' : 'none';
+  });
+  // 寶可夢圖鑑分頁才有的關卡標籤(第1/2/3關)：搜尋後底下沒有任何符合的卡片就一併隱藏，
+  // 不然搜尋結果會出現一堆空標題，其他3個圖鑑分頁沒有.dex-tier-label，這段是no-op
+  let currentLabel = null, currentHasVisible = false;
+  const flush = () => { if (currentLabel) currentLabel.style.display = currentHasVisible ? '' : 'none'; };
+  listEl.querySelectorAll('.dex-tier-label, [data-name]').forEach(el => {
+    if (el.classList.contains('dex-tier-label')) {
+      flush();
+      currentLabel = el; currentHasVisible = false;
+    } else if (el.style.display !== 'none') {
+      currentHasVisible = true;
+    }
+  });
+  flush();
+  updateDexSearchCount(tabKey);
+}
+
+function updateDexSearchCount(tabKey) {
+  const countEl = document.getElementById(`dex-search-count-${tabKey}`);
+  if (!countEl) return;
+  const listEl = document.getElementById(`dex-list-${tabKey}`);
+  const cards = listEl.querySelectorAll('[data-name]');
+  const visible = [...cards].filter(c => c.style.display !== 'none').length;
+  countEl.textContent = cards.length ? `顯示 ${visible} / ${cards.length} 筆` : '';
 }
 </script>
 <!-- KO switch modal -->
