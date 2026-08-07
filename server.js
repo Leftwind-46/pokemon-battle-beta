@@ -80,7 +80,8 @@ const POKEMON = [
   { id:144, name:'急凍鳥',     type:'ice',      type2:'flying',  hp:340, tier:3, ability:{id:'pressure', name:'壓迫感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[{name:'暴風雪',dmg:74,cost:8,type:'ice',status:{effect:'freeze', chance:0.4},megaBoost:true,bonusEnergy:6},{name:'燕返',dmg:105,cost:13,type:'flying',ignoreReflect:true,status:{effect:'sleep', chance:0.4},bonusVsType:'bug'},{name:'幽冥威壓擊',dmg:101,cost:13,type:'ghost',selfHeal:0.22,bonusVsType:'ghost',ignoreReflect:true,ignoreShield:true},{name:'橫衝直撞',dmg:97,cost:13,type:'normal',selfHeal:0.25}]},
   { id:145, name:'閃電鳥',     type:'electric', type2:'flying',  hp:245, tier:3, ability:{id:'pressure', name:'壓迫感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[{name:'龍爪',dmg:72,cost:7,type:'dragon',rider:'type-draw',status:{effect:'paralysis', chance:0.4},megaBoost:true,bonusEnergy:6},{name:'猛禽炸彈',dmg:68,cost:7,type:'flying',status:{effect:'sleep', chance:0.4},bonusVsType:'fighting'},{name:'雷霆',dmg:98,cost:12,type:'electric',selfHeal:0.25,bonusVsType:'dragon'},{name:'吼叫',dmg:43,cost:1,type:'normal',rider:'type-draw',status:{effect:'paralysis', chance:0.4},status2:{effect:'poison',chance:0.4}}]},
   { id:146, name:'火焰鳥',     type:'fire',     type2:'flying',  hp:200, tier:3, ability:{id:'pressure', name:'壓迫感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[{name:'火焰衝擊',dmg:92,cost:11,type:'fire',status:{effect:'burn', chance:0.4},megaBoost:true,bonusEnergy:6,bonusVsType:'ice',ignoreReflect:true},{name:'超能力',dmg:40,cost:0,type:'psychic',rider:'energy-steal',status:{effect:'confusion', chance:0.4},selfHeal:0.16,status2:{effect:'burn',chance:0.4}},{name:'十萬伏特',dmg:72,cost:6,type:'electric',status:{effect:'paralysis', chance:0.4}},{name:'怒風',dmg:40,cost:0,type:'flying',ignoreReflect:true,selfHeal:0.28}]},
-  { id:888,name:'蒼響',      type:'fairy',    type2:'steel',   hp:370, tier:3, ability:{id:'steel-domain', name:'鋼鐵支配', trigger:'onEnter', desc:'上場時場地切換為鋼鐵堡壘；鋼屬性攻擊傷害額外 +40'}, attacks:[{name:'接近戰',dmg:105,cost:14,type:'fighting',megaBoost:true,bonusEnergy:8},{name:'月亮力量',dmg:101,cost:14,type:'fairy',ignoreReflect:true,selfHeal:0.19,bonusVsType:'dark'},{name:'鐵頭功',dmg:108,cost:14,type:'steel',selfHeal:0.21,bonusVsType:'normal',ignoreReflect:true,ignoreShield:true},{name:'劇毒威壓擊',dmg:81,cost:9,type:'poison',selfHeal:0.18}]},
+  { mega:{spriteId:10188, type:'fairy', type2:'steel', ability:{id:'crowned-sword-might', name:'劍之王氣魄', trigger:'onAttack', desc:'攻擊傷害固定 +70，且無視對方護盾'}}, id:888,name:'蒼響',      type:'fairy',    type2:'steel',   hp:370, tier:3, ability:{id:'steel-domain', name:'鋼鐵支配', trigger:'onEnter', desc:'上場時場地切換為鋼鐵堡壘；鋼屬性攻擊傷害額外 +40'}, attacks:[{name:'接近戰',dmg:105,cost:14,type:'fighting',megaBoost:true,bonusEnergy:8},{name:'月亮力量',dmg:101,cost:14,type:'fairy',ignoreReflect:true,selfHeal:0.19,bonusVsType:'dark'},{name:'鐵頭功',dmg:108,cost:14,type:'steel',selfHeal:0.21,bonusVsType:'normal',ignoreReflect:true,ignoreShield:true},{name:'劇毒威壓擊',dmg:81,cost:9,type:'poison',selfHeal:0.18}]},
+  { mega:{spriteId:10189, type:'fighting', type2:'steel', ability:{id:'crowned-shield-aegis', name:'盾之王神威', trigger:'onDefend', desc:'受到的攻擊傷害固定 -70，且免疫所有異常狀態'}}, id:889,name:'藏瑪然特',    type:'fighting', type2:null,      hp:370, tier:3, ability:{id:'steel-domain', name:'鋼鐵支配', trigger:'onEnter', desc:'上場時場地切換為鋼鐵堡壘；鋼屬性攻擊傷害額外 +40'}, attacks:[{name:'大顎噬咬',dmg:105,cost:14,type:'steel',bonusVsType:'fairy',ignoreReflect:true},{name:'接近戰',dmg:108,cost:14,type:'fighting',selfHeal:0.2},{name:'咬碎',dmg:101,cost:14,type:'dark',status:{effect:'confusion', chance:0.35},ignoreShield:true},{name:'地震',dmg:82,cost:9,type:'ground',selfHeal:0.18,bonusVsType:'steel'}]},
   { id:716, name:'哲爾尼亞斯', type:'fairy',    hp:305, tier:3, ability:{id:'adaptability', name:'妖精氣場', trigger:'onAttack', desc:'屬性加成（STAB）提升為 ×1.2（原本 ×1.1）'}, attacks:[{name:'飛葉快刀',dmg:56,cost:4,type:'grass',rider:'type-draw'},{name:'十萬伏特',dmg:91,cost:10,type:'electric',status:{effect:'paralysis', chance:0.4},status2:{effect:'burn',chance:0.4}},{name:'魔法閃耀',dmg:110,cost:15,type:'fairy',rider:'card-steal'},{name:'冰耳光',dmg:106,cost:15,type:'ice',status:{effect:'freeze', chance:0.4},bonusVsType:'flying',ignoreReflect:true}]},
   { id:378, name:'雷吉艾斯',   type:'ice',      hp:370, tier:3, ability:{id:'thick-fat', name:'厚脂肪', trigger:'onDefend', desc:'受到火／冰屬性攻擊傷害 ×0.92'}, attacks:[{name:'暴風雪',dmg:108,cost:14,type:'ice',status:{effect:'freeze', chance:0.4},megaBoost:true,bonusEnergy:8,bonusVsType:'grass'},{name:'閃光炮',dmg:81,cost:9,type:'steel',rider:'self-cure',status:{effect:'paralysis', chance:0.4}},{name:'未來雷霆',dmg:100,cost:14,type:'psychic',status:{effect:'confusion', chance:0.4},bonusVsType:'fighting'},{name:'電磁砲',dmg:107,cost:14,type:'electric',rider:'mega-charge',status:{effect:'burn', chance:0.4},status2:{effect:'freeze',chance:0.4}}]},
   { id:717, name:'伊裴爾塔爾', type:'dark',     type2:'flying',  hp:265, tier:3, ability:{id:'dark-abyss-lockdown', name:'深淵支配', trigger:'passive', desc:'對方無法使用 Mega 進化；這隻寶可夢在場上時，對方的寶可夢無法回復 HP'}, attacks:[{name:'幽靈球',dmg:53,cost:3,type:'ghost',ignoreReflect:true},{name:'空氣斬',dmg:77,cost:9,type:'flying',rider:'mega-charge',status:{effect:'freeze', chance:0.4},status2:{effect:'paralysis',chance:0.4}},{name:'大地虹吸',dmg:84,cost:9,type:'ground',rider:'life-drain'},{name:'惡意波動',dmg:103,cost:14,type:'dark',selfHeal:0.25,bonusVsType:'ghost'}]},
@@ -845,6 +846,7 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
       : (defenderAbility?.id === 'status-immune-once' && defender._temperedHeart) ? 40
       : (defenderAbility?.id === 'item-synergy' && G[`${dRole}UsedItemThisTurn`]) ? 40
       : rAbilityDomainBonusApplies ? 40
+      : (defenderAbility?.id === 'crowned-sword-might') ? 70
       : 0;
     const rIsBlazeBoostFamily = defenderAbility?.id === 'blaze-boost' || defenderAbility?.id === 'hadron-engine' || defenderAbility?.id === 'crimson-pulse';
     const rAbilityDmgMult = ((rIsBlazeBoostFamily && rLowHpSelf && rIsOwnType) ? 1.1 : (defenderAbility?.id === 'technician' && atk.dmg <= 60) ? 1.1 : 1) * rTintedLensMult;
@@ -877,12 +879,13 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     const rMegaPrismMult = (G.activeStadium?.id === 'stadium-mega-prism' && (attacker.mega || attacker.megaEvolved)) ? 0.6 : 1;
     const rStadiumMult = rColosseumMult * rMysticSpaceMult * rLavaMult * rOceanMult * rDarkCurseMult * rFlyingWindMult * rGhostCurseMult * rMegaPrismMult;
     const rStadiumFlatBonus = rLavaBonus + rDragonValleyBonus + rInvertBonus + rElectricStormBonus + rIceTundraBonus + rSteelFortressBonus + rBugHiveBonus + rFairyWardBonus + rOceanPokeBonus;
-    const rShieldTerm = (dBuff.ignoreShield || atk.ignoreShield) ? 0 : (attackerAbility?.id === 'shield-invert' ? -aBuff.shield : aBuff.shield);
+    const rShieldTerm = (dBuff.ignoreShield || atk.ignoreShield || defenderAbility?.id === 'crowned-sword-might') ? 0 : (attackerAbility?.id === 'shield-invert' ? -aBuff.shield : aBuff.shield);
+    const rCrownedShieldReduction = attackerAbility?.id === 'crowned-shield-aegis' ? 70 : 0;
     const rBurnMult = defender.status?.type === 'burn' ? 0.94 : 1;
     const dmg = (rMult === 0) ? 0 : Math.max(0, Math.max(1, Math.floor(
       (atk.dmg + dBuff.atkBonus + rStadiumFlatBonus + rAbilityDmgBonus + rMegaBoostBonus + rBonusVsTypeBonus) *
       dBuff.atkMult * rBurnMult * rMult * rStabMult * rAbilityDmgMult * rDefAbilityMult * rStadiumMult
-    )) - rShieldTerm - rRockFieldReduction - rSteelFortressReduction - rShrineReduction);
+    )) - rShieldTerm - rRockFieldReduction - rSteelFortressReduction - rShrineReduction - rCrownedShieldReduction);
     attacker.cur  = Math.max(0, attacker.cur - dmg);
     log.push({ text: `反彈鏡！攻擊被反彈，${attacker.name} 承受了 ${dmg} 傷害！`, cls: 'special' });
     aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; aBuff.doubleStrike = false; aBuff.typeBoost = null; aBuff.ignoreShield = false; aBuff.guaranteedStatus = false; aBuff.costFreeType = null; aBuff.costHalved = false; aBuff.ignoreReflectNext = false; aBuff.iceHowlFreeze = false; dBuff.shield = 0; dBuff.iceImmune = false;
@@ -958,6 +961,7 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     : (attackerAbility?.id === 'drizzle-ocean' && (atkType === 'water' || atkType === 'ice')) ? 40
     : (attackerAbility?.id === 'drought-lava' && (atkType === 'ground' || atkType === 'fire')) ? 40
     : (DOMAIN_ABILITY_STADIUM[attackerAbility?.id]?.type === atkType) ? 40
+    : (attackerAbility?.id === 'crowned-sword-might') ? 70
     : 0;
   // 2026-08-04全面稽核：領域特性持有者onEnter會自動切換到「剛好加成自己本系招式」的場地卡，
   // 導致abilityDmgBonus的+40跟場地卡自己對該屬性招式的加成疊加算兩次（跟海洋世界/毒刺水母
@@ -1044,14 +1048,15 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     // 直搗黃龍：無視對方的shield（受傷減少）效果，這次攻擊當它不存在
     // 2026-07-31新增atk.ignoreShield：部分高消耗招式自帶「無視盾牌」（跟既有的buff版
     // aBuff.ignoreShield／直搗黃龍卡片並存，任一個成立就無視）
-    const shieldTerm = (aBuff.ignoreShield || atk.ignoreShield) ? 0 : (defenderAbility?.id === 'shield-invert' ? -dBuff.shield : dBuff.shield);
+    const shieldTerm = (aBuff.ignoreShield || atk.ignoreShield || attackerAbility?.id === 'crowned-sword-might') ? 0 : (defenderAbility?.id === 'shield-invert' ? -dBuff.shield : dBuff.shield);
+    const crownedShieldReduction = defenderAbility?.id === 'crowned-shield-aegis' ? 70 : 0;
     // 2026-07-30應使用者回報「傷害計算怪怪的」修正：固定減傷（shieldTerm/rockFieldReduction/
     // steelFortressReduction）疊加起來可能超過乘法鏈算出來的傷害本身，原本扣減後沒有再夾在0以上，
     // 會讓damage變成負數，等同攻擊反而幫defender加血。外層包Math.max(0,...)避免倒扣出負傷害。
     // 2026-08-04修正：羅馬鬥技場第二段攻擊的×0.5要乘在整條乘法鏈最後面（atk._halfDamage），
     // 不能只砍atk.dmg這個小加項——megaBoostBonus/abilityDmgBonus等固定加成完全不會被砍到，
     // 導致第二段幾乎跟第一段一樣高（使用者回報「兩下攻擊都超過300」）。
-    damage = Math.max(0, Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumFlatBonus + legacyDmgBonus + abilityDmgBonus + megaBoostBonus + typeBoostBonus + bonusVsTypeBonus) * effectiveAtkMult * burnMult * mult * stabMult * switchGuardMult * standbyGuardMult * abilityDmgMult * defAbilityMult * stadiumMult * typeBoostMult * reflectPierceMult * (atk._halfDamage ? 0.5 : 1))) - shieldTerm - rockFieldReduction - steelFortressReduction - shrineReduction);
+    damage = Math.max(0, Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumFlatBonus + legacyDmgBonus + abilityDmgBonus + megaBoostBonus + typeBoostBonus + bonusVsTypeBonus) * effectiveAtkMult * burnMult * mult * stabMult * switchGuardMult * standbyGuardMult * abilityDmgMult * defAbilityMult * stadiumMult * typeBoostMult * reflectPierceMult * (atk._halfDamage ? 0.5 : 1))) - shieldTerm - rockFieldReduction - steelFortressReduction - shrineReduction - crownedShieldReduction);
     // 影舞：下一次受到攻擊擲硬幣，正面完全免傷——一次性旗標，這次攻擊到來就消耗掉（不論正反面）。true-damage系特性無視此效果。
     if (!moldBreaker && G[`${dRole}CoinShield`]) {
       G[`${dRole}CoinShield`] = false;
@@ -1240,9 +1245,11 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     const fairyWardChance1 = G.activeStadium?.id === 'stadium-fairy-ward' ? Math.max(0, (st?.chance || 0) - 0.1) : (st?.chance || 0);
     if (st && defender.cur > 0 && (aBuff.guaranteedStatus || Math.random() < fairyWardChance1)) {
       const effect = st.effect;
-      // 鎂光反射：2026-07-28新增，defender若架有反射負面效果的護盾，這次異常狀態改套用到
-      // attacker自己身上，護盾消耗掉（不再檢查defender的own-tempo/insomnia等免疫）
-      if (dBuff.debuffReflect) {
+      // 盾之王神威（藏瑪然特Mega/劍之王盾之王機制專屬）：完全免疫所有異常狀態，跟own-tempo/insomnia
+      // 同樣的「特性直接擋下」寫法，只是不限單一種異常狀態，優先權比鎂光反射更高（直接免疫，不轉嫁）
+      if (defenderAbility?.id === 'crowned-shield-aegis') {
+        log.push({ text: `${defender.name} 的盾之王神威抵擋了異常狀態！`, cls: 'special' });
+      } else if (dBuff.debuffReflect) {
         dBuff.debuffReflect = false;
         if (attacker.cur > 0) {
           const reflectTurns = effect === 'sleep' ? (Math.floor(Math.random()*2)+2)
@@ -1359,7 +1366,9 @@ function executeSupportMoveSrv(attacker, defender, atk, role, op, G, log) {
       const fairyWardChance2 = G.activeStadium?.id === 'stadium-fairy-ward' ? Math.max(0, (atk.status?.chance || 0) - 0.1) : (atk.status?.chance || 0);
       if (atk.status && defender.cur > 0 && (guaranteed || Math.random() < fairyWardChance2)) {
         const effect = atk.status.effect;
-        if (effect === 'confusion' && defender.ability?.id === 'own-tempo') {
+        if (defender.ability?.id === 'crowned-shield-aegis') {
+          log.push({ text: `${defender.name} 的盾之王神威抵擋了異常狀態！`, cls: 'special' });
+        } else if (effect === 'confusion' && defender.ability?.id === 'own-tempo') {
           log.push({ text: `${defender.name} 的我行我素抵消了混亂！`, cls: 'special' });
         } else if (effect === 'sleep' && defender.ability?.id === 'insomnia') {
           log.push({ text: `${defender.name} 的不眠抵消了睡眠！`, cls: 'special' });
