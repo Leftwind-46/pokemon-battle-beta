@@ -1369,6 +1369,10 @@ function handleWsMsg(msg) {
       break;
     case 'pocket_peek':
       showPeek(msg.title, msg.cards);
+      // 2026-08-07新增：同一份揭露內容也暫存起來，給pendingChoice.pool==='oppHand'的選擇UI用
+      // （"Your opponent reveals their hand. Choose a card..."這類效果——WS訊息同一連線保證
+      // 送達順序，這則pocket_peek一定比接下來帶pendingChoice的state更新先到，暫存讀取安全）
+      lastPeekedCards = msg.cards;
       break;
     case 'pocket_opponent_disconnected':
       document.getElementById('lobby-error').textContent = '對手已離線';
@@ -1386,6 +1390,7 @@ function handleWsMsg(msg) {
 ───────────────────────────────────────── */
 let state = null; // 最新一份 pocket_turn_state / pocket_match_start
 let selectedAction = null; // null | {mode:'attach'} | {mode:'evolve', handUid, from} | {mode:'retreat'}
+let lastPeekedCards = []; // 2026-08-07新增：最近一次pocket_peek揭露的卡片內容，供oppHand選擇UI使用
 
 function applyState(msg) {
   state = msg;
@@ -1643,6 +1648,17 @@ function renderBoard() {
       optionsEl.innerHTML = pool.map(p =>
         renderPokeSlot(p, { pickable: true, dataset: { 'attack-choice-pick': '1' } })
       ).join('');
+    } else if (pendingChoice.kind === 'pick_target' && pendingChoice.pool === 'oppHand') {
+      // 2026-08-07新增：目標是對手公開的手牌卡，不是board上的寶可夢——用lastPeekedCards渲染
+      // 卡片清單，不能複用renderPokeSlot(那是給寶可夢用的，讀hp/curHp等寶可夢專屬欄位)
+      titleEl.textContent = pendingChoice.action === 'discard' ? '選擇要棄置對手的哪張支援者卡' : '選擇要洗回對手牌庫的哪張卡';
+      subEl.textContent = '';
+      const eligible = lastPeekedCards.filter(c => pendingChoice.eligibleUids.includes(c.uid));
+      optionsEl.innerHTML = eligible.map(c => `
+        <div class="board-slot pickable" data-attack-choice-pick="1" data-uid="${c.uid}" style="min-width:120px">
+          <img src="${pocketThumbUrl(c.image)}" alt="${c.name}">
+          <div class="board-name">${c.name}</div>
+        </div>`).join('');
     } else if (pendingChoice.kind === 'pick_target') {
       const isOwn = pendingChoice.pool !== 'oppAll';
       titleEl.textContent = pendingChoice.action === 'attachEnergy'
@@ -1661,6 +1677,17 @@ function renderBoard() {
       optionsEl.innerHTML = eligible.map(p =>
         renderPokeSlot(p, { pickable: true, dataset: { 'attack-choice-pick': '1' } })
       ).join('');
+    } else if (pendingChoice.kind === 'pick_move') {
+      // 招式借用（2026-08-07新增）：選對手主戰身上的哪一招當作這次攻擊，跟其他pendingChoice
+      // 「點board slot選寶可夢」不同，這裡要列出招式清單讓玩家選——不是複用renderPokeSlot
+      titleEl.textContent = '選擇要借用對手的哪一招';
+      subEl.textContent = pendingChoice.checkEnergy ? '若這隻寶可夢沒有足夠能量，這次攻擊將完全沒有效果' : '';
+      const moves = opponent.active?.attacks || [];
+      optionsEl.innerHTML = moves.map((m, i) => `
+        <div class="board-slot pickable" data-move-choice-pick="${i}" style="min-width:160px">
+          <div class="board-name">${m.name}</div>
+          <div>威力 ${m.damage || 0}</div>
+        </div>`).join('');
     }
   }
 
@@ -1794,6 +1821,8 @@ document.getElementById('board-overlay').addEventListener('click', e => {
 
   const choiceSlot = e.target.closest('.board-slot[data-attack-choice-pick]');
   if (choiceSlot) { wsSend({ type: 'pocket_attack_choice', uid: choiceSlot.dataset.uid }); return; }
+  const moveChoiceSlot = e.target.closest('.board-slot[data-move-choice-pick]');
+  if (moveChoiceSlot) { wsSend({ type: 'pocket_attack_choice', moveIndex: Number(moveChoiceSlot.dataset.moveChoicePick) }); return; }
 
   // 2026-08-05改版：點手牌/己方場上寶可夢不再直接觸發動作（原本一點就出牌/撤退，容易誤觸、
   // 也看不到卡片詳細內容才做決定）——改成先開卡片預覽面板，可用的動作變成面板裡的按鈕，

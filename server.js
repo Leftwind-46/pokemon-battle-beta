@@ -3758,6 +3758,106 @@ const ATTACK_EFFECTS = {
     ctx.attacker.boardTurn = ctx.G.turnNumber;
     ctx.side.deck = pocketShuffle(ctx.side.deck);
   },
+
+  // 招式借用（2026-08-07新增pick_move機制，見pocket_attack_choice handler的說明）：兩種卡面
+  // 版本文字有直引號/彎引號差異，是TCGdex原始資料本身的印刷版本差異，兩個key都要留著分別
+  // 對應不同的實際卡片（跟先前Cubone那次彎引號的教訓一樣，不是bug）
+  "Choose 1 of your opponent's Active Pokémon's attacks and use it as this attack.": ctx => {
+    ctx.rawDamage = 0; // 實際傷害延遲到玩家選完招式才套用，這裡先歸零避免mainDamage誤用0-effect前的殘留值
+    if (!ctx.defender?.attacks?.length) return;
+    ctx.needsChoice = { kind: 'pick_move' };
+  },
+  "Choose 1 of your opponent’s Pokémon’s attacks and use it as this attack. If this Pokémon doesn’t have the necessary Energy to use that attack, this attack does nothing.": ctx => {
+    ctx.rawDamage = 0;
+    if (!ctx.defender?.attacks?.length) return;
+    ctx.needsChoice = { kind: 'pick_move', checkEnergy: true };
+  },
+
+  // 對手公開手牌選擇（2026-08-07新增，重用pick_target的pool='oppHand'）——ctx.peekHand讓client
+  // 顯示對手手牌內容(既有機制)，needsChoice暫停等玩家從中點選
+  "Your opponent reveals their hand. Choose a Supporter card you find there and discard it.": ctx => {
+    ctx.peekOpponentHand = true; // 這個handler(pocket_attack)是用peekOpponentHand欄位名稱，跟pocket_play_item/supporter用的peekHand不同，別搞混
+    const eligible = ctx.oppSide.hand.filter(c => c.category === 'Trainer' && c.trainerType === 'Supporter');
+    if (eligible.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppHand', eligibleUids: eligible.map(c => c.uid), action: 'discard' };
+  },
+  "Your opponent reveals their hand. Choose a card you find there and shuffle it into your opponent's deck.": ctx => {
+    ctx.peekOpponentHand = true;
+    if (ctx.oppSide.hand.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppHand', eligibleUids: ctx.oppSide.hand.map(c => c.uid), action: 'shuffleIntoDeck' };
+  },
+
+  // ── 招式效果第五批（2026-08-07再接續）──
+  "This attack does 40 more damage for each of your Benched Wishiwashi and Wishiwashi ex.": ctx => {
+    const n = ctx.side.bench.filter(p => p.name === 'Wishiwashi' || p.name === 'Wishiwashi ex').length;
+    ctx.rawDamage += n * 40;
+  },
+  "This attack does 50 more damage for each of your Benched Nidoking.": ctx => {
+    const n = ctx.side.bench.filter(p => p.name === 'Nidoking').length;
+    ctx.rawDamage += n * 50;
+  },
+  // 「只能在特定條件下使用這招」的招式級別限制——這個引擎沒有「事前擋下不給選」的機制，
+  // 簡化成「條件不符就沒效果」（能量/回合仍然消耗，跟真實規則「根本選不了這招」有落差，
+  // 但只有這1張卡需要這個限制，做完整的招式可用性前置檢查投入產出比不划算）
+  "You can use this attack only if you have Uxie and Azelf on your Bench. Discard all Energy from this Pokémon.": ctx => {
+    const names = ctx.side.bench.map(p => p.name);
+    if (!names.includes('Uxie') || !names.includes('Azelf')) { ctx.rawDamage = 0; return; }
+    ctx.attacker.energy = [];
+  },
+  "This attack does 20 more damage for each {G} Energy attached to this Pokémon.": ctx => {
+    ctx.rawDamage += ctx.attacker.energy.filter(e => e === 'Grass').length * 20;
+  },
+  "This attack does 20 damage for each Energy attached to all of your opponent's Pokémon.": ctx => {
+    const n = [ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean).reduce((sum, p) => sum + p.energy.length, 0);
+    ctx.rawDamage = n * 20;
+  },
+  "This attack does 30 more damage for each Evolution Pokémon on your Bench.": ctx => {
+    ctx.rawDamage += ctx.side.bench.filter(p => p.stage && p.stage !== 'Basic').length * 30;
+  },
+  // 濺傷自己整個板凳(固定量，非玩家自選目標)——主流程本來就會在effectFn跑完後對side/oppSide
+  // 雙方各呼叫一次pocketResolveBenchKOs，這裡直接扣血、KO判定不用自己處理
+  "This attack also does 10 damage to each of your Benched Pokémon.": ctx => {
+    ctx.side.bench.forEach(p => { p.curHp = Math.max(0, p.curHp - 10); });
+  },
+  "If the Defending Pokémon is a Basic Pokémon, it can't attack during your opponent's next turn.": ctx => {
+    if (ctx.defender?.stage === 'Basic') ctx.defender.cantAttackUntilTurn = ctx.G.turnNumber + 1;
+  },
+  "Flip 3 coins. This attack does 60 damage for each heads. This Pokémon is now Confused.": ctx => {
+    ctx.rawDamage = pocketFlipCoins(3, ctx) * 60;
+    ctx.attacker.status = 'confused';
+  },
+  "If this Pokémon has no damage on it, this attack does 40 more damage.": ctx => { if (ctx.attacker.curHp === ctx.attacker.hp) ctx.rawDamage += 40; },
+  // Math.min而不是直接賦值10——如果defender本來就低於10血，不該被這個效果「回血」到10
+  "Flip a coin. If heads, your opponent's Active Pokémon's remaining HP is now 10.": ctx => {
+    if (pocketFlipCoin(ctx) && ctx.defender) ctx.defender.curHp = Math.min(ctx.defender.curHp, 10);
+  },
+  "Change the type of a random Energy attached to your opponent's Active Pokémon to 1 of the following at random: {G}, {R}, {W}, {L}, {P}, {F}, {D}, or {M}.": ctx => {
+    if (!ctx.defender?.energy.length) return;
+    const idx = Math.floor(Math.random() * ctx.defender.energy.length);
+    const types = ['Grass', 'Fire', 'Water', 'Lightning', 'Psychic', 'Fighting', 'Darkness', 'Metal'];
+    ctx.defender.energy[idx] = types[Math.floor(Math.random() * types.length)];
+  },
+  "This attack does damage to your opponent's Active Pokémon equal to the damage this Pokémon has on it.": ctx => {
+    ctx.rawDamage = ctx.attacker.hp - ctx.attacker.curHp;
+  },
+  "If Quick-Grow Extract is in your discard pile, this attack does 30 more damage.": ctx => {
+    if (ctx.side.discard.some(c => c.name === 'Quick-Grow Extract')) ctx.rawDamage += 30;
+  },
+  // 固定傷害給對手板凳單體——卡面沒寫"at random"，玩家自選，重用既有pick_target(pool:'oppAll')
+  // 機制，eligibleUids只給板凳的uid（不含主戰）就能自然限縮選擇範圍，不用新增pool類型
+  "This attack does 70 damage to 1 of your opponent's Benched Pokémon.": ctx => {
+    ctx.rawDamage = 0;
+    if (ctx.oppSide.bench.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: ctx.oppSide.bench.map(p => p.uid), action: 'damage', amount: 70 };
+  },
+  // 隨機多次攻擊(次數=自身鋼能量數)，跟先前Dragonite流星群同一種寫法——這條key結尾原始資料
+  // 本身有一個尾隨空格，逐字比對必須保留
+  "1 of your opponent's Pokémon is chosen at random for each Metal Energy attached to this Pokémon. For each time a Pokémon was chosen, do 40 damage to it. ": ctx => {
+    ctx.rawDamage = 0;
+    const n = ctx.attacker.energy.filter(e => e === 'Metal').length;
+    const pool = [ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean);
+    for (let i = 0; i < n && pool.length; i++) {
+      const t = pool[Math.floor(Math.random() * pool.length)];
+      t.curHp = Math.max(0, t.curHp - 40);
+    }
+  },
 };
 // 場上所有寶可夢（雙方主戰+板凳）裡隨機選n次、每次隨機丟掉1點能量——「both yours and your
 // opponent's」代表池子橫跨雙方場面，不是各自獨立各丟一次，且身上沒能量的寶可夢不會被選中
@@ -7282,6 +7382,22 @@ async function handleMessage(ws, msg) {
         if (!pending.eligibleUids.includes(msg.uid)) return;
         const op = role === 'p1' ? 'p2' : 'p1';
         const oppSide = G[op];
+        // pool='oppHand'（2026-08-07新增）：目標不是board上的寶可夢，是「對方公開的手牌」裡的
+        // 一張卡（"Your opponent reveals their hand. Choose a Supporter card..."這類效果）——
+        // action是'discard'或'shuffleIntoDeck'，跟其他pool的傷害/治療/附能量完全不同的動作種類
+        if (pending.pool === 'oppHand') {
+          if (!pending.eligibleUids.includes(msg.uid)) return;
+          const idx = oppSide.hand.findIndex(c => c.uid === msg.uid);
+          if (idx < 0) return;
+          const [card] = oppSide.hand.splice(idx, 1);
+          if (pending.action === 'discard') oppSide.discard.push(card);
+          else if (pending.action === 'shuffleIntoDeck') { oppSide.deck.push(card); oppSide.deck = pocketShuffle(oppSide.deck); }
+          G.pendingChoice = null;
+          G.phase = 'active';
+          pocketAdvanceTurn(G);
+          pocketBroadcastState(pRoom);
+          return;
+        }
         const target = pending.pool === 'oppAll'
           ? [oppSide.active, ...oppSide.bench].find(p => p && p.uid === msg.uid)
           : side.bench.find(p => p.uid === msg.uid);
@@ -7305,6 +7421,41 @@ async function handleMessage(ws, msg) {
           }
           if (pocketCheckWin(G)) { G.pendingChoice = null; pocketBroadcastState(pRoom); return; }
           if (G.phase === 'forced_switch' || G.phase === 'done') { G.pendingChoice = null; pocketBroadcastState(pRoom); return; }
+        }
+      } else if (pending.kind === 'pick_move') {
+        // 「Choose 1 of your opponent's Active Pokémon's attacks and use it as this attack.」
+        // ——2026-08-07新增。簡化實作：只套用借來招式的固定傷害數字+弱點加成，不重新跑完整
+        // 的乘法鏈（場地/被動特性/buff/Tool等全部略過）——這個引擎的弱點判定本來就是查
+        // 「攻擊方寶可夢自己的種族屬性」(attacker.types)而不是招式屬性，借用招式不影響
+        // 這個判定基準，直接沿用即可。跟pick_target的action:'damage'分支一樣，KO/勝負判定
+        // 要自己重跑一次（這次傷害延遲到玩家選完招式才真的套用）。
+        const op = role === 'p1' ? 'p2' : 'p1';
+        const oppSide = G[op];
+        const attacker = side.active;
+        const defender = oppSide.active;
+        if (!attacker || !defender) { G.pendingChoice = null; G.phase = 'active'; pocketBroadcastState(pRoom); return; }
+        const borrowedAtk = defender.attacks?.[msg.moveIndex];
+        if (!borrowedAtk) return; // 不合法的招式索引，維持pendingChoice等玩家重選
+        // 部分卡面版本多了「沒有必要能量就完全沒效果」的條件，跟一般攻擊事前擋下不同——這裡
+        // 是「選了才知道要不要付得起」，付不起就直接結束回合、什麼都不做（不是拒絕這次選擇）
+        if (pending.checkEnergy && !pocketCanPayCost(attacker, borrowedAtk.cost || [])) {
+          G.pendingChoice = null;
+          G.phase = 'active';
+          pocketAdvanceTurn(G);
+          pocketBroadcastState(pRoom);
+          return;
+        }
+        let dmg = parseInt(String(borrowedAtk.damage || '0').replace(/\D+/g, ''), 10) || 0;
+        const weak = (defender.weaknesses || []).find(w => (attacker.types || []).includes(w.type));
+        if (weak) dmg += parseInt(String(weak.value).replace(/\D+/g, ''), 10) || 0;
+        defender.curHp = Math.max(0, defender.curHp - dmg);
+        pocketResolveBenchKOs(G, oppSide, role);
+        if (pocketCheckWin(G)) { G.pendingChoice = null; pocketBroadcastState(pRoom); return; }
+        if (oppSide.active?.uid === defender.uid && defender.curHp <= 0) {
+          pocketResolveActiveKO(G, op);
+          G.pendingChoice = null;
+          pocketBroadcastState(pRoom);
+          return;
         }
       } else if (pending.kind === 'pick_target_multi') {
         // 「Choose N of your Benched Pokémon」——跟pick_target不同的是要選N隻「不同的」，
