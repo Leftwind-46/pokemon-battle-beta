@@ -1597,6 +1597,7 @@
         <li>⚠️ 整場戰鬥<b>只能使用一次</b>——不論隊上有幾隻能 Mega 進化的寶可夢，用掉一次之後這條槽就會消失，無法再次進化。</li>
         <li>Mega 進化後會維持到本場戰鬥結束，即使中途換人下場、之後再換回來，也不會恢復原形。</li>
         <li>Mega 特性新增了 4 種：硬爪（攻擊傷害 +40）、技術高手（威力 60 以下的招式傷害 ×1.1）、破格（攻擊時無視對方的防禦型特性，如厚脂肪／硬岩／神秘之守／多重鱗片／頑強）、複製（進化當下複製對手當前的特性）。</li>
+        <li>Mega 進化會依原本威力由弱到強重排 4 個招式，並各自附帶新效果：最弱招式下回合 +5 能量，次弱招式命中回復自身 HP，次強招式命中後抽 1 張手牌，最強招式命中後讓對方下回合無法使用支援者卡（且異常狀態機率提高至 65%）。</li>
       </ul>
 
       <h3>通關獎勵</h3>
@@ -2210,7 +2211,7 @@ const POKEMON = [
   { mega:{spriteId:10034, type:'fire', type2:'dragon', ability:{id:'tough-claws', name:'硬爪', trigger:'onAttack', desc:'攻擊傷害 +40'}}, id:6,   name:'噴火龍',     type:'fire',     type2:'flying',  hp:290, tier:2, ability:{id:'blaze-boost', name:'猛火', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.1'}, attacks:[{name:'雷光強奪擊',dmg:69,cost:7,type:'electric',rider:'type-draw',status:{effect:'burn', chance:0.4},megaBoost:true,bonusEnergy:6},{name:'龍爪',dmg:48,cost:1,type:'dragon',rider:'energy-steal',megaBoost:true,bonusEnergy:5},{name:'火焰噴射',dmg:95,cost:12,type:'fire',status:{effect:'paralysis', chance:0.4},bonusVsType:'flying'},{name:'燕返',dmg:91,cost:12,type:'flying',status:{effect:'freeze', chance:0.4},bonusVsType:'bug',ignoreReflect:true}]},
   { mega:{spriteId:10036, type:'water', type2:null, ability:{id:'huge-power', name:'超級發射器', trigger:'onAttack', desc:'攻擊傷害固定 +40'}}, id:9,   name:'水箭龜',     type:'water',    hp:280, tier:2, ability:{id:'blaze-boost', name:'激流', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.1'}, attacks:[{name:'妖精吸血擊',dmg:42,cost:0,type:'fairy',rider:'mega-charge',megaBoost:true,bonusEnergy:4},{name:'蟲毒吸能擊',dmg:66,cost:6,type:'bug',rider:'type-draw'},{name:'水砲',dmg:96,cost:11,type:'water',selfHeal:0.28,bonusVsType:'dark'},{name:'冰凍光束',dmg:92,cost:11,type:'ice',selfHeal:0.29,bonusVsType:'dragon',ignoreReflect:true}]},
   { mega:{spriteId:10043, type:'psychic', type2:'fighting', ability:{id:'guts', name:'不屈之心', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 +40'}}, id:150, name:'超夢',       type:'psychic',  hp:320, tier:2, ability:{id:'pressure', name:'壓迫感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[{name:'氣功拳',dmg:89,cost:11,type:'fighting',status:{effect:'confusion', chance:0.4},megaBoost:true,bonusEnergy:4},{name:'念力衝擊',dmg:96,cost:11,type:'psychic',selfHeal:0.19,bonusVsType:'rock'},{name:'閃電拳',dmg:92,cost:11,type:'electric',status:{effect:'sleep', chance:0.4},bonusVsType:'flying',ignoreReflect:true},{name:'暗影球',dmg:65,cost:6,type:'ghost',rider:'type-draw',status:{effect:'poison', chance:0.4},status2:{effect:'burn',chance:0.4}}]},
-  { mega:{spriteId:10281, type:'dragon', type2:'flying', ability:{id:'multiscale', name:'多重鱗片', trigger:'onDefend', desc:'HP 全滿時，受到的攻擊傷害 ×0.9'}}, id:149, name:'快龍',       type:'dragon',   type2:'flying',  hp:320, tier:2, ability:{id:'multiscale', name:'多重鱗片', trigger:'onDefend', desc:'HP 全滿時，受到的攻擊傷害 ×0.9'}, attacks:[{name:'雷電',dmg:87,cost:11,type:'electric',megaBoost:true,bonusEnergy:4},{name:'逆鱗護甲擊',dmg:94,cost:11,type:'dragon',status:{effect:'paralysis', chance:0.4},bonusVsType:'flying',ignoreReflect:true},{name:'冰霜護甲擊',dmg:67,cost:6,type:'ice',rider:'energy-steal'},{name:'破壞光線',dmg:86,cost:11,type:'normal',status:{effect:'paralysis', chance:0.4},ignoreReflect:true,ignoreShield:true}]},
+  { mega:{spriteId:10281, type:'dragon', type2:'flying', ability:{id:'multiscale', name:'多重鱗片', trigger:'onDefend', desc:'HP 全滿時，受到的攻擊傷害 ×0.9'}}, id:149, name:'快龍',       type:'dragon',   type2:'flying',  hp:320, tier:2, ability:{id:'multiscale', name:'多重鱗片', trigger:'onDefend', desc:'HP 全滿時，受到的攻擊傷害 ×0.9'}, attacks:[{name:'雷電',dmg:87,cost:11,type:'electric',megaBoost:true,bonusEnergy:4},{name:'逆鱗護甲擊',dmg:94,cost:11,type:'dragon',status:{effect:'paralysis', chance:0.4},bonusVsType:'flying',ignoreReflect:true},{name:'暴風護甲擊',dmg:67,cost:6,type:'flying',rider:'energy-steal'},{name:'破壞光線',dmg:86,cost:11,type:'normal',status:{effect:'paralysis', chance:0.4},ignoreReflect:true,ignoreShield:true}]},
   { id:143, name:'卡比獸',     type:'normal',   hp:380, tier:2, ability:{id:'normal-domain', name:'神域支配', trigger:'onEnter', desc:'上場時場地切換為莊嚴神社；一般屬性攻擊傷害額外 +40'}, attacks:[{name:'磚塊',dmg:105,cost:15,type:'rock',megaBoost:true,bonusEnergy:8},{name:'鐵頭',dmg:89,cost:10,type:'steel',rider:'self-cure',selfHeal:0.25},{name:'地震',dmg:108,cost:15,type:'ground',status:{effect:'freeze', chance:0.4},bonusVsType:'poison'},{name:'喊叫',dmg:110,cost:15,type:'normal',selfHeal:0.29,bonusVsType:'rock',ignoreReflect:true,ignoreShield:true}]},
   { id:59,  name:'風速狗',     type:'fire',     hp:260, tier:2, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊傷害 ×0.9'}, attacks:[{name:'連續啃咬',dmg:52,cost:2,type:'dark',rider:'mega-charge',megaBoost:true,bonusEnergy:5},{name:'冰霜強奪擊',dmg:76,cost:8,type:'ice',rider:'type-draw'},{name:'頭槌',dmg:72,cost:8,type:'normal',megaBoost:true,bonusEnergy:5},{name:'噴射火焰',dmg:103,cost:13,type:'fire',ignoreReflect:true,status:{effect:'burn', chance:0.4},bonusVsType:'ice',ignoreShield:true}]},
   { id:131, name:'拉普拉斯',   type:'water',    type2:'ice',     hp:290, tier:2, ability:{id:'drizzle-ocean', name:'海洋支配', trigger:'onEnter', desc:'上場時場地切換為海洋世界；水／冰屬性攻擊傷害額外 +40'}, attacks:[{name:'遠古之力',dmg:49,cost:1,type:'rock',rider:'type-draw',megaBoost:true,bonusEnergy:5},{name:'冷凍光線',dmg:73,cost:7,type:'ice',rider:'energy-steal',status:{effect:'freeze', chance:0.4},megaBoost:true,bonusEnergy:5},{name:'雷電',dmg:92,cost:12,type:'electric',selfHeal:0.21,bonusVsType:'water'},{name:'衝浪',dmg:99,cost:12,type:'water',selfHeal:0.17,bonusVsType:'flying',ignoreReflect:true}]},
@@ -3038,6 +3039,8 @@ function showMoveInfo(anchorEl, a, p, cp, cost) {
     if (a.bonusVsType) rows.push(`<div class="mip-row">對 <b>${TYPE_ZH[a.bonusVsType] || a.bonusVsType}</b> 系額外 +50 傷害</div>`);
     if (a.ignoreReflect) rows.push(`<div class="mip-row">附加效果：<b>無視對方反彈鏡</b></div>`);
     if (a.ignoreShield) rows.push(`<div class="mip-row">附加效果：<b>無視對方護盾</b></div>`);
+    if (a.megaDraw) rows.push(`<div class="mip-row">附加效果：<b>命中後抽 1 張手牌</b></div>`);
+    if (a.megaSeal) rows.push(`<div class="mip-row">附加效果：<b>命中後，對方下回合無法使用支援者卡</b></div>`);
   }
   popup.innerHTML = `
     <div class="mip-name">${a.name}</div>
@@ -3871,8 +3874,8 @@ function useTrainer(idx) {
 
   /* 瘋狂博士：需要二段選擇，確認前不消耗手牌 */
   if (card.id === 'mad-scientist') {
-    if (!G.cpuDeck.some(p => p.cur <= 0)) {
-      showWarn('對手目前沒有陣亡的寶可夢可以複製！');
+    if (!G.cpuDeck.some(p => p.cur <= 0) && !G.playerDeck.some(p => p.cur <= 0)) {
+      showWarn('目前雙方都沒有陣亡的寶可夢可以複製！');
       return;
     }
     openMadScientistModal(idx);
@@ -5017,13 +5020,10 @@ function playerAttack(atkIdx) {
   renderBattle();
   G.round++;
 
-  // Player's own end-of-turn poison/burn tick, applied once the turn's action (attack landing
+  // Both sides' end-of-turn poison/burn tick, applied once the turn's action (attack landing
   // or being blocked) is fully resolved, right before handing control to the CPU.
   const tickAndHandoff = () => {
-    applyEndOfTurnStatus(P(), 'player',
-      () => setTimeout(cpuAttack, 700),
-      () => handleKO('player', () => setTimeout(cpuAttack, 700))
-    );
+    applyEndOfTurnStatusBoth(() => setTimeout(cpuAttack, 700));
   };
 
   const afterPlayerTurn = () => {
@@ -5051,7 +5051,7 @@ function playerAttack(atkIdx) {
       }
     },
     () => { G.cpuBuff.reflect = false; G.cpuBraced = false; G.cpuCoinShield = false; G.cpuBuff.debuffReflect = false; G.playerBuff.ignoreReflectNext = false; tickAndHandoff(); }, // reflect/撐住/影舞 all expire — player never attacked (status skip); still ticks poison/burn before handoff. 盧恩啟示：無視反彈鏡buff沒打出去就失效（搏命免疫改成回合戳記到期制，見rune-revelation case）
-    () => handleKO('player', () => { G.cpuBuff.reflect = false; G.cpuBraced = false; G.cpuCoinShield = false; G.cpuBuff.debuffReflect = false; G.playerBuff.ignoreReflectNext = false; setTimeout(cpuAttack, 700); }), // confusion self-hit already killed it this turn — no separate poison/burn tick needed
+    () => handleKO('player', () => { G.cpuBuff.reflect = false; G.cpuBraced = false; G.cpuCoinShield = false; G.cpuBuff.debuffReflect = false; G.playerBuff.ignoreReflectNext = false; applyEndOfTurnStatus(CP(), 'cpu', () => setTimeout(cpuAttack, 700), () => handleKO('cpu', () => setTimeout(cpuAttack, 700))); }), // player's own status tick is moot (confusion self-hit already killed it this turn), but the opponent's poison/burn still needs checking at this turn-end
     P().attacks[atkIdx]?.type
   );
 }
@@ -5169,7 +5169,7 @@ function playerStandby() {
       setTimeout(cpuAttack, 700);
     }
   };
-  applyEndOfTurnStatus(P(), 'player', proceedToCpu, () => handleKO('player', proceedToCpu));
+  applyEndOfTurnStatusBoth(proceedToCpu);
 }
 
 function cpuUseTrainers() {
@@ -5308,10 +5308,10 @@ function cpuAttack() {
     });
   };
 
-  // CPU's own end-of-turn poison/burn tick, applied once its turn's action (attack landing or
-  // being blocked) is fully resolved, right before actually ending the turn.
+  // Both sides' end-of-turn poison/burn tick, applied once CPU's turn's action (attack landing
+  // or being blocked) is fully resolved, right before actually ending the turn.
   const tickAndEndTurn = () => {
-    applyEndOfTurnStatus(CP(), 'cpu', endTurn, () => handleKO('cpu', endTurn));
+    applyEndOfTurnStatusBoth(endTurn);
   };
 
   /* AI: prefer higher-damage attack when above half HP, else random — only among affordable, non-support moves.
@@ -5347,7 +5347,7 @@ function cpuAttack() {
       });
     },
     tickAndEndTurn, // skip (sleep/paralysis/freeze) — still ticks poison/burn before ending the turn
-    () => handleKO('cpu', endTurn), // confusion self-hit already killed it this turn — no separate poison/burn tick needed
+    () => handleKO('cpu', () => applyEndOfTurnStatus(P(), 'player', endTurn, () => handleKO('player', endTurn))), // CPU's own status tick is moot (confusion self-hit already killed it this turn), but the player's poison/burn still needs checking at this turn-end
     CP().attacks[atkIdx]?.type
   );
 }
@@ -5440,11 +5440,11 @@ function handleAttackerStatus(poke, side, onProceed, onSkip, onKO, atkType) {
   onProceed();
 }
 
-/* Applies poison/burn damage at the END of a turn — called after the turn's action (attack
-   landing, being blocked by sleep/paralysis/freeze, or standby) has already resolved, for
-   BOTH sides, from every turn-ending call site (see playerAttack/cpuAttack/playerStandby).
+/* Applies poison/burn damage to ONE side's Pokémon — called after the turn's action (attack
+   landing, being blocked by sleep/paralysis/freeze, or standby) has already resolved.
    Never blocks or delays the attack itself; only decides whether the Pokémon faints from the
-   status tick afterward. */
+   status tick afterward. Use applyEndOfTurnStatusBoth() below at actual turn-end call sites —
+   this single-side version is now only a building block for it. */
 function applyEndOfTurnStatus(poke, side, onSurvive, onKO) {
   const label = side === 'player' ? '你的' : '對手的';
   const ability = isAbilitySealed(side) ? null : poke.ability; // 封印特性中視為沒有特性
@@ -5479,6 +5479,19 @@ function applyEndOfTurnStatus(poke, side, onSurvive, onKO) {
     }
   }
   runDot(poke.status, () => runDot(poke.status2, onSurvive));
+}
+
+/* Applies poison/burn to BOTH sides' active Pokémon at the end of EVERY turn (mainline Pokémon
+   "Pokémon Checkup" timing: both actives are checked after every single turn, not just the side
+   whose turn just ended) — 2026-08-07 fix, was previously only ticking the acting side's own
+   Pokémon once per its own turn, so a poisoned/burned Pokémon only took damage every other turn
+   instead of every turn. Always ticks player first, then cpu (order doesn't affect the outcome,
+   just log ordering); each side's handleKO is chained in if that side's tick causes a faint. */
+function applyEndOfTurnStatusBoth(onDone) {
+  applyEndOfTurnStatus(P(), 'player',
+    () => applyEndOfTurnStatus(CP(), 'cpu', onDone, () => handleKO('cpu', onDone)),
+    () => handleKO('player', () => applyEndOfTurnStatus(CP(), 'cpu', onDone, () => handleKO('cpu', onDone)))
+  );
 }
 
 /* Decrements sleep/freeze/confusion duration on a turn where the Pokémon didn't attempt to

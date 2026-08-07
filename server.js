@@ -54,7 +54,7 @@ const POKEMON = [
   { mega:{spriteId:10034, type:'fire', type2:'dragon', ability:{id:'tough-claws', name:'硬爪', trigger:'onAttack', desc:'攻擊傷害 +40'}}, id:6,   name:'噴火龍',     type:'fire',     type2:'flying',  hp:290, tier:2, ability:{id:'blaze-boost', name:'猛火', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.1'}, attacks:[{name:'雷光強奪擊',dmg:69,cost:7,type:'electric',rider:'type-draw',status:{effect:'burn', chance:0.4},megaBoost:true,bonusEnergy:6},{name:'龍爪',dmg:48,cost:1,type:'dragon',rider:'energy-steal',megaBoost:true,bonusEnergy:5},{name:'火焰噴射',dmg:95,cost:12,type:'fire',status:{effect:'paralysis', chance:0.4},bonusVsType:'flying'},{name:'燕返',dmg:91,cost:12,type:'flying',status:{effect:'freeze', chance:0.4},bonusVsType:'bug',ignoreReflect:true}]},
   { mega:{spriteId:10036, type:'water', type2:null, ability:{id:'huge-power', name:'超級發射器', trigger:'onAttack', desc:'攻擊傷害固定 +40'}}, id:9,   name:'水箭龜',     type:'water',    hp:280, tier:2, ability:{id:'blaze-boost', name:'激流', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.1'}, attacks:[{name:'妖精吸血擊',dmg:42,cost:0,type:'fairy',rider:'mega-charge',megaBoost:true,bonusEnergy:4},{name:'蟲毒吸能擊',dmg:66,cost:6,type:'bug',rider:'type-draw'},{name:'水砲',dmg:96,cost:11,type:'water',selfHeal:0.28,bonusVsType:'dark'},{name:'冰凍光束',dmg:92,cost:11,type:'ice',selfHeal:0.29,bonusVsType:'dragon',ignoreReflect:true}]},
   { mega:{spriteId:10043, type:'psychic', type2:'fighting', ability:{id:'guts', name:'不屈之心', trigger:'onAttack', desc:'自身帶有異常狀態時，攻擊傷害 +40'}}, id:150, name:'超夢',       type:'psychic',  hp:320, tier:2, ability:{id:'pressure', name:'壓迫感', trigger:'onEnter', desc:'上場時讓對方損失 3 點能量'}, attacks:[{name:'氣功拳',dmg:89,cost:11,type:'fighting',status:{effect:'confusion', chance:0.4},megaBoost:true,bonusEnergy:4},{name:'念力衝擊',dmg:96,cost:11,type:'psychic',selfHeal:0.19,bonusVsType:'rock'},{name:'閃電拳',dmg:92,cost:11,type:'electric',status:{effect:'sleep', chance:0.4},bonusVsType:'flying',ignoreReflect:true},{name:'暗影球',dmg:65,cost:6,type:'ghost',rider:'type-draw',status:{effect:'poison', chance:0.4},status2:{effect:'burn',chance:0.4}}]},
-  { mega:{spriteId:10281, type:'dragon', type2:'flying', ability:{id:'multiscale', name:'多重鱗片', trigger:'onDefend', desc:'HP 全滿時，受到的攻擊傷害 ×0.9'}}, id:149, name:'快龍',       type:'dragon',   type2:'flying',  hp:320, tier:2, ability:{id:'multiscale', name:'多重鱗片', trigger:'onDefend', desc:'HP 全滿時，受到的攻擊傷害 ×0.9'}, attacks:[{name:'雷電',dmg:87,cost:11,type:'electric',megaBoost:true,bonusEnergy:4},{name:'逆鱗護甲擊',dmg:94,cost:11,type:'dragon',status:{effect:'paralysis', chance:0.4},bonusVsType:'flying',ignoreReflect:true},{name:'冰霜護甲擊',dmg:67,cost:6,type:'ice',rider:'energy-steal'},{name:'破壞光線',dmg:86,cost:11,type:'normal',status:{effect:'paralysis', chance:0.4},ignoreReflect:true,ignoreShield:true}]},
+  { mega:{spriteId:10281, type:'dragon', type2:'flying', ability:{id:'multiscale', name:'多重鱗片', trigger:'onDefend', desc:'HP 全滿時，受到的攻擊傷害 ×0.9'}}, id:149, name:'快龍',       type:'dragon',   type2:'flying',  hp:320, tier:2, ability:{id:'multiscale', name:'多重鱗片', trigger:'onDefend', desc:'HP 全滿時，受到的攻擊傷害 ×0.9'}, attacks:[{name:'雷電',dmg:87,cost:11,type:'electric',megaBoost:true,bonusEnergy:4},{name:'逆鱗護甲擊',dmg:94,cost:11,type:'dragon',status:{effect:'paralysis', chance:0.4},bonusVsType:'flying',ignoreReflect:true},{name:'暴風護甲擊',dmg:67,cost:6,type:'flying',rider:'energy-steal'},{name:'破壞光線',dmg:86,cost:11,type:'normal',status:{effect:'paralysis', chance:0.4},ignoreReflect:true,ignoreShield:true}]},
   { id:143, name:'卡比獸',     type:'normal',   hp:380, tier:2, ability:{id:'normal-domain', name:'神域支配', trigger:'onEnter', desc:'上場時場地切換為莊嚴神社；一般屬性攻擊傷害額外 +40'}, attacks:[{name:'磚塊',dmg:105,cost:15,type:'rock',megaBoost:true,bonusEnergy:8},{name:'鐵頭',dmg:89,cost:10,type:'steel',rider:'self-cure',selfHeal:0.25},{name:'地震',dmg:108,cost:15,type:'ground',status:{effect:'freeze', chance:0.4},bonusVsType:'poison'},{name:'喊叫',dmg:110,cost:15,type:'normal',selfHeal:0.29,bonusVsType:'rock',ignoreReflect:true,ignoreShield:true}]},
   { id:59,  name:'風速狗',     type:'fire',     hp:260, tier:2, ability:{id:'intimidate', name:'威嚇', trigger:'onEnter', desc:'上場時讓對方下一次攻擊傷害 ×0.9'}, attacks:[{name:'連續啃咬',dmg:52,cost:2,type:'dark',rider:'mega-charge',megaBoost:true,bonusEnergy:5},{name:'冰霜強奪擊',dmg:76,cost:8,type:'ice',rider:'type-draw'},{name:'頭槌',dmg:72,cost:8,type:'normal',megaBoost:true,bonusEnergy:5},{name:'噴射火焰',dmg:103,cost:13,type:'fire',ignoreReflect:true,status:{effect:'burn', chance:0.4},bonusVsType:'ice',ignoreShield:true}]},
   { id:131, name:'拉普拉斯',   type:'water',    type2:'ice',     hp:290, tier:2, ability:{id:'drizzle-ocean', name:'海洋支配', trigger:'onEnter', desc:'上場時場地切換為海洋世界；水／冰屬性攻擊傷害額外 +40'}, attacks:[{name:'遠古之力',dmg:49,cost:1,type:'rock',rider:'type-draw',megaBoost:true,bonusEnergy:5},{name:'冷凍光線',dmg:73,cost:7,type:'ice',rider:'energy-steal',status:{effect:'freeze', chance:0.4},megaBoost:true,bonusEnergy:5},{name:'雷電',dmg:92,cost:12,type:'electric',selfHeal:0.21,bonusVsType:'water'},{name:'衝浪',dmg:99,cost:12,type:'water',selfHeal:0.17,bonusVsType:'flying',ignoreReflect:true}]},
@@ -731,6 +731,22 @@ function applyEndOfTurnStatusSrv(poke, log, G, role) {
     poke.cur = Math.max(0, poke.cur - dmg);
     log.push({ text: `${poke.name} 因${label}損失了 ${dmg} HP！`, cls: 'special' });
   }
+}
+
+// Ticks the OPPONENT's (op's) own lingering poison/burn at the genuine end of role's turn —
+// mainline Pokémon Checkup timing checks BOTH actives after every turn, not just whoever's turn
+// it was (2026-08-07 fix; previously a side's poison/burn only ticked once every other turn,
+// on its own turn's end, instead of every turn). Call this from every real turn-ending call
+// site (attack/standby — see their handlers below) in addition to the existing role-side tick.
+// Returns true if op's active died from this tick — the caller must NOT also call
+// drawForRole/G.round++ for op in that case; either queue op behind an already-pending KO
+// switch (if role itself also needs one this turn) or set G.pendingKOSwitch/G.turn = op
+// directly and let the ko_switch handler's own draw-once-resolved logic take over.
+function tickOpponentStatusAtTurnEndSrv(G, log, op) {
+  const opActive = G[`${op}Deck`][G[`${op}Idx`]];
+  if (opActive.cur > 0) applyEndOfTurnStatusSrv(opActive, log, G, op);
+  tryHealingRainbowRevive(opActive, log);
+  return opActive.cur <= 0;
 }
 
 // Decrements sleep/freeze/confusion duration on a turn where the Pokémon didn't attempt to
@@ -7008,7 +7024,17 @@ async function handleMessage(ws, msg) {
         G.round++;
         G[`${op}Buff`].reflect = false; G[`${op}Braced`] = false; G[`${op}CoinShield`] = false; G[`${op}Buff`].debuffReflect = false; G[`${op}StandbyGuard`] = false; // all expire if this role never actually attacked
         G[`${role}Buff`].ignoreReflectNext = false; // 盧恩啟示：無視反彈鏡buff沒打出去就失效（搏命免疫改成回合戳記到期制，見rune-revelation case）
-        drawForRole(G, op);
+        // op's own poison/burn also ticks here (Pokémon Checkup checks both actives at every
+        // turn-end, not just role's) — role already needs a KO switch (pendingKOSwitch=role
+        // above), so if op's tick also KOs them, queue op behind role instead of drawing for
+        // op immediately; the ko_switch chain draws once both sides have replaced.
+        if (tickOpponentStatusAtTurnEndSrv(G, log, op)) {
+          const opAlive = G[`${op}Deck`].filter(p => p.cur > 0).length;
+          if (opAlive === 0) { endGame(room, role, log); return; }
+          G.pendingKOSwitchQueue = [op];
+        } else {
+          drawForRole(G, op);
+        }
         broadcast(room, { type: 'update', state: G, log, actor: role }); return;
       }
 
@@ -7025,7 +7051,6 @@ async function handleMessage(ws, msg) {
           G.pendingKOSwitch = role;
           broadcast(room, { type: 'update', state: G, log, actor: role }); return;
         }
-        G.turn = op;
         G[`${role}SuppUsed`] = false;
         G[`${role}HandCardUsed`] = false;
         G[`${role}FreeSwitch`] = false;
@@ -7034,6 +7059,16 @@ async function handleMessage(ws, msg) {
         G[`${op}StandbyGuard`] = false; // 格擋同樣只保護一個對方回合，即使那回合被跳過
         G[`${op}Buff`].reflect = false; G[`${op}Braced`] = false; G[`${op}CoinShield`] = false; G[`${op}Buff`].debuffReflect = false; // all expire if opponent never attacked (status skip)
         G[`${role}Buff`].ignoreReflectNext = false; // 盧恩啟示：無視反彈鏡buff沒打出去就失效（搏命免疫改成回合戳記到期制，見rune-revelation case）
+        // op's own poison/burn also ticks here (Pokémon Checkup checks both actives at every
+        // turn-end, not just role's).
+        if (tickOpponentStatusAtTurnEndSrv(G, log, op)) {
+          const opAlive = G[`${op}Deck`].filter(p => p.cur > 0).length;
+          if (opAlive === 0) { endGame(room, role, log); return; }
+          G.pendingKOSwitch = op;
+          G.turn = op;
+          broadcast(room, { type: 'update', state: G, log, actor: role }); return;
+        }
+        G.turn = op;
         drawForRole(G, op);
         broadcast(room, { type: 'update', state: G, log, actor: role }); return;
       }
@@ -7079,6 +7114,11 @@ async function handleMessage(ws, msg) {
       // both-died/attacker-only/defender-only/neither branching below automatically handles a
       // "survived the hit but then died to poison" case the same way it already handles recoil.
       if (attacker.cur > 0) applyEndOfTurnStatusSrv(attacker, log, G, role);
+      // Defender's own lingering poison/burn is checked here too (Pokémon Checkup timing checks
+      // BOTH actives at every turn-end, not just role's) — 2026-08-07 fix. A no-op if the attack
+      // itself already KO'd the defender (applyEndOfTurnStatusSrv returns immediately once
+      // poke.cur <= 0), so this only matters when the defender survived the hit.
+      if (defender.cur > 0) applyEndOfTurnStatusSrv(defender, log, G, op);
 
       // 治癒彩虹：這次交鋒真的把誰打到0血了，先讓牠原地復活一次，再判定是否真的算倒下
       tryHealingRainbowRevive(attacker, log);
@@ -7179,6 +7219,15 @@ async function handleMessage(ws, msg) {
       G[`${op}Buff`].reflect = false; G[`${op}Braced`] = false; G[`${op}CoinShield`] = false; G[`${op}Buff`].debuffReflect = false; G[`${op}StandbyGuard`] = false; // all expire when opponent skips attack
       G[`${role}Buff`].typeOverride = null; // orb effect expires — turn ends without attacking
       G[`${role}Buff`].ignoreReflectNext = false; // 盧恩啟示：無視反彈鏡buff沒打出去就失效（搏命免疫改成回合戳記到期制，見rune-revelation case）
+      // op's own poison/burn also ticks here (Pokémon Checkup checks both actives at every
+      // turn-end, not just role's).
+      if (tickOpponentStatusAtTurnEndSrv(G, log, op)) {
+        const opAlive = G[`${op}Deck`].filter(p => p.cur > 0).length;
+        if (opAlive === 0) { endGame(room, role, log); return; }
+        G.pendingKOSwitch = op;
+        G.turn = op;
+        broadcast(room, { type: 'update', state: G, log, actor: role }); return;
+      }
       G.turn = op;
       G.round++;
       drawForRole(G, op);
