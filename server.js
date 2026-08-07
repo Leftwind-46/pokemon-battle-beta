@@ -2661,14 +2661,23 @@ function pocketStartFirstTurn(G) {
   side.hand.push(side.deck.shift());
 }
 // 中毒在「該側回合結束」時扣血（不是對手回合結束）——真實TCG通用時機慣例
-function pocketAdvanceTurn(G) {
+// Pokémon Checkup（回合結束當下的狀態結算）：中毒/燒傷/麻痺 + 回合結束觸發型被動特性。
+// 只會、也應該對每個「真正結束的回合」執行恰好一次——回傳true代表被KO換人打斷（呼叫端
+// 必須停在這裡，等對方選完替補寶可夢後直接呼叫pocketStartNextTurn，不能重新呼叫這個
+// 函式，否則endingSide/被Snowy Terrain打中的那方會被重複結算一次checkup，見下方
+// pocketAdvanceTurn跟pocket_choose_active handler的說明）。
+function pocketRunCheckup(G) {
   const endingRole = G.turn;
   const endingSide = G[endingRole];
+  const otherRoleForCheckup = endingRole === 'p1' ? 'p2' : 'p1';
+  const otherSideForCheckup = G[otherRoleForCheckup];
   if (endingSide.active && endingSide.active.status === 'poisoned') {
-    endingSide.active.curHp = Math.max(0, endingSide.active.curHp - 10);
+    // More Poison：對手（otherSideForCheckup，中毒debuff的施加方）主戰持有時，中毒傷害10→20
+    const poisonBonus = otherSideForCheckup.active?.abilities?.[0]?.name === 'More Poison' ? 10 : 0;
+    endingSide.active.curHp = Math.max(0, endingSide.active.curHp - 10 - poisonBonus);
     if (endingSide.active.curHp <= 0) {
       pocketResolveActiveKO(G, endingRole);
-      if (G.phase === 'forced_switch' || G.phase === 'done') return;
+      if (G.phase === 'forced_switch' || G.phase === 'done') return true;
     }
   }
   // 2026-08-06新增：灼傷（Burned）——跟中毒同樣在該側回合結束時扣血，但傷害是20（中毒10）
@@ -2678,7 +2687,7 @@ function pocketAdvanceTurn(G) {
     endingSide.active.curHp = Math.max(0, endingSide.active.curHp - 20);
     if (endingSide.active.curHp <= 0) {
       pocketResolveActiveKO(G, endingRole);
-      if (G.phase === 'forced_switch' || G.phase === 'done') return;
+      if (G.phase === 'forced_switch' || G.phase === 'done') return true;
     } else if (pocketFlipCoin()) {
       endingSide.active.status = null;
     }
@@ -2689,6 +2698,32 @@ function pocketAdvanceTurn(G) {
   // 這裡在麻痺方回合真正結束時清除，攻擊handler自己觸發的失敗清除（見pocket_attack
   // 的paralyzed分支）跟這裡不會衝突——那條路徑執行到這裡時status早就已經是null了。
   if (endingSide.active?.status === 'paralyzed') endingSide.active.status = null;
+  // 回合結束觸發型被動特性（"At the end of your turn, if this Pokémon is in the Active
+  // Spot..."）：Full-Mouth Manner回血、Legendary Pulse抽牌、Snowy Terrain對對方主戰造成10傷害。
+  // 掛在endingSide真正結束回合的這個時間點，跟中毒/燒傷扣血是同一個Pokémon Checkup時機。
+  const endingAbility = endingSide.active?.abilities?.[0]?.name;
+  if (endingAbility === 'Full-Mouth Manner' && endingSide.active.curHp > 0) {
+    endingSide.active.curHp = Math.min(endingSide.active.hp, endingSide.active.curHp + 20);
+  }
+  if (endingAbility === 'Legendary Pulse' && endingSide.active.curHp > 0 && endingSide.deck.length > 0) {
+    endingSide.hand.push(endingSide.deck.shift());
+  }
+  if (endingAbility === 'Snowy Terrain' && endingSide.active.curHp > 0 && otherSideForCheckup.active) {
+    otherSideForCheckup.active.curHp = Math.max(0, otherSideForCheckup.active.curHp - 10);
+    if (otherSideForCheckup.active.curHp <= 0) {
+      pocketResolveActiveKO(G, otherRoleForCheckup);
+      if (G.phase === 'forced_switch' || G.phase === 'done') return true;
+    }
+  }
+  return false;
+}
+// 回合真正切換給下一位玩家：turn/turnNumber遞增、抽牌、能量區重新產生、reset本回合限定的
+// 旗標、回合開始觸發型被動特性。跟pocketRunCheckup是分開的兩段——checkup只該執行一次，
+// 但如果checkup期間發生KO（不管是endingSide自己中毒死亡，還是這裡新增的Snowy Terrain打死
+// 對方），中間都要等玩家選完替補寶可夢才能繼續，見pocket_choose_active handler直接呼叫這個
+// 函式（不是重新呼叫pocketAdvanceTurn，那樣會讓checkup被重複執行一次）。
+function pocketStartNextTurn(G) {
+  const endingRole = G.turn;
   G.turn = endingRole === 'p1' ? 'p2' : 'p1';
   G.turnNumber++;
   const side = G[G.turn];
@@ -2705,6 +2740,19 @@ function pocketAdvanceTurn(G) {
   side.exOnlyBoostThisTurn = 0;
   side.retreatDiscountThisTurn = 0;
   side.abilitiesUsedThisTurn = [];
+  // 回合開始觸發型被動特性：Strange Singing——隨機把一隻{P}寶可夢從牌庫放進手牌（"put...into
+  // your hand"沒有寫"you may"，是強制觸發，不用暫停等玩家確認）
+  if (side.active?.abilities?.[0]?.name === 'Strange Singing') {
+    const psychicIdx = side.deck.map((c, i) => ({ c, i })).filter(({ c }) => (c.types || []).includes('Psychic'));
+    if (psychicIdx.length) {
+      const pick = psychicIdx[Math.floor(Math.random() * psychicIdx.length)];
+      side.deck.splice(pick.i, 1);
+      side.hand.push(pick.c);
+    }
+  }
+}
+function pocketAdvanceTurn(G) {
+  if (!pocketRunCheckup(G)) pocketStartNextTurn(G);
 }
 // 進入強制換人狀態——用佇列而不是單一欄位，讓「雙方主戰同時都需要換人」（見下面
 // pocketResolveMutualKO）也能正確依序處理，不會有後呼叫覆蓋前呼叫的問題。
@@ -2782,21 +2830,50 @@ function pocketCheckWin(G) {
 // 觸發/上場觸發完全不同的第四種類型，只做「防禦方減傷/免疫」跟「攻擊方加傷」這兩類，因為
 // 它們剛好都只有一個檢查點（mainDamage計算當下），不用額外新增hook。狀態免疫/回合結束觸發/
 // 反傷/附加能量觸發這幾類還沒做，需要在更多地方加檢查點，先不擴大範圍。
-function pocketHasArceus(side) {
-  return [side.active, ...side.bench].some(p => p && (p.name === 'Arceus' || p.name === 'Arceus ex'));
+// 2026-08-07再接續：擴充了「撤退免費/固定減傷/cost+1/被攻擊觸發/回合結束觸發/全域規則」
+// 幾類（見下方新函式），仍然沒做的：狀態免疫（Fabled Luster/Insomnia/Flower Shield/Soothing
+// Wind，需要先把分散各處的「直接寫status='x'」集中成一個helper才能統一擋）、被KO時觸發
+// （Innards Out/Offload Pass/Perish Body/Final Scream/Fade into Darkness，要碰
+// pocketResolveActiveKO的計分邏輯，风险更高）、附加能量觸發（Lunar Plumage/Nightmare
+// Aura/Comatose/Snoozing Habit/Electromagnetic Wall，要在pocket_attach_energy handler
+// 加hook，且Electromagnetic Wall是「對手」附加能量時才觸發，要在對手那側也檢查）、動態HP
+// （Toughness Aroma/Infinite Increase，這個引擎的hp欄位目前都是寫死的，跟先前2張場地卡
+// 被跳過是同一個理由）——這些留到下次再擴充。
+function pocketHasNamed(side, names) {
+  return [side.active, ...side.bench].some(p => p && names.includes(p.name));
 }
+function pocketHasArceus(side) { return pocketHasNamed(side, ['Arceus', 'Arceus ex']); }
 // 回傳「這次要扣掉多少傷害」，Infinity代表完全免疫這次攻擊
 function pocketPassiveDamageReduction(defender, defenderSide, attacker) {
   const ability = defender.abilities?.[0]?.name;
   switch (ability) {
     case 'Fur Coat': case 'Solid Shell': case 'Exoskeleton': return 20;
     case 'Armor': return 30;
+    case 'Shell Armor': return 10;
+    case 'Hard Coat': return 20;
+    // Intimidating Fang原文是「這隻在主戰位置時，對手的攻擊-20」——跟其他「defender自己減傷」
+    // 描述角度不同，但數學上結果相同（都是defender.curHp少扣20），這個函式的defender本來就
+    // 恆等於defenderSide.active（招式固定打對方主戰，沒有打板凳的招式），可以直接當同一種case處理
+    case 'Intimidating Fang': return 20;
     case 'Thick Fat': return (attacker.types || []).some(t => t === 'Fire' || t === 'Water') ? 20 : 0;
     case 'Resilience Link': return pocketHasArceus(defenderSide) ? 30 : 0;
     case 'Ice Face': return defender.curHp === defender.hp ? 40 : 0;
     case 'Safeguard': return attacker.ex ? Infinity : 0;
     default: return 0;
   }
+}
+// 被攻擊打中時（mainDamage>0，不需要死亡）觸發的被動特性——反傷給attacker、讓attacker中毒、
+// 或從能量區拿能量附加到板凳。跟pocketPassiveDamageReduction不同，這個不影響傷害數字本身，
+// 是「被打中之後」的額外副作用，呼叫端在mainDamage結算完、defender.curHp已扣除之後呼叫。
+// 回傳{counterDamage, poisonAttacker, benchEnergyType}供呼叫端套用（呼叫端才有ctx/side可以
+// 實際下手改attacker.status/side.pendingEnergy，這個函式只負責判斷「該不該觸發」）。
+function pocketPassiveOnHit(defender, defenderSide) {
+  const ability = defender.abilities?.[0]?.name;
+  const result = { counterDamage: 0, poisonAttacker: false, benchEnergyType: null };
+  if (ability === 'Counterattack' || ability === 'Rough Skin' || ability === 'Steel Spikes') result.counterDamage = 20;
+  if (ability === 'Poison Point') result.poisonAttacker = true;
+  if (ability === 'Bouncy Body') result.benchEnergyType = 'Water';
+  return result;
 }
 // 「Attacks used by your {F} Pokémon do +30 damage」這種是「持有特性的這隻」給「全隊符合條件的
 // 攻擊者」加傷，跟持有者自己是不是正在攻擊無關（Power Link例外，文字是"this Pokémon"限定自己），
@@ -2813,11 +2890,19 @@ function pocketPassiveDamageBonus(attacker, attackerSide) {
   return bonus;
 }
 // 回傳true代表這次撤退完全免費（Infinity概念用boolean表示更直觀，跟上面的減傷用Infinity不同）
-function pocketPassiveFreeRetreat(active, side) {
+// G參數是2026-08-07擴充Surge Surfer時新增的（需要看場地卡是否存在），呼叫端多傳一個參數
+function pocketPassiveFreeRetreat(active, side, G) {
   const ability = active.abilities?.[0]?.name;
   if (ability === 'Levitate' && active.energy.length > 0) return true;
   if (ability === 'Speed Link' && pocketHasArceus(side)) return true;
   if (ability === 'Retreat Directive' && active.name === 'Dondozo') return true;
+  if (ability === 'Fantastical Floating' && pocketHasNamed(side, ['Latias'])) return true;
+  if (ability === 'Surge Surfer' && G?.activeStadium) return true;
+  // Fluffy Flight：跟其他「持有者自己是active才生效」的判斷方向不同——原文「Your Active
+  // Pokémon has no Retreat Cost」沒有限定持有者自己要在active，只要牠在場上（板凳也算）
+  // 就讓我方主戰免費撤退，所以另外查整個side的特性欄位（不是pocketHasNamed查寶可夢名字，
+  // 這裡查的是特性名字，兩者是不同的東西）
+  if ([side.active, ...side.bench].some(p => p?.abilities?.[0]?.name === 'Fluffy Flight')) return true;
   return false;
 }
 // Sky Support是「在板凳上才生效」的被動，讓主戰的基礎寶可夢撤退-1——跟上面幾個「在主戰位置才
@@ -6422,7 +6507,7 @@ async function handleMessage(ws, msg) {
       const plazaDiscount = (G.activeStadium?.id === 'B2-155' && (active.types || []).includes('Psychic')) ? 2 : 0;
       // 被動特性：Levitate/Speed Link/Retreat Directive這類「撤退免費」，Sky Support是「板凳上
       // 的隊友讓主戰撤退-1」——都是2026-08-07新增的被動特性機制的一部分
-      const cost = pocketPassiveFreeRetreat(active, side) ? 0 : Math.max(0,
+      const cost = pocketPassiveFreeRetreat(active, side, G) ? 0 : Math.max(0,
         (active.retreat || 0) - (side.retreatDiscountThisTurn || 0) - plazaDiscount - pocketPassiveBenchRetreatDiscount(active, side));
       if (active.energy.length < cost) { send(ws, { type: 'error', message: '能量不足，無法撤退' }); return; }
       const idx = side.bench.findIndex(p => p.uid === msg.target);
@@ -6487,7 +6572,11 @@ async function handleMessage(ws, msg) {
       if (attacker.moveLockUntilTurn === G.turnNumber && attacker.moveLockName === atk.name) {
         send(ws, { type: 'error', message: `這回合不能使用【${atk.name}】` }); return;
       }
-      if (!pocketCanPayCost(attacker, atk.cost)) { send(ws, { type: 'error', message: '能量不足，無法使用這個招式' }); return; }
+      // 被動特性：Sticky Membrane/Guard Dog Visage——持有者在對方主戰位置時，我方攻擊多付1個
+      // 無色能量（不影響實際能量數量，Pocket TCG攻擊本來就不消耗能量，這只影響「付不付得起」的判定）
+      const oppActiveCostAbility = oppSide.active?.abilities?.[0]?.name;
+      const extraCost = (oppActiveCostAbility === 'Sticky Membrane' || oppActiveCostAbility === 'Guard Dog Visage') ? ['Colorless'] : [];
+      if (!pocketCanPayCost(attacker, [...(atk.cost || []), ...extraCost])) { send(ws, { type: 'error', message: '能量不足，無法使用這個招式' }); return; }
       const defender = oppSide.active;
       if (!defender) return;
       // 2026-08-06新增：「攻擊前擲硬幣，反面攻擊失敗」的封印效果（跟混亂不同，這個是對手招式
@@ -6540,6 +6629,21 @@ async function handleMessage(ws, msg) {
         const passiveReduction = pocketPassiveDamageReduction(defender, oppSide, attacker);
         mainDamage = passiveReduction === Infinity ? 0 : Math.max(0, mainDamage - passiveReduction);
         defender.curHp = Math.max(0, (defender.curHp ?? defender.hp ?? 0) - mainDamage);
+        // 被動特性：Counterattack/Rough Skin/Steel Spikes(反傷)、Poison Point(讓attacker中毒)、
+        // Bouncy Body(從能量區拿能量附加板凳)——被打中就觸發，不需要defender死亡，掛在mainDamage
+        // 結算完、KO判定之前（跟粗糙皮膚那類「防禦方反擊」是同一種時機，這裡是Pocket版本）
+        if (mainDamage > 0) {
+          const onHit = pocketPassiveOnHit(defender, oppSide);
+          if (onHit.counterDamage) attacker.curHp = Math.max(0, attacker.curHp - onHit.counterDamage);
+          if (onHit.poisonAttacker && attacker.status == null) attacker.status = 'poisoned';
+          // Bouncy Body原文明確是「拿一個{W}水屬性能量」，不是「拿當前能量區不管什麼顏色」——
+          // 能量區這回合剛好不是水屬性就沒有水能量可拿，不觸發（跟pocket_attach_energy用掉
+          // pendingEnergy後要清空是同一個規則，避免同一份能量被用兩次）
+          if (onHit.benchEnergyType && oppSide.bench.length && oppSide.pendingEnergy === onHit.benchEnergyType) {
+            oppSide.bench[0].energy.push(oppSide.pendingEnergy);
+            oppSide.pendingEnergy = null;
+          }
+        }
       }
       if (ctx.selfDamage) attacker.curHp = Math.max(0, attacker.curHp - ctx.selfDamage);
       if (ctx.healMirror && mainDamage > 0) {
@@ -6693,7 +6797,18 @@ async function handleMessage(ws, msg) {
       } else {
         G.pendingSwitchRole = null;
         G.phase = 'active';
-        if (G.pendingSwitchReason === 'endTurn') pocketAdvanceTurn(G);
+        // 直接呼叫pocketStartNextTurn，不是重新呼叫pocketAdvanceTurn——多數情況下這次KO換人
+        // 是Checkup期間發生的（endingSide自己中毒/燒傷死亡，或本方的Snowy Terrain等特性打死
+        // 對方），Checkup只該執行一次；重新跑一次pocketAdvanceTurn會讓中毒/燒傷/回合結束觸發
+        // 特性被重複結算一次（新換上場的寶可夢沒有status所以看起來「恰好沒事」，但Snowy
+        // Terrain這類「打對方」的特性不會因為對方換人而消失，會被打第二次，是真的bug）。
+        // 已知簡化：搏命/雙殺（pocketResolveMutualKO）換人也共用同一個'endTurn' reason，但
+        // 那個情境的checkup其實從未執行過（雙殺發生在攻擊當下，不是回合結束）——這裡跳過
+        // checkup意味著雙殺換人後，新換上場的寶可夢即使剛好帶有Legendary Pulse/Full-Mouth
+        // Manner等「回合結束觸發」特性，這次也不會觸發。刻意接受這個簡化（少觸發一次特性利益）
+        // 而不是重跑整個checkup（會導致Snowy Terrain這類「打對方」的效果重複造成傷害）——
+        // 兩個選項只能二選一，安全性優先於覆蓋率。
+        if (G.pendingSwitchReason === 'endTurn') pocketStartNextTurn(G);
         G.pendingSwitchReason = null;
       }
       pocketBroadcastState(pRoom);
