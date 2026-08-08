@@ -3119,6 +3119,32 @@ function pocketFindOwnByName(side, names) { return [side.active, ...side.bench].
    rawDamage是「弱點加成前」的傷害，函式可以直接改 ctx.rawDamage；weakness會在handler跑完後才加上去。 */
 const ATTACK_EFFECTS = {
   /* ── 2026-08-08新增：招式效果長尾第六批(169個)，一次補完剩餘大部分未實作的招式文字 ── */
+  /* ── 2026-08-08再接續：回頭補完7個原本skip的長尾（見memory的skip清單），
+     Rampardos/Gyarados/Octillery/Ditto/Eldegoss/Meowscarada/Mega Kangaskhan ex ── */
+  "If your opponent's Pokémon is Knocked Out by damage from this attack, this Pokémon also does 50 damage to itself.": (ctx) => { ctx.selfDamageIfDefenderKO = 50; },
+  "You may discard any number of your Benched {W} Pokémon. This attack does 40 more damage for each Benched Pokémon you discarded in this way.": (ctx) => { // Gyarados：已知簡化——「任意數量」自選改成自動棄置全部符合條件的板凳水系（永遠是較優選擇，無其他downside）
+  const idxs2 = [];
+  ctx.side.bench.forEach((p, i) => { if ((p.types || []).includes('Water')) idxs2.push(i); });
+  ctx.rawDamage += idxs2.length * 40;
+  idxs2.sort((a, b) => b - a).forEach(i => { const [p] = ctx.side.bench.splice(i, 1); ctx.side.discard.push(p); });
+},
+  "If the Defending Pokémon tries to use an attack, your opponent flips a coin. If tails, that attack doesn't happen. This effect lasts until the Defending Pokémon leaves the Active Spot, and it doesn't stack.": (ctx) => { // Octillery：已知簡化——真實卡面「持續到離開主戰、不疊加」簡化成只鎖對手下一次攻擊嘗試，重用既有attackFlipLockUntilTurn機制
+  if (ctx.defender) ctx.defender.attackFlipLockUntilTurn = ctx.G.turnNumber + 1;
+},
+  "Choose 1 of your Benched Pokémon's attacks, except any Pokémon ex, and use it as this attack. If this Pokémon doesn't have the necessary Energy to use that attack, this attack does nothing.": (ctx) => { // Ditto：借自己板凳(不含ex)任一隻的招式
+  const pool = ctx.side.bench.filter(p => !p.ex && p.attacks?.length);
+  if (pool.length) ctx.needsChoice = { kind: 'pick_move', pool: 'ownBench', checkEnergy: true };
+  else ctx.rawDamage = 0;
+},
+  "You may shuffle this Pokémon and all attached cards into your deck.": (ctx) => {},
+  "This attack is used twice in a row. The second attack does 40 damage.\n(If the first attack Knocks Out your opponent's Active Pokémon, the second attack is used after your opponent chooses a new Active Pokémon.)": (ctx) => { // Mega Kangaskhan ex：已知簡化——「連續使用兩次，若第一次KO則第二次等對手選完替補才打」簡化成同一次結算內直接多打40，KO邊界情況下第二下自然作廢(defender已死)
+  if (ctx.defender) ctx.rawDamage += 40;
+},
+  "Choose a spot from among your opponent's Active Spot and Bench. At the end of your opponent's next turn, do 70 damage to the Pokémon in the spot you chose.": (ctx) => { // Meowscarada：已知簡化——真實卡面是「選一個位置」（含板凳，之後不管誰換上都會被打），這裡簡化成「選定當下那隻寶可夢instance」，跟Mismagius共用同一個delayedDamage機制
+  const pool = [ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean);
+  if (pool.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: pool.map(p => p.uid), action: 'setDelayedDamage', amount: 70 };
+  ctx.rawDamage = 0;
+},
   "During your opponent's next turn, this Pokémon takes -20 damage from attacks.": ctx => { ctx.attacker.selfShieldUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.selfShieldAmount = 20; ctx.attacker.selfShieldCondition = null; },
   "Flip a coin. If heads, during your opponent’s next turn, prevent all damage from—and effects of—attacks done to this Pokémon.": ctx => { if (pocketFlipCoin(ctx)) ctx.attacker.invulnerableUntilTurn = ctx.G.turnNumber + 1; },
   "Switch out your opponent’s Active Pokémon to the Bench. (Your opponent chooses the new Active Pokémon.)": ctx => { // Grapploct：把對手主戰換到板凳（對手自選新主戰），跟Drive Off同一套
@@ -5514,6 +5540,17 @@ const ABILITY_EFFECTS = {
     ctx.side.discard.push(poke);
     return null;
   },
+  // 2026-08-08再接續：Shadow Void——「as often as you like」，跟其他特性不同，這個名字被
+  // 白名單跳過pocket_use_ability的once-per-turn gate（見那裡的unlimitedUse判斷），玩家可以
+  // 同一回合內對這隻連續呼叫這個訊息很多次，每次都要重新選目標
+  'Shadow Void': (ctx, poke, msg) => {
+    const src = [ctx.side.active, ...ctx.side.bench].find(p => p && p.uid === msg.target && p.uid !== poke.uid && p.curHp < p.hp);
+    if (!src) return '請選擇1隻己方有受傷的寶可夢（不能選自己）';
+    const dmg = src.hp - src.curHp;
+    src.curHp = src.hp;
+    poke.curHp = Math.max(0, poke.curHp - dmg);
+    return null;
+  },
 };
 // 從棄牌堆裡任何一張還留有該屬性能量的寶可夢卡上拿1點能量（真實Pocket規則的棄牌堆同時
 // 存放卡片跟已丟棄的能量——我們的引擎沒有獨立的能量棄牌堆，改成直接掃discard裡的寶可夢
@@ -7778,7 +7815,11 @@ async function handleMessage(ws, msg) {
       const poke = pocketFindOwn(side, msg.pokemonUid);
       const ability = poke?.abilities?.[0];
       if (!poke || !ability || !ABILITY_EFFECTS[ability.name]) return;
-      if (side.abilitiesUsedThisTurn.includes(poke.uid)) { send(ws, { type: 'error', message: '這隻寶可夢這回合已經用過特性了' }); return; }
+      // Shadow Void（2026-08-08新增）：卡面是「as often as you like」，跟其他「每回合限用1次」
+      // 的特性方向相反，用名字白名單跳過once-per-turn gate（只有這一個特性需要，不值得為此
+      // 改整個ABILITY_EFFECTS的資料結構加欄位）
+      const unlimitedUse = ability.name === 'Shadow Void';
+      if (!unlimitedUse && side.abilitiesUsedThisTurn.includes(poke.uid)) { send(ws, { type: 'error', message: '這隻寶可夢這回合已經用過特性了' }); return; }
       const abilityCtx = { G, role, op, side, oppSide };
       const statusSnapA = pocketSnapshotStatus(side), statusSnapB = pocketSnapshotStatus(oppSide);
       const benchSnap = pocketSnapshotBenchHp(oppSide);
@@ -7788,7 +7829,7 @@ async function handleMessage(ws, msg) {
       pocketEnforceStatusImmunity(side, statusSnapA); pocketEnforceStatusImmunity(oppSide, statusSnapB);
       pocketEnforceBenchImmunity(oppSide, benchSnap);
       pocketEnforceHealBlock(G, healSnap);
-      side.abilitiesUsedThisTurn.push(poke.uid);
+      if (!unlimitedUse) side.abilitiesUsedThisTurn.push(poke.uid);
       if (abilityCtx.coinFlips?.length || abilityCtx.healUid) {
         G.lastEvent = { seq: ++G.eventSeq, kind: 'ability', coinFlips: abilityCtx.coinFlips || null, healUid: abilityCtx.healUid || null, healAmount: abilityCtx.healAmount || 0 };
       }
@@ -8195,6 +8236,11 @@ async function handleMessage(ws, msg) {
         // 機制（跟其他「下回合完全免疫傷害+效果」的招式效果共用同一個旗標跟判定點），如果attacker
         // 這次也雙殺死了，設在已死的instance上是安全的no-op（下回合它已經不在場上，不會被讀到）
         if (attacker.abilities?.[0]?.name === 'Illusive Trickery') attacker.invulnerableUntilTurn = G.turnNumber + 1;
+        // Rampardos（2026-08-08補上，原本因為需要「攻擊當下就知道這次會不會KO」而判斷要獨立
+        // 事後掛鉤才跳過——其實跟Innards Out這批「defender被KO時觸發後續效果」是同一個時機，
+        // 只是觸發條件換成attacker自己的招式效果(ctx.selfDamageIfDefenderKO)而不是defender的
+        // 特性，用同一個defenderDied區塊處理即可，不需要真的另開一個「事後」hook
+        if (ctx.selfDamageIfDefenderKO) attacker.curHp = Math.max(0, attacker.curHp - ctx.selfDamageIfDefenderKO);
       }
       const attackerDied = attackerDied0 || (!ctx.skipMainDamage && attacker.curHp <= 0 && side.active === attacker);
       if (attackerDied && defenderDied) {
@@ -8316,6 +8362,11 @@ async function handleMessage(ws, msg) {
           }
         } else if (pending.action === 'heal') {
           if (!pocketHasHealBlock(G)) target.curHp = Math.min(target.hp, target.curHp + pending.amount);
+        } else if (pending.action === 'setDelayedDamage') {
+          // Meowscarada（2026-08-08新增，已知簡化見ATTACK_EFFECTS該條註解）：跟Mismagius共用
+          // 同一個delayedDamageUntilTurn/Amount機制，只是這裡多一層「玩家先選目標」的暫停
+          target.delayedDamageUntilTurn = G.turnNumber + 1;
+          target.delayedDamageAmount = pending.amount;
         } else if (pending.action === 'damage' || pending.action === 'damagePerEnergy') {
           const amount = pending.action === 'damagePerEnergy' ? target.energy.length * pending.perEnergy : pending.amount;
           target.curHp = Math.max(0, target.curHp - amount);
@@ -8342,9 +8393,14 @@ async function handleMessage(ws, msg) {
         const op = role === 'p1' ? 'p2' : 'p1';
         const oppSide = G[op];
         const attacker = side.active;
+        // Ditto（2026-08-08新增）：跟一般pick_move借「對手主戰」的招式方向不同，這是借「自己
+        // 板凳」上任一隻的招式——多一層「先選哪隻寶可夢」，client端把uid跟moveIndex一起送，
+        // borrowSource固定用msg.uid查自己板凳（跟oppSide.active方向相反），不能選ex（卡面排除）
+        const borrowSource = pending.pool === 'ownBench' ? side.bench.find(p => p.uid === msg.uid && !p.ex) : null;
         const defender = oppSide.active;
         if (!attacker || !defender) { G.pendingChoice = null; G.phase = 'active'; pocketBroadcastState(pRoom); return; }
-        const borrowedAtk = defender.attacks?.[msg.moveIndex];
+        if (pending.pool === 'ownBench' && !borrowSource) return; // 不合法的來源（不是板凳上的、或選到ex），維持pendingChoice等玩家重選
+        const borrowedAtk = (pending.pool === 'ownBench' ? borrowSource : defender).attacks?.[msg.moveIndex];
         if (!borrowedAtk) return; // 不合法的招式索引，維持pendingChoice等玩家重選
         // 部分卡面版本多了「沒有必要能量就完全沒效果」的條件，跟一般攻擊事前擋下不同——這裡
         // 是「選了才知道要不要付得起」，付不起就直接結束回合、什麼都不做（不是拒絕這次選擇）

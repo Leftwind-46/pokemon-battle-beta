@@ -1494,6 +1494,8 @@ const ABILITY_NAMES_SUPPORTED = new Set([
   'Fragrance Trap', 'Ultra Thrusters', 'Catching Tail', 'Shifting Stream',
   // 2026-08-08新增：第三批按鈕觸發型特性
   'Reckless Shearing', 'CHECK', 'Wash Out', 'Dismantling Keys',
+  // 2026-08-08再接續：Shadow Void（as often as you like，見pocket_use_ability的unlimitedUse白名單）
+  'Shadow Void',
 ]);
 
 function renderBoard() {
@@ -1706,6 +1708,18 @@ function renderBoard() {
           <img src="${pocketThumbUrl(c.image)}" alt="${c.name}">
           <div class="board-name">${c.name}</div>
         </div>`).join('');
+    } else if (pendingChoice.kind === 'pick_move' && pendingChoice.pool === 'ownBench') {
+      // Ditto（2026-08-08新增）：跟一般pick_move借「對手主戰」方向不同，這是借自己板凳任一隻
+      // （不含ex）的招式——要多一層「哪隻寶可夢」，攤平成(寶可夢,招式)清單，按鈕同時帶uid+moveIndex
+      titleEl.textContent = '選擇要借用己方板凳哪隻寶可夢的招式';
+      subEl.textContent = '若這隻寶可夢沒有足夠能量，這次攻擊將完全沒有效果';
+      const options = [];
+      (you.bench || []).filter(p => !p.ex).forEach(p => (p.attacks || []).forEach((m, i) => options.push({ p, m, i })));
+      optionsEl.innerHTML = options.map(({ p, m, i }) => `
+        <div class="board-slot pickable" data-move-choice-pick="${i}" data-move-choice-uid="${p.uid}" style="min-width:160px">
+          <div class="board-name">${p.name}：${m.name}</div>
+          <div>威力 ${m.damage || 0}</div>
+        </div>`).join('');
     } else if (pendingChoice.kind === 'pick_move') {
       // 招式借用（2026-08-07新增）：選對手主戰身上的哪一招當作這次攻擊，跟其他pendingChoice
       // 「點board slot選寶可夢」不同，這裡要列出招式清單讓玩家選——不是複用renderPokeSlot
@@ -1788,6 +1802,7 @@ const ABILITY_NEEDS_TARGET = {
   // Wash Out（2026-08-08新增）：目標是「自己板凳上要移出能量的水屬性寶可夢」（來源，不是移入的
   // 主戰）——跟其他own-target一樣點board slot送target，server端再從target身上拿能量搬到主戰
   'Wash Out': 'own',
+  'Shadow Void': 'own',
 };
 // 跟server.js的TRAINER_EFFECTS同一份清單——A1~B2a擴充後訓練師卡從18張暴增到197張，
 // 只有這份清單裡的卡有做效果，其餘先讓玩家看得到卡但打不出去
@@ -1860,7 +1875,13 @@ document.getElementById('board-overlay').addEventListener('click', e => {
   const choiceSlot = e.target.closest('.board-slot[data-attack-choice-pick]');
   if (choiceSlot) { wsSend({ type: 'pocket_attack_choice', uid: choiceSlot.dataset.uid }); return; }
   const moveChoiceSlot = e.target.closest('.board-slot[data-move-choice-pick]');
-  if (moveChoiceSlot) { wsSend({ type: 'pocket_attack_choice', moveIndex: Number(moveChoiceSlot.dataset.moveChoicePick) }); return; }
+  if (moveChoiceSlot) {
+    const msg = { type: 'pocket_attack_choice', moveIndex: Number(moveChoiceSlot.dataset.moveChoicePick) };
+    // Ditto（2026-08-08新增）：多帶uid指定「借哪隻板凳寶可夢的招式」，一般借對手主戰招式不需要這個欄位
+    if (moveChoiceSlot.dataset.moveChoiceUid) msg.uid = moveChoiceSlot.dataset.moveChoiceUid;
+    wsSend(msg);
+    return;
+  }
 
   // 2026-08-05改版：點手牌/己方場上寶可夢不再直接觸發動作（原本一點就出牌/撤退，容易誤觸、
   // 也看不到卡片詳細內容才做決定）——改成先開卡片預覽面板，可用的動作變成面板裡的按鈕，
