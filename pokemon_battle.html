@@ -1645,7 +1645,7 @@
       <h3>異常狀態</h3>
       <ul>
         <li><b>☠ 中毒</b>：損失 1/8 最大 HP，在該回合的行動（攻擊或格擋）結束後才扣血，不會搶在攻擊之前把你打倒。</li>
-        <li><b>🔥 燒傷</b>：損失 1/16 最大 HP（同樣是行動後才扣），且攻擊力降低 30%。</li>
+        <li><b>🔥 燒傷</b>：損失 1/16 最大 HP（同樣是行動後才扣），且攻擊力降低 6%（×0.94）。</li>
         <li><b>⚡ 麻痺</b>：每回合 50% 機率完全無法行動。</li>
         <li><b>💤 睡眠</b>：無法行動 2–3 回合後自然醒來；回合數每回合都會減少，格擋也算一回合。</li>
         <li><b>❄ 結凍</b>：無法行動；冰凍 2 回合後自動解凍，或被火系招式命中立即解凍，自己使出火屬性招式也能立即解凍；回合數每回合都會減少，格擋也算一回合。</li>
@@ -2891,8 +2891,11 @@ function showMoveInfo(anchorEl, a, p, cp, cost) {
     const mult = effActive(a.type, cp?.type, cp?.type2);
     const effText = mult >= 1.6 ? '超超級有效 ×' + mult : mult >= 1.2 ? '超級有效 ×' + mult : mult === 0 ? '完全無效' : mult < 1 ? '效果不佳 ×' + mult : '';
     if (effText) rows.push(`<div class="mip-row">相剋：<b>${effText}</b></div>`);
+    // 2026-08-08修正：megaBoost跟bonusEnergy常常同時存在同一招（t1/t2招式的既有設計），原本
+    // 用else if串在一起會讓megaBoost蓋掉bonusEnergy的顯示列，改成megaBoost獨立判斷；
+    // bonusEnergy/selfHeal彼此互斥（不同分層的招式才會各自帶其中一個）維持else if沒問題
     if (a.megaBoost) rows.push(`<div class="mip-row">Mega 能量 ×2</div>`);
-    else if (a.bonusEnergy) rows.push(`<div class="mip-row">下回合 +${a.bonusEnergy} 能量</div>`);
+    if (a.bonusEnergy) rows.push(`<div class="mip-row">下回合 +${a.bonusEnergy} 能量</div>`);
     else if (a.selfHeal) rows.push(`<div class="mip-row">附帶回復自身 HP</div>`);
     if (a.rider) rows.push(`<div class="mip-row">附加效果：<b>${RIDER_EFFECT_ZH[a.rider] || ''}</b></div>`);
     if (a.bonusVsType) rows.push(`<div class="mip-row">對 <b>${TYPE_ZH[a.bonusVsType] || a.bonusVsType}</b> 系額外 +50 傷害</div>`);
@@ -4763,7 +4766,7 @@ function confirmHunt(targetIdx) {
   G.cpuBuff = freshBuff();
   G.cpuBraced = false; G.cpuCoinShield = false;
   log(`你使用了【${card.name}】，強制讓 ${target.name} 上場！`, 'player');
-  triggerOnEnter(target, 'cpu', false); // 不觸發上場特性／進場陷阱
+  triggerOnEnter(target, 'cpu', false, true); // 不觸發上場特性／進場陷阱（第4個參數才是真的擋特性，見function定義的說明）
   renderBattle();
 
   const mult = effActive(attacker.type, target.type, target.type2);
@@ -4949,8 +4952,14 @@ function executeSwitch(deckIdx) {
   G.playerSwitchGuard = true; // this turn's incoming damage ×0.9
 
   const outPoke = P();
+  // 2026-08-08修正：混亂可能落在status或status2任一格（自從兩個狀態槽變成完全對稱後，
+  // 有7招是把混亂種在status2），原本只檢查status，status2裡的混亂換場後沒被清掉
   if (outPoke.status?.type === 'confusion') {
     outPoke.status = null;
+    log(`${outPoke.name} 的混亂因換場消失了！`, 'system');
+  }
+  if (outPoke.status2?.type === 'confusion') {
+    outPoke.status2 = null;
     log(`${outPoke.name} 的混亂因換場消失了！`, 'system');
   }
   const outName = outPoke.name;
@@ -5404,6 +5413,15 @@ function inflictStatus(poke, effect, turnsLeft) {
   // 治癒彩虹（鳳王專屬）：完全不會受到任何負面狀態——所有狀態賦予路徑（招式/道具卡/場地/連鎖效果）
   // 最終都會呼叫這個共用函式，直接在這裡擋掉最完整，不用一一補每個直接呼叫inflictStatus的地方
   if (poke.ability?.id === 'healing-rainbow') return false;
+  // 2026-08-08修正：妖精結界／極寒屏障的desc宣稱「免疫異常狀態」，但這個檢查原本只放在
+  // tryInflictStatus（招式路徑），至少12張訓練師卡是直接呼叫這個共用函式，完全繞過那個檢查——
+  // 跟healing-rainbow同一個道理，搬到這一層才能真正涵蓋所有賦予異常狀態的路徑
+  const statusImmuneSide = poke === P() ? 'player' : poke === CP() ? 'cpu' : null;
+  if (statusImmuneSide && G[`${statusImmuneSide}StatusImmuneTurns`] > 0) {
+    const label = statusImmuneSide === 'player' ? '你的' : '對手的';
+    log(`${label}${poke.name} 的妖精結界抵擋了異常狀態！`, 'special');
+    return false;
+  }
   if (poke.status?.type === effect || poke.status2?.type === effect) return false;
   if (!poke.status) { poke.status = { type: effect, turnsLeft }; return true; }
   if (!poke.status2) { poke.status2 = { type: effect, turnsLeft }; return true; }
@@ -6250,8 +6268,13 @@ function rollTurnStartAbilityDraw(poke, side) {
 }
 // `isFieldEntry=false` for in-place transforms (瘋狂博士/Mega 進化) — those never "switch in"
 // from the bench, so trap stadiums (which punish entering the field) shouldn't fire for them.
-function triggerOnEnter(poke, side, isFieldEntry = true) {
+// 2026-08-08修正：獵捕(hunt)的desc明講「不觸發上場特性」，原本借用isFieldEntry=false想順便
+// 擋掉特性，但這個flag的既有語意只擋陷阱場地卡（Mega進化/瘋狂博士傳送在場的同一隻Pokémon時
+// 也傳false，但那兩處的意圖剛好相反——牠們要陷阱不觸發、但特性(複製/trace)仍然要能發動），
+// 同一個boolean沒辦法同時表達兩種相反需求，新增獨立的suppressAbility參數給獵捕專用
+function triggerOnEnter(poke, side, isFieldEntry = true, suppressAbility = false) {
   if (isFieldEntry) triggerTrapStadium(poke, side);
+  if (suppressAbility) return;
   if (!poke?.ability || isAbilitySealed(side)) return;
   if (poke.ability.id === 'intimidate') {
     const opBuff  = side === 'player' ? G.cpuBuff : G.playerBuff;
@@ -6791,9 +6814,11 @@ function drawAfterTurn(onDone) {
     });
   }
   // 雷雲庇護所：每回合結束，雙方若無異常狀態，20%機率陷入麻痺
+  // 2026-08-08修正：desc/註解都寫「若無異常狀態」，但原本沒有真的檢查poke.status/status2，
+  // inflictStatus()本身只防止同一種狀態重複疊加，不會擋「已經有別種狀態時還能再加一種」
   if (G.activeStadium?.id === 'stadium-electric-storm') {
     [{ poke:P(), side:'player' }, { poke:CP(), side:'cpu' }].forEach(({poke, side}) => {
-      if (poke.cur > 0 && Math.random() < 0.2 && inflictStatus(poke, 'paralysis', 999)) {
+      if (poke.cur > 0 && !poke.status && !poke.status2 && Math.random() < 0.2 && inflictStatus(poke, 'paralysis', 999)) {
         log(`【雷雲庇護所】${poke.name} 被閃電擊中，陷入了麻痺！`, 'special');
       }
     });
@@ -6801,7 +6826,7 @@ function drawAfterTurn(onDone) {
   // 永凍冰原：每回合結束，雙方若無異常狀態，15%機率陷入結凍
   if (G.activeStadium?.id === 'stadium-ice-tundra') {
     [{ poke:P(), side:'player' }, { poke:CP(), side:'cpu' }].forEach(({poke, side}) => {
-      if (poke.cur > 0 && Math.random() < 0.15 && inflictStatus(poke, 'freeze', 2)) {
+      if (poke.cur > 0 && !poke.status && !poke.status2 && Math.random() < 0.15 && inflictStatus(poke, 'freeze', 2)) {
         log(`【永凍冰原】${poke.name} 被凍住了！`, 'special');
       }
     });
@@ -7085,8 +7110,9 @@ function moveEffectDescParts(a) {
   }
   if (a.status) descParts.push(`${STATUS_EFFECT_ZH[a.status.effect]} ${Math.round(a.status.chance*100)}%`);
   if (a.status2) descParts.push(`附加${STATUS_EFFECT_ZH[a.status2.effect]} ${Math.round(a.status2.chance*100)}%`);
+  // 2026-08-08修正：跟showMoveInfo同一個bug，megaBoost/bonusEnergy常同時存在，不該用else if串掉
   if (a.megaBoost) descParts.push('Mega 能量 ×2');
-  else if (a.bonusEnergy) descParts.push(`下回合 +${a.bonusEnergy} 能量`);
+  if (a.bonusEnergy) descParts.push(`下回合 +${a.bonusEnergy} 能量`);
   else if (a.selfHeal) descParts.push('附帶回復自身 HP');
   if (a.rider) descParts.push(RIDER_EFFECT_ZH[a.rider] || '');
   if (a.bonusVsType) descParts.push(`對${TYPE_ZH[a.bonusVsType]||a.bonusVsType}系額外+50傷害`);

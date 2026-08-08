@@ -975,7 +975,7 @@
     <h3>異常狀態</h3>
     <ul>
       <li><b>☠ 中毒</b>：損失 1/8 最大 HP，在該回合的行動（攻擊或格擋）結束後才扣血，不會搶在攻擊之前把你打倒。</li>
-      <li><b>🔥 燒傷</b>：損失 1/16 HP（同樣是行動後才扣），且攻擊力降低 30%。</li>
+      <li><b>🔥 燒傷</b>：損失 1/16 HP（同樣是行動後才扣），且攻擊力降低 6%（×0.94）。</li>
       <li><b>⚡ 麻痺</b>：每回合 50% 機率完全無法行動。</li>
       <li><b>💤 睡眠</b>：無法行動 2–3 回合後自然醒來；回合數每回合都會減少，格擋也算一回合。</li>
       <li><b>❄ 結凍</b>：無法行動；冰凍 2 回合後自動解凍，或被火系攻擊命中解凍，自己使出火屬性招式也能立即解凍；回合數每回合都會減少，格擋也算一回合。</li>
@@ -3169,7 +3169,7 @@ function showMoveInfo(anchorEl, a, p, cp, cost, mult) {
     const effText = mult>=4 ? '超超級有效 ×1.6' : mult===2 ? '超級有效 ×1.2' : mult===0 ? '完全無效' : mult<1 ? `效果不佳 ×${mult}` : '';
     if (effText) rows.push(`<div class="mip-row">相剋：<b>${effText}</b></div>`);
     if (a.megaBoost) rows.push(`<div class="mip-row">Mega 能量 ×2</div>`);
-    else if (a.bonusEnergy) rows.push(`<div class="mip-row">下回合 +${a.bonusEnergy} 能量</div>`);
+    if (a.bonusEnergy) rows.push(`<div class="mip-row">下回合 +${a.bonusEnergy} 能量</div>`);
     else if (a.selfHeal) rows.push(`<div class="mip-row">附帶回復自身 HP</div>`);
     if (a.rider) rows.push(`<div class="mip-row">附加效果：<b>${RIDER_EFFECT_ZH[a.rider] || ''}</b></div>`);
     if (a.bonusVsType) rows.push(`<div class="mip-row">對 <b>${TYPE_ZH[a.bonusVsType] || a.bonusVsType}</b> 系額外 +50 傷害</div>`);

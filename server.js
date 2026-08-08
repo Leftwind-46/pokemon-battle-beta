@@ -774,9 +774,14 @@ function tickNonAttackStatusSrv(poke, log) {
    兩格都會檢查（見findStatusSlot()），不是只讀.status了。
    所有原本「直接指定poke.status = {...}」的地方都要改呼叫這個函式，回傳true代表真的套用成功
    （呼叫端可以再log訊息），false代表已達上限（兩格都滿）或該狀態已存在，什麼都不會發生。 */
-function inflictStatus(poke, effect, turnsLeft) {
+function inflictStatus(G, poke, effect, turnsLeft) {
   // 治癒彩虹（鳳王專屬）：完全不會受到任何負面狀態——所有狀態賦予路徑最終都會呼叫這個共用函式
   if (poke.ability?.id === 'healing-rainbow') return false;
+  // 2026-08-08修正：跟single-player同一個bug/同一套修法——妖精結界／極寒屏障的desc宣稱
+  // 「免疫異常狀態」，原本這個檢查只放在tryInflictStatus（招式路徑），至少12張訓練師卡
+  // 直接呼叫這個共用函式繞過了它，搬到這一層才能真正涵蓋所有賦予異常狀態的路徑
+  const statusImmuneRole = poke === G.p1Deck?.[G.p1Idx] ? 'p1' : poke === G.p2Deck?.[G.p2Idx] ? 'p2' : null;
+  if (statusImmuneRole && G[`${statusImmuneRole}StatusImmuneTurns`] > 0) return false;
   if (poke.status?.type === effect || poke.status2?.type === effect) return false;
   if (!poke.status) { poke.status = { type: effect, turnsLeft }; return true; }
   if (!poke.status2) { poke.status2 = { type: effect, turnsLeft }; return true; }
@@ -1256,7 +1261,7 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
                               : effect === 'confusion' ? (Math.floor(Math.random()*3)+2)
                               : effect === 'freeze'    ? 2
                               : 999;
-          if (inflictStatus(attacker, effect, reflectTurns)) {
+          if (inflictStatus(G, attacker, effect, reflectTurns)) {
             log.push({ text: `${defender.name} 的鎂光反射將異常狀態彈了回去，${attacker.name} 陷入了${STATUS_ZH[effect]}！`, cls: 'special' });
           } else {
             log.push({ text: `${defender.name} 的鎂光反射彈開了異常狀態！`, cls: 'special' });
@@ -1273,12 +1278,12 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
                         : effect === 'confusion' ? (Math.floor(Math.random()*3)+2)
                         : effect === 'freeze'    ? 2
                         : 999;
-        if (!inflictStatus(defender, effect, turnsLeft)) {
+        if (!inflictStatus(G, defender, effect, turnsLeft)) {
           log.push({ text: `${defender.name} 異常狀態已達上限，沒有生效。`, cls: 'system' });
           return;
         }
         log.push({ text: `${defender.name} 陷入了${STATUS_ZH[effect]}！`, cls: 'special' });
-        if (['poison','burn','paralysis'].includes(effect) && defenderAbility?.id === 'sync-status' && attacker.cur > 0 && inflictStatus(attacker, effect, 999)) {
+        if (['poison','burn','paralysis'].includes(effect) && defenderAbility?.id === 'sync-status' && attacker.cur > 0 && inflictStatus(G, attacker, effect, 999)) {
           log.push({ text: `${defender.name} 的同步將${STATUS_ZH[effect]}傳染給了${attacker.name}！`, cls: 'special' });
         }
       }
@@ -1294,12 +1299,12 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
   if (aBuff.iceHowlFreeze && atkType === 'ice' && defender.cur > 0 && !(G[`${dRole}StatusImmuneTurns`] > 0) && Math.random() < 0.4) {
     if (dBuff.debuffReflect) {
       dBuff.debuffReflect = false;
-      if (attacker.cur > 0 && inflictStatus(attacker, 'freeze', 2)) {
+      if (attacker.cur > 0 && inflictStatus(G, attacker, 'freeze', 2)) {
         log.push({ text: `${defender.name} 的鎂光反射將異常狀態彈了回去，${attacker.name} 陷入了結凍！`, cls: 'special' });
       } else {
         log.push({ text: `${defender.name} 的鎂光反射彈開了異常狀態！`, cls: 'special' });
       }
-    } else if (inflictStatus(defender, 'freeze', 2)) {
+    } else if (inflictStatus(G, defender, 'freeze', 2)) {
       log.push({ text: `${defender.name} 因為冰霜咆哮陷入了結凍！`, cls: 'special' });
     }
   }
@@ -1377,7 +1382,7 @@ function executeSupportMoveSrv(attacker, defender, atk, role, op, G, log) {
                           : effect === 'confusion' ? (Math.floor(Math.random()*3)+2)
                           : effect === 'freeze'    ? 2
                           : 999;
-          if (inflictStatus(defender, effect, turnsLeft)) {
+          if (inflictStatus(G, defender, effect, turnsLeft)) {
             log.push({ text: `${defender.name} 陷入了${STATUS_ZH[effect]}！`, cls: 'special' });
           } else {
             log.push({ text: `${defender.name} 異常狀態已達上限，沒有生效。`, cls: 'system' });
@@ -1426,7 +1431,7 @@ function triggerTrapStadiumSrv(poke, role, G, log) {
     poke.cur = Math.max(0, poke.cur - dmg); // 扣血效果應該能讓寶可夢陣亡，不該保留1HP
     log.push({ text: `${poke.name} 受到了尖峰陷阱的傷害！（-${dmg} HP）`, cls: 'special' });
   }
-  if (G.activeStadium?.id === 'stadium-toxic-field' && inflictStatus(poke, 'poison', 999)) {
+  if (G.activeStadium?.id === 'stadium-toxic-field' && inflictStatus(G, poke, 'poison', 999)) {
     log.push({ text: `${poke.name} 踏入了劇毒領域，陷入了中毒！`, cls: 'special' });
   }
 }
@@ -1493,8 +1498,12 @@ const DOMAIN_ABILITY_STADIUM = {
   'ghost-domain':    { stadium: 'stadium-ghost-curse',     type: 'ghost' },
   'fairy-domain':    { stadium: 'stadium-fairy-ward',      type: 'fairy' },
 };
-function triggerOnEnterSrv(poke, role, G, log, isFieldEntry = true) {
+// 2026-08-08修正：獵捕(hunt)跟single-player同一個bug/同一套修法，見pokemon_battle.html的
+// triggerOnEnter說明——isFieldEntry=false只擋trap，Mega進化那處也傳false但要特性繼續發動，
+// 兩個呼叫點需求相反，新增獨立的suppressAbility參數
+function triggerOnEnterSrv(poke, role, G, log, isFieldEntry = true, suppressAbility = false) {
   if (isFieldEntry) triggerTrapStadiumSrv(poke, role, G, log);
+  if (suppressAbility) return;
   if (!poke?.ability || isAbilitySealedSrv(role, G)) return;
   const op = role === 'p1' ? 'p2' : 'p1';
   if (poke.ability.id === 'intimidate') {
@@ -1551,7 +1560,7 @@ function triggerOnLeaveSrv(poke, role, G, log) {
 function triggerAttackerAbilitySrv(attacker, defender, log, dBuff, G) {
   const aRole = dBuff === G.p1Buff ? 'p2' : 'p1'; // dBuff is the defender's buff, so attacker is the other role
   if (!attacker.ability || isAbilitySealedSrv(aRole, G)) return;
-  if (attacker.ability.id === 'static-trail' && defender.cur > 0 && Math.random() < 0.15 && inflictStatus(defender, 'paralysis', 999)) {
+  if (attacker.ability.id === 'static-trail' && defender.cur > 0 && Math.random() < 0.15 && inflictStatus(G, defender, 'paralysis', 999)) {
     log.push({ text: `${attacker.name} 的電擊尾隨讓 ${defender.name} 陷入了麻痺！`, cls: 'special' });
   }
   if (attacker.ability.id === 'chance-debuff' && defender.cur > 0 && Math.random() < 0.25) {
@@ -1563,15 +1572,15 @@ function triggerAttackerAbilitySrv(attacker, defender, log, dBuff, G) {
 function triggerDefenderAbilitySrv(defender, attacker, log, dBuff, G) {
   const dRole = dBuff === G.p1Buff ? 'p1' : 'p2';
   if (!defender.ability || isAbilitySealedSrv(dRole, G)) return;
-  if (defender.ability.id === 'static' && Math.random() < 0.20 && inflictStatus(attacker, 'paralysis', 999)) {
+  if (defender.ability.id === 'static' && Math.random() < 0.20 && inflictStatus(G, attacker, 'paralysis', 999)) {
     log.push({ text: `${defender.name} 的靜電讓 ${attacker.name} 陷入了麻痺！`, cls: 'special' });
   } else if (defender.ability.id === 'rough-skin') {
     const recoil = Math.max(1, Math.floor(attacker.hp / 8));
     attacker.cur = Math.max(0, attacker.cur - recoil);
     log.push({ text: `${defender.name} 的粗糙皮膚反彈了 ${recoil} 點傷害給 ${attacker.name}！`, cls: 'special' });
-  } else if (defender.ability.id === 'poison-point' && Math.random() < 0.20 && inflictStatus(attacker, 'poison', 999)) {
+  } else if (defender.ability.id === 'poison-point' && Math.random() < 0.20 && inflictStatus(G, attacker, 'poison', 999)) {
     log.push({ text: `${defender.name} 的毒刺讓 ${attacker.name} 陷入了中毒！`, cls: 'special' });
-  } else if (defender.ability.id === 'flame-body' && Math.random() < 0.20 && inflictStatus(attacker, 'burn', 999)) {
+  } else if (defender.ability.id === 'flame-body' && Math.random() < 0.20 && inflictStatus(G, attacker, 'burn', 999)) {
     log.push({ text: `${defender.name} 的火焰之軀讓 ${attacker.name} 陷入了燒傷！`, cls: 'special' });
   } else if (defender.ability.id === 'retaliate-boost' && defender.cur > 0) {
     dBuff.atkMult = Math.max(dBuff.atkMult, 1.1);
@@ -1651,26 +1660,26 @@ function applyTrainer(card, role, G, log, chosenType) {
       break;
     case 'fire-bomb': {
       const opDeck = G[`${op}Deck`]; const opActive = opDeck[G[`${op}Idx`]];
-      if (inflictStatus(opActive, 'burn', 999)) { log.push({ text: `火焰彈讓 ${opActive.name} 陷入燒傷！`, cls: 'special' }); }
+      if (inflictStatus(G, opActive, 'burn', 999)) { log.push({ text: `火焰彈讓 ${opActive.name} 陷入燒傷！`, cls: 'special' }); }
       else log.push({ text: `${opActive.name} 異常狀態已達上限，火焰彈無效！`, cls: 'system' });
       break;
     }
     case 'gas-attack': {
       const opDeck = G[`${op}Deck`]; const opActive = opDeck[G[`${op}Idx`]];
-      if (inflictStatus(opActive, 'poison', 999)) { log.push({ text: `瓦斯攻擊讓 ${opActive.name} 陷入中毒！`, cls: 'special' }); }
+      if (inflictStatus(G, opActive, 'poison', 999)) { log.push({ text: `瓦斯攻擊讓 ${opActive.name} 陷入中毒！`, cls: 'special' }); }
       else log.push({ text: `${opActive.name} 異常狀態已達上限，瓦斯攻擊無效！`, cls: 'system' });
       break;
     }
     case 'confuse-potion': {
       const opDeck = G[`${op}Deck`]; const opActive = opDeck[G[`${op}Idx`]];
       if (opActive.ability?.id === 'own-tempo') { log.push({ text: `${opActive.name} 的我行我素抵消了混亂藥！`, cls: 'system' }); }
-      else if (inflictStatus(opActive, 'confusion', Math.floor(Math.random()*3)+2)) { log.push({ text: `混亂藥讓 ${opActive.name} 陷入混亂！`, cls: 'special' }); }
+      else if (inflictStatus(G, opActive, 'confusion', Math.floor(Math.random()*3)+2)) { log.push({ text: `混亂藥讓 ${opActive.name} 陷入混亂！`, cls: 'special' }); }
       else log.push({ text: `${opActive.name} 異常狀態已達上限，混亂藥無效！`, cls: 'system' });
       break;
     }
     case 'absolute-zero': {
       const opDeck = G[`${op}Deck`]; const opActive = opDeck[G[`${op}Idx`]];
-      if (inflictStatus(opActive, 'freeze', 2)) { log.push({ text: `絕對零度讓 ${opActive.name} 陷入結凍！`, cls: 'special' }); }
+      if (inflictStatus(G, opActive, 'freeze', 2)) { log.push({ text: `絕對零度讓 ${opActive.name} 陷入結凍！`, cls: 'special' }); }
       else log.push({ text: `${opActive.name} 異常狀態已達上限，絕對零度無效！`, cls: 'system' });
       break;
     }
@@ -1756,7 +1765,7 @@ function applyTrainer(card, role, G, log, chosenType) {
     }
     case 'paralyze-trap': {
       const opDeck = G[`${op}Deck`]; const opActive = opDeck[G[`${op}Idx`]];
-      if (inflictStatus(opActive, 'paralysis', 999)) { log.push({ text: `電擊誘餌讓 ${opActive.name} 陷入麻痺！`, cls: 'special' }); }
+      if (inflictStatus(G, opActive, 'paralysis', 999)) { log.push({ text: `電擊誘餌讓 ${opActive.name} 陷入麻痺！`, cls: 'special' }); }
       else log.push({ text: `${opActive.name} 異常狀態已達上限，電擊誘餌無效！`, cls: 'system' });
       break;
     }
@@ -1804,7 +1813,7 @@ function applyTrainer(card, role, G, log, chosenType) {
       const opDeck = G[`${op}Deck`]; const opActive = opDeck[G[`${op}Idx`]];
       const before = G[`${op}Energy`];
       G[`${op}Energy`] = Math.max(0, G[`${op}Energy`] - 3);
-      if (inflictStatus(opActive, 'poison', 999)) { log.push({ text: `群聚針刺讓 ${opActive.name} 陷入中毒，並損失了 ${before - G[`${op}Energy`]} 點能量！`, cls: 'special' }); }
+      if (inflictStatus(G, opActive, 'poison', 999)) { log.push({ text: `群聚針刺讓 ${opActive.name} 陷入中毒，並損失了 ${before - G[`${op}Energy`]} 點能量！`, cls: 'special' }); }
       else log.push({ text: `${opActive.name} 異常狀態已達上限，群聚針刺只讓對方損失了 ${before - G[`${op}Energy`]} 點能量！`, cls: 'system' });
       break;
     }
@@ -1870,7 +1879,7 @@ function applyTrainer(card, role, G, log, chosenType) {
     case 'fire-nova': {
       buff.atkBonus = 60;
       const opDeck = G[`${op}Deck`]; const opActive = opDeck[G[`${op}Idx`]];
-      if (Math.random() < 0.3 && inflictStatus(opActive, 'burn', 999)) {
+      if (Math.random() < 0.3 && inflictStatus(G, opActive, 'burn', 999)) {
         log.push({ text: `使用了${card.name}，下次攻擊威力 +60，${opActive.name} 陷入了燒傷！`, cls: 'special' });
       } else {
         log.push({ text: `使用了${card.name}，下次攻擊威力 +60！`, cls: 'system' });
@@ -1898,7 +1907,7 @@ function applyTrainer(card, role, G, log, chosenType) {
       const opActive = G[`${op}Deck`][G[`${op}Idx`]];
       if (opActive.ability?.id === 'insomnia') {
         log.push({ text: `使用了${card.name}，下次攻擊的異常狀態機率視為 100%！但${opActive.name} 的不眠抵消了睡眠！`, cls: 'system' });
-      } else if (inflictStatus(opActive, 'sleep', 1)) {
+      } else if (inflictStatus(G, opActive, 'sleep', 1)) {
         log.push({ text: `使用了${card.name}，下次攻擊的異常狀態機率視為 100%，${opActive.name} 也陷入了 1 回合的睡眠！`, cls: 'system' });
       } else {
         log.push({ text: `使用了${card.name}，下次攻擊的異常狀態機率視為 100%！（${opActive.name} 異常狀態已達上限，睡眠沒有生效）`, cls: 'system' });
@@ -1993,7 +2002,7 @@ function applyTrainer(card, role, G, log, chosenType) {
       const opDeck = G[`${op}Deck`]; const opActive = opDeck[G[`${op}Idx`]];
       const before = G[`${op}Energy`] || 0;
       G[`${op}Energy`] = Math.max(0, before - 10);
-      if (inflictStatus(opActive, 'poison', 999)) {
+      if (inflictStatus(G, opActive, 'poison', 999)) {
         log.push({ text: `使用了${card.name}，讓${opActive.name} 陷入中毒，並損失了 ${before - G[`${op}Energy`]} 點能量！`, cls: 'special' });
       } else {
         log.push({ text: `使用了${card.name}，${opActive.name} 異常狀態已達上限，只損失了 ${before - G[`${op}Energy`]} 點能量！`, cls: 'system' });
@@ -2028,7 +2037,7 @@ function applyTrainer(card, role, G, log, chosenType) {
       buff.atkMult = Math.max(buff.atkMult, 1.3);
       const isFireMon = active.type === 'fire' || active.type2 === 'fire';
       let msg = `使用了${card.name}，下次攻擊威力 ×1.3，但 ${active.name} 損失了 60 HP！`;
-      if (!isFireMon && inflictStatus(active, 'burn', 999)) {
+      if (!isFireMon && inflictStatus(G, active, 'burn', 999)) {
         msg += `因為不是火屬性，自己也陷入了燒傷！`;
       }
       log.push({ text: msg, cls: 'special' });
@@ -2063,7 +2072,7 @@ function applyTrainer(card, role, G, log, chosenType) {
       break;
     case 'electric-chain': {
       const opActive = G[`${op}Deck`][G[`${op}Idx`]];
-      if (Math.random() < 0.4 && inflictStatus(opActive, 'paralysis', 999)) {
+      if (Math.random() < 0.4 && inflictStatus(G, opActive, 'paralysis', 999)) {
         log.push({ text: `使用了${card.name}，${opActive.name} 陷入了麻痺！`, cls: 'special' });
       } else {
         log.push({ text: `使用了${card.name}，但沒有觸發效果。`, cls: 'system' });
@@ -2258,7 +2267,7 @@ function applyTrainer(card, role, G, log, chosenType) {
       const opActive = G[`${op}Deck`][G[`${op}Idx`]];
       if (opActive.ability?.id === 'own-tempo') {
         log.push({ text: `${opActive.name} 的我行我素抵消了${card.name}！`, cls: 'special' });
-      } else if (Math.random() < 0.3 && inflictStatus(opActive, 'confusion', Math.floor(Math.random() * 3) + 2)) {
+      } else if (Math.random() < 0.3 && inflictStatus(G, opActive, 'confusion', Math.floor(Math.random() * 3) + 2)) {
         log.push({ text: `使用了${card.name}，${opActive.name} 陷入了混亂！`, cls: 'special' });
       } else {
         log.push({ text: `使用了${card.name}，但沒有觸發效果。`, cls: 'system' });
@@ -2278,7 +2287,7 @@ function applyTrainer(card, role, G, log, chosenType) {
     }
     case 'poison-spore': {
       const opActive = G[`${op}Deck`][G[`${op}Idx`]];
-      if (Math.random() < 0.5 && inflictStatus(opActive, 'poison', 999)) {
+      if (Math.random() < 0.5 && inflictStatus(G, opActive, 'poison', 999)) {
         log.push({ text: `使用了${card.name}，${opActive.name} 陷入了中毒！`, cls: 'special' });
       } else {
         log.push({ text: `使用了${card.name}，但沒有觸發效果。`, cls: 'system' });
@@ -2374,16 +2383,17 @@ function drawForRole(G, role) {
     }
   }
   // 雷雲庇護所／永凍冰原：每回合結束，雙方若無異常狀態，一定機率陷入麻痺／結凍
+  // 2026-08-08修正：跟single-player同一個bug，desc寫「若無異常狀態」但原本沒真的檢查
   if (G.activeStadium?.id === 'stadium-electric-storm') {
     for (const r of ['p1', 'p2']) {
       const poke = G[`${r}Deck`][G[`${r}Idx`]];
-      if (poke.cur > 0 && Math.random() < 0.2) inflictStatus(poke, 'paralysis', 999);
+      if (poke.cur > 0 && !poke.status && !poke.status2 && Math.random() < 0.2) inflictStatus(G, poke, 'paralysis', 999);
     }
   }
   if (G.activeStadium?.id === 'stadium-ice-tundra') {
     for (const r of ['p1', 'p2']) {
       const poke = G[`${r}Deck`][G[`${r}Idx`]];
-      if (poke.cur > 0 && Math.random() < 0.15) inflictStatus(poke, 'freeze', 2);
+      if (poke.cur > 0 && !poke.status && !poke.status2 && Math.random() < 0.15) inflictStatus(G, poke, 'freeze', 2);
     }
   }
   // 邪惡森林：每回合結束，草屬性上場寶可夢回復70HP，跟stadium-spring同一套寫法
@@ -10045,7 +10055,7 @@ async function handleMessage(ws, msg) {
         G[`${op}Braced`] = false;
         G[`${op}CoinShield`] = false;
         G[`${op}StandbyGuard`] = false;
-        triggerOnEnterSrv(target, op, G, log, false); // 不觸發上場特性／進場陷阱
+        triggerOnEnterSrv(target, op, G, log, false, true); // 不觸發上場特性／進場陷阱（第6個參數才是真的擋特性）
 
         const mult = srvEffActive(attacker.type, target.type, target.type2, G);
         const dmg = Math.max(1, Math.round(40 * mult));
@@ -10403,7 +10413,9 @@ async function handleMessage(ws, msg) {
 
       const usedFreeSwitch = G[`${role}FreeSwitch`]; // 撤退背心：免費換場，不結束回合
       const outPoke = deck[curIdx];
+      // 2026-08-08修正：混亂可能落在status或status2任一格，原本只清status
       if (outPoke.status?.type === 'confusion') outPoke.status = null;
+      if (outPoke.status2?.type === 'confusion') outPoke.status2 = null;
       // 換人時被換下場的寶可夢回復100HP（上限為自身max hp），跟isHealSealedSrv既有的
       // 「所有回血來源都要檢查詛咒」規則一致——要在outPoke還沒被換走前算好
       const outHeal = (outPoke.cur > 0 && !isHealSealedSrv(role, G)) ? Math.min(100, outPoke.hp - outPoke.cur) : 0;
