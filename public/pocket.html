@@ -2250,11 +2250,21 @@ document.getElementById('board-overlay').addEventListener('drop', e => {
 });
 
 // ── 攻擊事件重播：擲硬幣動畫 → 屬性特效 → 傷害飄字/受擊震動 ──
+// 2026-08-08修正：handlePocketEvent(擲硬幣/傷害動畫)跟handleCardActivations(卡牌發動彈窗)
+// 原本是各自獨立的async流程，同一次state broadcast常常兩邊都有新內容要播（例如Lucky Ice
+// Pop：訓練師卡發動彈窗+治療後的擲硬幣）——因為互不知道對方在播放，兩個全螢幕覆蓋層
+// （coin-flip-overlay z-index:95、card-activation-overlay z-index:96）同時顯示時，
+// z-index較高的卡牌彈窗會直接蓋住擲硬幣動畫，玩家看起來就像「擲硬幣效果不見了」。
+// 解法：用一個共用的`overlayChain` promise把兩邊全部串成同一條序列，保證同一時刻只有
+// 一個全螢幕覆蓋層在顯示，不會互相蓋住——render()裡呼叫順序是先handlePocketEvent再
+// handleCardActivations，所以同一批broadcast的擲硬幣一定會排在卡牌彈窗前面播放。
+let overlayChain = Promise.resolve();
+
 let lastSeenEventSeq = 0;
 function handlePocketEvent(evt) {
   if (!evt || evt.seq <= lastSeenEventSeq) return;
   lastSeenEventSeq = evt.seq;
-  (async () => {
+  overlayChain = overlayChain.then(async () => {
     if (evt.coinFlips && evt.coinFlips.length) await playCoinFlipAnim(evt.coinFlips);
     if (evt.kind === 'attack') {
       if (evt.damage > 0 || evt.selfDamage > 0) playAttackVfx(evt.attackerRole, evt.atkType, evt.targetUid);
@@ -2262,41 +2272,38 @@ function handlePocketEvent(evt) {
       if (evt.selfDamage > 0) showDamageFloat(evt.attackerUid, evt.selfDamage);
     }
     if (evt.healUid && evt.healAmount > 0) showHealFloat(evt.healUid, evt.healAmount);
-  })();
+  });
 }
 
 // ── 卡牌發動顯示（2026-08-08新增）：跟handlePocketEvent的lastEvent(單一最新事件)不同，
 // server端的cardActivations是「一直append」的陣列，同一次處理可能連續觸發好幾張卡
-// （攻擊→on-hit特性→KO→KO觸發特性），要排隊依序播放，不能只看最後一筆，不然中間那些
-// 玩家永遠看不到。用一個簡單的queue+播放中旗標，避免同時間收到好幾次state broadcast時
-// 重複播放或播放順序錯亂。
+// （攻擊→on-hit特性→KO→KO觸發特性），要依序播放，不能只看最後一筆，不然中間那些玩家
+// 永遠看不到——全部串進上面共用的overlayChain，跟擲硬幣動畫用同一條序列，不會互相搶畫面。
 let lastSeenCardEventSeq = 0;
-let cardActivationQueue = [];
-let cardActivationPlaying = false;
 function handleCardActivations(activations) {
   if (!activations || !activations.length) return;
   const newOnes = activations.filter(a => a.seq > lastSeenCardEventSeq).sort((a, b) => a.seq - b.seq);
   if (!newOnes.length) return;
   lastSeenCardEventSeq = Math.max(lastSeenCardEventSeq, ...activations.map(a => a.seq));
-  cardActivationQueue.push(...newOnes);
-  if (!cardActivationPlaying) playNextCardActivation();
+  for (const evt of newOnes) {
+    overlayChain = overlayChain.then(() => playCardActivation(evt));
+  }
 }
-function playNextCardActivation() {
-  if (!cardActivationQueue.length) { cardActivationPlaying = false; return; }
-  cardActivationPlaying = true;
-  const evt = cardActivationQueue.shift();
-  const overlay = document.getElementById('card-activation-overlay');
-  // 用完整解析度卡圖（不是縮圖）——這個彈窗本來就是「特地讓玩家看清楚是哪張卡」，
-  // 跟其他縮圖情境（列表快速瀏覽）目的不同，比照showCardDetail的.detail-img慣例
-  document.getElementById('card-activation-img').src = evt.image || '';
-  document.getElementById('card-activation-img').alt = evt.name || '';
-  document.getElementById('card-activation-name').textContent = evt.name || '';
-  document.getElementById('card-activation-label').textContent = (evt.role === myRole ? '你方：' : '對方：') + (evt.label || '');
-  overlay.style.display = 'flex';
-  setTimeout(() => {
-    overlay.style.display = 'none';
-    setTimeout(playNextCardActivation, 150); // 短暫間隔，避免連續好幾張卡黏在一起看不出是分開觸發的
-  }, 1500);
+function playCardActivation(evt) {
+  return new Promise(resolve => {
+    const overlay = document.getElementById('card-activation-overlay');
+    // 用完整解析度卡圖（不是縮圖）——這個彈窗本來就是「特地讓玩家看清楚是哪張卡」，
+    // 跟其他縮圖情境（列表快速瀏覽）目的不同，比照showCardDetail的.detail-img慣例
+    document.getElementById('card-activation-img').src = evt.image || '';
+    document.getElementById('card-activation-img').alt = evt.name || '';
+    document.getElementById('card-activation-name').textContent = evt.name || '';
+    document.getElementById('card-activation-label').textContent = (evt.role === myRole ? '你方：' : '對方：') + (evt.label || '');
+    overlay.style.display = 'flex';
+    setTimeout(() => {
+      overlay.style.display = 'none';
+      setTimeout(resolve, 150); // 短暫間隔，避免連續好幾張卡/擲硬幣黏在一起看不出是分開觸發的
+    }, 1500);
+  });
 }
 
 function playCoinFlipAnim(results) {

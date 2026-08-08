@@ -3436,6 +3436,10 @@ const ATTACK_EFFECTS = {
     Object.assign(defender, structuredClone(prevCard));
     defender.uid = preservedUid; defender.energy = preservedEnergy; defender.tool = preservedTool;
     defender.curHp = Math.max(1, (defender.hp || 0) - preservedDamage);
+    // 2026-08-08修正：退化後身分變了，pocketSyncAbilitySuppression快取的_realAbilities還是
+    // 退化「前」那個物種的特性，要清掉讓它在下次sync時重新抓——不然退化後的正確特性會被
+    // 舊快取蓋掉（見同一批修正的完整說明）
+    defender._realAbilities = undefined;
   },
   "Put 1 random Poliwag from your deck onto your Bench.": ctx => {
     if (ctx.side.bench.length >= 3) return;
@@ -4389,6 +4393,7 @@ const ATTACK_EFFECTS = {
     ctx.attacker.curHp = Math.max(1, (ctx.attacker.hp || 0) - preservedDamage);
     ctx.attacker.boardTurn = ctx.G.turnNumber;
     ctx.side.deck = pocketShuffle(ctx.side.deck);
+    ctx.attacker._realAbilities = undefined; // 2026-08-08修正：進化後身分變了，清掉舊快取讓特性正確重抓
   },
 
   // 招式借用（2026-08-07新增pick_move機制，見pocket_attack_choice handler的說明）：兩種卡面
@@ -4989,6 +4994,7 @@ const TRAINER_EFFECTS = {
     target.uid = preservedUid; target.energy = preservedEnergy;
     target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
     target.boardTurn = ctx.G.turnNumber;
+    target._realAbilities = undefined; // 2026-08-08修正：進化後身分變了，清掉舊快取讓特性正確重抓
     ctx.side.hand = ctx.side.hand.filter(c => c.uid !== handCard.uid);
     return null;
   },
@@ -5032,6 +5038,7 @@ const TRAINER_EFFECTS = {
     target.uid = preservedUid; target.energy = preservedEnergy;
     target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
     target.boardTurn = ctx.G.turnNumber;
+    target._realAbilities = undefined; // 2026-08-08修正：進化後身分變了，清掉舊快取讓特性正確重抓
     ctx.side.deck = pocketShuffle(ctx.side.deck);
     return null;
   },
@@ -7943,6 +7950,7 @@ async function handleMessage(ws, msg) {
           target.uid = preservedUid; target.energy = preservedEnergy;
           target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
           target.boardTurn = G.turnNumber;
+          target._realAbilities = undefined; // 2026-08-08修正：進化後身分變了，清掉舊快取讓特性正確重抓
           side.deck = pocketShuffle(side.deck);
           pocketEmitCardActivation(G, role, target, '特性觸發：Buggy Evolution');
         }
@@ -8121,6 +8129,12 @@ async function handleMessage(ws, msg) {
       target.energy = preservedEnergy;
       target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
       target.boardTurn = G.turnNumber;
+      // 2026-08-08修正：進化後身分變了（例如忍蛙/三首惡龍這類「前一階沒有特性，進化後才有」的
+      // 寶可夢），pocketSyncAbilitySuppression快取的_realAbilities還是進化「前」那個物種的
+      // 特性資料（很可能是null/沒有特性），下次broadcast時sync函式會用這份舊快取覆蓋掉剛
+      // Object.assign上去的正確特性——清成undefined讓sync函式下次判斷「第一次見到」重新抓取，
+      // 這是使用者回報「忍蛙/三首惡龍明明有特性卻沒得按」的根因，不是按鈕清單漏寫
+      target._realAbilities = undefined;
       side.hand = side.hand.filter(c => c.uid !== handCard.uid);
       // 進化觸發型特性：進化「成」的這張新卡（target已經是進化後的資料）如果帶著這種特性，
       // 進化完成當下自動判定——跟按鈕觸發型特性是分開的兩套機制，見EVOLVE_TRIGGER_ABILITIES註解
