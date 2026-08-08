@@ -657,6 +657,17 @@
     <div class="setup-box"><h2>對手正在選擇招式效果目標</h2><p class="lobby-sub">請稍候...</p></div>
   </div>
 
+  <!-- 2026-08-08新增：Dragon's Blessing等「從棄牌堆挖任意一種能量」的特性，卡面沒寫at random，
+       依專案既有慣例要玩家自選要拿哪一種——這是client端送出pocket_use_ability前的預選步驟，
+       跟ability-target(選目標寶可夢)同一種「先選好資訊再送出」模式，只是選的是能量屬性不是寶可夢 -->
+  <div class="setup-overlay" id="energy-type-picker-overlay" style="display:none">
+    <div class="setup-box">
+      <h2>選擇要從棄牌堆拿哪一種能量</h2>
+      <div class="setup-hand" id="energy-type-picker-options"></div>
+      <button class="btn btn-secondary" onclick="closeEnergyTypePicker()" style="margin-top:0.6rem">取消</button>
+    </div>
+  </div>
+
   <div class="setup-overlay" id="gameover-overlay" style="display:none">
     <div class="setup-box">
       <h2 id="gameover-title"></h2>
@@ -1944,6 +1955,28 @@ const ABILITY_NEEDS_TARGET = {
   // 2026-08-08新增：Metal Transport（跟主戰交換的板凳寶可夢）/Soothing Ribbon（治療己方任一隻）
   'Metal Transport': 'own', 'Soothing Ribbon': 'own',
 };
+// 2026-08-08新增：跟ABILITY_NEEDS_TARGET是同一種「送出前先讓玩家選好」概念，差別是選的是
+// 「要從棄牌堆拿哪一種能量」而不是board上的目標寶可夢——卡面沒寫at random，依專案既有慣例
+// 玩家自選，見openEnergyTypePicker()
+const ABILITY_NEEDS_ENERGY_TYPE = new Set(['Dragon’s Blessing']);
+let _energyPickerPokemonUid = null;
+function openEnergyTypePicker(pokemonUid) {
+  const types = [...new Set((state.you.discard || []).flatMap(c => c.energy || []))];
+  if (!types.length) { flashActionHint('棄牌堆沒有能量可以拿'); return; }
+  _energyPickerPokemonUid = pokemonUid;
+  document.getElementById('energy-type-picker-options').innerHTML = types.map(t =>
+    `<button class="btn btn-secondary" onclick="chooseEnergyType('${t}')" style="display:flex;align-items:center;gap:0.4rem;justify-content:center">${energyIconHtml(t)}${TYPE_ZH[t] || t}</button>`
+  ).join('');
+  document.getElementById('energy-type-picker-overlay').style.display = 'flex';
+}
+function chooseEnergyType(type) {
+  wsSend({ type: 'pocket_use_ability', pokemonUid: _energyPickerPokemonUid, energyType: type });
+  closeEnergyTypePicker();
+}
+function closeEnergyTypePicker() {
+  document.getElementById('energy-type-picker-overlay').style.display = 'none';
+  _energyPickerPokemonUid = null;
+}
 // 跟server.js的TRAINER_EFFECTS同一份清單——A1~B2a擴充後訓練師卡從18張暴增到197張，
 // 只有這份清單裡的卡有做效果，其餘先讓玩家看得到卡但打不出去
 // （打了會被server擋+跳「效果尚未實作」錯誤，這裡先在按鈕上明講，不用等玩家點了才知道）
@@ -1996,7 +2029,9 @@ document.getElementById('board-overlay').addEventListener('click', e => {
   if (abilityBtn) {
     const abilityName = abilityBtn.title;
     const targetSide = ABILITY_NEEDS_TARGET[abilityName];
-    if (targetSide) {
+    if (ABILITY_NEEDS_ENERGY_TYPE.has(abilityName)) {
+      openEnergyTypePicker(abilityBtn.dataset.abilityUid);
+    } else if (targetSide) {
       selectedAction = { mode: 'ability-target', side: targetSide, pokemonUid: abilityBtn.dataset.abilityUid };
       updateActionHint(); renderBoard();
     } else {
@@ -2276,9 +2311,13 @@ function showPeek(title, cards) {
   document.getElementById('peek-title').textContent = title;
   // 2026-08-08新增：棄牌堆等清單裡的卡片點了也能看放大圖——沿用跟其他地方一樣的showCardDetail，
   // 不用另外做一套zoom機制
+  // 2026-08-08新增：棄牌堆常常混著身上還帶能量的寶可夢卡（例如被擊倒/退場時energy沒有被
+  // 清空——Combust/Dragon's Blessing這類「從棄牌堆挖能量」的效果就是靠這個），原本只顯示
+  // 圖片+名字，玩家完全看不出棄牌堆裡到底還有哪些能量可以撿，這裡補上能量圖示列
   document.getElementById('peek-list').innerHTML = peekCards.map((c, i) => `
     <div style="text-align:center;font-size:0.65rem;cursor:pointer" onclick="showCardDetail(peekCards[${i}])">
       <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${c.name}"><div>${c.name}</div>
+      ${c.energy?.length ? `<div style="display:flex;justify-content:center;gap:1px;flex-wrap:wrap;margin-top:2px">${c.energy.map(e => energyIconHtml(e, true)).join('')}</div>` : ''}
     </div>`).join('') || '<div class="lobby-sub">（沒有卡片）</div>';
   document.getElementById('peek-overlay').style.display = 'flex';
 }

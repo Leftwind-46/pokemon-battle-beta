@@ -6573,14 +6573,16 @@ const ABILITY_EFFECTS = {
   },
   // 2026-08-08修正：原本誤把{N}(龍屬性)當成「能量本身要是龍屬性」，實際卡面「take AN
   // Energy...to your Active {N} Pokémon」——{N}限制的是目標主戰必須是龍屬性，能量本身
-  // 任意屬性都可以，改用pocketTakeAnyEnergyFromDiscard抓「棄牌堆裡第一個找到的能量，
-  // 不管什麼屬性」，附加的也是那個實際找到的屬性，不是寫死龍屬性
-  'Dragon’s Blessing': (ctx, poke) => { // 只有在板凳時，從棄牌堆拿1個任意屬性能量附給自己的龍屬性主戰
+  // 任意屬性都可以。第二次修正：一開始用「棄牌堆第一個找到的」，但卡面沒寫at random，
+  // 依專案既有慣例（feedback_pocket_effect_choice_not_random）該讓玩家自選要拿哪一種——
+  // client端先跳出picker讓玩家選好energyType再送出，這裡改成驗證msg.energyType真的存在
+  // 棄牌堆裡才能拿，不是伺服器自己決定
+  'Dragon’s Blessing': (ctx, poke, msg) => { // 只有在板凳時，從棄牌堆拿1個玩家指定屬性的能量附給自己的龍屬性主戰
     if (ctx.side.active?.uid === poke.uid) return '必須在板凳上才能使用特性';
     if (!ctx.side.active || !(ctx.side.active.types || []).includes('Dragon')) return '主戰必須是龍屬性';
-    const type = pocketTakeAnyEnergyFromDiscard(ctx.side);
-    if (!type) return '棄牌堆沒有能量可以拿';
-    ctx.side.active.energy.push(type);
+    if (!msg?.energyType) return '請選擇要拿哪一種能量';
+    if (!pocketTakeEnergyFromDiscard(ctx.side, msg.energyType)) return '棄牌堆沒有這種能量可以拿';
+    ctx.side.active.energy.push(msg.energyType);
     return null;
   },
   'Metal Transport': (ctx, poke, msg) => { // 主戰必須是鋼屬性，跟板凳上任一隻交換（玩家自選，跟其他「1 of your X」同慣例）
@@ -6674,16 +6676,6 @@ function pocketTakeEnergyFromDiscard(side, type) {
     if (c.energy?.includes(type)) { c.energy.splice(c.energy.indexOf(type), 1); return true; }
   }
   return false;
-}
-// Dragon's Blessing（2026-08-08修正）：卡面文字是「take AN Energy...attach it to your Active
-// {N} Pokémon」——{N}限制的是「目標主戰必須是龍屬性」，能量本身沒有限定屬性，跟
-// pocketTakeEnergyFromDiscard(side, 特定屬性)不同，這裡回傳「找到的第一個能量是什麼屬性」
-// 而不是布林值，讓呼叫端知道該附加哪個屬性上去（不是固定塞龍屬性）
-function pocketTakeAnyEnergyFromDiscard(side) {
-  for (const c of side.discard) {
-    if (c.energy?.length) { const type = c.energy.shift(); return type; }
-  }
-  return null;
 }
 /* ── 2026-08-07新增：進化觸發型特性（"when you play this Pokémon from your hand to evolve
    1 of your Pokémon, you may..."）——跟按鈕觸發型是完全不同的時機，掛在pocket_evolve handler，
