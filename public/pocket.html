@@ -785,7 +785,12 @@ let ALL_CARDS = [];
 // Limitless CDN（B2a系列116張，見project-pocket-tcg記憶的B2a補圖那次）的圖片URL格式不同
 // 且沒有分尺寸版本，字串裡找不到'/high.webp'就會原樣通過，不受影響。
 function pocketThumbUrl(image) {
-  return image ? image.replace('/high.webp', '/low.webp') : image;
+  if (!image) return image;
+  if (image.endsWith('/high.webp')) return image.replace('/high.webp', '/low.webp'); // TCGdex來源（A1~B2a）
+  // 2026-08-08新增：B2b~B4改用LimitlessTCG當資料源（TCGdex還沒收錄），圖檔網址結構不一樣
+  // （_EN.png/_EN_SM.webp，不是high.webp/low.webp），縮圖規則要多認一種
+  if (image.endsWith('_EN.png')) return image.replace('_EN.png', '_EN_SM.webp');
+  return image;
 }
 let cardById = {};
 let ownedCounts = {}; // cardId -> 擁有張數
@@ -1561,11 +1566,20 @@ const ABILITY_NAMES_SUPPORTED = new Set([
   'Shadow Void',
   // 2026-08-08再接續：Portrait（借用對手手牌隨機支援者卡效果，完全自動不需要選目標）
   'Portrait',
+  // 2026-08-08再接續：B2b~B4系列特性第一批（16個按鈕型，含7個evolve/bench-play限時觸發，見下面ABILITY_ONLY_ON_EVOLVE_TURN）
+  'Frozen Flow', 'Perplexing Ears', 'Accept Pain', 'Happiness Supplement', 'Aqua Charge',
+  'Variety Powder', 'Dragon’s Blessing', 'Metal Transport', 'Soothing Ribbon',
+  'Swift Shot', 'Legendary Drive', 'Ancient Roar', 'Hospitality', 'Stance', 'Evoshock', 'Treasure Collecting',
 ]);
 // 2026-08-08再接續：跟ABILITY_NAMES_SUPPORTED是「能不能用」的AND條件——只有進化/上場的那個
 // 回合才顯示按鈕（見renderPokeSlot的evolveTurnOnly判斷），使用者反映Ignition原本完全沒有
 // 按鈕、以為特性沒做，這裡讓它以「限那一回合可點」的按鈕形式露出，比原本的自動觸發更清楚
-const ABILITY_ONLY_ON_EVOLVE_TURN = new Set(['Ignition']);
+// 2026-08-08再接續：Swift Shot/Legendary Drive/Ancient Roar/Hospitality/Stance/Evoshock/
+// Treasure Collecting都是「when you play/put this Pokémon...evolve/onto your Bench, you
+// may...」句型，跟Ignition同一套修法（見server.js對應handler裡的boardTurn guard說明）
+const ABILITY_ONLY_ON_EVOLVE_TURN = new Set([
+  'Ignition', 'Swift Shot', 'Legendary Drive', 'Ancient Roar', 'Hospitality', 'Stance', 'Evoshock', 'Treasure Collecting',
+]);
 
 function renderBoard() {
   if (!state) return;
@@ -1913,6 +1927,8 @@ const ABILITY_NEEDS_TARGET = {
   // 主戰）——跟其他own-target一樣點board slot送target，server端再從target身上拿能量搬到主戰
   'Wash Out': 'own',
   'Shadow Void': 'own',
+  // 2026-08-08新增：Metal Transport（跟主戰交換的板凳寶可夢）/Soothing Ribbon（治療己方任一隻）
+  'Metal Transport': 'own', 'Soothing Ribbon': 'own',
 };
 // 跟server.js的TRAINER_EFFECTS同一份清單——A1~B2a擴充後訓練師卡從18張暴增到197張，
 // 只有這份清單裡的卡有做效果，其餘先讓玩家看得到卡但打不出去
@@ -2141,10 +2157,14 @@ function pocketComputeRetreatCostClient(card, you, opponent, state) {
   const toolDiscount = (toolId === 'A4a-067' && (card.types || []).includes('Water')) ? 1 : 0;
   if (freeByAbility || toolFree) return 0;
   const plazaDiscount = (state.activeStadium?.id === 'B2-155' && (card.types || []).includes('Psychic')) ? 2 : 0;
-  const benchDiscount = card.stage === 'Basic' ? (you.bench || []).filter(p => p.abilities?.[0]?.name === 'Sky Support').length : 0;
+  let benchDiscount = card.stage === 'Basic' ? (you.bench || []).filter(p => p.abilities?.[0]?.name === 'Sky Support').length : 0;
+  // Villainous Delivery（2026-08-08新增）：跟Sky Support同一種「板凳持有者幫主戰打折」，限定主戰是惡屬性
+  if ((card.types || []).includes('Darkness')) benchDiscount += (you.bench || []).filter(p => p.abilities?.[0]?.name === 'Villainous Delivery').length;
+  // Conductive Body（2026-08-08新增）：持有者自己的撤退折扣，條件是場上還有另一隻同名寶可夢
+  const selfDiscount = (ability === 'Conductive Body' && [you.active, ...(you.bench || [])].some(p => p && p.uid !== card.uid && p.name === card.name)) ? 2 : 0;
   const trapIncrease = [opponent?.active, ...(opponent?.bench || [])].filter(p => p?.abilities?.[0]?.name === 'Trap Territory').length;
   const oranguruIncrease = card.retreatIncreaseUntilTurn === state.turnNumber ? (card.retreatIncreaseAmount || 0) : 0;
-  return Math.max(0, (card.retreat || 0) - (you.retreatDiscountThisTurn || 0) - plazaDiscount - benchDiscount - toolDiscount + trapIncrease + oranguruIncrease);
+  return Math.max(0, (card.retreat || 0) - (you.retreatDiscountThisTurn || 0) - plazaDiscount - benchDiscount - selfDiscount - toolDiscount + trapIncrease + oranguruIncrease);
 }
 // 己方場上寶可夢可用動作——撤退原本是「點板凳直接觸發」的隱藏捷徑（容易誤觸浪費這回合僅有
 // 一次的撤退機會），現在統一成「點主戰→撤退按鈕→再點板凳完成交換」兩步驟，跟附加能量共用
