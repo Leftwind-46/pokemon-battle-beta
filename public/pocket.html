@@ -1690,9 +1690,14 @@ function renderBoard() {
   }
 
   document.getElementById('end-turn-btn').style.display = myTurn && phase === 'active' ? '' : 'none';
-  // Mesagoza（2026-08-08新增）：只有場上剛好是這張場地卡、輪到我、這回合還沒用過時才顯示
-  document.getElementById('stadium-trigger-btn').style.display =
-    (myTurn && phase === 'active' && state.activeStadium?.id === 'B2a-093' && !you.stadiumUsedThisTurn) ? '' : 'none';
+  // Mesagoza（2026-08-08新增，同一批再擴充Fragrant Forest/Area Zero/Kid's Room/Rainbow Cave
+  // 共4張同句型場地卡）：只有場上剛好是這幾張場地卡其中一張、輪到我、這回合還沒用過時才顯示
+  const STADIUM_TRIGGER_IDS = new Set(['B2a-093', 'B3-153', 'B3a-074', 'B3b-069', 'B4-155']);
+  const stadiumBtn = document.getElementById('stadium-trigger-btn');
+  stadiumBtn.style.display =
+    (myTurn && phase === 'active' && STADIUM_TRIGGER_IDS.has(state.activeStadium?.id) && !you.stadiumUsedThisTurn) ? '' : 'none';
+  const STADIUM_TRIGGER_LABEL = { 'B2a-093': '場地卡：擲硬幣抽卡', 'B3-153': '場地卡：抽草屬性基礎寶可夢', 'B3a-074': '場地卡：洗回基礎寶可夢並抽牌', 'B3b-069': '場地卡：交換道具卡', 'B4-155': '場地卡：重新產生能量' };
+  stadiumBtn.textContent = STADIUM_TRIGGER_LABEL[state.activeStadium?.id] || '場地卡效果';
   document.getElementById('cancel-action-btn').style.display = selectedAction ? '' : 'none';
 
   // 抽卡動畫：比對這次render跟上次的手牌張數，多出來的張數視為「剛抽到」，從牌庫堆飛到手牌區
@@ -1870,7 +1875,7 @@ function updateActionHint() {
   if (selectedAction.mode === 'attach') text = '點擊己方的寶可夢來附加能量';
   else if (selectedAction.mode === 'evolve') text = `點擊要進化成 ${selectedAction.name} 的寶可夢`;
   else if (selectedAction.mode === 'retreat') text = '點擊板凳寶可夢來撤退交換';
-  else if (selectedAction.mode === 'item-target') text = selectedAction.side === 'opp' ? '點擊對手場上的寶可夢作為目標' : '點擊己方場上的寶可夢作為目標';
+  else if (selectedAction.mode === 'item-target') text = selectedAction.side === 'opp' ? '點擊對手場上的寶可夢作為目標' : selectedAction.side === 'any' ? '點擊雙方場上任一隻寶可夢作為目標' : '點擊己方場上的寶可夢作為目標';
   else if (selectedAction.mode === 'ability-target') text = selectedAction.side === 'opp' ? '點擊對手場上的寶可夢作為目標' : '點擊己方場上的寶可夢作為目標';
   hint.classList.add('active');
   hint.innerHTML = `<span>${text}</span><button class="hint-cancel" onclick="cancelAction()">取消</button>`;
@@ -1895,7 +1900,7 @@ function pocketCanPayCostClient(pokemon, cost, side) {
 function doAttack(i) { wsSend({ type: 'pocket_attack', attackIndex: i }); }
 function endTurn() { wsSend({ type: 'pocket_end_turn' }); }
 
-const POCKET_FOSSIL_IDS = new Set(['A1-216', 'A1-217', 'A1-218', 'A1a-063', 'A2-144', 'A2-145', 'B1-214', 'B1-216', 'B2-144', 'B2-146']);
+const POCKET_FOSSIL_IDS = new Set(['A1-216', 'A1-217', 'A1-218', 'A1a-063', 'A2-144', 'A2-145', 'B1-214', 'B1-216', 'B2-144', 'B2-146', 'B4-146', 'B4-147']);
 const TRAINER_NEEDS_TARGET = new Set([
   'P-A-001', 'A1-219', 'A1-220', 'B2a-086', 'A4-151', // Potion / Erika / Misty / Electric Generator / Elemental Switch
   'A3-155', 'A2-154', 'A2-153', 'A2b-070', 'B1-221', 'A4a-069', 'A3-154', 'B2-149', 'A3-149', 'A4-157',
@@ -1911,13 +1916,22 @@ const TRAINER_NEEDS_TARGET = new Set([
   'A3-148', 'A3-150',
   // 2026-08-08再接續：Ultra Beast系列2張需要own board目標（Beast Wall不需要，沒有target）
   'A3a-066', 'A3a-069',
+  // 2026-08-08再接續：B2b~B4系列——Parasol Lady/Professor Turo/Wallace/Skyla/Wally(own)、
+  // Field Blower(any，雙方場上皆可選)、Psychic(opp，對手板凳)、6張新Tool裝備卡(own)
+  'B3-152', 'B3a-073', 'B3b-068', 'B4-152', 'B4-153', 'B3-147', 'B4-150',
+  'B3-148', 'B3a-069', 'B3a-070', 'B3b-064', 'B3b-065', 'B4-148', 'B4-149',
 ]);
 const TRAINER_NEEDS_DISCARD_TARGET = new Set(['A1a-064']); // Pokémon Flute：目標是對手棄牌堆的卡，不是board上的寶可夢
 // 2026-08-08新增：TRAINER_NEEDS_TARGET裡目標池在哪一側，預設'own'（沒列出的都是選自己場上）。
 // Cyrus/Lana兩張是「換上對手身上有傷/任一板凳寶可夢當主戰」，目標必須是對手場上——
 // 原本的item-target點擊只認#my-active/#my-bench，導致這兩張卡的目標永遠送不出去
 // （點對手board完全不會觸發任何handler），跟ABILITY_NEEDS_TARGET的'opp'是同一種problem/修法。
-const TRAINER_TARGET_SIDE = { 'A2-150': 'opp', 'A3-152': 'opp' };
+const TRAINER_TARGET_SIDE = {
+  'A2-150': 'opp', 'A3-152': 'opp',
+  // 2026-08-08再接續：Psychic(B4-150)目標是對手板凳；Field Blower(B3-147)雙方場上任一隻皆可選
+  // （'any'，跳過「或棄場地卡」的替代用法，理由見memory的documented simplification）
+  'B4-150': 'opp', 'B3-147': 'any',
+};
 // 2026-08-06新增：需要玩家指定目標的特性，value是目標池在哪一側（'own'=己方場上/'opp'=對手場上）
 const ABILITY_NEEDS_TARGET = {
   'Water Shuriken': 'opp', 'Dark Chase': 'opp', 'Captivating Rhythm': 'opp',
@@ -1967,6 +1981,13 @@ const TRAINER_EFFECTS_IMPLEMENTED = new Set([
   'A3b-069',
   // 2026-08-08再接續：Mesagoza（場地本身，主動觸發走獨立的stadium-trigger-btn按鈕）
   'B2a-093',
+  // 2026-08-08再接續：B2b~B4系列訓練師卡第一批，37張（B2b-117 Metal Core Barrier是B2-148的
+  // 跨系列重印，用effectId連過去，不用再列一次id本身）
+  'B2b-065', 'B2b-066', 'B2b-067', 'B2b-068', 'B2b-069',
+  'B3-147', 'B3-148', 'B3-149', 'B3-150', 'B3-151', 'B3-152', 'B3-153', 'B3-154', 'B3-155',
+  'B3a-069', 'B3a-070', 'B3a-071', 'B3a-072', 'B3a-073', 'B3a-074',
+  'B3b-064', 'B3b-065', 'B3b-066', 'B3b-067', 'B3b-068', 'B3b-069',
+  'B4-145', 'B4-148', 'B4-149', 'B4-150', 'B4-151', 'B4-152', 'B4-153', 'B4-154', 'B4-155',
 ]);
 
 // event delegation：own board (active/bench) 點擊
@@ -2045,8 +2066,9 @@ document.getElementById('board-overlay').addEventListener('click', e => {
     selectedAction = null;
     return;
   }
-  // 2026-08-08新增：Cyrus/Lana這類目標是對手場上寶可夢的道具/支援者卡
-  if (oppSlot && selectedAction?.mode === 'item-target' && selectedAction.side === 'opp') {
+  // 2026-08-08新增：Cyrus/Lana這類目標是對手場上寶可夢的道具/支援者卡；side:'any'（Field Blower：
+  // 雙方場上任一隻皆可選）也要讓opp board點得到，own board那邊的判斷式(!=='opp')本來就已經放行'any'
+  if (oppSlot && selectedAction?.mode === 'item-target' && (selectedAction.side === 'opp' || selectedAction.side === 'any')) {
     spawnPlayFlourish(pocketThumbUrl(pocketFindCardByUid(selectedAction.handUid)?.image), oppSlot);
     wsSend({ type: selectedAction.isSupporter ? 'pocket_play_supporter' : 'pocket_play_item', handUid: selectedAction.handUid, target: oppSlot.dataset.uid });
     selectedAction = null;

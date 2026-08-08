@@ -2568,7 +2568,12 @@ function makePocketInstance(cardId) {
 // Plume/Cover/Jaw/Sail Fossil）跟Old Amber的重印(A1a-063)，效果文字逐字相同，
 // makePocketFossilInstance本來就是從卡片原始資料讀name/image動態生成，不用額外改邏輯，
 // 只要把id補進這個Set就全部能用了。
-const POCKET_FOSSIL_IDS = new Set(['A1-216', 'A1-217', 'A1-218', 'A1a-063', 'A2-144', 'A2-145', 'B1-214', 'B1-216', 'B2-144', 'B2-146']);
+const POCKET_FOSSIL_IDS = new Set(['A1-216', 'A1-217', 'A1-218', 'A1a-063', 'A2-144', 'A2-145', 'B1-214', 'B1-216', 'B2-144', 'B2-146', 'B4-146', 'B4-147']);
+// 2026-08-08新增：「Ancient Pokémon」/「Future Pokémon」是這批卡才出現的新archetype標籤，
+// CSV資料沒有掃到任何rules-box欄位能判斷「哪些寶可夢算」——固定寫死成真實對戰卡池已知的
+// 準古神獸清單（Iron開頭=Future，其餘=Ancient，這是SV系列公開的官方分類，不是猜的）
+const ANCIENT_POKEMON_NAMES = new Set(['Great Tusk', 'Scream Tail', 'Brute Bonnet', 'Flutter Mane', 'Slither Wing', 'Sandy Shocks', 'Roaring Moon', 'Walking Wake', 'Gouging Fire', 'Raging Bolt']);
+const FUTURE_POKEMON_NAMES = new Set(['Iron Treads', 'Iron Bundle', 'Iron Hands', 'Iron Jugulis', 'Iron Moth', 'Iron Thorns', 'Iron Valiant', 'Iron Leaves', 'Iron Boulder', 'Iron Crown']);
 function makePocketFossilInstance(cardId) {
   const base = POCKET_CARDS_BY_ID[cardId];
   return {
@@ -2850,6 +2855,26 @@ function pocketRunCheckup(G) {
   [otherSideForCheckup.active, ...otherSideForCheckup.bench].filter(Boolean).forEach(p => {
     if (p.tool?.id === 'B2-148') p.tool = null;
   });
+  // Deceptive Needle（2026-08-08新增）：惡屬性裝備者在主戰位置時，回合結束對對手主戰造成10傷害
+  if (endingSide.active?.tool?.id === 'B4-148' && (endingSide.active.types || []).includes('Darkness') && otherSideForCheckup.active) {
+    otherSideForCheckup.active.curHp = Math.max(0, otherSideForCheckup.active.curHp - 10);
+    if (otherSideForCheckup.active.curHp <= 0) {
+      pocketResolveActiveKO(G, otherRoleForCheckup);
+      if (G.phase === 'forced_switch' || G.phase === 'done') return true;
+    }
+  }
+  // Hiking Trail（2026-08-08新增場地卡）：「At the end of each player's turn, that player draws
+  // cards until they have 3」——只影響endingSide自己（下一次otherSideForCheckup自己回合結束時
+  // 會輪到它），跟Soothing Shore/Rainbow Cave等其餘場地卡checkup效果同一種「只作用在endingSide」寫法
+  if (G.activeStadium?.id === 'B2b-069') {
+    while (endingSide.hand.length < 3 && endingSide.deck.length) endingSide.hand.push(endingSide.deck.shift());
+  }
+  // Soothing Shore（2026-08-08新增場地卡）：回合結束治療endingSide身上帶水屬性能量的寶可夢各20血
+  if (G.activeStadium?.id === 'B4-154') {
+    for (const p of [endingSide.active, ...endingSide.bench].filter(Boolean)) {
+      if (p.energy.includes('Water')) p.curHp = Math.min(p.hp, p.curHp + 20);
+    }
+  }
   // Mismagius（2026-08-08新增delayedDamage機制）：「At the end of your opponent's next turn」
   // ——攻擊當下設defender.delayedDamageUntilTurn = 攻擊時的turnNumber+1，剛好對應defender
   // 自己下一次回合結束時checkup執行的turnNumber，跟Snowy Terrain(每回合觸發)不同，這是一次性的
@@ -2914,6 +2939,8 @@ function pocketStartNextTurn(G) {
   side.usedSweetsRelayLastTurn = side.usedSweetsRelayThisTurn || false;
   side.usedSweetsRelayThisTurn = false;
   side.stadiumUsedThisTurn = false; // Mesagoza（2026-08-08新增）
+  side.irisBonusThisTurn = false; // Iris（2026-08-08新增）
+  side.dracoMeteorExtraThisTurn = false; // Drayden（2026-08-08新增，沒被用到的話也要在回合結束後失效）
   // 回合開始觸發型被動特性：Strange Singing——隨機把一隻{P}寶可夢從牌庫放進手牌（"put...into
   // your hand"沒有寫"you may"，是強制觸發，不用暫停等玩家確認）
   if (side.active?.abilities?.[0]?.name === 'Strange Singing') {
@@ -3772,7 +3799,11 @@ const ATTACK_EFFECTS = {
   "1 of your opponent's Pokémon is chosen at random 4 times. For each time a Pokémon was chosen, do 50 damage to it.": ctx => {
     ctx.rawDamage = 0;
     const pool = [ctx.defender, ...ctx.oppSide.bench].filter(Boolean);
-    for (let i = 0; i < 4 && pool.length; i++) {
+    // Drayden（2026-08-08新增）：本回合設過旗標的話，這隻Draco Meteor多挑1次——用完即清，
+    // 避免殘留到下一次使用這招（跟其他XxxThisTurn旗標一樣，回合結束時pocketStartNextTurn也會重置）
+    const picks = ctx.side.dracoMeteorExtraThisTurn ? 5 : 4;
+    ctx.side.dracoMeteorExtraThisTurn = false;
+    for (let i = 0; i < picks && pool.length; i++) {
       const t = pool[Math.floor(Math.random() * pool.length)];
       t.curHp = Math.max(0, t.curHp - 50);
     }
@@ -5203,6 +5234,57 @@ const TRAINER_EFFECTS = {
     if ((target.types || []).includes('Grass')) { target.hp += 30; target.curHp += 30; }
     return null;
   },
+  'B3a-069': (ctx, msg) => { // Ancient Booster Energy Capsule：準古神獸(Ancient)裝備者+40最大HP
+    const target = pocketFindOwn(ctx.side, msg.target);
+    if (!target) return '請選擇要裝備的寶可夢';
+    if (target.tool) return '這隻寶可夢已經裝備了道具卡';
+    target.tool = { id: 'B3a-069', name: 'Ancient Booster Energy Capsule' };
+    if (ANCIENT_POKEMON_NAMES.has(target.name)) { target.hp += 40; target.curHp += 40; }
+    return null;
+  },
+  'B3a-070': (ctx, msg) => { // Future Booster Energy Capsule：近未來(Future)裝備者攻擊+20傷害，效果在pocketToolDamageBonus
+    const target = pocketFindOwn(ctx.side, msg.target);
+    if (!target) return '請選擇要裝備的寶可夢';
+    if (target.tool) return '這隻寶可夢已經裝備了道具卡';
+    target.tool = { id: 'B3a-070', name: 'Future Booster Energy Capsule' };
+    return null;
+  },
+  'B3b-064': (ctx, msg) => { // Small Balloon：基礎階裝備者撤退-1，效果在pocketToolRetreatDiscount
+    const target = pocketFindOwn(ctx.side, msg.target);
+    if (!target) return '請選擇要裝備的寶可夢';
+    if (target.tool) return '這隻寶可夢已經裝備了道具卡';
+    target.tool = { id: 'B3b-064', name: 'Small Balloon' };
+    return null;
+  },
+  'B3b-065': (ctx, msg) => { // Elegant Cape：第1階裝備者+30最大HP
+    const target = pocketFindOwn(ctx.side, msg.target);
+    if (!target) return '請選擇要裝備的寶可夢';
+    if (target.tool) return '這隻寶可夢已經裝備了道具卡';
+    target.tool = { id: 'B3b-065', name: 'Elegant Cape' };
+    if (target.stage === 'Stage1') { target.hp += 30; target.curHp += 30; }
+    return null;
+  },
+  'B4-148': (ctx, msg) => { // Deceptive Needle：惡屬性裝備者在主戰位置時，回合結束對對手主戰造成10傷害，效果在checkup
+    const target = pocketFindOwn(ctx.side, msg.target);
+    if (!target) return '請選擇要裝備的寶可夢';
+    if (target.tool) return '這隻寶可夢已經裝備了道具卡';
+    target.tool = { id: 'B4-148', name: 'Deceptive Needle' };
+    return null;
+  },
+  'B4-149': (ctx, msg) => { // Clear Veil：擋掉對手攻擊對裝備者造成的所有「效果」（傷害正常，不擋），效果在pocket_attack的effectFn呼叫點
+    const target = pocketFindOwn(ctx.side, msg.target);
+    if (!target) return '請選擇要裝備的寶可夢';
+    if (target.tool) return '這隻寶可夢已經裝備了道具卡';
+    target.tool = { id: 'B4-149', name: 'Clear Veil' };
+    return null;
+  },
+  'B3-148': (ctx, msg) => { // Lucky Egg：裝備者被對手攻擊擊倒時，抽牌到手牌5張，效果在pocket_attack的defenderDied區塊
+    const target = pocketFindOwn(ctx.side, msg.target);
+    if (!target) return '請選擇要裝備的寶可夢';
+    if (target.tool) return '這隻寶可夢已經裝備了道具卡';
+    target.tool = { id: 'B3-148', name: 'Lucky Egg' };
+    return null;
+  },
   ...(() => {
     // 其餘15張Tool卡沒有「附加當下的一次性效果」，純粹是裝備上去、往後由被動hook持續生效——
     // 用同一個簡單handler批次產生，減少重複的find/check/assign樣板碼
@@ -5377,6 +5459,190 @@ const TRAINER_EFFECTS = {
     if (handler) handler(ctx, {});
     return null;
   },
+
+  /* ── 2026-08-08新增：B2b~B4系列訓練師卡第一批 ── */
+  'B2b-065': (ctx) => { // Nasty Notice：對手棄牌到剩4張
+    const excess = ctx.oppSide.hand.length - 4;
+    for (let i = 0; i < excess; i++) {
+      const idx = Math.floor(Math.random() * ctx.oppSide.hand.length);
+      ctx.oppSide.discard.push(ctx.oppSide.hand.splice(idx, 1)[0]);
+    }
+    return null;
+  },
+  'B2b-066': (ctx) => { // Maintenance：手牌洗2張回牌庫，抽1張
+    if (ctx.side.hand.length < 2) return '手牌不足2張，無法使用';
+    for (let i = 0; i < 2; i++) {
+      const idx = Math.floor(Math.random() * ctx.side.hand.length);
+      ctx.side.deck.push(ctx.side.hand.splice(idx, 1)[0]);
+    }
+    ctx.side.deck = pocketShuffle(ctx.side.deck);
+    if (ctx.side.deck.length) ctx.side.hand.push(ctx.side.deck.shift());
+    return null;
+  },
+  // Iris：本回合設一個旗標，KO判定那邊（見pocket_attack的Haxorus KO區塊）檢查這個旗標決定要不要多給1分
+  'B2b-067': (ctx) => { ctx.side.irisBonusThisTurn = true; return null; },
+  'B2b-068': (ctx) => { // Calem：雙方場上每隻Mega Evolution ex各抽1張（名字開頭"Mega "且ex）
+    const count = ['p1', 'p2'].reduce((sum, r) => sum + [ctx.G[r].active, ...ctx.G[r].bench].filter(p => p && p.ex && p.name.startsWith('Mega ')).length, 0);
+    for (let i = 0; i < count && ctx.side.deck.length; i++) ctx.side.hand.push(ctx.side.deck.shift());
+    return null;
+  },
+  'B2b-069': (ctx) => { ctx.G.activeStadium = { id: 'B2b-069', name: 'Hiking Trail' }; return null; },
+  'B3-147': (ctx, msg) => { // Field Blower：棄掉任一寶可夢身上的道具卡，或棄掉場地卡（msg.target='stadium'代表選場地）
+    if (msg.target === 'stadium') {
+      if (!ctx.G.activeStadium) return '場上沒有場地卡';
+      ctx.G.activeStadium = null;
+      return null;
+    }
+    const pool = [ctx.side.active, ...ctx.side.bench, ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean);
+    const target = pool.find(p => p.uid === msg.target);
+    if (!target) return '請選擇要棄掉道具卡的寶可夢，或選擇棄掉場地卡';
+    if (!target.tool) return '這隻寶可夢沒有裝備道具卡';
+    target.tool = null;
+    return null;
+  },
+  'B3-149': (ctx) => { ctx.side.typeBoostThisTurn = { type: 'Fighting', amount: 30, exOnly: true }; return null; }, // Korrina
+  'B3-150': (ctx) => { // Cabbie：牌庫隨機1張場地卡進手牌
+    const idxs = ctx.side.deck.map((c, i) => (c.category === 'Trainer' && c.trainerType === 'Stadium') ? i : -1).filter(i => i >= 0);
+    if (!idxs.length) return '牌庫沒有場地卡';
+    const idx = idxs[Math.floor(Math.random() * idxs.length)];
+    ctx.side.hand.push(ctx.side.deck.splice(idx, 1)[0]);
+    ctx.side.deck = pocketShuffle(ctx.side.deck);
+    return null;
+  },
+  // Cheren：對手下回合，己方場上指名的Watchog/Stoutland受到ex攻擊的傷害-100——新增
+  // defShieldUntilTurn/defShieldAmount/defShieldNames/defShieldExOnly，跟dmgDebuffUntilTurn
+  // 方向相反（那個是「持有者自己出手變弱」，這個是「持有者被打時變硬」），掛在side層級
+  // 因為要同時保護2種不同名字的寶可夢，不是單一defender
+  'B3-151': (ctx) => {
+    ctx.side.defShieldUntilTurn = ctx.G.turnNumber + 1;
+    ctx.side.defShieldAmount = 100;
+    ctx.side.defShieldNames = ['Watchog', 'Stoutland'];
+    ctx.side.defShieldExOnly = true;
+    return null;
+  },
+  'B3-152': (ctx, msg) => { // Parasol Lady：己方非ex的水屬性寶可夢(不限主戰/板凳)放回手牌
+    const pool = [ctx.side.active, ...ctx.side.bench].filter(p => p && !p.ex && (p.types || []).includes('Water'));
+    const target = pool.find(p => p.uid === msg.target);
+    if (!target) return '請選擇己方非ex的水屬性寶可夢';
+    const wasActive = ctx.side.active === target;
+    if (wasActive) ctx.side.active = null; else ctx.side.bench = ctx.side.bench.filter(p => p.uid !== target.uid);
+    // 簡化：真實規則放回手牌時應該還原成手牌卡（清掉uid/curHp/energy等實例欄位），
+    // 跟其他「放回手牌」效果同一套處理（找不到既有前例特別處理，這裡直接reset成乾淨的卡片資料）
+    ctx.side.hand.push(structuredClone(POCKET_CARDS_BY_ID[target.id]));
+    // 選走的如果剛好是主戰，不能放著主戰位置空著沒人——跟Sabrina/Drive Off同一套強制換人流程
+    if (wasActive) pocketEnterForcedSwitch(ctx.G, ctx.role, 'noEndTurn');
+    return null;
+  },
+  'B3-153': (ctx) => { ctx.G.activeStadium = { id: 'B3-153', name: 'Fragrant Forest' }; return null; },
+  'B3-154': (ctx) => { ctx.G.activeStadium = { id: 'B3-154', name: 'Arena of Antiquity' }; return null; },
+  'B3-155': (ctx) => { ctx.G.activeStadium = { id: 'B3-155', name: 'Bounded Field' }; return null; },
+  'B3a-071': (ctx) => { // Juliana：牌庫隨機1張Stage2寶可夢進手牌
+    const idxs = ctx.side.deck.map((c, i) => (c.category === 'Pokemon' && c.stage === 'Stage2') ? i : -1).filter(i => i >= 0);
+    if (!idxs.length) return '牌庫沒有Stage 2寶可夢';
+    const idx = idxs[Math.floor(Math.random() * idxs.length)];
+    ctx.side.hand.push(ctx.side.deck.splice(idx, 1)[0]);
+    ctx.side.deck = pocketShuffle(ctx.side.deck);
+    return null;
+  },
+  'B3a-072': (ctx) => { // Professor Sada：從棄牌堆（棄置寶可夢身上殘留的能量）拿3種不同屬性能量附給自己的準古（Ancient）主戰
+    if (!ctx.side.active || !ANCIENT_POKEMON_NAMES.has(ctx.side.active.name)) return '主戰必須是準古神獸(Ancient Pokémon)';
+    const taken = [];
+    for (const type of POCKET_ENERGY_TYPE_LIST) {
+      if (taken.length >= 3) break;
+      if (pocketTakeEnergyFromDiscard(ctx.side, type)) taken.push(type);
+    }
+    if (!taken.length) return '棄牌堆沒有能量可以拿';
+    ctx.side.active.energy.push(...taken);
+    return null;
+  },
+  'B3a-073': (ctx, msg) => { // Professor Turo：己方場上（不限主戰/板凳）1隻近未來（Future）寶可夢洗回牌庫
+    const pool = [ctx.side.active, ...ctx.side.bench].filter(p => p && FUTURE_POKEMON_NAMES.has(p.name));
+    const target = pool.find(p => p.uid === msg.target);
+    if (!target) return '請選擇己方場上的近未來寶可夢(Future Pokémon)';
+    if (ctx.side.active === target) ctx.side.active = null; else ctx.side.bench = ctx.side.bench.filter(p => p.uid !== target.uid);
+    ctx.side.deck = pocketShuffle([...ctx.side.deck, structuredClone(POCKET_CARDS_BY_ID[target.id])]);
+    return null;
+  },
+  // Area Zero：打出來只負責蓋場地卡，「每回合各自可以用一次」的主動效果跟Mesagoza/Fragrant
+  // Forest/Kid's Room/Rainbow Cave一樣，走獨立的'pocket_use_stadium'訊息（見那裡）
+  'B3a-074': (ctx) => { ctx.G.activeStadium = { id: 'B3a-074', name: 'Area Zero' }; return null; },
+  'B3b-066': (ctx) => { // Elesa：雙方場上全部寶可夢的道具卡都放回持有者手牌
+    for (const r of ['p1', 'p2']) {
+      for (const p of [ctx.G[r].active, ...ctx.G[r].bench]) {
+        if (p?.tool) { ctx.G[r].hand.push(structuredClone(POCKET_CARDS_BY_ID[p.tool.id])); p.tool = null; }
+      }
+    }
+    return null;
+  },
+  'B3b-067': (ctx) => { // Puppy-Loving Girl：看牌庫頂4張，有「Puppy Pile」招式的寶可夢全部進手牌
+    const top = ctx.side.deck.splice(0, Math.min(4, ctx.side.deck.length));
+    const picked = top.filter(c => c.attacks?.some(a => a.name === 'Puppy Pile'));
+    const rest = top.filter(c => !picked.includes(c));
+    ctx.side.hand.push(...picked);
+    ctx.side.deck = pocketShuffle([...ctx.side.deck, ...rest]);
+    return null;
+  },
+  'B3b-068': (ctx, msg) => { // Wallace：己方場上HP上限≤50的水屬性寶可夢，從牌庫隨機拿1張進化牠
+    const pool = [ctx.side.active, ...ctx.side.bench].filter(p => p && (p.types || []).includes('Water') && p.hp <= 50);
+    const target = pool.find(p => p.uid === msg.target);
+    if (!target) return '請選擇己方HP上限50以下的水屬性寶可夢';
+    const candidates = ctx.side.deck.map((c, i) => ({ c, i })).filter(({ c }) => c.category === 'Pokemon' && (c.types || []).includes('Water') && c.evolveFrom === target.name);
+    if (!candidates.length) return '牌庫沒有能讓這隻進化的水屬性寶可夢';
+    const pick = candidates[Math.floor(Math.random() * candidates.length)];
+    ctx.side.deck.splice(pick.i, 1);
+    const preservedDamage = (target.hp || 0) - (target.curHp ?? target.hp ?? 0);
+    const preservedEnergy = target.energy; const preservedUid = target.uid;
+    Object.assign(target, structuredClone(POCKET_CARDS_BY_ID[pick.c.id]));
+    target.uid = preservedUid; target.energy = preservedEnergy;
+    target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
+    target.boardTurn = ctx.G.turnNumber;
+    target._realAbilities = undefined;
+    pocketApplyDoubleType(target);
+    ctx.side.deck = pocketShuffle(ctx.side.deck);
+    return null;
+  },
+  'B3b-069': (ctx) => { ctx.G.activeStadium = { id: 'B3b-069', name: "Kid's Room" }; return null; },
+  'B4-145': (ctx) => { // Order Pad：擲硬幣，正面隨機1張道具卡進手牌
+    if (!pocketFlipCoin(ctx)) return null;
+    const idxs = ctx.side.deck.map((c, i) => (c.category === 'Trainer' && c.trainerType === 'Item') ? i : -1).filter(i => i >= 0);
+    if (!idxs.length) return null;
+    const idx = idxs[Math.floor(Math.random() * idxs.length)];
+    ctx.side.hand.push(ctx.side.deck.splice(idx, 1)[0]);
+    ctx.side.deck = pocketShuffle(ctx.side.deck);
+    return null;
+  },
+  'B4-150': (ctx, msg) => { // Psychic：主戰必須帶有「Psychic」這招，選對手板凳1隻，隨機移1點能量到對手主戰
+    if (!ctx.side.active?.attacks?.some(a => a.name === 'Psychic')) return '主戰必須擁有「Psychic」招式才能使用';
+    if (!ctx.oppSide.active) return '對手沒有主戰寶可夢';
+    const target = ctx.oppSide.bench.find(p => p.uid === msg.target);
+    if (!target) return '請選擇對手板凳上的目標';
+    if (!target.energy.length) return '這隻身上沒有能量可以移動';
+    const idx = Math.floor(Math.random() * target.energy.length);
+    const [e] = target.energy.splice(idx, 1);
+    ctx.oppSide.active.energy.push(e);
+    return null;
+  },
+  'B4-151': (ctx) => { ctx.side.dracoMeteorExtraThisTurn = true; return null; }, // Drayden
+  'B4-152': (ctx, msg) => { // Skyla：主戰必須是Stage1，跟板凳交換
+    if (!ctx.side.active || ctx.side.active.stage !== 'Stage1') return '主戰必須是第1階寶可夢';
+    const idx = ctx.side.bench.findIndex(p => p.uid === msg.target);
+    if (idx < 0) return '請選擇板凳上要換上場的寶可夢';
+    const chosen = ctx.side.bench.splice(idx, 1)[0];
+    ctx.side.active.status = null;
+    ctx.side.bench.push(ctx.side.active);
+    ctx.side.active = chosen;
+    return null;
+  },
+  'B4-153': (ctx, msg) => { // Wally：能量區拿1無色能量附給己方1隻Stage2
+    if (!ctx.side.pendingEnergy) return '能量區目前沒有能量';
+    const target = [ctx.side.active, ...ctx.side.bench].find(p => p && p.uid === msg.target && p.stage === 'Stage2');
+    if (!target) return '請選擇己方場上的Stage 2寶可夢';
+    target.energy.push(ctx.side.pendingEnergy);
+    ctx.side.pendingEnergy = null;
+    return null;
+  },
+  'B4-154': (ctx) => { ctx.G.activeStadium = { id: 'B4-154', name: 'Soothing Shore' }; return null; },
+  'B4-155': (ctx) => { ctx.G.activeStadium = { id: 'B4-155', name: 'Rainbow Cave' }; return null; },
 };
 
 // ── Pokémon Tool 被動效果 hook（跟pocketPassive*系列的特性被動是同一套設計理念，只是
@@ -5402,6 +5668,9 @@ function pocketIsUltraBeast(poke) {
 // 限制）：裝備者攻擊時，依「自己這一方目前的分數」每點+10傷害給對手主戰
 function pocketToolDamageBonus(attacker, side) {
   if (attacker.tool?.id === 'A3a-066') return (side.points || 0) * 10;
+  // Future Booster Energy Capsule（2026-08-08新增）：跟Beastite同一種「Tool給裝備者攻擊加傷」
+  // 寫法，限定裝備者是近未來(Future)寶可夢
+  if (attacker.tool?.id === 'B3a-070' && FUTURE_POKEMON_NAMES.has(attacker.name)) return 20;
   return 0;
 }
 // 被攻擊打中時觸發（跟pocketPassiveOnHit同一套時機，mainDamage>0就觸發，不需要defender死亡）：
@@ -5427,6 +5696,7 @@ function pocketToolRetreatDiscount(poke) {
   const toolId = poke.tool?.id;
   if (toolId === 'B2a-087' && poke.stage === 'Stage2') return { free: true, discount: 0 };
   if (toolId === 'A4a-067' && (poke.types || []).includes('Water')) return { free: false, discount: 1 };
+  if (toolId === 'B3b-064' && poke.stage === 'Basic') return { free: false, discount: 1 }; // Small Balloon
   return { free: false, discount: 0 };
 }
 // 板凳傷害免疫：Protective Poncho，裝備者在板凳上時完全不受對手招式/特性造成的傷害——
@@ -8525,6 +8795,13 @@ async function handleMessage(ws, msg) {
       const oppActiveCostAbility = oppSide.active?.abilities?.[0]?.name;
       const extraCost = (oppActiveCostAbility === 'Sticky Membrane' || oppActiveCostAbility === 'Guard Dog Visage') ? ['Colorless'] : [];
       let effectiveCost = [...(atk.cost || []), ...extraCost];
+      // Future System（2026-08-08新增，之前因為找不到「哪些算Future Pokémon」的資料一度skip，
+      // 後來確認這是SV系列固定的準古神獸清單才補上）：持有者在場（不限主戰/板凳），己方
+      // Future Pokémon攻擊消耗-1無色能量，跟Vigor Link同一種「移除1個Colorless」寫法
+      if (FUTURE_POKEMON_NAMES.has(attacker.name) && [side.active, ...side.bench].some(p => p?.abilities?.[0]?.name === 'Future System')) {
+        let removed = false;
+        effectiveCost = effectiveCost.filter(c => { if (!removed && c === 'Colorless') { removed = true; return false; } return true; });
+      }
       // Barry（2026-08-07新增）：本回合指名寶可夢的攻擊消耗無色能量-2，只扣Colorless、不影響
       // 其他屬性能量需求——跟extraCost方向相反，同一個陣列上先加後扣
       if (side.namedCostDiscountThisTurn?.names.includes(attacker.name)) {
@@ -8586,7 +8863,9 @@ async function handleMessage(ws, msg) {
         ctx.skipMainDamage = true;
         ctx.invulnerableBlocked = true;
       } else {
-        const effectFn = atk.effect && ATTACK_EFFECTS[atk.effect];
+        // Clear Veil（2026-08-08新增）：跟invulnerableUntilTurn不同，這是「常駐、只擋效果、
+        // 不擋傷害」的道具——傷害照常往下走（mainDamage計算不受影響），只是效果函式整個不執行
+        const effectFn = defender.tool?.id !== 'B4-149' && atk.effect && ATTACK_EFFECTS[atk.effect];
         if (effectFn) {
           const statusSnapA = pocketSnapshotStatus(side), statusSnapB = pocketSnapshotStatus(oppSide);
           const benchSnap = pocketSnapshotBenchHp(oppSide);
@@ -8630,7 +8909,22 @@ async function handleMessage(ws, msg) {
         // 弱點以外(Ledian額外跳過弱點)、被動減傷/Tool減傷/selfShield這幾個defender方的計算
         const ignoreWeak = ctx.ignoreDefenderWeakness;
         const weak = ignoreWeak ? null : (defender.weaknesses || []).find(w => (attacker.types || []).includes(w.type));
-        if (weak && defender.noWeaknessUntilTurn !== G.turnNumber) mainDamage += parseInt(String(weak.value).replace(/\D+/g, ''), 10) || 0;
+        if (weak && defender.noWeaknessUntilTurn !== G.turnNumber) {
+          // Bounded Field（2026-08-08新增場地卡）：把弱點從「固定+20」改成「傷害直接×2」，
+          // 限定攻擊者不是Mega Evolution Pokémon ex——這張卡場上時全部符合條件的攻擊都適用，
+          // 不分是哪一方打出這張場地卡（場地卡本來就沒有陣營之分）
+          const isMegaEx = attacker.ex && attacker.name.startsWith('Mega ');
+          if (G.activeStadium?.id === 'B3-155' && !isMegaEx) mainDamage *= 2;
+          else mainDamage += parseInt(String(weak.value).replace(/\D+/g, ''), 10) || 0;
+        }
+        // Arena of Antiquity（2026-08-08新增場地卡）：雙方鬥屬性寶可夢攻擊對手主戰ex+20傷害，
+        // 場地卡沒有陣營之分，只看attacker/defender本身的屬性/ex，不分是誰打出這張場地卡
+        if (G.activeStadium?.id === 'B3-154' && (attacker.types || []).includes('Fighting') && defender.ex) mainDamage += 20;
+        // Cheren（2026-08-08新增）：指名寶可夢在對手下回合對ex攻擊的傷害減免，掛在defenderSide
+        // （承受攻擊的一方）身上，跟dmgDebuffUntilTurn（掛在attacker身上）方向不同
+        if (oppSide.defShieldUntilTurn === G.turnNumber && oppSide.defShieldNames?.includes(defender.name) && (!oppSide.defShieldExOnly || attacker.ex)) {
+          mainDamage = Math.max(0, mainDamage - oppSide.defShieldAmount);
+        }
         if (defender.dmgDebuffUntilTurn === G.turnNumber) mainDamage = Math.max(0, mainDamage - defender.dmgDebuffAmount);
         // Kommo-o（2026-08-08新增）：跟dmgDebuffUntilTurn方向相反，這是「自己下回合被攻擊時+N傷害」
         // 的自我犧牲型debuff，掛在defender（承受這次攻擊的一方）身上
@@ -8752,6 +9046,12 @@ async function handleMessage(ws, msg) {
       if (defenderDied && attacker.tool?.id === 'B1-220' && side.deck.length > 0) {
         side.hand.push(side.deck.shift());
       }
+      // Lucky Egg（2026-08-08新增Tool）：裝備者被對手攻擊擊倒時，擁有者抽牌到手牌5張——跟
+      // Lucky Mittens同一種「defender死於這次攻擊時觸發」時機，只是抽牌方向相反（defender自己
+      // 這一側受益，不是attacker那一側）
+      if (defenderDied && defender.tool?.id === 'B3-148') {
+        while (oppSide.hand.length < 5 && oppSide.deck.length) oppSide.hand.push(oppSide.deck.shift());
+      }
       // 被KO觸發型特性（2026-08-07新增，第六種觸發時機）：只在defender真的死於這次攻擊、且是
       // 在主戰位置時觸發——可能連帶讓attacker也死亡（反傷/機率致死），所以要在「重新計算一次
       // attackerDied」之前處理，讓底下既有的雙殺/單獨死亡分支能正確吃到這裡造成的新死亡。
@@ -8807,6 +9107,8 @@ async function handleMessage(ws, msg) {
       }
       if (defenderDied) {
         pocketResolveActiveKO(G, op, awardPointForDefender);
+        // Iris（2026-08-08新增）：本回合用過這張卡+這次是自己的Haxorus打的攻擊造成KO，額外+1分
+        if (awardPointForDefender && side.irisBonusThisTurn && attacker.name === 'Haxorus') side.points += 1;
         // Final Scream可能也波及了side（attacker這一方）的板凳——招式本身的濺傷已經在更早的
         // pocketResolveBenchKOs呼叫處理過，這裡是Final Scream額外造成的，要再檢查一次
         pocketResolveBenchKOs(G, side, op);
@@ -9055,14 +9357,54 @@ async function handleMessage(ws, msg) {
       if (!pRoom?.G || pRoom.G.phase !== 'active') return;
       const G = pRoom.G; const role = ws.pocketRole;
       if (G.turn !== role) return;
-      if (G.activeStadium?.id !== 'B2a-093') return;
+      const stadiumId = G.activeStadium?.id;
       const side = G[role];
-      if (side.stadiumUsedThisTurn) { send(ws, { type: 'error', message: '這回合已經用過場地卡效果了' }); return; }
-      side.stadiumUsedThisTurn = true;
-      if (pocketFlipCoin({ G, role }) && side.deck.length) {
-        const idx = Math.floor(Math.random() * side.deck.length);
-        const [card] = side.deck.splice(idx, 1);
-        side.hand.push(card);
+      // 2026-08-08新增：Mesagoza原本是唯一的「每回合各自可以觸發1次」場地卡，這次B2b~B4系列
+      // 又加了4張同一種句型（"Once during each player's turn, that player may..."），共用同一個
+      // 訊息+同一個stadiumUsedThisTurn旗標，只是各自的效果不同——G.turn===role這個檢查本身
+      // 就已經讓「輪到誰的回合，誰才能用」自然成立，不用額外分p1/p2判斷
+      if (stadiumId === 'B2a-093') { // Mesagoza：擲硬幣，正面隨機1張寶可夢進手牌
+        if (side.stadiumUsedThisTurn) { send(ws, { type: 'error', message: '這回合已經用過場地卡效果了' }); return; }
+        side.stadiumUsedThisTurn = true;
+        if (pocketFlipCoin({ G, role }) && side.deck.length) {
+          const idx = Math.floor(Math.random() * side.deck.length);
+          side.hand.push(side.deck.splice(idx, 1)[0]);
+        }
+      } else if (stadiumId === 'B3-153') { // Fragrant Forest：牌庫隨機1張基礎草寶可夢進手牌
+        if (side.stadiumUsedThisTurn) { send(ws, { type: 'error', message: '這回合已經用過場地卡效果了' }); return; }
+        side.stadiumUsedThisTurn = true;
+        const idxs = side.deck.map((c, i) => (c.category === 'Pokemon' && c.stage === 'Basic' && (c.types || []).includes('Grass')) ? i : -1).filter(i => i >= 0);
+        if (idxs.length) { const idx = idxs[Math.floor(Math.random() * idxs.length)]; side.hand.push(side.deck.splice(idx, 1)[0]); }
+      } else if (stadiumId === 'B3a-074') { // Area Zero：手牌1張基礎寶可夢洗回牌庫，若真的洗了就抽1張
+        if (side.stadiumUsedThisTurn) { send(ws, { type: 'error', message: '這回合已經用過場地卡效果了' }); return; }
+        // 簡化：真實規則玩家自選要洗哪張，這個引擎的通用stadium觸發訊息沒有額外target欄位，
+        // 跟Rare Candy同一種「自動挑第一張符合條件的」簡化precedent
+        const target = side.hand.find(c => c.category === 'Pokemon' && c.stage === 'Basic');
+        if (!target) { send(ws, { type: 'error', message: '手牌沒有基礎寶可夢可以洗回牌庫' }); return; }
+        side.stadiumUsedThisTurn = true;
+        side.hand = side.hand.filter(c => c.uid !== target.uid);
+        side.deck = pocketShuffle([...side.deck, target]);
+        if (side.deck.length) side.hand.push(side.deck.shift());
+      } else if (stadiumId === 'B3b-069') { // Kid's Room：手牌1張卡跟牌庫隨機1張道具卡交換
+        if (side.stadiumUsedThisTurn) { send(ws, { type: 'error', message: '這回合已經用過場地卡效果了' }); return; }
+        if (!side.hand.length) { send(ws, { type: 'error', message: '手牌沒有卡可以交換' }); return; }
+        const toolIdxs = side.deck.map((c, i) => (c.category === 'Trainer' && c.trainerType === 'Tool') ? i : -1).filter(i => i >= 0);
+        if (!toolIdxs.length) { send(ws, { type: 'error', message: '牌庫沒有道具卡可以交換' }); return; }
+        side.stadiumUsedThisTurn = true;
+        const handIdx = Math.floor(Math.random() * side.hand.length);
+        const [handCard] = side.hand.splice(handIdx, 1);
+        const toolIdx = toolIdxs[Math.floor(Math.random() * toolIdxs.length)];
+        const [toolCard] = side.deck.splice(toolIdx, 1);
+        side.hand.push(toolCard);
+        side.deck.push(handCard);
+        side.deck = pocketShuffle(side.deck);
+      } else if (stadiumId === 'B4-155') { // Rainbow Cave：棄掉目前能量區的能量，立刻重新產生一份新的
+        if (side.stadiumUsedThisTurn) { send(ws, { type: 'error', message: '這回合已經用過場地卡效果了' }); return; }
+        if (!side.pendingEnergy) { send(ws, { type: 'error', message: '能量區目前沒有能量可以棄掉' }); return; }
+        side.stadiumUsedThisTurn = true;
+        side.pendingEnergy = pocketPickEnergy(side.energyTypes);
+      } else {
+        return;
       }
       pocketBroadcastState(pRoom);
       return;
