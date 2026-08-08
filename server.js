@@ -2675,7 +2675,10 @@ function pocketRunCheckup(G) {
   if (endingSide.active && endingSide.active.status === 'poisoned') {
     // More Poison：對手（otherSideForCheckup，中毒debuff的施加方）主戰持有時，中毒傷害10→20
     const poisonBonus = otherSideForCheckup.active?.abilities?.[0]?.name === 'More Poison' ? 10 : 0;
-    endingSide.active.curHp = Math.max(0, endingSide.active.curHp - 10 - poisonBonus);
+    // Toxicroak（2026-08-08新增）：卡面明講「instead of the usual amount」——這次中毒的傷害
+    // 直接被覆蓋成固定值，不跟More Poison的+10疊加（"instead of"字面意思就是取代，不是疊加）
+    const poisonAmount = endingSide.active.poisonDamageOverride != null ? endingSide.active.poisonDamageOverride : 10 + poisonBonus;
+    endingSide.active.curHp = Math.max(0, endingSide.active.curHp - poisonAmount);
     if (endingSide.active.curHp <= 0) {
       pocketResolveActiveKO(G, endingRole);
       if (G.phase === 'forced_switch' || G.phase === 'done') return true;
@@ -2745,10 +2748,23 @@ function pocketRunCheckup(G) {
   [otherSideForCheckup.active, ...otherSideForCheckup.bench].filter(Boolean).forEach(p => {
     if (p.tool?.id === 'B2-148') p.tool = null;
   });
+  // Mismagius（2026-08-08新增delayedDamage機制）：「At the end of your opponent's next turn」
+  // ——攻擊當下設defender.delayedDamageUntilTurn = 攻擊時的turnNumber+1，剛好對應defender
+  // 自己下一次回合結束時checkup執行的turnNumber，跟Snowy Terrain(每回合觸發)不同，這是一次性的
+  if (endingSide.active && endingSide.active.delayedDamageUntilTurn === G.turnNumber) {
+    endingSide.active.curHp = Math.max(0, endingSide.active.curHp - (endingSide.active.delayedDamageAmount || 0));
+    if (endingSide.active.curHp <= 0) {
+      pocketResolveActiveKO(G, endingRole);
+      if (G.phase === 'forced_switch' || G.phase === 'done') return true;
+    }
+  }
   // Revenge系旗標只維持「緊接著的這一整回合」——endingSide的回合真正結束時清掉，這樣旗標從
   // 「上回合被打死」設成true，到「這回合結束」為止都是true，剛好涵蓋"your opponent's last turn"
   // 語意的那一整個回合，不會一直殘留到更之後的回合
   endingSide.lostToAttackLastOppTurn = false;
+  // Wobbuffet（2026-08-08新增）：跟lostToAttackLastOppTurn同一種「維持恰好一整回合」的旗標，
+  // 差別是這個只要「被打中」就算（不需要死亡），在pocket_attack的mainDamage>0處設置
+  endingSide.tookDamageLastOppTurn = false;
   return false;
 }
 // 回合真正切換給下一位玩家：turn/turnNumber遞增、抽牌、能量區重新產生、reset本回合限定的
@@ -2763,7 +2779,14 @@ function pocketStartNextTurn(G) {
   const side = G[G.turn];
   if (side.deck.length === 0) { G.winner = G.turn === 'p1' ? 'p2' : 'p1'; G.phase = 'done'; return; }
   side.hand.push(side.deck.shift());
-  side.pendingEnergy = pocketPickEnergy(side.energyTypes);
+  // Porygon-Z（2026-08-08新增）：對手指定「下次能量區產生的能量」隨機變成某個屬性——
+  // 用一次性欄位覆蓋，套用後立刻清掉，不會持續影響之後每回合的能量產生
+  if (side.nextEnergyOverride) {
+    side.pendingEnergy = side.nextEnergyOverride;
+    side.nextEnergyOverride = null;
+  } else {
+    side.pendingEnergy = pocketPickEnergy(side.energyTypes);
+  }
   side.energyAttachedThisTurn = false;
   side.retreatedThisTurn = false;
   side.supporterUsedThisTurn = false;
@@ -2776,6 +2799,10 @@ function pocketStartNextTurn(G) {
   side.retreatDiscountThisTurn = 0;
   side.namedCostDiscountThisTurn = null; // Barry（2026-08-07新增）
   side.abilitiesUsedThisTurn = [];
+  // Sweets Relay系（2026-08-08新增）：這一刻「自己的新回合開始」，把上次自己那個回合是否用過
+  // Sweets Relay promote成LastTurn（供這回合判斷），再清空ThisTurn準備重新記錄
+  side.usedSweetsRelayLastTurn = side.usedSweetsRelayThisTurn || false;
+  side.usedSweetsRelayThisTurn = false;
   // 回合開始觸發型被動特性：Strange Singing——隨機把一隻{P}寶可夢從牌庫放進手牌（"put...into
   // your hand"沒有寫"you may"，是強制觸發，不用暫停等玩家確認）
   if (side.active?.abilities?.[0]?.name === 'Strange Singing') {
@@ -3091,6 +3118,440 @@ function pocketFindOwnByName(side, names) { return [side.active, ...side.bench].
    handler簽名：(ctx) => void，ctx = { G, role, op, side, oppSide, attacker, defender, atk, rawDamage(可改), extraKO(bool,已內部處理KO時設true讓主流程跳過), healMirror(bool) }
    rawDamage是「弱點加成前」的傷害，函式可以直接改 ctx.rawDamage；weakness會在handler跑完後才加上去。 */
 const ATTACK_EFFECTS = {
+  /* ── 2026-08-08新增：招式效果長尾第六批(169個)，一次補完剩餘大部分未實作的招式文字 ── */
+  "During your opponent's next turn, this Pokémon takes -20 damage from attacks.": ctx => { ctx.attacker.selfShieldUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.selfShieldAmount = 20; ctx.attacker.selfShieldCondition = null; },
+  "Flip a coin. If heads, during your opponent’s next turn, prevent all damage from—and effects of—attacks done to this Pokémon.": ctx => { if (pocketFlipCoin(ctx)) ctx.attacker.invulnerableUntilTurn = ctx.G.turnNumber + 1; },
+  "Switch out your opponent’s Active Pokémon to the Bench. (Your opponent chooses the new Active Pokémon.)": ctx => { // Grapploct：把對手主戰換到板凳（對手自選新主戰），跟Drive Off同一套
+    ctx.rawDamage = ctx.rawDamage; // 這張卡本身沒有base damage欄位以外的變化，維持原樣
+    if (!ctx.oppSide.active) return;
+    ctx.oppSide.active.status = null;
+    ctx.oppSide.bench.push(ctx.oppSide.active);
+    ctx.oppSide.active = null;
+    pocketEnterForcedSwitch(ctx.G, ctx.op, 'noEndTurn');
+  },
+  "Put 1 random Nidoran♂ from your deck onto your Bench.": ctx => { // Nidoran♀：牌庫隨機1隻Nidoran♂上板凳
+    if (ctx.side.bench.length >= 3) return;
+    const idxs = ctx.side.deck.map((c, i) => c.name === 'Nidoran♂' ? i : -1).filter(i => i >= 0);
+    if (idxs.length) {
+      const i = idxs[Math.floor(Math.random() * idxs.length)];
+      const p = ctx.side.deck.splice(i, 1)[0];
+      p.curHp = p.hp; p.energy = [];
+      ctx.side.bench.push(p);
+    }
+  },
+  "Flip a coin. If heads, discard a random card from your opponent's hand.": ctx => { if (pocketFlipCoin(ctx) && ctx.oppSide.hand.length) ctx.oppSide.hand.splice(Math.floor(Math.random() * ctx.oppSide.hand.length), 1); },
+  "If this Pokémon has at least 3 extra {G} Energy attached, this attack does 70 more damage.": ctx => { // Dhelmise：至少3點「額外」草能量（超出招式本身花費）+70
+    const have = ctx.attacker.energy.filter(e => e === 'Grass').length;
+    const need = (ctx.atk.cost || []).filter(t => t === 'Grass').length;
+    if (have - need >= 3) ctx.rawDamage += 70;
+  },
+  "This attack does 50 damage to 1 of your opponent's Benched Pokémon.": ctx => { // Lumineon：50傷害給對手板凳1隻，玩家自選
+    const pool = ctx.oppSide.bench;
+    if (pool.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: pool.map(p => p.uid), action: 'damage', amount: 50 };
+    ctx.rawDamage = 0;
+  },
+  "This attack does 10 damage for each of your Benched {L} Pokémon.": ctx => { const n = ctx.side.bench.filter(p => (p.types || []).includes('Lightning')).length; ctx.rawDamage += n * 10; },
+  "Put 1 random Koffing from your deck onto your Bench.": ctx => { // Koffing：牌庫隨機1隻同名上板凳
+    if (ctx.side.bench.length >= 3) return;
+    const idxs = ctx.side.deck.map((c, i) => c.name === 'Koffing' ? i : -1).filter(i => i >= 0);
+    if (idxs.length) {
+      const i = idxs[Math.floor(Math.random() * idxs.length)];
+      const p = ctx.side.deck.splice(i, 1)[0];
+      p.curHp = p.hp; p.energy = [];
+      ctx.side.bench.push(p);
+    }
+  },
+  "Shuffle your hand into your deck. Draw a card for each card in your opponent's hand.": ctx => { // Chatot：洗手牌回牌庫，抽跟對手手牌數量一樣多的牌
+    const oppCount = ctx.oppSide.hand.length;
+    ctx.side.deck = pocketShuffle([...ctx.side.deck, ...ctx.side.hand]);
+    ctx.side.hand = [];
+    ctx.side.hand.push(...ctx.side.deck.splice(0, Math.min(oppCount, ctx.side.deck.length)));
+  },
+  "Discard a {L} Energy from this Pokémon.": ctx => { const i = ctx.attacker.energy.indexOf('Lightning'); if (i >= 0) ctx.attacker.energy.splice(i, 1); },
+  "Discard all {L} Energy from this Pokémon. This attack does 120 damage to 1 of your opponent's Pokémon.": ctx => { // Luxray：棄掉全部電能量，固定120傷害給對手1隻（玩家自選）
+    ctx.attacker.energy = ctx.attacker.energy.filter(e => e !== 'Lightning');
+    const pool = [ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean);
+    if (pool.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: pool.map(p => p.uid), action: 'damage', amount: 120 };
+    ctx.rawDamage = 0;
+  },
+  "During your next turn, this Pokémon's Overdrive Smash attack does +60 damage.": ctx => { ctx.attacker.moveBuffUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.moveBuffName = 'Overdrive Smash'; ctx.attacker.moveBuffAmount = 60; },
+  "Take a {P} Energy from your Energy Zone and attach it to Mesprit or Azelf.": ctx => { // Uxie：能量區拿1超能力，附給Mesprit或Azelf（不限自己）
+    if (!ctx.side.energyTypes.includes('Psychic')) return;
+    const target = pocketFindOwnByName(ctx.side, ['Mesprit', 'Azelf']);
+    if (target) target.energy.push('Psychic');
+  },
+  "Change the type of the next Energy that will be generated for your opponent to 1 of the following at random: {G}, {R}, {W}, {L}, {P}, {F}, {D}, or {M}.": ctx => { // Porygon-Z：對手下次能量區產生的能量隨機變成其中一種
+    const types = ['Grass', 'Fire', 'Water', 'Lightning', 'Psychic', 'Fighting', 'Darkness', 'Metal'];
+    ctx.oppSide.nextEnergyOverride = types[Math.floor(Math.random() * types.length)];
+  },
+  "Flip a coin. If heads, put your opponent's Active Pokémon into their hand.": ctx => { // Fan Rotom：coin+把對手主戰放回手牌（不是board，不是棄牌堆）
+    if (!pocketFlipCoin(ctx)) { ctx.rawDamage = 0; return; }
+    ctx.rawDamage = 0;
+    if (!ctx.defender) return;
+    const p = ctx.defender;
+    p.curHp = p.hp; p.energy = []; p.status = null; p.boardTurn = null; p.tool = null;
+    p.cantAttackUntilTurn = 0; p.cantRetreatUntilTurn = 0; p.dmgDebuffUntilTurn = 0; p.dmgDebuffAmount = 0;
+    ctx.oppSide.hand.push(p);
+    pocketResolveActiveKO(ctx.G, ctx.op, false);
+    ctx.skipMainDamage = true;
+  },
+  "During your opponent's next turn, attacks used by the Defending Pokémon do −30 damage.": ctx => { if (ctx.defender) { ctx.defender.dmgDebuffUntilTurn = ctx.G.turnNumber + 1; ctx.defender.dmgDebuffAmount = 30; } },
+  "During your next turn, this Pokémon's Rolling Spin attack does +60 damage.": ctx => { ctx.attacker.moveBuffUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.moveBuffName = 'Rolling Spin'; ctx.attacker.moveBuffAmount = 60; },
+  "Your opponent's Active Pokémon is now Poisoned. Do 20 damage to this Pokémon instead of the usual amount for this Special Condition.": ctx => { if (ctx.defender) { ctx.defender.status = 'poisoned'; ctx.defender.poisonDamageOverride = 20; } },
+  "If your opponent's Active Pokémon is a {M} Pokémon, this attack does 30 more damage.": ctx => { if ((ctx.defender?.types || []).includes('Metal')) ctx.rawDamage += 30; },
+  "Discard 2 random Energy from this Pokémon.": ctx => { for (let i = 0; i < 2 && ctx.attacker.energy.length; i++) ctx.attacker.energy.splice(Math.floor(Math.random() * ctx.attacker.energy.length), 1); },
+  "If your opponent's Active Pokémon is a Pokémon ex, this attack does 30 more damage.": ctx => { if (ctx.defender?.ex) ctx.rawDamage += 30; },
+  "Put 1 random Weedle from your deck onto your Bench.": ctx => {
+    if (ctx.side.bench.length >= 3) return;
+    const idxs = ctx.side.deck.map((c, i) => c.name === 'Weedle' ? i : -1).filter(i => i >= 0);
+    if (idxs.length) {
+      const i = idxs[Math.floor(Math.random() * idxs.length)];
+      const p = ctx.side.deck.splice(i, 1)[0];
+      p.curHp = p.hp; p.energy = [];
+      ctx.side.bench.push(p);
+    }
+  },
+  "1 of your opponent's Pokémon is chosen at random. Do 30 damage to it.": ctx => { // Wiglett：隨機挑對手1隻（含板凳），30傷害
+    const pool = [ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean);
+    ctx.rawDamage = 0;
+    if (pool.length) {
+      const t = pool[Math.floor(Math.random() * pool.length)];
+      t.curHp = Math.max(0, t.curHp - 30);
+    }
+  },
+  "Take a {L} Energy from your Energy Zone and attach it to 1 of your Benched  Pokémon.": ctx => { // Pachirisu：能量區拿1電能量，附給自選板凳
+    if (!ctx.side.energyTypes.includes('Lightning')) return;
+    if (ctx.side.bench.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownBench', eligibleUids: ctx.side.bench.map(p => p.uid), action: 'attachEnergy', energyType: 'Lightning', count: 1 };
+  },
+  "This attack also does 20 damage to each of your opponent's Benched Pokémon that has any Energy attached.": ctx => { for (const p of ctx.oppSide.bench) { if (p.energy.length > 0) p.curHp = Math.max(0, p.curHp - 20); } },
+  "Flip a coin. If heads, your opponent's Active Pokémon is now Confused.": ctx => { if (pocketFlipCoin(ctx) && ctx.defender) ctx.defender.status = 'confused'; },
+  "During your next turn, this Pokémon's Overacceleration attack does +20 damage.": ctx => { ctx.attacker.moveBuffUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.moveBuffName = 'Overacceleration'; ctx.attacker.moveBuffAmount = 20; },
+  "If this Pokémon moved from your Bench to the Active Spot this turn, this attack does 60 more damage.": ctx => { if (ctx.attacker.enteredActiveThisTurn === ctx.G.turnNumber) ctx.rawDamage += 60; },
+  "Your opponent's Active Pokémon is now Poisoned and Burned.": ctx => { if (ctx.defender) ctx.defender.status = 'poisoned'; },
+  "During your opponent's next turn, if this Pokémon is damaged by an attack, do 40 damage to the Attacking Pokémon.": ctx => { ctx.defender && (ctx.defender.retaliateUntilTurn = ctx.G.turnNumber + 1, ctx.defender.retaliateAmount = 40); },
+  "Put 1 random Wishiwashi or Wishiwashi ex from your deck onto your Bench.": ctx => {
+    if (ctx.side.bench.length >= 3) return;
+    const idxs = ctx.side.deck.map((c, i) => ['Wishiwashi', 'Wishiwashi ex'].includes(c.name) ? i : -1).filter(i => i >= 0);
+    if (idxs.length) {
+      const i = idxs[Math.floor(Math.random() * idxs.length)];
+      const p = ctx.side.deck.splice(i, 1)[0];
+      p.curHp = p.hp; p.energy = [];
+      ctx.side.bench.push(p);
+    }
+  },
+  "If your opponent's Active Pokémon is a Basic Pokémon, this attack does 60 more damage.": ctx => { if (ctx.defender?.stage === 'Basic') ctx.rawDamage += 60; },
+  "Discard 2 {L} Energy from this Pokémon.": ctx => { for (let i = 0; i < 2; i++) { const j = ctx.attacker.energy.indexOf('Lightning'); if (j >= 0) ctx.attacker.energy.splice(j, 1); } },
+  "Take a {P} Energy from your Energy Zone and attach it to this Pokémon.": ctx => { if (ctx.side.energyTypes.includes('Psychic')) ctx.attacker.energy.push('Psychic'); },
+  "This attack also does 20 damage to 1 of your Pokémon.": ctx => { // Mimikyu：也對自己1隻造成20傷害，玩家自選
+    const pool = [ctx.side.active, ...ctx.side.bench].filter(Boolean);
+    if (pool.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownAll', eligibleUids: pool.map(p => p.uid), action: 'damage', amount: 20, noEndTurn: false };
+  },
+  "During your opponent's next turn, this Pokémon takes −50 damage from attacks.": ctx => { ctx.attacker.selfShieldUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.selfShieldAmount = 50; ctx.attacker.selfShieldCondition = null; },
+  "If your opponent's Active Pokémon has more remaining HP than this Pokémon, this attack does 50 more damage.": ctx => { if (ctx.defender && ctx.defender.curHp > ctx.attacker.curHp) ctx.rawDamage += 50; },
+  "Discard a random Item card from your opponent's hand.": ctx => { const items = ctx.oppSide.hand.map((c, i) => c.category === 'Trainer' && c.trainerType === 'Item' ? i : -1).filter(i => i >= 0); if (items.length) ctx.oppSide.hand.splice(items[Math.floor(Math.random() * items.length)], 1); },
+  "If your opponent's Active Pokémon is affected by a Special Condition, this attack does 60 more damage.": ctx => { if (ctx.defender?.status != null) ctx.rawDamage += 60; },
+  "During your opponent's next turn, this Pokémon takes +30 damage from attacks.": ctx => { if (ctx.defender) { ctx.defender.selfVulnUntilTurn = ctx.G.turnNumber + 1; ctx.defender.selfVulnAmount = 30; } },
+  "Take a {C} Energy from your Energy Zone and attach it to 1 of your Benched Pokémon.": ctx => { if (ctx.side.bench.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownBench', eligibleUids: ctx.side.bench.map(p => p.uid), action: 'attachEnergy', energyType: 'Colorless', count: 1 }; },
+  "If your opponent's Active Pokémon is a {D} Pokémon, this attack does 30 more damage.": ctx => { if ((ctx.defender?.types || []).includes('Darkness')) ctx.rawDamage += 30; },
+  "During your opponent's next turn, attacks used by the Defending Pokémon cost 1 {C} more, and its Retreat Cost is 1 {C} more.": ctx => { if (ctx.defender) { ctx.defender.costIncreaseUntilTurn = ctx.G.turnNumber + 1; ctx.defender.costIncreaseAmount = 1; ctx.defender.retreatIncreaseUntilTurn = ctx.G.turnNumber + 1; ctx.defender.retreatIncreaseAmount = 1; } },
+  "This attack does 70 damage to 1 of your opponent's Pokémon.": ctx => { const pool = [ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean); if (pool.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: pool.map(p => p.uid), action: 'damage', amount: 70 }; ctx.rawDamage = 0; },
+  "If Passimian is on your Bench, this attack does 40 more damage.": ctx => { if ([...ctx.side.bench].some(p => p.name === 'Passimian')) ctx.rawDamage += 40; },
+  "Flip 3 coins. For each heads, a card is chosen at random from your opponent's hand. Your opponent reveals that card and shuffles it into their deck.": ctx => { // Krookodile：3枚硬幣，每個正面隨機公開對手1張手牌洗回牌庫
+    const heads = pocketFlipCoins(3, ctx);
+    for (let i = 0; i < heads; i++) {
+      if (!ctx.oppSide.hand.length) break;
+      const idx = Math.floor(Math.random() * ctx.oppSide.hand.length);
+      const [card] = ctx.oppSide.hand.splice(idx, 1);
+      ctx.oppSide.deck.push(card);
+    }
+    ctx.oppSide.deck = pocketShuffle(ctx.oppSide.deck);
+  },
+  "Flip 2 coins. If both of them are heads, your opponent's Active Pokémon is Knocked Out.": ctx => { // Bewear：2枚都正面直接歸零defender HP（自然走KO判定，會正常加分）
+    ctx.rawDamage = 0;
+    const coins = [pocketFlipCoin(ctx), pocketFlipCoin(ctx)];
+    if (coins[0] && coins[1] && ctx.defender) ctx.defender.curHp = 0;
+  },
+  "Your opponent reveals a random card from their hand and shuffles it into their deck.": ctx => { if (ctx.oppSide.hand.length) { const idx = Math.floor(Math.random() * ctx.oppSide.hand.length); const [card] = ctx.oppSide.hand.splice(idx, 1); ctx.oppSide.deck.push(card); ctx.oppSide.deck = pocketShuffle(ctx.oppSide.deck); } },
+  "If 1 of your Pokémon used Sweets Relay during your last turn, this attack does 30 more damage.": ctx => { if (ctx.side.usedSweetsRelayLastTurn) ctx.rawDamage += 30; },
+  "If 1 of your Pokémon used Sweets Relay during your last turn, this attack does 20 more damage.": ctx => { if (ctx.side.usedSweetsRelayLastTurn) ctx.rawDamage += 20; },
+  "Discard all Energy attached to this Pokémon. Your opponent's Active Pokémon is now Paralyzed.": ctx => { ctx.attacker.energy = []; if (ctx.defender) ctx.defender.status = 'paralyzed'; },
+  "If 1 of your Pokémon used Sweets Relay during your last turn, this attack does 60 more damage.": ctx => { if (ctx.side.usedSweetsRelayLastTurn) ctx.rawDamage += 60; },
+  "Flip a coin. If heads, choose 1 of your opponent's Active Pokémon's attacks and use it as this attack.": ctx => { // Mimikyu：coin+借用對手主戰的招式
+    if (!pocketFlipCoin(ctx)) { ctx.rawDamage = 0; return; }
+    ctx.rawDamage = 0;
+    if (ctx.oppSide.active?.attacks?.length) ctx.needsChoice = { kind: 'pick_move', checkEnergy: false };
+  },
+  "This attack does 40 damage for each time your Pokémon used Sweets Relay during this game.": ctx => { ctx.rawDamage += (ctx.side.sweetsRelayUseCount || 0) * 40; },
+  "Discard all Pokémon Tools from your opponent's Active Pokémon.": ctx => { if (ctx.oppSide.active) ctx.oppSide.active.tool = null; },
+  "During your opponent's next turn, if this Pokémon is damaged by an attack, do 30 damage to the Attacking Pokémon.": ctx => { ctx.defender && (ctx.defender.retaliateUntilTurn = ctx.G.turnNumber + 1, ctx.defender.retaliateAmount = 30); },
+  "Flip a coin. If tails, this attack does nothing. If heads, your opponent's Active Pokémon is now Paralyzed.": ctx => { if (!pocketFlipCoin(ctx)) { ctx.rawDamage = 0; return; } if (ctx.defender) ctx.defender.status = 'paralyzed'; },
+  "This attack does 20 damage for each of your Benched Pokémon.": ctx => { ctx.rawDamage += ctx.side.bench.length * 20; },
+  "This attack does 40 more damage for each Energy in your opponent's Active Pokémon's Retreat Cost.": ctx => { const n = (ctx.defender?.retreat || 0); ctx.rawDamage += n * 40; },
+  "1 other Pokémon (either yours or your opponent's) is chosen at random 3 times. For each time a Pokémon was chosen, do 50 damage to it.": ctx => { // Magcargo：3次各自隨機挑1隻（雙方場上任一位置皆可），各50傷害
+    for (let i = 0; i < 3; i++) {
+      const pool = [ctx.side.active, ...ctx.side.bench, ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean);
+      if (!pool.length) break;
+      const t = pool[Math.floor(Math.random() * pool.length)];
+      t.curHp = Math.max(0, t.curHp - 50);
+    }
+  },
+  "Flip a coin. If tails, discard 2 random Energy from this Pokémon.": ctx => { if (!pocketFlipCoin(ctx)) { for (let i = 0; i < 2 && ctx.attacker.energy.length; i++) ctx.attacker.energy.splice(Math.floor(Math.random() * ctx.attacker.energy.length), 1); } },
+  "If your opponent's Active Pokémon is Burned, this attack does 60 more damage.": ctx => { if (ctx.defender?.status === 'burned') ctx.rawDamage += 60; },
+  "Move all Energy from this Pokémon to 1 of your Benched Pokémon.": ctx => { // Swanna：把自己全部能量移給板凳自選1隻
+    if (!ctx.attacker.energy.length || !ctx.side.bench.length) return;
+    ctx.needsChoice = { kind: 'pick_target', pool: 'ownBench', eligibleUids: ctx.side.bench.map(p => p.uid), action: 'moveAllEnergyFromAttacker' };
+  },
+  "This attack also does 10 damage to 1 of your Benched Pokémon.": ctx => { if (ctx.side.bench.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownBench', eligibleUids: ctx.side.bench.map(p => p.uid), action: 'damage', amount: 10 }; },
+  "This Pokémon is now Asleep. Heal 30 damage from it.": ctx => { ctx.attacker.status = 'asleep'; const before = ctx.attacker.curHp; ctx.attacker.curHp = Math.min(ctx.attacker.hp, ctx.attacker.curHp + 30); ctx.healUid = ctx.attacker.uid; ctx.healAmount = ctx.attacker.curHp - before; },
+  "This attack does 20 damage for each Energy attached to your opponent's Active Pokémon.": ctx => { ctx.rawDamage += (ctx.defender?.energy.length || 0) * 20; },
+  "If this Pokémon was damaged by an attack during your opponent's last turn while it was in the Active Spot, this attack does 50 more damage.": ctx => { if (ctx.side.tookDamageLastOppTurn) ctx.rawDamage += 50; },
+  "Both Active Pokémon are now Asleep.": ctx => { ctx.attacker.status = 'asleep'; if (ctx.defender) ctx.defender.status = 'asleep'; },
+  "This attack also does 20 damage to each of your Benched Pokémon.": ctx => { for (const p of ctx.side.bench) p.curHp = Math.max(0, p.curHp - 20); },
+  "If this Pokémon moved from your Bench to the Active Spot this turn, this attack does 50 more damage.": ctx => { if (ctx.attacker.enteredActiveThisTurn === ctx.G.turnNumber) ctx.rawDamage += 50; },
+  "During your next turn, this Pokémon's Gear Spinner attack does +70 damage.": ctx => { ctx.attacker.moveBuffUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.moveBuffName = 'Gear Spinner'; ctx.attacker.moveBuffAmount = 70; },
+  "If your opponent's Active Pokémon is a {G} Pokémon, this attack does 40 more damage.": ctx => { if ((ctx.defender?.types || []).includes('Grass')) ctx.rawDamage += 40; },
+  "Flip a coin. If heads, during your opponent's next turn, prevent all damage done to this Pokémon by attacks.": ctx => { if (pocketFlipCoin(ctx)) { ctx.attacker.selfShieldUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.selfShieldAmount = Infinity; ctx.attacker.selfShieldCondition = null; } },
+  "If your opponent's Active Pokémon is an Evolution Pokémon, this attack does 40 more damage.": ctx => { if (ctx.defender && ctx.defender.stage !== 'Basic') ctx.rawDamage += 40; },
+  "During your opponent's next turn, attacks used by the Defending Pokémon cost 1 {C} more.": ctx => { if (ctx.defender) { ctx.defender.costIncreaseUntilTurn = ctx.G.turnNumber + 1; ctx.defender.costIncreaseAmount = 1; } },
+  "Flip a coin. If tails, this attack does nothing. If heads, during your opponent's next turn, prevent all damage from—and effects of—attacks done to this Pokémon.": ctx => { if (!pocketFlipCoin(ctx)) { ctx.rawDamage = 0; return; } ctx.attacker.invulnerableUntilTurn = ctx.G.turnNumber + 1; },
+  "Draw cards until you have the same number of cards in your hand as your opponent.": ctx => { // Aipom：抽牌抽到跟對手手牌數一樣多
+    const target = ctx.oppSide.hand.length;
+    while (ctx.side.hand.length < target && ctx.side.deck.length) ctx.side.hand.push(ctx.side.deck.shift());
+  },
+  "If your opponent's Active Pokémon is an evolved Pokémon, devolve it by putting the highest Stage Evolution card on it into your opponent's hand.": ctx => { // Celebi：對手主戰是進化寶可夢時，退化（把現在這張卡放回對手手牌，board換成上一階）
+    const defender = ctx.defender;
+    if (!defender || defender.stage === 'Basic' || !defender.evolveFrom) return;
+    const prevCard = POCKET_CARDS.find(c => c.category === 'Pokemon' && c.name === defender.evolveFrom);
+    if (!prevCard) return;
+    const currentFormCard = structuredClone(POCKET_CARDS_BY_ID[defender.id]);
+    ctx.oppSide.hand.push(currentFormCard);
+    const preservedDamage = (defender.hp || 0) - (defender.curHp ?? defender.hp ?? 0);
+    const preservedEnergy = defender.energy;
+    const preservedUid = defender.uid;
+    const preservedTool = defender.tool;
+    Object.assign(defender, structuredClone(prevCard));
+    defender.uid = preservedUid; defender.energy = preservedEnergy; defender.tool = preservedTool;
+    defender.curHp = Math.max(1, (defender.hp || 0) - preservedDamage);
+  },
+  "Put 1 random Poliwag from your deck onto your Bench.": ctx => {
+    if (ctx.side.bench.length >= 3) return;
+    const idxs = ctx.side.deck.map((c, i) => c.name === 'Poliwag' ? i : -1).filter(i => i >= 0);
+    if (idxs.length) {
+      const i = idxs[Math.floor(Math.random() * idxs.length)];
+      const p = ctx.side.deck.splice(i, 1)[0];
+      p.curHp = p.hp; p.energy = [];
+      ctx.side.bench.push(p);
+    }
+  },
+  "Discard up to 2 Pokémon Tool cards from your hand. This attack does 50 damage for each card you discarded in this way.": ctx => { // Slowking：棄最多2張手牌Tool卡，各+50傷害（已知簡化：自動棄到上限，不是逐張詢問要不要棄）
+    const idxs = ctx.side.hand.map((c, i) => (c.category === 'Trainer' && c.trainerType === 'Tool') ? i : -1).filter(i => i >= 0);
+    const toDiscard = idxs.slice(0, 2).sort((a, b) => b - a);
+    for (const i of toDiscard) { ctx.side.discard.push(ctx.side.hand.splice(i, 1)[0]); ctx.rawDamage += 50; }
+  },
+  "If this Pokémon has damage on it, this attack can be used for 1 {L} Energy.": ctx => {},
+  "At the end of your opponent's next turn, do 90 damage to the Defending Pokémon.": ctx => { if (ctx.defender) { ctx.defender.delayedDamageUntilTurn = ctx.G.turnNumber + 1; ctx.defender.delayedDamageAmount = 90; } },
+  "If Latios is on your Bench, this attack does 20 more damage.": ctx => { if (pocketFindOwnByName(ctx.side, ['Latios'])) ctx.rawDamage += 20; },
+  "Discard the top card of your deck. If that card is a {F} Pokémon, this attack does 60 more damage.": ctx => { if (ctx.side.deck.length) { const top = ctx.side.deck.shift(); ctx.side.discard.push(top); if (top.category === 'Pokemon' && (top.types || []).includes('Fighting')) ctx.rawDamage += 60; } },
+  "If your opponent's Active Pokémon is Zangoose, this attack does 40 more damage.": ctx => { if (ctx.defender?.name === 'Zangoose') ctx.rawDamage += 40; },
+  "If this Pokémon has 2 or more different types of Energy attached, this attack does 60 more damage.": ctx => { const types = new Set(ctx.attacker.energy); if (types.size >= 2) ctx.rawDamage += 60; },
+  "This attack does 60 damage to 1 of your opponent's Pokémon.": ctx => { const pool = [ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean); if (pool.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: pool.map(p => p.uid), action: 'damage', amount: 60 }; ctx.rawDamage = 0; },
+  "Until this Pokémon leaves the Active Spot, this Pokémon's Rolling Frenzy attack does +30 damage. This effect stacks.": ctx => { // Miltank：疊加式buff直到離開主戰
+    if (ctx.attacker.stackBuffName !== 'Rolling Frenzy') { ctx.attacker.stackBuffName = 'Rolling Frenzy'; ctx.attacker.stackBuffAmount = 0; }
+    ctx.attacker.stackBuffAmount += 30;
+  },
+  "Flip a coin. If heads, your opponent's Active Pokémon is now Burned.": ctx => { if (pocketFlipCoin(ctx) && ctx.defender) ctx.defender.status = 'burned'; },
+  "Heal 30 damage from each of your Benched Basic Pokémon.": ctx => { for (const p of ctx.side.bench) { if (p.stage === 'Basic') p.curHp = Math.min(p.hp, p.curHp + 30); } },
+  "Flip 2 coins. This attack does 30 more damage for each heads.": ctx => { ctx.rawDamage += pocketFlipCoins(2, ctx) * 30; },
+  "During your opponent's next turn, if this Pokémon is damaged by an attack, do 20 damage to the Attacking Pokémon.": ctx => { ctx.defender && (ctx.defender.retaliateUntilTurn = ctx.G.turnNumber + 1, ctx.defender.retaliateAmount = 20); },
+  "This attack does 10 more damage for each {W} Energy attached to this Pokémon.": ctx => { ctx.rawDamage += ctx.attacker.energy.filter(e => e === 'Water').length * 10; },
+  "If you have exactly 2, 4, or 6 cards in your hand, this attack does 30 more damage.": ctx => { if ([2, 4, 6].includes(ctx.side.hand.length)) ctx.rawDamage += 30; },
+  "Prevent all damage done to this Pokémon by attacks from Basic Pokémon during your opponent's next turn.": ctx => { ctx.attacker.selfShieldUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.selfShieldAmount = Infinity; ctx.attacker.selfShieldCondition = 'basic'; },
+  "1 of your opponent's Benched Pokémon is chosen at random. This attack also does 20 damage to it.": ctx => { if (ctx.oppSide.bench.length) { const t = ctx.oppSide.bench[Math.floor(Math.random() * ctx.oppSide.bench.length)]; t.curHp = Math.max(0, t.curHp - 20); } },
+  "If your opponent's Active Pokémon has damage on it, this attack does 30 more damage.": ctx => { if (ctx.defender && ctx.defender.curHp < ctx.defender.hp) ctx.rawDamage += 30; },
+  "Discard a {L} Energy from your opponent's Active Pokémon.": ctx => { if (ctx.oppSide.active) { const i = ctx.oppSide.active.energy.indexOf('Lightning'); if (i >= 0) ctx.oppSide.active.energy.splice(i, 1); } },
+  "During your opponent's next turn, if they attach Energy from their Energy Zone to the Defending Pokémon, that Pokémon will be Asleep.": ctx => { if (ctx.defender) { ctx.defender.sleepTrapUntilTurn = ctx.G.turnNumber + 1; } },
+  "If this Pokémon has damage on it, this attack does 50 more damage.": ctx => { if (ctx.attacker.curHp < ctx.attacker.hp) ctx.rawDamage += 50; },
+  "This attack does 20 damage to each of your opponent's Pokémon. During your next turn, this Pokémon's Wild Spin attack does +20 damage to each of your opponent's Pokémon.": ctx => { // Archeops：本次20傷害給對手全場，同名招式下回合再用+20
+    ctx.rawDamage = 0;
+    const buffed = ctx.attacker.moveBuffUntilTurn === ctx.G.turnNumber && ctx.attacker.moveBuffName === ctx.atk.name;
+    const dmg = 20 + (buffed ? 20 : 0);
+    if (ctx.defender) ctx.defender.curHp = Math.max(0, ctx.defender.curHp - dmg);
+    for (const p of ctx.oppSide.bench) p.curHp = Math.max(0, p.curHp - dmg);
+    ctx.attacker.moveBuffUntilTurn = ctx.G.turnNumber + 1;
+    ctx.attacker.moveBuffName = ctx.atk.name;
+    ctx.attacker.moveBuffAmount = 20;
+  },
+  "Reveal the top 3 cards of your deck. This attack does 60 damage for each Pokémon with a Retreat Cost of 3 or more you find there. Shuffle the revealed cards back into your deck.": ctx => { // Golurk：翻牌庫頂3張，數撤退成本>=3的寶可夢，各60傷害，洗回
+    const top = ctx.side.deck.slice(0, 3);
+    const count = top.filter(c => c.category === 'Pokemon' && (c.retreat || 0) >= 3).length;
+    ctx.rawDamage += count * 60;
+  },
+  "If this Pokémon's remaining HP is 30 or less, this attack does 60 more damage.": ctx => { if (ctx.attacker.curHp <= 30) ctx.rawDamage += 60; },
+  "If your opponent's Active Pokémon is a {G} Pokémon, this attack does 50 more damage.": ctx => { if ((ctx.defender?.types || []).includes('Grass')) ctx.rawDamage += 50; },
+  "Flip a coin. If heads, your opponent reveals their hand. Choose a Supporter card you find there and discard it.": ctx => { // Absol：coin+揭露對手手牌選1張支援者棄置
+    if (!pocketFlipCoin(ctx)) return;
+    const eligible = ctx.oppSide.hand.filter(c => c.category === 'Trainer' && c.trainerType === 'Supporter');
+    ctx.peekOpponentHand = true;
+    if (eligible.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppHand', eligibleUids: eligible.map(c => c.uid), action: 'discard' };
+  },
+  "During your next turn, this Pokémon's Overdrive Smash attack does +30 damage.": ctx => { ctx.attacker.moveBuffUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.moveBuffName = 'Overdrive Smash'; ctx.attacker.moveBuffAmount = 30; },
+  "If your opponent's Active Pokémon is Poisoned, this attack does 70 more damage.": ctx => { if (ctx.defender?.status === 'poisoned') ctx.rawDamage += 70; },
+  "This attack's damage isn't affected by any effects on your opponent's Active Pokémon.": ctx => { ctx.ignoreDefenderEffects = true; },
+  "If Durant is on your Bench, this attack does 40 more damage.": ctx => { if (ctx.side.bench.some(p => p.name === 'Durant')) ctx.rawDamage += 40; },
+  "Discard 2 {M} Energy from this Pokémon. During your opponent's next turn, this Pokémon takes −50 damage from attacks.": ctx => { // Corviknight：棄2鋼能量+下回合-50
+    for (let i = 0; i < 2; i++) { const j = ctx.attacker.energy.indexOf('Metal'); if (j >= 0) ctx.attacker.energy.splice(j, 1); }
+    ctx.attacker.selfShieldUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.selfShieldAmount = 50; ctx.attacker.selfShieldCondition = null;
+  },
+  "Flip 2 coins. If both of them are tails, this attack does nothing.": ctx => { const coins = [pocketFlipCoin(ctx), pocketFlipCoin(ctx)]; if (!coins[0] && !coins[1]) ctx.rawDamage = 0; },
+  "Heal 40 damage from this Pokémon.": ctx => { const before = ctx.attacker.curHp; ctx.attacker.curHp = Math.min(ctx.attacker.hp, ctx.attacker.curHp + 40); ctx.healUid = ctx.attacker.uid; ctx.healAmount = ctx.attacker.curHp - before; },
+  "Flip 2 coins. For each heads, discard a random Energy from your opponent's Active Pokémon. If both of them are tails, this attack does nothing.": ctx => { // Pidgeot：2枚硬幣，每正面棄對手主戰隨機1energy；雙反面則整招無效
+    const coins = [pocketFlipCoin(ctx), pocketFlipCoin(ctx)];
+    if (!coins[0] && !coins[1]) { ctx.rawDamage = 0; return; }
+    const heads = coins.filter(Boolean).length;
+    for (let i = 0; i < heads; i++) {
+      if (ctx.oppSide.active?.energy.length) ctx.oppSide.active.energy.splice(Math.floor(Math.random() * ctx.oppSide.active.energy.length), 1);
+    }
+  },
+  "Flip 2 coins. This attack does 30 damage for each heads. If this Pokémon has Lucky Mittens attached, flip 4 coins instead.": ctx => { // Ambipom：裝備Lucky Mittens(B1-220)則4枚硬幣，否則2枚，各+30(這裡是設base damage，不是加成，卡面本身沒有damage欄位)
+    const n = ctx.attacker.tool?.id === 'B1-220' ? 4 : 2;
+    ctx.rawDamage = pocketFlipCoins(n, ctx) * 30;
+  },
+  "Both Active Pokémon are now Confused.": ctx => { ctx.attacker.status = 'confused'; if (ctx.defender) ctx.defender.status = 'confused'; },
+  "Flip a coin until you get tails. This attack does 40 damage for each heads.": ctx => { // Wooloo：連續丟到反面為止，每正面+40
+    let heads = 0;
+    while (pocketFlipCoin(ctx) && heads < 50) heads++; // 50上限純防呆，避免理論上的無窮迴圈
+    ctx.rawDamage += heads * 40;
+  },
+  "Take 2 {G} Energy from your Energy Zone and attach it to this Pokémon.": ctx => { if (ctx.side.energyTypes.includes('Grass')) { ctx.attacker.energy.push('Grass', 'Grass'); } },
+  "If this Pokémon has at least 2 extra {W} Energy attached, this attack also does 50 damage to 1 of your opponent's Benched Pokémon.": ctx => { // Blastoise：至少2點額外水能量，額外50傷害給對手板凳1隻
+    const have = ctx.attacker.energy.filter(e => e === 'Water').length;
+    const need = (ctx.atk.cost || []).filter(t => t === 'Water').length;
+    if (have - need >= 2 && ctx.oppSide.bench.length) {
+      ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: ctx.oppSide.bench.map(p => p.uid), action: 'damage', amount: 50 };
+    }
+  },
+  "If this Pokémon has at least 3 extra {W} Energy attached, this attack also does 50 damage to 2 of your opponent's Benched Pokémon.": ctx => { // Mega Blastoise ex：至少3點額外水能量，額外50傷害給對手板凳2隻（選2次）
+    const have = ctx.attacker.energy.filter(e => e === 'Water').length;
+    const need = (ctx.atk.cost || []).filter(t => t === 'Water').length;
+    if (have - need >= 3 && ctx.oppSide.bench.length) {
+      ctx.needsChoice = { kind: 'pick_target_multi', pool: 'oppAll', eligibleUids: ctx.oppSide.bench.map(p => p.uid), remaining: Math.min(2, ctx.oppSide.bench.length), action: 'damage', amount: 50 };
+    }
+  },
+  "If this Pokémon moved from your Bench to the Active Spot this turn, this attack does 40 more damage.": ctx => { if (ctx.attacker.enteredActiveThisTurn === ctx.G.turnNumber) ctx.rawDamage += 40; },
+  "Put a random Supporter card from your deck into your hand.": ctx => { const idxs = ctx.side.deck.map((c, i) => (c.category === 'Trainer' && c.trainerType === 'Supporter') ? i : -1).filter(i => i >= 0); if (idxs.length) { const i = idxs[Math.floor(Math.random() * idxs.length)]; ctx.side.hand.push(ctx.side.deck.splice(i, 1)[0]); } },
+  "Move all {P} Energy from this Pokémon to 1 of your Benched Pokémon.": ctx => { if (ctx.attacker.energy.some(e => e === 'Psychic') && ctx.side.bench.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownBench', eligibleUids: ctx.side.bench.map(p => p.uid), action: 'moveAllEnergyFromAttacker', energyFilter: 'Psychic' }; },
+  "Heal 20 damage from 1 of your Pokémon.": ctx => { const pool = [ctx.side.active, ...ctx.side.bench].filter(Boolean); if (pool.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownAll', eligibleUids: pool.map(p => p.uid), action: 'heal', amount: 20 }; },
+  "Your opponent reveals a random card from their hand and shuffles it into their deck. Shuffle this Pokémon into your deck.": ctx => { // Liepard：對手隨機1張手牌洗回牌庫 + 自己洗回牌庫（離場，不算KO不加分）
+    if (ctx.oppSide.hand.length) { const idx = Math.floor(Math.random() * ctx.oppSide.hand.length); const [card] = ctx.oppSide.hand.splice(idx, 1); ctx.oppSide.deck.push(card); ctx.oppSide.deck = pocketShuffle(ctx.oppSide.deck); }
+    ctx.rawDamage = 0;
+    const p = ctx.attacker;
+    p.curHp = p.hp; p.energy = []; p.status = null; p.boardTurn = null; p.tool = null;
+    p.cantAttackUntilTurn = 0; p.cantRetreatUntilTurn = 0; p.dmgDebuffUntilTurn = 0; p.dmgDebuffAmount = 0;
+    ctx.side.deck.push(p);
+    ctx.side.deck = pocketShuffle(ctx.side.deck);
+    pocketResolveActiveKO(ctx.G, ctx.role, false);
+    ctx.skipMainDamage = true;
+  },
+  "During your opponent's next turn, this Pokémon has no Weakness.": ctx => { if (ctx.attacker) ctx.attacker.noWeaknessUntilTurn = ctx.G.turnNumber + 1; },
+  "During your opponent's next turn, this Pokémon takes  damage from attacks and has no Weakness.": ctx => { if (ctx.attacker) ctx.attacker.noWeaknessUntilTurn = ctx.G.turnNumber + 1; },
+  "This attack does 20 more damage for each {M} Energy attached to this Pokémon.": ctx => { ctx.rawDamage += ctx.attacker.energy.filter(e => e === 'Metal').length * 20; },
+  "This attack does 20 more damage for each Trainer card in your opponent's deck.": ctx => { const n = ctx.oppSide.deck.filter(c => c.category === 'Trainer').length; ctx.rawDamage += n * 20; },
+  "Put 1 random Starly from your deck onto your Bench.": ctx => {
+    if (ctx.side.bench.length >= 3) return;
+    const idxs = ctx.side.deck.map((c, i) => c.name === 'Starly' ? i : -1).filter(i => i >= 0);
+    if (idxs.length) {
+      const i = idxs[Math.floor(Math.random() * idxs.length)];
+      const p = ctx.side.deck.splice(i, 1)[0];
+      p.curHp = p.hp; p.energy = [];
+      ctx.side.bench.push(p);
+    }
+  },
+  "If any of your Pokémon were Knocked Out by damage from an attack during your opponent's last turn, this attack does 40 more damage.": ctx => { if (ctx.side.lostToAttackLastOppTurn) ctx.rawDamage += 40; },
+  "This attack's damage isn't affected by Weakness or by any effects on your opponent's Active Pokémon.": ctx => { ctx.ignoreDefenderEffects = true; ctx.ignoreDefenderWeakness = true; },
+  "During your opponent's next turn, if this Pokémon is damaged by an attack, do 80 damage to the Attacking Pokémon.": ctx => { ctx.defender && (ctx.defender.retaliateUntilTurn = ctx.G.turnNumber + 1, ctx.defender.retaliateAmount = 80); },
+  "Put a random card that evolves from Spewpa from your deck into your hand.": ctx => { const idxs = ctx.side.deck.map((c, i) => (c.category === 'Pokemon' && c.evolveFrom === 'Spewpa') ? i : -1).filter(i => i >= 0); if (idxs.length) { const i = idxs[Math.floor(Math.random() * idxs.length)]; ctx.side.hand.push(ctx.side.deck.splice(i, 1)[0]); } },
+  "During your next turn, attacks used by your Pokémon do +20 damage to your opponent's Active Pokémon.": ctx => { ctx.side.teamMoveBuffUntilTurn = ctx.G.turnNumber + 1; ctx.side.teamMoveBuffAmount = 20; },
+  "Flip a coin. If heads, take 2 {R} Energy from your Energy Zone and attach it to 1 of your Benched Pokémon.": ctx => { if (pocketFlipCoin(ctx) && ctx.side.energyTypes.includes('Fire') && ctx.side.bench.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownBench', eligibleUids: ctx.side.bench.map(p => p.uid), action: 'attachEnergy', energyType: 'Fire', count: 2 }; },
+  "Flip a coin. If heads, this attack does 70 damage to your opponent's Active Pokémon. If tails, heal 30 damage from your opponent's Active Pokémon.": ctx => { // Delibird：coin，正面70傷害對手主戰，反面幫對手主戰補30血
+    ctx.rawDamage = 0;
+    if (!ctx.defender) return;
+    if (pocketFlipCoin(ctx)) {
+      ctx.defender.curHp = Math.max(0, ctx.defender.curHp - 70);
+    } else {
+      ctx.defender.curHp = Math.min(ctx.defender.hp, ctx.defender.curHp + 30);
+    }
+  },
+  "Discard Water2 {W} Energy from this Pokémon. Your opponent's Active Pokémon is now Paralyzed.": ctx => { // Aurorus：資料"Water2"疑似排版錯誤，判讀成棄2水能量，然後讓對手主戰麻痺
+    for (let i = 0; i < 2; i++) { const j = ctx.attacker.energy.indexOf('Water'); if (j >= 0) ctx.attacker.energy.splice(j, 1); }
+    if (ctx.defender) ctx.defender.status = 'paralyzed';
+  },
+  "Flip a coin. If heads, this attack also does 40 damage to 1 of your opponent's Benched Pokémon.": ctx => { if (pocketFlipCoin(ctx) && ctx.oppSide.bench.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: ctx.oppSide.bench.map(p => p.uid), action: 'damage', amount: 40 }; },
+  "1 other Pokémon (either yours or your opponent's) is chosen at random 1 time. Do 100 damage to the chosen Pokémon.": ctx => { // Zapdos：雙方任一位置隨機挑1隻，100傷害
+    const pool = [ctx.side.active, ...ctx.side.bench, ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean);
+    ctx.rawDamage = 0;
+    if (pool.length) { const t = pool[Math.floor(Math.random() * pool.length)]; t.curHp = Math.max(0, t.curHp - 100); }
+  },
+  "If Plusle is on your Bench, this attack also does 10 damage to each of your opponent's Benched Pokémon.": ctx => { if (pocketFindOwnByName(ctx.side, ['Plusle'])) { for (const p of ctx.oppSide.bench) p.curHp = Math.max(0, p.curHp - 10); } },
+  "If you have 5 or more {P} Energy in play, this attack does 60 more damage.": ctx => { const n = [ctx.side.active, ...ctx.side.bench].filter(Boolean).reduce((s, p) => s + p.energy.filter(e => e === 'Psychic').length, 0); if (n >= 5) ctx.rawDamage += 60; },
+  "Take 2 {P} Energy from your Energy Zone and attach it to 1 of your Benched {P} Pokémon.": ctx => { if (ctx.side.energyTypes.includes('Psychic')) { const targets = ctx.side.bench.filter(p => (p.types || []).includes('Psychic')); if (targets.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownBench', eligibleUids: targets.map(p => p.uid), action: 'attachEnergy', energyType: 'Psychic', count: 2 }; } },
+  "This attack does 20 more damage for each Supporter card in your discard pile.": ctx => { const n = ctx.side.discard.filter(c => c.category === 'Trainer' && c.trainerType === 'Supporter').length; ctx.rawDamage += n * 20; },
+  "Discard a Stadium in play.": ctx => { ctx.G.activeStadium = null; },
+  "If this Pokémon has any {P} Energy attached, this attack does 50 more damage.": ctx => { if (ctx.attacker.energy.some(e => e === 'Psychic')) ctx.rawDamage += 50; },
+  "Flip a coin. If heads, during your opponent's next turn, this Pokémon takes −100 damage from attacks.": ctx => { if (pocketFlipCoin(ctx)) { ctx.attacker.selfShieldUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.selfShieldAmount = 100; ctx.attacker.selfShieldCondition = null; } },
+  "If this Pokémon has more Energy attached than your opponent's Active Pokémon, this attack does 50 more damage.": ctx => { if (ctx.attacker.energy.length > (ctx.oppSide.active?.energy.length || 0)) ctx.rawDamage += 50; },
+  "Flip a coin. If heads, discard your opponent's Active Pokémon.": ctx => { // Guzzlord：coin+棄置對手主戰（不算擊倒不加分）
+    if (!pocketFlipCoin(ctx)) { ctx.rawDamage = 0; return; }
+    ctx.rawDamage = 0;
+    if (!ctx.defender) return;
+    ctx.oppSide.discard.push(ctx.defender);
+    pocketResolveActiveKO(ctx.G, ctx.op, false);
+    ctx.skipMainDamage = true;
+  },
+  "Until this Pokémon leaves the Active Spot, this Pokémon's Heat-Up Crunch attack does +30 damage. This effect stacks.": ctx => { // Mega Mawile ex：疊加式buff直到離開主戰
+    if (ctx.attacker.stackBuffName !== 'Heat-Up Crunch') { ctx.attacker.stackBuffName = 'Heat-Up Crunch'; ctx.attacker.stackBuffAmount = 0; }
+    ctx.attacker.stackBuffAmount += 30;
+  },
+  "During your opponent's next turn, if this Pokémon is in the Active Spot when your opponent's Active Pokémon retreats, this attack does 40 damage to the new Active Pokémon.": ctx => { ctx.attacker.retreatTrapUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.retreatTrapAmount = 40; },
+  "During your opponent's next turn, this Pokémon takes −80 damage from attacks from your opponent's Pokémon ex.": ctx => { if (ctx.attacker) { ctx.attacker.selfShieldUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.selfShieldAmount = 80; ctx.attacker.selfShieldCondition = 'ex'; } },
+  "Flip 2 coins. This attack does 40 more damage for each heads.": ctx => { ctx.rawDamage += pocketFlipCoins(2, ctx) * 40; },
+  "If a Stadium is in play, this attack does 40 more damage.": ctx => { if (ctx.G.activeStadium) ctx.rawDamage += 40; },
+  "Put 3 random cards from among Tandemaus and Maushold from your deck onto your Bench.": ctx => { // Tandemaus：牌庫隨機3隻Tandemaus/Maushold上板凳（板凳空間不足就盡量放）
+    let slots = 3 - ctx.side.bench.length;
+    for (let n = 0; n < 3 && slots > 0; n++) {
+      const idxs = ctx.side.deck.map((c, i) => ['Tandemaus', 'Maushold'].includes(c.name) ? i : -1).filter(i => i >= 0);
+      if (!idxs.length) break;
+      const i = idxs[Math.floor(Math.random() * idxs.length)];
+      const p = ctx.side.deck.splice(i, 1)[0];
+      p.curHp = p.hp; p.energy = [];
+      ctx.side.bench.push(p);
+      slots--;
+    }
+  },
+  "Flip a coin for each Tandemaus and Maushold you have in play. This attack does 60 damage for each heads.": ctx => { // Maushold：每隻場上的Tandemaus/Maushold各丟1枚硬幣，正面各60傷害
+    const n = [ctx.side.active, ...ctx.side.bench].filter(p => p && ['Tandemaus', 'Maushold'].includes(p.name)).length;
+    ctx.rawDamage += pocketFlipCoins(n, ctx) * 60;
+  },
+  "If your opponent's Active Pokémon is a Grass or Metal Pokémon, this attack does 40 more damage.": ctx => { if ((ctx.defender?.types || []).some(t => t === 'Grass' || t === 'Metal')) ctx.rawDamage += 40; },
+  "During your opponent's next turn, attacks used by the Defending Pokémon cost {C}{C} more.": ctx => { if (ctx.defender) { ctx.defender.costIncreaseUntilTurn = ctx.G.turnNumber + 1; ctx.defender.costIncreaseAmount = 2; } },
+  "Flip a coin. If heads, during your opponent's next turn, prevent all damage from and effects of attacks done to this Pokémon.": ctx => { if (pocketFlipCoin(ctx)) ctx.attacker.invulnerableUntilTurn = ctx.G.turnNumber + 1; },
+  "This attack also does 50 damage to 1 of your opponent's Benched Pokémon.": ctx => { if (ctx.oppSide.bench.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: ctx.oppSide.bench.map(p => p.uid), action: 'damage', amount: 50 }; },
+  "Flip a coin. If heads, the Defending Pokémon is now Paralyzed.": ctx => { if (pocketFlipCoin(ctx) && ctx.defender) ctx.defender.status = 'paralyzed'; },
+  "If you have no cards in your deck, this attack can be used for 1 Water Energy.": ctx => {},
+  "Discard a Lightning Energy from this Pokémon.": ctx => { const i = ctx.attacker.energy.indexOf('Lightning'); if (i >= 0) ctx.attacker.energy.splice(i, 1); },
+  "This attack does 20 more damage for each Psychic Pokémon in your discard pile.": ctx => { const n = ctx.side.discard.filter(c => c.category === 'Pokemon' && (c.types || []).includes('Psychic')).length; ctx.rawDamage += n * 20; },
+  "If this Pokémon's remaining HP is 60 or less, this attack does nothing.": ctx => { if (ctx.attacker.curHp <= 60) ctx.rawDamage = 0; },
+  "If your Pokémon in play have 3 or more different types of Energy attached, this attack does 60 more damage.": ctx => { const types = new Set([ctx.side.active, ...ctx.side.bench].filter(Boolean).flatMap(p => p.energy)); if (types.size >= 3) ctx.rawDamage += 60; },
+  "Flip a coin. If tails, this attack does nothing. If heads, during your opponent's next turn, prevent all damage from and effects of attacks done to this Pokémon.": ctx => { if (!pocketFlipCoin(ctx)) { ctx.rawDamage = 0; return; } ctx.attacker.invulnerableUntilTurn = ctx.G.turnNumber + 1; },
+  "If you played a Supporter card from your hand during this turn, this attack does 60 more damage.": ctx => { if (ctx.side.supporterUsedThisTurn) ctx.rawDamage += 60; },
+  "1 of your opponent's Pokémon is chosen at random for each Metal Energy attached to this Pokémon. For each time a Pokémon was chosen, do 40 damage to it.": ctx => { // Gholdengo：對手隨機挑目標(次數=自己鋼能量數)，各40傷害
+    const n = ctx.attacker.energy.filter(e => e === 'Metal').length;
+    for (let i = 0; i < n; i++) {
+      const pool = [ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean);
+      if (!pool.length) break;
+      const t = pool[Math.floor(Math.random() * pool.length)];
+      t.curHp = Math.max(0, t.curHp - 40);
+    }
+  },
   // Dragonite「流星群」：跟其他隨機打對手場上寶可夢的效果（30damage那兩條）同一種寫法——
   // 差別是這條獨立骰4次、每次都重新從主戰+板凳裡隨機選（可能連續選到同一隻），不是選1隻固定打4次。
   // 這張卡沒有base damage欄位（damage全部來自這個效果本身，等同其他純特效招式的0-dmg慣例）。
@@ -4608,6 +5069,34 @@ const TRAINER_EFFECTS = {
       const eligible = ctx.side.hand.filter(c => c.category === 'Pokemon').map(c => c.uid);
       ctx.needsChoice = { kind: 'pick_hand_multi', pool: 'ownHand', eligibleUids: eligible, remaining: picked.length, noEndTurn: true };
     }
+    return null;
+  },
+  // 2026-08-08再接續：訓練師卡第四批（May之後才確認ctx.needsChoice可以延伸到訓練師卡流程，
+  // 回頭撿之前判斷「需要揭露/選擇」而跳過的卡）
+  'A4-158': (ctx) => { // Silver：揭露對手手牌，選1張支援者洗回對手牌庫——直接複用既有的
+    // pool:'oppHand'/action:'shuffleIntoDeck'機制（原本只在ATTACK_EFFECTS用過，這是第一次
+    // 從訓練師卡流程觸發）
+    const eligible = ctx.oppSide.hand.filter(c => c.category === 'Trainer' && c.trainerType === 'Supporter');
+    ctx.peekHand = ctx.oppSide.hand;
+    if (eligible.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppHand', eligibleUids: eligible.map(c => c.uid), action: 'shuffleIntoDeck', noEndTurn: true };
+    return null;
+  },
+  'B1-217': (ctx) => { // Flame Patch：從自己棄牌堆拿1火能量附給主戰——直接複用既有的
+    // pocketTakeEnergyFromDiscard（Combust特性已經在用同一個函式）
+    if (!ctx.side.active) return '沒有主戰寶可夢';
+    if (!pocketTakeEnergyFromDiscard(ctx.side, 'Fire')) return '棄牌堆沒有火屬性能量可以拿';
+    ctx.side.active.energy.push('Fire');
+    return null;
+  },
+  'B1-213': (ctx) => { // Prank Spinner：雙方手牌合併成一個池子，隨機抽1張洗回牌主自己的牌庫
+    // （卡面沒有"choose"字樣，是真的隨機，不是玩家選）
+    const pool = [...ctx.side.hand.map(c => ({ c, owner: ctx.side })), ...ctx.oppSide.hand.map(c => ({ c, owner: ctx.oppSide }))];
+    if (!pool.length) return null;
+    const picked = pool[Math.floor(Math.random() * pool.length)];
+    const idx = picked.owner.hand.indexOf(picked.c);
+    picked.owner.hand.splice(idx, 1);
+    picked.owner.deck.push(picked.c);
+    picked.owner.deck = pocketShuffle(picked.owner.deck);
     return null;
   },
 };
@@ -7140,6 +7629,12 @@ async function handleMessage(ws, msg) {
       if ((targetAbility === 'Comatose' || targetAbility === 'Snoozing Habit') && target.uid === side.active?.uid && target.status == null) {
         target.status = 'asleep';
       }
+      // Gothitelle（2026-08-08新增）：招式效果種在對手主戰身上的「下回合附加能量到牠身上就
+      // 睡著」陷阱——跟Comatose/Snoozing Habit（常駐特性、任何能量都觸發）方向類似，但這是
+      // 招式種的限時debuff，且限定被種的那隻pokemon instance（不是「主戰位置」這個抽象概念）
+      if (target.sleepTrapUntilTurn === G.turnNumber && target.status == null) {
+        target.status = 'asleep';
+      }
       if (oppSide.active?.abilities?.[0]?.name === 'Electromagnetic Wall') {
         target.curHp = Math.max(0, target.curHp - 20);
         if (target.curHp <= 0) {
@@ -7378,8 +7873,11 @@ async function handleMessage(ws, msg) {
       // Tool：Big Air Balloon(Stage2免費撤退)、Inflatable Boat(水屬性-1)，同一批新增
       const toolRetreat = pocketToolRetreatDiscount(active);
       const oppSide = G[role === 'p1' ? 'p2' : 'p1'];
+      // Oranguru（2026-08-08新增）：招式效果種在對手身上的「下回合撤退多付1」時限debuff，
+      // 跟pocketPassiveRetreatIncrease（Trap Territory，常駐特性）是不同來源，直接加總
+      const retreatTrapIncrease = active.retreatIncreaseUntilTurn === G.turnNumber ? (active.retreatIncreaseAmount || 0) : 0;
       const cost = (pocketPassiveFreeRetreat(active, side, G, pocketIsFirstTurnFor(pRoom, G, role)) || toolRetreat.free) ? 0 : Math.max(0,
-        (active.retreat || 0) - (side.retreatDiscountThisTurn || 0) - plazaDiscount - pocketPassiveBenchRetreatDiscount(active, side) - toolRetreat.discount + pocketPassiveRetreatIncrease(oppSide));
+        (active.retreat || 0) - (side.retreatDiscountThisTurn || 0) - plazaDiscount - pocketPassiveBenchRetreatDiscount(active, side) - toolRetreat.discount + pocketPassiveRetreatIncrease(oppSide) + retreatTrapIncrease);
       if (active.energy.length < cost) { send(ws, { type: 'error', message: '能量不足，無法撤退' }); return; }
       const idx = side.bench.findIndex(p => p.uid === msg.target);
       if (idx < 0) return;
@@ -7389,10 +7887,25 @@ async function handleMessage(ws, msg) {
       // （asleep/paralyzed已經在上面被擋死不會走到這裡，這裡實務上只會清到poisoned，
       // 但寫成清全部status比較不會漏未來新增的狀態種類）
       active.status = null;
+      // Miltank/Mega Mawile ex（2026-08-08新增）：離開主戰位置時清空疊加的stackBuff
+      active.stackBuffName = null; active.stackBuffAmount = 0;
       const target = side.bench[idx];
+      // Golisopod/Scizor/Basculin（2026-08-08新增）：記錄「這回合從板凳換上主戰」，讓那幾張卡
+      // 的「if this Pokémon moved from your Bench to the Active Spot this turn」條件可以判斷
+      target.enteredActiveThisTurn = G.turnNumber;
       side.bench[idx] = active;
       side.active = target;
       side.retreatedThisTurn = true;
+      // Galarian Stunfisk（2026-08-08新增）：對手（oppSide）主戰身上種的「我方撤退時打新主戰」
+      // 陷阱——這裡的side是正在撤退的一方，oppSide是陷阱持有者那一方
+      if (oppSide.active?.retreatTrapUntilTurn === G.turnNumber) {
+        target.curHp = Math.max(0, target.curHp - (oppSide.active.retreatTrapAmount || 0));
+        if (target.curHp <= 0) {
+          pocketResolveActiveKO(G, role);
+          pocketBroadcastState(pRoom);
+          return;
+        }
+      }
       pocketBroadcastState(pRoom);
       return;
     }
@@ -7464,6 +7977,14 @@ async function handleMessage(ws, msg) {
         let removed = false;
         effectiveCost = effectiveCost.filter(c => { if (!removed && c === 'Grass') { removed = true; return false; } return true; });
       }
+      // Oranguru/Porygon-Z/Wo-Chien（2026-08-08新增）：招式效果種在defender(=attacker這裡)
+      // 身上的「下回合攻擊多付N無色能量」時限debuff，跟extraCost（特性常駐）同一個陣列疊加方向
+      if (attacker.costIncreaseUntilTurn === G.turnNumber) {
+        effectiveCost = [...effectiveCost, ...Array(attacker.costIncreaseAmount || 0).fill('Colorless')];
+      }
+      // Boltund/Veluza（2026-08-08新增）：條件成立時完全取代成固定的替代花費，不是疊加/扣減
+      if (atk.name === 'Defiant Spark' && attacker.curHp < attacker.hp) effectiveCost = ['Lightning'];
+      if (atk.name === 'Shedding Spiral' && side.deck.length === 0) effectiveCost = ['Water'];
       if (!pocketCanPayCost(attacker, effectiveCost)) { send(ws, { type: 'error', message: '能量不足，無法使用這個招式' }); return; }
       const defender = oppSide.active;
       if (!defender) return;
@@ -7482,6 +8003,16 @@ async function handleMessage(ws, msg) {
       }
 
       const ctx = { G, role, op, side, oppSide, attacker, defender, atk, rawDamage: parseInt(String(atk.damage || '0').replace(/\D+/g, ''), 10) || 0, selfDamage: 0 };
+      // Sweets Relay系（2026-08-08新增，Appletun/Vanillite/Slurpuff等共用同一個招式名字）：
+      // usedSweetsRelayThisTurn在自己下次回合開始時(pocketStartNextTurn)會被promote成
+      // usedSweetsRelayLastTurn；sweetsRelayUseCount是終生累計不重置（Alcremie用）
+      if (atk.name === 'Sweets Relay') {
+        side.usedSweetsRelayThisTurn = true;
+        side.sweetsRelayUseCount = (side.sweetsRelayUseCount || 0) + 1;
+      }
+      // Cyclizar（2026-08-08新增）：「if you played a Supporter card from your hand during
+      // this turn」——直接重用既有的supporterUsedThisTurn旗標，語意完全相同不用另開欄位
+      if (atk.name === 'Driving Buddy' && side.supporterUsedThisTurn) ctx.rawDamage += 60;
       // 2026-08-06新增「無敵/免疫」機制：某些招式效果會讓自己下回合完全免疫傷害跟附加效果
       // （防禦方的invulnerableUntilTurn），命中就直接把這次攻擊的傷害跟效果都短路掉，
       // 用掉了要清掉旗標避免殘留到下下回合繼續檔。
@@ -7522,19 +8053,52 @@ async function handleMessage(ws, msg) {
         // 2026-08-06新增：指名招式下回合加成（例如Crabominable ex用完「大快朵頤」後預告下回合的
         // 「貪食連擊」+40）——跟moveLock是同一組欄位設計理念，只是這邊是加傷而不是封鎖
         if (attacker.moveBuffUntilTurn === G.turnNumber && attacker.moveBuffName === atk.name) mainDamage += attacker.moveBuffAmount;
+        // Oricorio（2026-08-08新增）：跟moveBuffUntilTurn不同，這是「side全隊」下回合加傷（不限
+        // 哪一隻攻擊，也不限招式名字），欄位掛在side不是攻擊者身上
+        if (side.teamMoveBuffUntilTurn === G.turnNumber) mainDamage += side.teamMoveBuffAmount;
+        // Miltank/Mega Mawile ex（2026-08-08新增）：「直到離開主戰位置」的可疊加加傷，限定同一招式
+        // 名字，清除時機在所有「離開主戰」的地方（撤退/KO換人/board_switch），見那些地方的
+        // stackBuffName=null設定
+        if (attacker.stackBuffName === atk.name) mainDamage += (attacker.stackBuffAmount || 0);
         mainDamage += pocketPassiveDamageBonus(attacker, side); // 被動特性：Fighting Coach/Power Link/Cursed Metal這類「全隊加傷」
-        const weak = (defender.weaknesses || []).find(w => (attacker.types || []).includes(w.type));
-        if (weak) mainDamage += parseInt(String(weak.value).replace(/\D+/g, ''), 10) || 0;
+        // Morgrem/Ledian（2026-08-08新增）：「這次攻擊的傷害不受對手身上任何效果影響」——完全跳過
+        // 弱點以外(Ledian額外跳過弱點)、被動減傷/Tool減傷/selfShield這幾個defender方的計算
+        const ignoreWeak = ctx.ignoreDefenderWeakness;
+        const weak = ignoreWeak ? null : (defender.weaknesses || []).find(w => (attacker.types || []).includes(w.type));
+        if (weak && defender.noWeaknessUntilTurn !== G.turnNumber) mainDamage += parseInt(String(weak.value).replace(/\D+/g, ''), 10) || 0;
         if (defender.dmgDebuffUntilTurn === G.turnNumber) mainDamage = Math.max(0, mainDamage - defender.dmgDebuffAmount);
-        // 被動特性：Fur Coat/Thick Fat/Resilience Link這類「自己減傷/免疫」，Infinity代表完全免疫
-        // Tool：Steel Apron/Heavy Helmet/Metal Core Barrier這類固定減傷，跟被動特性的減傷加總扣
-        const passiveReduction = pocketPassiveDamageReduction(defender, oppSide, attacker) + pocketToolDamageReduction(defender);
-        mainDamage = passiveReduction === Infinity ? 0 : Math.max(0, mainDamage - passiveReduction);
+        // Kommo-o（2026-08-08新增）：跟dmgDebuffUntilTurn方向相反，這是「自己下回合被攻擊時+N傷害」
+        // 的自我犧牲型debuff，掛在defender（承受這次攻擊的一方）身上
+        if (defender.selfVulnUntilTurn === G.turnNumber) mainDamage += defender.selfVulnAmount;
+        if (!ctx.ignoreDefenderEffects) {
+          // 被動特性：Fur Coat/Thick Fat/Resilience Link這類「自己減傷/免疫」，Infinity代表完全免疫
+          // Tool：Steel Apron/Heavy Helmet/Metal Core Barrier這類固定減傷，跟被動特性的減傷加總扣
+          const passiveReduction = pocketPassiveDamageReduction(defender, oppSide, attacker) + pocketToolDamageReduction(defender);
+          // Mr. Mime/Cosmoem/Chansey等（2026-08-08新增selfShield機制）：「下回合被攻擊時-N傷害」，
+          // 跟dmgDebuffUntilTurn（attacker自己招式效果種下的debuff）不同來源，這是defender自己種的
+          // 保護——selfShieldCondition可選'ex'/'basic'限定只對特定種類的attacker生效
+          let selfShield = 0;
+          if (defender.selfShieldUntilTurn === G.turnNumber) {
+            const cond = defender.selfShieldCondition;
+            if (!cond || (cond === 'ex' && attacker.ex) || (cond === 'basic' && attacker.stage === 'Basic')) selfShield = defender.selfShieldAmount;
+          }
+          const totalReduction = passiveReduction + (passiveReduction === Infinity ? 0 : selfShield);
+          mainDamage = (passiveReduction === Infinity || selfShield === Infinity) ? 0 : Math.max(0, mainDamage - totalReduction);
+        }
         defender.curHp = Math.max(0, (defender.curHp ?? defender.hp ?? 0) - mainDamage);
+        // Alolan Sandslash/Togedemaru/Turtonator/Chesnaught（2026-08-08新增retaliate機制）：
+        // 「下回合被攻擊打中時反傷N給攻擊者」，時效綁定在defender身上，跟pocketPassiveOnHit的
+        // 特性反傷不同來源（那是常駐特性，這是招式種下的限時debuff），兩者互不衝突可疊加
+        if (mainDamage > 0 && defender.retaliateUntilTurn === G.turnNumber) {
+          attacker.curHp = Math.max(0, attacker.curHp - defender.retaliateAmount);
+        }
         // 被動特性：Counterattack/Rough Skin/Steel Spikes(反傷)、Poison Point(讓attacker中毒)、
         // Bouncy Body(從能量區拿能量附加板凳)——被打中就觸發，不需要defender死亡，掛在mainDamage
         // 結算完、KO判定之前（跟粗糙皮膚那類「防禦方反擊」是同一種時機，這裡是Pocket版本）
         if (mainDamage > 0) {
+          // Wobbuffet（2026-08-08新增）：只要主戰被打中就設旗標，不需要死亡（跟lostToAttackLastOppTurn
+          // 不同），這裡G.turn恆等於role(攻擊方)，所以對defender所在的oppSide來說這一定是「對手回合」
+          if (oppSide.active?.uid === defender.uid) oppSide.tookDamageLastOppTurn = true;
           const onHit = pocketPassiveOnHit(defender, oppSide);
           if (onHit.counterDamage) attacker.curHp = Math.max(0, attacker.curHp - onHit.counterDamage);
           if (onHit.poisonAttacker && attacker.status == null) attacker.status = 'poisoned';
@@ -7692,6 +8256,8 @@ async function handleMessage(ws, msg) {
         const bench = side.bench[idx];
         const attacker = side.active;
         attacker.status = null; // 中毒可以照樣攻擊，這招會把自己換下場，離開主戰要清除異常狀態
+        attacker.stackBuffName = null; attacker.stackBuffAmount = 0; // Miltank/Mega Mawile ex
+        bench.enteredActiveThisTurn = G.turnNumber; // Golisopod/Scizor/Basculin
         side.bench[idx] = attacker;
         side.active = bench;
       } else if (pending.kind === 'pick_target') {
@@ -7739,6 +8305,15 @@ async function handleMessage(ws, msg) {
         if (!target) return;
         if (pending.action === 'attachEnergy') {
           for (let i = 0; i < (pending.count || 1); i++) target.energy.push(pending.energyType);
+        } else if (pending.action === 'moveAllEnergyFromAttacker') {
+          // Swanna/Mismagius（2026-08-08新增）：把攻擊者(side.active，此刻還沒變過)身上全部
+          // （或篩選特定屬性，見energyFilter）能量移給玩家選的板凳寶可夢
+          const src = side.active;
+          if (src) {
+            const moving = pending.energyFilter ? src.energy.filter(e => e === pending.energyFilter) : [...src.energy];
+            src.energy = pending.energyFilter ? src.energy.filter(e => e !== pending.energyFilter) : [];
+            target.energy.push(...moving);
+          }
         } else if (pending.action === 'heal') {
           if (!pocketHasHealBlock(G)) target.curHp = Math.min(target.hp, target.curHp + pending.amount);
         } else if (pending.action === 'damage' || pending.action === 'damagePerEnergy') {
@@ -7838,6 +8413,7 @@ async function handleMessage(ws, msg) {
       const chosen = side.bench[idx];
       side.bench.splice(idx, 1);
       side.active = chosen;
+      chosen.enteredActiveThisTurn = G.turnNumber; // Golisopod/Scizor/Basculin條件用（見pocket_retreat同樣的標記）
       // 佇列裡可能還有另一邊在排隊（雙殺情況，見pocketResolveMutualKO）——先換完這個才輪到下一個，
       // 佇列真的清空才算真正離開forced_switch。
       G.pendingSwitchQueue = (G.pendingSwitchQueue || []).filter(r => r !== role);
