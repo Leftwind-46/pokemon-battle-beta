@@ -322,6 +322,16 @@
   .coin.tails { background:radial-gradient(circle at 34% 28%, #f5f5f5 0%, #cfd4dc 32%, #9aa3af 68%, #6b7280 100%); border-color:#7c8390; color:#33383f; }
   @keyframes coinSpin { 0% { transform:rotateY(0deg) scale(0.6); opacity:0; } 50% { transform:rotateY(720deg) scale(1.15); } 100% { transform:rotateY(1080deg) scale(1); opacity:1; } }
 
+  /* ── 卡牌發動顯示（2026-08-08新增）：特性/訓練師卡/被動觸發生效時置中放大顯示，
+     跟擲硬幣覆蓋層同一層級但用自己的z-index，短暫顯示後自動淡出 ── */
+  .card-activation-overlay { position:fixed; inset:0; z-index:96; background:rgba(0,0,0,0.6);
+    display:flex; align-items:center; justify-content:center; }
+  .card-activation-box { text-align:center; animation:cardActivationPop 0.25s ease-out; }
+  .card-activation-box img { width:200px; max-width:60vw; border-radius:14px; box-shadow:0 8px 32px rgba(0,0,0,0.6); border:2px solid rgba(255,255,255,0.25); }
+  .card-activation-name { margin-top:0.6rem; font-size:1.2rem; font-weight:700; color:#e8eaf6; }
+  .card-activation-label { margin-top:0.2rem; font-size:0.95rem; color:#7986cb; }
+  @keyframes cardActivationPop { 0% { transform:scale(0.7); opacity:0; } 100% { transform:scale(1); opacity:1; } }
+
   /* ── 傷害飄字 + 受擊震動 ── */
   .dmg-float { position:fixed; z-index:66; font-weight:900; font-size:1.4rem; color:#ff5252; text-shadow:0 2px 6px rgba(0,0,0,0.6);
     pointer-events:none; animation:dmgFloat 1s ease-out forwards; }
@@ -569,6 +579,16 @@
 
   <div class="coin-flip-overlay" id="coin-flip-overlay" style="display:none">
     <div class="coin-flip-coins" id="coin-flip-coins"></div>
+  </div>
+
+  <!-- 卡牌發動顯示（2026-08-08新增）：特性/訓練師卡/被動觸發特性生效時，短暫置中放大顯示
+       是哪張卡，讓雙方都知道「哪張卡發動了」——見server.js的pocketEmitCardActivation -->
+  <div class="card-activation-overlay" id="card-activation-overlay" style="display:none">
+    <div class="card-activation-box">
+      <img id="card-activation-img" src="" alt="">
+      <div class="card-activation-name" id="card-activation-name"></div>
+      <div class="card-activation-label" id="card-activation-label"></div>
+    </div>
   </div>
 
   <div class="setup-overlay" id="setup-overlay">
@@ -1616,6 +1636,7 @@ function renderBoard() {
 
   updateActionHint();
   handlePocketEvent(state.lastEvent);
+  handleCardActivations(state.cardActivations);
 
   // setup overlay
   document.getElementById('setup-overlay').style.display = phase === 'setup' && !you.boardSubmitted ? 'flex' : 'none';
@@ -2203,6 +2224,40 @@ function handlePocketEvent(evt) {
     }
     if (evt.healUid && evt.healAmount > 0) showHealFloat(evt.healUid, evt.healAmount);
   })();
+}
+
+// ── 卡牌發動顯示（2026-08-08新增）：跟handlePocketEvent的lastEvent(單一最新事件)不同，
+// server端的cardActivations是「一直append」的陣列，同一次處理可能連續觸發好幾張卡
+// （攻擊→on-hit特性→KO→KO觸發特性），要排隊依序播放，不能只看最後一筆，不然中間那些
+// 玩家永遠看不到。用一個簡單的queue+播放中旗標，避免同時間收到好幾次state broadcast時
+// 重複播放或播放順序錯亂。
+let lastSeenCardEventSeq = 0;
+let cardActivationQueue = [];
+let cardActivationPlaying = false;
+function handleCardActivations(activations) {
+  if (!activations || !activations.length) return;
+  const newOnes = activations.filter(a => a.seq > lastSeenCardEventSeq).sort((a, b) => a.seq - b.seq);
+  if (!newOnes.length) return;
+  lastSeenCardEventSeq = Math.max(lastSeenCardEventSeq, ...activations.map(a => a.seq));
+  cardActivationQueue.push(...newOnes);
+  if (!cardActivationPlaying) playNextCardActivation();
+}
+function playNextCardActivation() {
+  if (!cardActivationQueue.length) { cardActivationPlaying = false; return; }
+  cardActivationPlaying = true;
+  const evt = cardActivationQueue.shift();
+  const overlay = document.getElementById('card-activation-overlay');
+  // 用完整解析度卡圖（不是縮圖）——這個彈窗本來就是「特地讓玩家看清楚是哪張卡」，
+  // 跟其他縮圖情境（列表快速瀏覽）目的不同，比照showCardDetail的.detail-img慣例
+  document.getElementById('card-activation-img').src = evt.image || '';
+  document.getElementById('card-activation-img').alt = evt.name || '';
+  document.getElementById('card-activation-name').textContent = evt.name || '';
+  document.getElementById('card-activation-label').textContent = (evt.role === myRole ? '你方：' : '對方：') + (evt.label || '');
+  overlay.style.display = 'flex';
+  setTimeout(() => {
+    overlay.style.display = 'none';
+    setTimeout(playNextCardActivation, 150); // 短暫間隔，避免連續好幾張卡黏在一起看不出是分開觸發的
+  }, 1500);
 }
 
 function playCoinFlipAnim(results) {

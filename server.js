@@ -2630,9 +2630,31 @@ function buildPocketG(pRoom) {
     turn: pRoom.firstPlayer, turnNumber: 1, phase: 'setup', winner: null, pendingSwitchRole: null, pendingSwitchReason: null,
     pendingChoice: null,
     eventSeq: 0, lastEvent: null,
+    // 卡牌發動顯示（2026-08-08新增）：跟lastEvent（單一最新事件，給擲硬幣/傷害飄字用）不同，
+    // 這裡故意用「一直append的陣列」而不是單一欄位——同一次處理裡可能連續觸發好幾張卡
+    // （例如攻擊→on-hit特性→KO→KO觸發特性），單一欄位會被後面的直接覆蓋掉，client永遠看
+    // 不到中間那些。client端用seq判斷「哪些是還沒播放過的」，依序播放，不是只看最後一個。
+    cardEventSeq: 0, cardActivations: [],
     p1: pocketFreshSide(p1, pRoom.p1Deck, pRoom.p1EnergyTypes),
     p2: pocketFreshSide(p2, pRoom.p2Deck, pRoom.p2EnergyTypes),
   };
+}
+// label是給玩家看的中文簡短說明（例如「使用特性」「使用道具卡」「特性觸發」），card可以是
+// Pokemon實例(讀.name/.image)或Trainer卡物件(同樣讀.name/.image，欄位剛好一致)。陣列裁到
+// 最近20筆，避免長對局累積過大（client只在意seq還沒播放過的那幾筆，不需要完整歷史）。
+function pocketEmitCardActivation(G, role, card, label) {
+  if (!card) return;
+  G.cardActivations = G.cardActivations || [];
+  G.cardActivations.push({ seq: ++G.cardEventSeq, role, name: card.name, image: card.image, label });
+  if (G.cardActivations.length > 20) G.cardActivations.shift();
+}
+// Tool物件在寶可夢instance上只存{id,name}（沒有image，見makePocketInstance/attach handler），
+// 跟pocketEmitCardActivation預期的「有.image欄位的卡物件」形狀不同，這裡額外查一次
+// POCKET_CARDS_BY_ID補上圖片，避免顯示出來的彈窗沒有卡圖
+function pocketEmitToolActivation(G, role, tool, label) {
+  if (!tool) return;
+  const full = POCKET_CARDS_BY_ID[tool.id];
+  pocketEmitCardActivation(G, role, full || tool, label);
 }
 function pocketFreshSide(drawn, deckIds, energyTypesOverride) {
   return {
@@ -2708,12 +2730,15 @@ function pocketRunCheckup(G) {
   const endingAbility = endingSide.active?.abilities?.[0]?.name;
   if (endingAbility === 'Full-Mouth Manner' && endingSide.active.curHp > 0) {
     endingSide.active.curHp = Math.min(endingSide.active.hp, endingSide.active.curHp + 20);
+    pocketEmitCardActivation(G, endingRole, endingSide.active, '特性觸發：Full-Mouth Manner');
   }
   if (endingAbility === 'Legendary Pulse' && endingSide.active.curHp > 0 && endingSide.deck.length > 0) {
     endingSide.hand.push(endingSide.deck.shift());
+    pocketEmitCardActivation(G, endingRole, endingSide.active, '特性觸發：Legendary Pulse');
   }
   if (endingAbility === 'Snowy Terrain' && endingSide.active.curHp > 0 && otherSideForCheckup.active) {
     otherSideForCheckup.active.curHp = Math.max(0, otherSideForCheckup.active.curHp - 10);
+    pocketEmitCardActivation(G, endingRole, endingSide.active, '特性觸發：Snowy Terrain');
     if (otherSideForCheckup.active.curHp <= 0) {
       pocketResolveActiveKO(G, otherRoleForCheckup);
       if (G.phase === 'forced_switch' || G.phase === 'done') return true;
@@ -2725,7 +2750,7 @@ function pocketRunCheckup(G) {
   // 不限持有者在主戰/板凳，跟Snowy Terrain(限定主戰)不同，掃全場
   if (G.turnNumber <= 2 && endingSide.energyTypes.includes('Lightning')) {
     const holder = [endingSide.active, ...endingSide.bench].find(p => p?.abilities?.[0]?.name === 'Thunderclap Flash');
-    if (holder) holder.energy.push('Lightning');
+    if (holder) { holder.energy.push('Lightning'); pocketEmitCardActivation(G, endingRole, holder, '特性觸發：Thunderclap Flash'); }
   }
   // 回合結束觸發型Tool（2026-08-07新增）：Leftovers只在主戰位置生效，Lum Berry/Sitrus Berry
   // 沒有位置限制（"the Pokémon this card is attached to"沒有寫"in the Active Spot"），要檢查
@@ -2812,6 +2837,7 @@ function pocketStartNextTurn(G) {
       const pick = psychicIdx[Math.floor(Math.random() * psychicIdx.length)];
       side.deck.splice(pick.i, 1);
       side.hand.push(pick.c);
+      pocketEmitCardActivation(G, G.turn, side.active, '特性觸發：Strange Singing');
     }
   }
 }
@@ -3112,6 +3138,7 @@ function pocketViewFor(G, role) {
     turn: G.turn, turnNumber: G.turnNumber, phase: G.phase, winner: G.winner, pendingSwitchRole: G.pendingSwitchRole,
     pendingChoice: G.pendingChoice,
     lastEvent: G.lastEvent,
+    cardActivations: G.cardActivations || [], // 卡牌發動顯示（2026-08-08新增），見pocketEmitCardActivation
     // Mesagoza（2026-08-08新增）：activeStadium原本完全沒有送進view，client端沒有任何管道
     // 知道場上有哪張場地卡——這次為了讓Mesagoza的主動觸發按鈕知道「要不要顯示」而補上，
     // 順便修正了「場上有沒有場地卡」這個一直存在但沒被注意到的顯示缺口
@@ -7850,9 +7877,11 @@ async function handleMessage(ws, msg) {
       const targetAbility = target.abilities?.[0]?.name;
       if (targetAbility === 'Lunar Plumage' && attachedType === 'Psychic') {
         target.curHp = Math.min(target.hp, target.curHp + 20);
+        pocketEmitCardActivation(G, role, target, '特性觸發：Lunar Plumage');
       }
       if (targetAbility === 'Nightmare Aura' && attachedType === 'Darkness' && oppSide.active) {
         oppSide.active.curHp = Math.max(0, oppSide.active.curHp - 20);
+        pocketEmitCardActivation(G, role, target, '特性觸發：Nightmare Aura');
         if (oppSide.active.curHp <= 0) {
           pocketResolveActiveKO(G, op);
           if (G.phase === 'forced_switch' || G.phase === 'done') { pocketBroadcastState(pRoom); return; }
@@ -7860,15 +7889,18 @@ async function handleMessage(ws, msg) {
       }
       if ((targetAbility === 'Comatose' || targetAbility === 'Snoozing Habit') && target.uid === side.active?.uid && target.status == null) {
         target.status = 'asleep';
+        pocketEmitCardActivation(G, role, target, `特性觸發：${targetAbility}`);
       }
       // Gothitelle（2026-08-08新增）：招式效果種在對手主戰身上的「下回合附加能量到牠身上就
       // 睡著」陷阱——跟Comatose/Snoozing Habit（常駐特性、任何能量都觸發）方向類似，但這是
       // 招式種的限時debuff，且限定被種的那隻pokemon instance（不是「主戰位置」這個抽象概念）
       if (target.sleepTrapUntilTurn === G.turnNumber && target.status == null) {
         target.status = 'asleep';
+        pocketEmitCardActivation(G, op, target, 'Gothitelle陷阱生效');
       }
       if (oppSide.active?.abilities?.[0]?.name === 'Electromagnetic Wall') {
         target.curHp = Math.max(0, target.curHp - 20);
+        pocketEmitCardActivation(G, op, oppSide.active, '特性觸發：Electromagnetic Wall');
         if (target.curHp <= 0) {
           if (target.uid === side.active?.uid) {
             pocketResolveActiveKO(G, role);
@@ -7895,6 +7927,7 @@ async function handleMessage(ws, msg) {
           target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
           target.boardTurn = G.turnNumber;
           side.deck = pocketShuffle(side.deck);
+          pocketEmitCardActivation(G, role, target, '特性觸發：Buggy Evolution');
         }
       }
       pocketBroadcastState(pRoom);
@@ -7919,6 +7952,7 @@ async function handleMessage(ws, msg) {
       if (boardCard.abilities?.[0]?.name === 'Infiltrating Inspection') {
         const op = role === 'p1' ? 'p2' : 'p1';
         send(ws, { type: 'pocket_peek', title: '對手手牌', cards: G[op].hand });
+        pocketEmitCardActivation(G, role, boardCard, '特性觸發：Infiltrating Inspection');
       }
       pocketBroadcastState(pRoom);
       return;
@@ -7976,6 +8010,7 @@ async function handleMessage(ws, msg) {
       // Lucky Ice Pop（2026-08-07新增）：真的有回到血且硬幣正面時，這張卡直接回手牌而不進棄牌堆
       if (ctx.keepInHand) side.hand.push(card); else side.discard.push(card);
       if (isSupporter) side.supporterUsedThisTurn = true;
+      pocketEmitCardActivation(G, role, card, isSupporter ? '使用支援者卡' : '使用道具卡');
       // 2026-08-05修正：訓練師卡效果裡的擲硬幣（例如小霞連續丟到反面為止）原本完全沒有組
       // lastEvent，client端的擲硬幣動畫只有pocket_attack這條路徑會播放——結果是效果其實正確
       // 執行了（能量真的有附加），但畫面上完全看不到任何硬幣翻轉，玩家會誤以為卡片沒作用。
@@ -8025,6 +8060,7 @@ async function handleMessage(ws, msg) {
       pocketEnforceBenchImmunity(oppSide, benchSnap);
       pocketEnforceHealBlock(G, healSnap);
       if (!unlimitedUse) side.abilitiesUsedThisTurn.push(poke.uid);
+      pocketEmitCardActivation(G, role, poke, `使用特性：${ability.name}`);
       if (abilityCtx.coinFlips?.length || abilityCtx.healUid) {
         G.lastEvent = { seq: ++G.eventSeq, kind: 'ability', coinFlips: abilityCtx.coinFlips || null, healUid: abilityCtx.healUid || null, healAmount: abilityCtx.healAmount || 0 };
       }
@@ -8075,6 +8111,7 @@ async function handleMessage(ws, msg) {
       if (evolveAbility && EVOLVE_TRIGGER_ABILITIES[evolveAbility]) {
         const evolveCtx = { G, role, op: role === 'p1' ? 'p2' : 'p1', side, oppSide: G[role === 'p1' ? 'p2' : 'p1'] };
         EVOLVE_TRIGGER_ABILITIES[evolveAbility](evolveCtx, target);
+        pocketEmitCardActivation(G, role, target, `特性觸發：${evolveAbility}`);
         // Healing Ripples/Search for Friends這類需要玩家自選目標的——跟pocket_attack的
         // ctx.needsChoice同一套convention，暫停等pocket_attack_choice收到選擇（noEndTurn:true
         // 讓解析完不會誤觸發pocketAdvanceTurn，因為進化本身不結束回合）
@@ -8312,7 +8349,12 @@ async function handleMessage(ws, msg) {
           // Tool：Steel Apron/Heavy Helmet/Metal Core Barrier這類固定減傷，跟被動特性的減傷加總扣
           // Beast Wall（2026-08-08新增）：side層級的時限減傷，只保護defenderSide場上的Ultra Beast
           const beastWallReduction = (oppSide.ultraBeastShieldUntilTurn === G.turnNumber && pocketIsUltraBeast(defender)) ? (oppSide.ultraBeastShieldAmount || 0) : 0;
-          const passiveReduction = pocketPassiveDamageReduction(defender, oppSide, attacker) + pocketToolDamageReduction(defender) + beastWallReduction;
+          const passiveAbilityReduction = pocketPassiveDamageReduction(defender, oppSide, attacker);
+          // 機率型防禦特性（Guarded Grill/Celestial Blessing/Carefree Steps/Disguise）：這幾個
+          // 是擲硬幣後才知道有沒有生效，`passiveAbilityReduction`算出來非0就代表這次真的擲中了，
+          // 拿來當作「要不要顯示卡牌發動」的判斷依據
+          if (passiveAbilityReduction > 0 && defender.abilities?.[0]?.name) pocketEmitCardActivation(G, op, defender, `特性觸發：${defender.abilities[0].name}`);
+          const passiveReduction = passiveAbilityReduction + pocketToolDamageReduction(defender) + beastWallReduction;
           // Mr. Mime/Cosmoem/Chansey等（2026-08-08新增selfShield機制）：「下回合被攻擊時-N傷害」，
           // 跟dmgDebuffUntilTurn（attacker自己招式效果種下的debuff）不同來源，這是defender自己種的
           // 保護——selfShieldCondition可選'ex'/'basic'限定只對特定種類的attacker生效
@@ -8339,25 +8381,27 @@ async function handleMessage(ws, msg) {
           // 不同），這裡G.turn恆等於role(攻擊方)，所以對defender所在的oppSide來說這一定是「對手回合」
           if (oppSide.active?.uid === defender.uid) oppSide.tookDamageLastOppTurn = true;
           const onHit = pocketPassiveOnHit(defender, oppSide);
-          if (onHit.counterDamage) attacker.curHp = Math.max(0, attacker.curHp - onHit.counterDamage);
-          if (onHit.poisonAttacker && attacker.status == null) attacker.status = 'poisoned';
+          if (onHit.counterDamage) { attacker.curHp = Math.max(0, attacker.curHp - onHit.counterDamage); pocketEmitCardActivation(G, op, defender, `特性觸發：${defender.abilities?.[0]?.name || ''}`); }
+          if (onHit.poisonAttacker && attacker.status == null) { attacker.status = 'poisoned'; pocketEmitCardActivation(G, op, defender, `特性觸發：${defender.abilities?.[0]?.name || ''}`); }
           // Bouncy Body原文明確是「拿一個{W}水屬性能量」，不是「拿當前能量區不管什麼顏色」——
           // 能量區這回合剛好不是水屬性就沒有水能量可拿，不觸發（跟pocket_attach_energy用掉
           // pendingEnergy後要清空是同一個規則，避免同一份能量被用兩次）
           if (onHit.benchEnergyType && oppSide.bench.length && oppSide.pendingEnergy === onHit.benchEnergyType) {
             oppSide.bench[0].energy.push(oppSide.pendingEnergy);
             oppSide.pendingEnergy = null;
+            pocketEmitCardActivation(G, op, defender, `特性觸發：${defender.abilities?.[0]?.name || ''}`);
           }
           // Tool：Rocky Helmet反傷20、Poison Barb讓攻擊者中毒、Dark Pendant讓攻擊方(side)
           // 隨機公開1張手牌並洗回牌庫——跟被動特性onHit同一個時機，兩套系統的效果直接疊加
           const toolOnHit = pocketToolOnHit(defender);
-          if (toolOnHit.counterDamage) attacker.curHp = Math.max(0, attacker.curHp - toolOnHit.counterDamage);
-          if (toolOnHit.poisonAttacker && attacker.status == null) attacker.status = 'poisoned';
+          if (toolOnHit.counterDamage) { attacker.curHp = Math.max(0, attacker.curHp - toolOnHit.counterDamage); pocketEmitToolActivation(G, op, defender.tool, '裝備效果觸發'); }
+          if (toolOnHit.poisonAttacker && attacker.status == null) { attacker.status = 'poisoned'; pocketEmitToolActivation(G, op, defender.tool, '裝備效果觸發'); }
           if (toolOnHit.revealShuffleOpp && side.hand.length) {
             const idx = Math.floor(Math.random() * side.hand.length);
             const [card] = side.hand.splice(idx, 1);
             side.deck.push(card);
             side.deck = pocketShuffle(side.deck);
+            pocketEmitToolActivation(G, op, defender.tool, '裝備效果觸發');
           }
         }
       }
@@ -8393,9 +8437,11 @@ async function handleMessage(ws, msg) {
       // /雙殺判斷之前處理，一旦生效這隻就不算「死亡」，後面所有分支自然不會走到
       if (defenderDied && defender.abilities?.[0]?.name === 'Guts' && pocketFlipCoin({ G, role: op })) {
         defender.curHp = 10; defenderDied = false;
+        pocketEmitCardActivation(G, op, defender, '特性觸發：Guts');
       }
       if (attackerDied0 && attacker.abilities?.[0]?.name === 'Guts' && pocketFlipCoin({ G, role })) {
         attacker.curHp = 10; attackerDied0 = false;
+        pocketEmitCardActivation(G, role, attacker, '特性觸發：Guts');
       }
       // Hala（2026-08-08新增，支援者卡）：跟Guts同一種「KO-prevention→HP變10」機制，差別是
       // 這個沒有擲硬幣（卡面沒寫flip a coin，是必定生效）、限定持有者名字是Hariyama/Crabominable、
@@ -8403,6 +8449,7 @@ async function handleMessage(ws, msg) {
       // 的'B1-222'），不是永久特性
       if (defenderDied && ['Hariyama', 'Crabominable'].includes(defender.name) && oppSide.halaProtectUntilTurn === G.turnNumber) {
         defender.curHp = 10; defenderDied = false;
+        pocketEmitCardActivation(G, op, defender, 'Hala效果生效');
       }
       // Lucky Mittens（2026-08-07新增Tool）：裝備者的攻擊擊倒對手主戰時，裝備者的擁有者抽1張牌
       // ——不管attacker自己這次交鋒有沒有也一起死掉（雙殺），只要defender真的被這次攻擊打倒就算
@@ -8419,21 +8466,27 @@ async function handleMessage(ws, msg) {
         const defAbility = defender.abilities?.[0]?.name;
         if (defAbility === 'Innards Out') {
           attacker.curHp = Math.max(0, attacker.curHp - 50);
+          pocketEmitCardActivation(G, op, defender, '特性觸發：Innards Out');
         } else if (defAbility === 'Perish Body') {
-          if (pocketFlipCoin({ G, role: op })) attacker.curHp = 0;
+          if (pocketFlipCoin({ G, role: op })) { attacker.curHp = 0; pocketEmitCardActivation(G, op, defender, '特性觸發：Perish Body'); }
         } else if (defAbility === 'Offload Pass' && oppSide.bench.length) {
           const fEnergy = defender.energy.filter(e => e === 'Fighting');
-          if (fEnergy.length) { defender.energy = defender.energy.filter(e => e !== 'Fighting'); oppSide.bench[0].energy.push(...fEnergy); }
+          if (fEnergy.length) { defender.energy = defender.energy.filter(e => e !== 'Fighting'); oppSide.bench[0].energy.push(...fEnergy); pocketEmitCardActivation(G, op, defender, '特性觸發：Offload Pass'); }
         } else if (defAbility === 'Final Scream') {
           [side.active, ...side.bench].filter(Boolean).forEach(p => { if (p.curHp > 0) p.curHp = Math.max(0, p.curHp - 10); });
+          pocketEmitCardActivation(G, op, defender, '特性觸發：Final Scream');
         } else if (defAbility === 'Fade into Darkness' && pocketFlipCoin({ G, role: op })) {
           awardPointForDefender = false; // 只套用在單獨defenderDied分支，雙殺情境維持既有pocketResolveMutualKO不變（範圍刻意限縮，避免雙重特殊規則疊加）
+          pocketEmitCardActivation(G, op, defender, '特性觸發：Fade into Darkness');
         }
         // Illusive Trickery：跟上面幾個「defender被KO時defender自己的特性觸發」方向不同，
         // 這是「attacker用自己的招式擊倒對手」時attacker自己的特性——沿用既有invulnerableUntilTurn
         // 機制（跟其他「下回合完全免疫傷害+效果」的招式效果共用同一個旗標跟判定點），如果attacker
         // 這次也雙殺死了，設在已死的instance上是安全的no-op（下回合它已經不在場上，不會被讀到）
-        if (attacker.abilities?.[0]?.name === 'Illusive Trickery') attacker.invulnerableUntilTurn = G.turnNumber + 1;
+        if (attacker.abilities?.[0]?.name === 'Illusive Trickery') {
+          attacker.invulnerableUntilTurn = G.turnNumber + 1;
+          pocketEmitCardActivation(G, role, attacker, '特性觸發：Illusive Trickery');
+        }
         // Rampardos（2026-08-08補上，原本因為需要「攻擊當下就知道這次會不會KO」而判斷要獨立
         // 事後掛鉤才跳過——其實跟Innards Out這批「defender被KO時觸發後續效果」是同一個時機，
         // 只是觸發條件換成attacker自己的招式效果(ctx.selfDamageIfDefenderKO)而不是defender的
