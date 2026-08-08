@@ -176,6 +176,10 @@
   .energy-icon { width:8px; height:8px; border-radius:50%; display:inline-block; }
   .mini-btn { font-size:0.58rem; background:rgba(255,255,255,0.1); border:1px solid var(--border); color:var(--text); border-radius:5px; padding:1px 4px; margin-top:2px; cursor:pointer; }
   .mini-btn:hover { background:rgba(255,255,255,0.2); }
+  /* 特性按鈕原本沿用.mini-btn跟🔍/棄置同尺寸，容易被忽略而誤以為特性沒實裝——單獨放大 */
+  .ability-btn { font-size:0.75rem; font-weight:700; background:rgba(129,199,132,0.22); border:1.5px solid rgba(129,199,132,0.7);
+    color:#c8f5cb; border-radius:6px; padding:3px 8px; margin-top:3px; cursor:pointer; }
+  .ability-btn:hover { background:rgba(129,199,132,0.38); }
   .peek-overlay { position:fixed; inset:0; z-index:90; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; }
   .peek-box { background:#10132b; border:1px solid var(--border); border-radius:16px; padding:1.4rem; width:min(90vw,420px); text-align:center; }
   .peek-list { display:flex; gap:0.4rem; justify-content:center; flex-wrap:wrap; margin:1rem 0; }
@@ -283,13 +287,18 @@
 
   /* ── 卡牌詳細資訊側欄 ── */
   .card-detail-panel { position:fixed; top:0; right:-340px; width:320px; height:100%; background:#0c0f24;
-    border-left:1px solid var(--border); z-index:80; padding:1.2rem; overflow-y:auto; transition:right 0.25s ease; }
+    border-left:1px solid var(--border); z-index:91; padding:1.2rem; overflow-y:auto; transition:right 0.25s ease; }
+  /* 2026-08-08修正：原本z-index:80，比棄牌堆等唯讀peek彈窗（z-index:90）還低——從peek裡點卡片
+     放大時，detail-panel會被peek-overlay的深色背景整個蓋住，畫面上看起來完全沒反應。
+     提高到91，確保從任何既有清單點進來看放大圖都會疊在最上層。 */
   .card-detail-panel.open { right:0; }
   .detail-close { position:absolute; top:0.7rem; right:0.9rem; background:rgba(255,255,255,0.14); border:1.5px solid rgba(255,255,255,0.4);
-    color:var(--text); border-radius:50%; width:34px; height:34px; font-size:1.05rem; line-height:1; cursor:pointer; z-index:1;
+    color:var(--text); border-radius:50%; width:34px; height:34px; font-size:1.05rem; line-height:1; cursor:pointer; z-index:5;
     box-shadow:0 2px 8px rgba(0,0,0,0.4); transition:background 0.15s, border-color 0.15s; }
   .detail-close:hover { background:rgba(255,82,82,0.25); border-color:#ff5252; }
-  .card-detail-panel img.detail-img { width:100%; border-radius:12px; margin-bottom:0.8rem; }
+  /* 2026-08-08修正：放大卡圖原本緊貼在面板頂端，跟同樣定位在top:0.7rem右上角的關閉按鈕
+     範圍重疊，卡圖會蓋住按鈕點不到——多留一段margin-top讓卡圖從按鈕下方才開始畫 */
+  .card-detail-panel img.detail-img { width:100%; border-radius:12px; margin-top:2.4rem; margin-bottom:0.8rem; }
   .card-detail-panel h3 { font-size:1.1rem; margin-bottom:0.3rem; }
   .card-detail-panel .detail-meta { color:var(--muted); font-size:0.78rem; margin-bottom:0.8rem; }
   .card-detail-panel .detail-attack { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:0.6rem; margin-bottom:0.5rem; font-size:0.8rem; }
@@ -1513,10 +1522,9 @@ function renderPokeSlot(p, { pickable = false, dataset = {}, own = false } = {})
   if (p.dmgDebuffUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合攻擊傷害-${p.dmgDebuffAmount}">↓${p.dmgDebuffAmount}</span>`);
   if (p.tool) badges.push(`<span class="status-chip" title="裝備：${p.tool.name}">🔧${p.tool.name}</span>`);
   const statusHtml = badges.length ? `<div class="status-badges">${badges.join('')}</div>` : '';
-  // own卡片的🔍要跟直接點卡片本體一樣帶出可用動作（撤退/附加能量），不然點🔍看到的畫面
-  // 反而比點卡片本身少了按鈕，兩個入口行為不一致會讓人以為🔍是唯讀、卡片本體才有功能
-  const detailCall = own ? `showCardDetail(pocketFindCardByUid('${p.uid}'), computeOwnBoardActions(pocketFindCardByUid('${p.uid}')))` : `showCardDetail(pocketFindCardByUid('${p.uid}'))`;
-  let extraBtns = `<button class="mini-btn" onclick="event.stopPropagation();${detailCall}" title="查看詳細資訊">🔍</button>`;
+  // 2026-08-08修正：拿掉🔍按鈕——點卡片本體（board-overlay的click委派）本來就會開啟同樣的
+  // showCardDetail，🔍是完全多餘的重複入口，使用者反映占位又容易跟特性/棄置按鈕混在一起
+  let extraBtns = '';
   if (own && state?.turn === myRole && state.phase === 'active') {
     const ability = p.abilities?.[0];
     // ABILITY_ONLY_ON_EVOLVE_TURN（2026-08-08新增）：Ignition這類「當你進化上這隻的那個瞬間」
@@ -1524,7 +1532,7 @@ function renderPokeSlot(p, { pickable = false, dataset = {}, own = false } = {})
     // 不是「每回合都能按」，用p.boardTurn===tn（進化/上場的那個回合）額外限制按鈕只在那一回合顯示
     const evolveTurnOnly = ABILITY_ONLY_ON_EVOLVE_TURN.has(ability?.name) && p.boardTurn !== tn;
     if (ability && ABILITY_NAMES_SUPPORTED.has(ability.name) && !evolveTurnOnly && !state.you.abilitiesUsedThisTurn.includes(p.uid)) {
-      extraBtns += `<button class="mini-btn" data-ability-uid="${p.uid}" title="${ability.name}">特性</button>`;
+      extraBtns += `<button class="ability-btn" data-ability-uid="${p.uid}" title="${ability.name}">特性</button>`;
     }
     if (p.isFossil) extraBtns += `<button class="mini-btn" data-fossil-uid="${p.uid}">棄置</button>`;
   }
@@ -1692,7 +1700,6 @@ function renderBoard() {
       <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${c.name}">
       <div class="board-name">${c.name}</div>
       <div>${label}</div>
-      <button class="mini-btn" onclick="event.stopPropagation();showCardDetail(pocketFindCardByUid('${c.uid}'), computeHandCardActions(pocketFindCardByUid('${c.uid}')))" title="查看詳細資訊">🔍</button>
     </div>`;
   }).join('');
   applyFanLayout(handRow);
@@ -2221,10 +2228,14 @@ document.getElementById('discard-target-picker-list').addEventListener('click', 
   cb(el.dataset.discardPickUid);
 });
 
+let peekCards = []; // 2026-08-08新增：showPeek目前顯示的卡片清單，供點擊放大用index查回原始卡片物件
 function showPeek(title, cards) {
+  peekCards = cards || [];
   document.getElementById('peek-title').textContent = title;
-  document.getElementById('peek-list').innerHTML = (cards || []).map(c => `
-    <div style="text-align:center;font-size:0.65rem">
+  // 2026-08-08新增：棄牌堆等清單裡的卡片點了也能看放大圖——沿用跟其他地方一樣的showCardDetail，
+  // 不用另外做一套zoom機制
+  document.getElementById('peek-list').innerHTML = peekCards.map((c, i) => `
+    <div style="text-align:center;font-size:0.65rem;cursor:pointer" onclick="showCardDetail(peekCards[${i}])">
       <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${c.name}"><div>${c.name}</div>
     </div>`).join('') || '<div class="lobby-sub">（沒有卡片）</div>';
   document.getElementById('peek-overlay').style.display = 'flex';
