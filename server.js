@@ -5423,13 +5423,16 @@ const ABILITY_EFFECTS = {
     ctx.side.active.energy.push('Psychic');
     return null;
   },
-  // Ignition（2026-08-08修正）：原本照卡面文字字面「when you play this Pokémon from your
-  // hand to evolve...」誤判成進化觸發型，放進EVOLVE_TRIGGER_ABILITIES——使用者實際遊玩回報
-  // 這張卡在遊戲裡其實是「每回合限用1次」的按鈕型特性，不綁定進化當下那個瞬間，之後每回合
-  // 都能用。跟Psy Shadow同一種「從能量區拿1點指定屬性能量給場上是指定屬性的主戰」寫法，
-  // 差別只在屬性換成火（Psychic→Fire），且不限定holder自己在主戰位置（跟Bouncy Body那類
-  // 「持有者不用在主戰，只影響主戰」的既有慣例一致）
-  'Ignition': (ctx) => {
+  // Ignition（2026-08-08再修正）：卡面文字「Once during your turn, when you play this
+  // Pokémon from your hand to evolve 1 of your Pokémon, you may...」確認過真的是「限定
+  // 進化那個當下」的觸發窗口，不是每回合都能用（原本以為使用者反映的是「每回合可用」而
+  // 一度改成button-anytime，後來使用者自己核對確認是搞混了，原始判斷才是對的）。真正的
+  // 問題是「自動觸發、沒有任何按鈕/UI回饋」讓使用者以為特性沒實裝——解法：改成仍然限定
+  // 「這隻的boardTurn===當前turnNumber」（進化上場的那一回合）才能用的按鈕，玩家要自己
+  // 點才會觸發（比較符合原文"you may"的自主選擇，而不是自動幫玩家決定），過了那一回合
+  // 按鈕就會消失（client端renderPokeSlot的evolveTurnOnly判斷），這樣「有沒有實裝」一目了然。
+  'Ignition': (ctx, poke) => {
+    if (poke.boardTurn !== ctx.G.turnNumber) return '這個特性只能在進化上場的那個回合使用';
     if (!ctx.side.active || !(ctx.side.active.types || []).includes('Fire')) return '主戰必須是火屬性';
     if (!ctx.side.energyTypes.includes('Fire')) return '你的能量區沒有火屬性能量';
     ctx.side.active.energy.push('Fire');

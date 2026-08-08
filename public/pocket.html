@@ -1506,7 +1506,11 @@ function renderPokeSlot(p, { pickable = false, dataset = {}, own = false } = {})
   let extraBtns = `<button class="mini-btn" onclick="event.stopPropagation();${detailCall}" title="查看詳細資訊">🔍</button>`;
   if (own && state?.turn === myRole && state.phase === 'active') {
     const ability = p.abilities?.[0];
-    if (ability && ABILITY_NAMES_SUPPORTED.has(ability.name) && !state.you.abilitiesUsedThisTurn.includes(p.uid)) {
+    // ABILITY_ONLY_ON_EVOLVE_TURN（2026-08-08新增）：Ignition這類「當你進化上這隻的那個瞬間」
+    // 才能用的特性——真實卡面文字是「when you play this Pokémon...to evolve」限定的觸發窗口，
+    // 不是「每回合都能按」，用p.boardTurn===tn（進化/上場的那個回合）額外限制按鈕只在那一回合顯示
+    const evolveTurnOnly = ABILITY_ONLY_ON_EVOLVE_TURN.has(ability?.name) && p.boardTurn !== tn;
+    if (ability && ABILITY_NAMES_SUPPORTED.has(ability.name) && !evolveTurnOnly && !state.you.abilitiesUsedThisTurn.includes(p.uid)) {
       extraBtns += `<button class="mini-btn" data-ability-uid="${p.uid}" title="${ability.name}">特性</button>`;
     }
     if (p.isFossil) extraBtns += `<button class="mini-btn" data-fossil-uid="${p.uid}">棄置</button>`;
@@ -1537,6 +1541,10 @@ const ABILITY_NAMES_SUPPORTED = new Set([
   // 2026-08-08再接續：Portrait（借用對手手牌隨機支援者卡效果，完全自動不需要選目標）
   'Portrait',
 ]);
+// 2026-08-08再接續：跟ABILITY_NAMES_SUPPORTED是「能不能用」的AND條件——只有進化/上場的那個
+// 回合才顯示按鈕（見renderPokeSlot的evolveTurnOnly判斷），使用者反映Ignition原本完全沒有
+// 按鈕、以為特性沒做，這裡讓它以「限那一回合可點」的按鈕形式露出，比原本的自動觸發更清楚
+const ABILITY_ONLY_ON_EVOLVE_TURN = new Set(['Ignition']);
 
 function renderBoard() {
   if (!state) return;
