@@ -2716,6 +2716,14 @@ function pocketRunCheckup(G) {
       if (G.phase === 'forced_switch' || G.phase === 'done') return true;
     }
   }
+  // Thunderclap Flash（2026-08-08新增）：「At the end of your first turn」——checkup執行的當下
+  // G.turnNumber還沒遞增，turnNumber<=2恆等於「endingSide正在結束的這個回合是它自己的第一回合」
+  // （turn 1=先攻方第一回合、turn 2=後攻方第一回合，不管誰先攻都成立，不需要額外查firstPlayer）。
+  // 不限持有者在主戰/板凳，跟Snowy Terrain(限定主戰)不同，掃全場
+  if (G.turnNumber <= 2 && endingSide.energyTypes.includes('Lightning')) {
+    const holder = [endingSide.active, ...endingSide.bench].find(p => p?.abilities?.[0]?.name === 'Thunderclap Flash');
+    if (holder) holder.energy.push('Lightning');
+  }
   // 回合結束觸發型Tool（2026-08-07新增）：Leftovers只在主戰位置生效，Lum Berry/Sitrus Berry
   // 沒有位置限制（"the Pokémon this card is attached to"沒有寫"in the Active Spot"），要檢查
   // endingSide全部在場寶可夢（主戰+板凳），不只active一隻
@@ -2763,6 +2771,7 @@ function pocketStartNextTurn(G) {
   side.blaineBoostNamesThisTurn = null;
   side.namedBoostThisTurn = null;
   side.typeBoostThisTurn = null;
+  side.eeveeBoostThisTurn = false;
   side.exOnlyBoostThisTurn = 0;
   side.retreatDiscountThisTurn = 0;
   side.namedCostDiscountThisTurn = null; // Barry（2026-08-07新增）
@@ -2896,31 +2905,52 @@ function pocketHasNamed(side, names) {
 }
 function pocketHasArceus(side) { return pocketHasNamed(side, ['Arceus', 'Arceus ex']); }
 // 回傳「這次要扣掉多少傷害」，Infinity代表完全免疫這次攻擊
+// Unown的GUARD/POWER特性專用條件：「if you have any Unown in play with an Ability other
+// than [這個特性本身]」——場上（不限主戰/板凳）要有另一隻Unown拿著不同的特性才生效，
+// 跟持有者自己是不是滿足其他條件無關，GUARD/POWER各自呼叫時傳自己的特性名字排除自己
+function pocketUnownConditionMet(side, selfAbilityName) {
+  return [side.active, ...side.bench].some(p => p && p.name === 'Unown' && p.abilities?.[0]?.name && p.abilities[0].name !== selfAbilityName);
+}
 function pocketPassiveDamageReduction(defender, defenderSide, attacker) {
   const ability = defender.abilities?.[0]?.name;
+  let reduction = 0;
   switch (ability) {
-    case 'Fur Coat': case 'Solid Shell': case 'Exoskeleton': return 20;
-    case 'Armor': return 30;
-    case 'Shell Armor': return 10;
-    case 'Hard Coat': return 20;
+    case 'Fur Coat': case 'Solid Shell': case 'Exoskeleton': reduction = 20; break;
+    case 'Armor': reduction = 30; break;
+    case 'Shell Armor': reduction = 10; break;
+    case 'Hard Coat': reduction = 20; break;
     // Intimidating Fang原文是「這隻在主戰位置時，對手的攻擊-20」——跟其他「defender自己減傷」
     // 描述角度不同，但數學上結果相同（都是defender.curHp少扣20），這個函式的defender本來就
     // 恆等於defenderSide.active（招式固定打對方主戰，沒有打板凳的招式），可以直接當同一種case處理
-    case 'Intimidating Fang': return 20;
-    case 'Thick Fat': return (attacker.types || []).some(t => t === 'Fire' || t === 'Water') ? 20 : 0;
-    case 'Resilience Link': return pocketHasArceus(defenderSide) ? 30 : 0;
-    case 'Ice Face': return defender.curHp === defender.hp ? 40 : 0;
-    case 'Safeguard': return attacker.ex ? Infinity : 0;
+    case 'Intimidating Fang': reduction = 20; break;
+    case 'Thick Fat': reduction = (attacker.types || []).some(t => t === 'Fire' || t === 'Water') ? 20 : 0; break;
+    case 'Resilience Link': reduction = pocketHasArceus(defenderSide) ? 30 : 0; break;
+    case 'Ice Face': reduction = defender.curHp === defender.hp ? 40 : 0; break;
+    case 'Safeguard': return attacker.ex ? Infinity : 0; // Infinity跟下面的疊加沒有意義，直接短路
     // 2026-08-07新增：機率型防禦——每次呼叫都重新骰一次，這個函式只會被主流程呼叫恰好一次，
     // 不會有骰兩次結果不一致的風險
-    case 'Guarded Grill': return Math.random() < 0.5 ? 100 : 0;
-    case 'Celestial Blessing': case 'Carefree Steps': return Math.random() < 0.5 ? Infinity : 0;
+    case 'Guarded Grill': reduction = Math.random() < 0.5 ? 100 : 0; break;
+    case 'Celestial Blessing': case 'Carefree Steps': return Math.random() < 0.5 ? Infinity : 0; // 同上，Infinity直接短路
     // Coordinated Unit：需要「除了defender自己以外，還有另一隻Falinks」才生效，跟其他case
     // 不同的地方是要排除自己（"another"字面意思）
     case 'Coordinated Unit':
-      return [defenderSide.active, ...defenderSide.bench].some(p => p && p.name === 'Falinks' && p.uid !== defender.uid) ? 20 : 0;
-    default: return 0;
+      reduction = [defenderSide.active, ...defenderSide.bench].some(p => p && p.name === 'Falinks' && p.uid !== defender.uid) ? 20 : 0;
+      break;
+    // Disguise：「上場後第一次被攻擊打中」完全免疫，只有一次——用defender.disguiseUsed
+    // 這個持久化旗標記錄用過了沒有，跟其他case不同的地方是這裡會直接mutate defender本身
+    // （這個函式呼叫端傳的就是真正的物件參照，不是複本，副作用安全）。已知簡化：不會因為
+    // 撤退後再上場而重置，一輩子只觸發一次，跟真實規則「每次上場都算一次」不完全相同
+    case 'Disguise':
+      if (defender.disguiseUsed) return 0;
+      defender.disguiseUsed = true;
+      return Infinity;
   }
+  // GUARD：跟上面switch的「defender自己有沒有這個特性」方向不同，是「defenderSide任一隻Unown
+  // 持有GUARD」+場上還有另一隻不同特性的Unown（卡面條件）時，全隊（不限defender自己有沒有
+  // 特性）都額外-10，所以用加法疊加在switch算出的reduction之上，不是互斥的另一個case
+  if ([defenderSide.active, ...defenderSide.bench].some(p => p?.abilities?.[0]?.name === 'GUARD') &&
+      pocketUnownConditionMet(defenderSide, 'GUARD')) reduction += 10;
+  return reduction;
 }
 // 被攻擊打中時（mainDamage>0，不需要死亡）觸發的被動特性——反傷給attacker、讓attacker中毒、
 // 或從能量區拿能量附加到板凳。跟pocketPassiveDamageReduction不同，這個不影響傷害數字本身，
@@ -2953,18 +2983,27 @@ function pocketPassiveDamageBonus(attacker, attackerSide) {
     // 兩個方向效果，都要求「除了自己以外還有另一隻Falinks在場」
     if (ability === 'Coordinated Unit' && holder.uid === attacker.uid &&
         [attackerSide.active, ...attackerSide.bench].some(p => p && p.name === 'Falinks' && p.uid !== holder.uid)) bonus += 20;
+    // POWER：跟GUARD同一張卡系列，Unown條件（見pocketUnownConditionMet），全隊任何一隻攻擊都+10，
+    // 不限holder自己是不是attacker（跟Fighting Coach同一種「全隊掃描」方向）
+    if (ability === 'POWER' && pocketUnownConditionMet(attackerSide, 'POWER')) bonus += 10;
+    // Lordly Cheering：限定「holder自己在板凳」（不是主戰）才生效，跟其他全隊加傷case剛好
+    // 相反——一般case是「持有者不限位置就生效」，這張反過來要求holder不能在主戰位置
+    if (ability === 'Lordly Cheering' && attackerSide.bench.some(p => p.uid === holder.uid) && attacker.evolveFrom === 'Poliwhirl') bonus += 40;
   }
   return bonus;
 }
 // 回傳true代表這次撤退完全免費（Infinity概念用boolean表示更直觀，跟上面的減傷用Infinity不同）
 // G參數是2026-08-07擴充Surge Surfer時新增的（需要看場地卡是否存在），呼叫端多傳一個參數
-function pocketPassiveFreeRetreat(active, side, G) {
+// myFirstTurn：2026-08-07再擴充Wimp Out時新增的第4個參數——「這是我方的第一個回合」，
+// 呼叫端用pocketIsFirstTurnFor(pRoom, G, role)算好再傳進來（這個函式本身不知道role/pRoom）
+function pocketPassiveFreeRetreat(active, side, G, myFirstTurn) {
   const ability = active.abilities?.[0]?.name;
   if (ability === 'Levitate' && active.energy.length > 0) return true;
   if (ability === 'Speed Link' && pocketHasArceus(side)) return true;
   if (ability === 'Retreat Directive' && active.name === 'Dondozo') return true;
   if (ability === 'Fantastical Floating' && pocketHasNamed(side, ['Latias'])) return true;
   if (ability === 'Surge Surfer' && G?.activeStadium) return true;
+  if (ability === 'Wimp Out' && myFirstTurn) return true;
   // Fluffy Flight：跟其他「持有者自己是active才生效」的判斷方向不同——原文「Your Active
   // Pokémon has no Retreat Cost」沒有限定持有者自己要在active，只要牠在場上（板凳也算）
   // 就讓我方主戰免費撤退，所以另外查整個side的特性欄位（不是pocketHasNamed查寶可夢名字，
@@ -2984,6 +3023,12 @@ function pocketPassiveBenchRetreatDiscount(active, side) {
 function pocketPassiveRetreatIncrease(oppSide) {
   if (!oppSide) return 0;
   return [oppSide.active, ...oppSide.bench].filter(p => p?.abilities?.[0]?.name === 'Trap Territory').length;
+}
+// 「這是role這一方的第一個回合」——turnNumber是全域遞增（1=先攻方第1回合、2=後攻方第1回合、
+// 3=先攻方第2回合...），不是每方各自從1開始算，所以「我方第一回合」要看自己是不是先攻方
+// 再對應turnNumber===1或===2，兩個地方都要用這個判斷（Wimp Out撤退+Thunderclap Flash回合結束）
+function pocketIsFirstTurnFor(pRoom, G, role) {
+  return role === pRoom.firstPlayer ? G.turnNumber === 1 : G.turnNumber === 2;
 }
 // ctx可選：如果有傳，會把每次擲的結果記進ctx.coinFlips，讓client端可以重播真實的擲硬幣過程
 // （而不是只顯示「反正最後結果是這樣」，玩家會覺得動畫跟結果對不上）
@@ -4494,6 +4539,77 @@ const TRAINER_EFFECTS = {
     });
     return out;
   })(),
+  // 2026-08-08新增：訓練師卡第三批
+  'A2-146': (ctx, msg) => { // Pokémon Communication：手牌選1隻寶可夢跟牌庫隨機1隻互換——
+    // 手牌側玩家自選（category==='Pokemon'篩選天然排除掉這張卡自己，因為它是Trainer類）；
+    // 牌庫側卡面沒寫玩家自選，維持隨機（跟"Discard a random card..."系列同一種慣例）
+    const idx = ctx.side.hand.findIndex(c => c.uid === msg.target && c.category === 'Pokemon');
+    if (idx < 0) return '請選擇手牌裡的一張寶可夢卡';
+    if (!ctx.side.deck.length) return '牌庫是空的';
+    const [handPoke] = ctx.side.hand.splice(idx, 1);
+    const deckIdx = Math.floor(Math.random() * ctx.side.deck.length);
+    const [deckPoke] = ctx.side.deck.splice(deckIdx, 1);
+    ctx.side.hand.push(deckPoke);
+    ctx.side.deck.push(handPoke);
+    ctx.side.deck = pocketShuffle(ctx.side.deck);
+    return null;
+  },
+  'A3-148': (ctx, msg) => { // Acerola：己方受傷的Palossand/Mimikyu，移最多40點傷害給對手主戰
+    // （已知邊角互動：這是「移動傷害」不是嚴格定義的「治療」，但跟Heal Block共用同一層
+    // 外層snapshot防護，如果對手場上剛好也有Heal Block持有者，這張卡的自我治療半段也會被
+    // 一併擋下——兩張稀有卡同時在場的機率很低，判斷不需要為這個交互額外開特例）
+    const target = [ctx.side.active, ...ctx.side.bench].find(p => p && p.uid === msg.target && ['Palossand', 'Mimikyu'].includes(p.name));
+    if (!target) return '請選擇場上受傷的Palossand或謎擬Q';
+    const dmgOnTarget = (target.hp || 0) - target.curHp;
+    if (dmgOnTarget <= 0) return '這隻沒有受傷';
+    if (!ctx.oppSide.active) return '對手沒有主戰寶可夢';
+    const moveAmt = Math.min(40, dmgOnTarget);
+    target.curHp = Math.min(target.hp, target.curHp + moveAmt);
+    ctx.oppSide.active.curHp = Math.max(0, ctx.oppSide.active.curHp - moveAmt);
+    return null;
+  },
+  'A3-150': (ctx, msg) => { // Kiawe：己方的Alolan Marowak/Turtonator附加2點火能量，這回合結束
+    const target = [ctx.side.active, ...ctx.side.bench].find(p => p && p.uid === msg.target && ['Alolan Marowak', 'Turtonator'].includes(p.name));
+    if (!target) return '請選擇場上的阿羅拉喪面犬或圖圖犬';
+    if (!ctx.side.energyTypes.includes('Fire')) return '你的能量區沒有火屬性能量';
+    target.energy.push('Fire', 'Fire');
+    ctx.endTurnAfter = true;
+    return null;
+  },
+  'A3b-066': (ctx, msg) => { // Eevee Bag：2選1，msg.choice決定要哪一個效果——client端讓玩家
+    // 在卡片詳情面板直接看到2顆按鈕分別送出，不用另外開新的選擇modal
+    if (msg.choice === 'boost') { ctx.side.eeveeBoostThisTurn = true; return null; }
+    if (msg.choice === 'heal') {
+      for (const p of [ctx.side.active, ...ctx.side.bench].filter(Boolean)) {
+        if (p.evolveFrom === 'Eevee') p.curHp = Math.min(p.hp, p.curHp + 20);
+      }
+      return null;
+    }
+    return '請選擇一個效果';
+  },
+  'B1-222': (ctx) => { // Hala：設一個「對手下回合」的保護時效旗標，實際KO-prevention判定在
+    // pocket_attack的死亡判定區塊（跟Guts共用同一種「HP變10」機制，見那裡的註解）
+    ctx.side.halaProtectUntilTurn = ctx.G.turnNumber + 1;
+    return null;
+  },
+  'B1-223': (ctx) => { // May：先隨機放2隻寶可夢進手牌（卡面這半段沒寫玩家自選），再暫停等玩家
+    // 選2張手牌洗回牌庫——這半段玩家看得到剛抽到什麼才決定洗哪2張，需要真正暫停等選擇
+    // （跟pocket_evolve的ctx.needsChoice同一套convention，這是第一次用在訓練師卡）
+    const idxs = ctx.side.deck.map((c, i) => c.category === 'Pokemon' ? i : -1).filter(i => i >= 0);
+    const picked = [];
+    for (let i = 0; i < 2 && idxs.length; i++) {
+      const j = Math.floor(Math.random() * idxs.length);
+      const deckIdx = idxs.splice(j, 1)[0];
+      picked.push(deckIdx);
+    }
+    picked.sort((a, b) => b - a); // 由大到小刪除，避免刪除時index位移影響後面的索引
+    for (const i of picked) ctx.side.hand.push(ctx.side.deck.splice(i, 1)[0]);
+    if (picked.length) {
+      const eligible = ctx.side.hand.filter(c => c.category === 'Pokemon').map(c => c.uid);
+      ctx.needsChoice = { kind: 'pick_hand_multi', pool: 'ownHand', eligibleUids: eligible, remaining: picked.length, noEndTurn: true };
+    }
+    return null;
+  },
 };
 
 // ── Pokémon Tool 被動效果 hook（跟pocketPassive*系列的特性被動是同一套設計理念，只是
@@ -4877,6 +4993,38 @@ const ABILITY_EFFECTS = {
     ctx.side.active = bench;
     return null;
   },
+  // 2026-08-08新增：第三批按鈕觸發型特性
+  'Reckless Shearing': (ctx) => { // 使用門檻是「棄1張手牌」，棄哪張卡面沒指定玩家自選/隨機——
+    // 沿用"Discard a card from your hand..."(3401行)那個招式效果同樣的既有慣例：隨機棄1張
+    if (!ctx.side.hand.length) return '手牌是空的，無法使用這個特性';
+    ctx.side.hand.splice(Math.floor(Math.random() * ctx.side.hand.length), 1);
+    if (ctx.side.deck.length) ctx.side.hand.push(ctx.side.deck.shift());
+    return null;
+  },
+  // CHECK：原文「choose either player」可以挑對手的牌庫看——已知簡化，這裡固定看自己牌庫頂1張，
+  // 不做「選對手」的介面（跟其他needsTarget選寶可夢不同，這是選玩家不是選board目標，UI成本較高、
+  // 對戰局影響也小，判斷不值得為單一張卡建一整套新的選擇機制）
+  'CHECK': (ctx) => { if (ctx.side.deck.length) ctx.peekDeck = [ctx.side.deck[0]]; return null; },
+  'Wash Out': (ctx, poke, msg) => { // 從玩家指定的板凳水屬性寶可夢身上移1點水能量給主戰（主戰也要是水屬性）
+    if (!ctx.side.active || !(ctx.side.active.types || []).includes('Water')) return '主戰必須是水屬性';
+    const src = ctx.side.bench.find(p => p.uid === msg.target);
+    if (!src || !(src.types || []).includes('Water')) return '請選擇板凳上的水屬性寶可夢';
+    const idx = src.energy.indexOf('Water');
+    if (idx < 0) return '這隻沒有水屬性能量可以移動';
+    src.energy.splice(idx, 1);
+    ctx.side.active.energy.push('Water');
+    return null;
+  },
+  'Dismantling Keys': (ctx, poke) => { // 必須在板凳上才能用，棄掉對手主戰的工具卡+棄掉自己
+    if (!ctx.side.bench.some(p => p.uid === poke.uid)) return '必須在板凳上才能使用這個特性';
+    if (!ctx.oppSide.active?.tool) return '對手主戰沒有裝備寶可夢工具卡';
+    ctx.oppSide.active.tool = null;
+    const idx = ctx.side.bench.findIndex(p => p.uid === poke.uid);
+    ctx.side.bench.splice(idx, 1);
+    poke.tool = null;
+    ctx.side.discard.push(poke);
+    return null;
+  },
 };
 // 從棄牌堆裡任何一張還留有該屬性能量的寶可夢卡上拿1點能量（真實Pocket規則的棄牌堆同時
 // 存放卡片跟已丟棄的能量——我們的引擎沒有獨立的能量棄牌堆，改成直接掃discard裡的寶可夢
@@ -4891,12 +5039,22 @@ function pocketTakeEnergyFromDiscard(side, type) {
    1 of your Pokémon, you may..."）——跟按鈕觸發型是完全不同的時機，掛在pocket_evolve handler，
    進化完成後自動判定。全部都是"you may"(可選)，但沒有UI可以問玩家「要不要用」，也沒有明顯
    會讓玩家想拒絕的理由（都是純粹利己的效果），簡化成一律自動觸發。
-   Healing Ripples/Search for Friends這2個因為效果裡「1 of your X」/「a Supporter card」
-   沒寫random，照上面「單一目標要玩家自選」的規則不能隨機選，但進化流程目前沒有像攻擊/特性
-   那樣「暫停選目標」的機制，這裡先不做，維持「尚未支援」（沒有按鈕UI可以顯示，效果就是
-   單純不會觸發，不會crash也不會誤判成隨機挑）。 ── */
+   Healing Ripples/Search for Friends這2個效果裡「1 of your X」/「a Supporter card」沒寫
+   random，玩家要自選——2026-08-07再擴充：讓函式可以在ctx上設ctx.needsChoice（跟ATTACK_EFFECTS
+   同一套convention），pocket_evolve handler檢查到就暫停進attack_choice phase等玩家選擇，
+   跟pick_target的解析邏輯完全共用（見pocket_attack_choice handler），只是多一個
+   pending.noEndTurn=true旗標——進化本身不會結束回合，跟攻擊觸發的選擇不同，解析完不能
+   自動pocketAdvanceTurn。 ── */
 const EVOLVE_TRIGGER_ABILITIES = {
   'Happy Ribbon': (ctx) => { ctx.side.hand.push(...ctx.side.deck.splice(0, Math.min(2, ctx.side.deck.length))); },
+  'Healing Ripples': (ctx) => { // 60血治療，限定自己的水屬性寶可夢，不限主戰/板凳（pool:'ownAll'）
+    const eligible = [ctx.side.active, ...ctx.side.bench].filter(p => p && (p.types || []).includes('Water') && p.curHp < p.hp);
+    if (eligible.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownAll', eligibleUids: eligible.map(p => p.uid), action: 'heal', amount: 60, noEndTurn: true };
+  },
+  'Search for Friends': (ctx) => { // 從自己棄牌堆選1張支援者卡進手牌
+    const eligible = ctx.side.discard.filter(c => c.category === 'Trainer' && c.trainerType === 'Supporter');
+    if (eligible.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownDiscardSupporter', eligibleUids: eligible.map(c => c.uid), action: 'toHand', noEndTurn: true };
+  },
   'Dig Up': (ctx) => { // 從己方棄牌堆隨機挑最多2張寶可夢工具卡進手牌（卡面文字本身寫的是"random"）
     for (let i = 0; i < 2; i++) {
       const idxs = ctx.side.discard.map((c, j) => (c.category === 'Trainer' && c.trainerType === 'Tool') ? j : -1).filter(j => j >= 0);
@@ -6993,6 +7151,25 @@ async function handleMessage(ws, msg) {
           }
         }
       }
+      // Buggy Evolution（2026-08-08新增）：跟"Put a random card from your deck that evolves
+      // from this Pokémon..."這個既有招式效果（3805行）同一套進化mutation邏輯，只是觸發時機
+      // 換成「被附加能量的當下」、目標固定是target（不是ctx.attacker），沒有獨立抽成共用函式
+      // （這個mutation只有這2處在用，抽函式的維護成本大於重複10行程式碼）
+      if (targetAbility === 'Buggy Evolution') {
+        const candidates = side.deck.map((c, i) => ({ c, i })).filter(({ c }) => c.category === 'Pokemon' && c.evolveFrom === target.name);
+        if (candidates.length) {
+          const pick = candidates[Math.floor(Math.random() * candidates.length)];
+          side.deck.splice(pick.i, 1);
+          const preservedDamage = (target.hp || 0) - (target.curHp ?? target.hp ?? 0);
+          const preservedEnergy = target.energy;
+          const preservedUid = target.uid;
+          Object.assign(target, structuredClone(POCKET_CARDS_BY_ID[pick.c.id]));
+          target.uid = preservedUid; target.energy = preservedEnergy;
+          target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
+          target.boardTurn = G.turnNumber;
+          side.deck = pocketShuffle(side.deck);
+        }
+      }
       pocketBroadcastState(pRoom);
       return;
     }
@@ -7082,6 +7259,17 @@ async function handleMessage(ws, msg) {
       }
       if (ctx.peekHand) send(ws, { type: 'pocket_peek', title: '對手手牌', cards: ctx.peekHand });
       if (ctx.peekDeck) send(ws, { type: 'pocket_peek', title: '牌庫頂3張', cards: ctx.peekDeck });
+      // May（2026-08-08新增）：跟pocket_evolve的ctx.needsChoice同一套convention，第一次用在
+      // 訓練師卡流程——卡片本身已經在上面移出手牌進棄牌堆，這裡只是暫停等玩家選子效果的目標
+      if (ctx.needsChoice) {
+        G.phase = 'attack_choice';
+        G.pendingChoice = { role, ...ctx.needsChoice };
+        pocketBroadcastState(pRoom);
+        return;
+      }
+      // Kiawe（2026-08-08新增）：卡面文字明講「Your turn ends」，跟pocket_use_ability的
+      // endTurnAfter是同一個convention，這裡是第一次在訓練師卡流程用到
+      if (ctx.endTurnAfter) { pocketAdvanceTurn(G); pocketBroadcastState(pRoom); return; }
       pocketBroadcastState(pRoom);
       return;
     }
@@ -7125,8 +7313,15 @@ async function handleMessage(ws, msg) {
       const handCard = side.hand.find(c => c.uid === msg.handUid);
       const target = [side.active, ...side.bench].find(p => p && p.uid === msg.target);
       if (!handCard || !target) return;
-      if (handCard.evolveFrom !== target.name) { send(ws, { type: 'error', message: '進化對象不符' }); return; }
-      if (target.boardTurn >= G.turnNumber) { send(ws, { type: 'error', message: '這隻寶可夢這回合不能進化' }); return; }
+      // Veevee 'volve：Eevee ex身上帶這個特性時，evolveFrom的比對對象從「Eevee ex」改成
+      // 「Eevee」——原文"can evolve into any Pokémon that evolves from Eevee"，跟一般進化
+      // 「手牌卡evolveFrom要精準等於場上這隻的名字」的規則不同，是這張卡專屬的例外
+      const veeveeVolve = target.name === 'Eevee ex' && target.abilities?.[0]?.name === "Veevee 'volve";
+      if (handCard.evolveFrom !== (veeveeVolve ? 'Eevee' : target.name)) { send(ws, { type: 'error', message: '進化對象不符' }); return; }
+      // Boosted Evolution：卡面限定「in the Active Spot」，持有者在主戰位置時可以在自己第一
+      // 回合/剛上場那回合就進化——跳過一般的「這回合不能進化」門檻，板凳上的不生效
+      const boostedEvolution = target === side.active && target.abilities?.[0]?.name === 'Boosted Evolution';
+      if (!boostedEvolution && target.boardTurn >= G.turnNumber) { send(ws, { type: 'error', message: '這隻寶可夢這回合不能進化' }); return; }
       // Primeval Law：卡面「Your opponent can't play any Pokémon from their hand to evolve
       // their Active Pokémon」——只擋「對手」進化「主戰位置」，board上只要有Aerodactyl ex在
       // （不限主戰/板凳）就生效，跟其他板凳進化不衝突
@@ -7147,7 +7342,17 @@ async function handleMessage(ws, msg) {
       // 進化完成當下自動判定——跟按鈕觸發型特性是分開的兩套機制，見EVOLVE_TRIGGER_ABILITIES註解
       const evolveAbility = target.abilities?.[0]?.name;
       if (evolveAbility && EVOLVE_TRIGGER_ABILITIES[evolveAbility]) {
-        EVOLVE_TRIGGER_ABILITIES[evolveAbility]({ G, role, op: role === 'p1' ? 'p2' : 'p1', side, oppSide: G[role === 'p1' ? 'p2' : 'p1'] }, target);
+        const evolveCtx = { G, role, op: role === 'p1' ? 'p2' : 'p1', side, oppSide: G[role === 'p1' ? 'p2' : 'p1'] };
+        EVOLVE_TRIGGER_ABILITIES[evolveAbility](evolveCtx, target);
+        // Healing Ripples/Search for Friends這類需要玩家自選目標的——跟pocket_attack的
+        // ctx.needsChoice同一套convention，暫停等pocket_attack_choice收到選擇（noEndTurn:true
+        // 讓解析完不會誤觸發pocketAdvanceTurn，因為進化本身不結束回合）
+        if (evolveCtx.needsChoice) {
+          G.phase = 'attack_choice';
+          G.pendingChoice = { role, ...evolveCtx.needsChoice };
+          pocketBroadcastState(pRoom);
+          return;
+        }
       }
       pocketBroadcastState(pRoom);
       return;
@@ -7173,7 +7378,7 @@ async function handleMessage(ws, msg) {
       // Tool：Big Air Balloon(Stage2免費撤退)、Inflatable Boat(水屬性-1)，同一批新增
       const toolRetreat = pocketToolRetreatDiscount(active);
       const oppSide = G[role === 'p1' ? 'p2' : 'p1'];
-      const cost = (pocketPassiveFreeRetreat(active, side, G) || toolRetreat.free) ? 0 : Math.max(0,
+      const cost = (pocketPassiveFreeRetreat(active, side, G, pocketIsFirstTurnFor(pRoom, G, role)) || toolRetreat.free) ? 0 : Math.max(0,
         (active.retreat || 0) - (side.retreatDiscountThisTurn || 0) - plazaDiscount - pocketPassiveBenchRetreatDiscount(active, side) - toolRetreat.discount + pocketPassiveRetreatIncrease(oppSide));
       if (active.energy.length < cost) { send(ws, { type: 'error', message: '能量不足，無法撤退' }); return; }
       const idx = side.bench.findIndex(p => p.uid === msg.target);
@@ -7254,6 +7459,11 @@ async function handleMessage(ws, msg) {
         let removed = false;
         effectiveCost = effectiveCost.filter(c => { if (!removed && c === 'Colorless') { removed = true; return false; } return true; });
       }
+      // En-fruits-iastic：限定持有者自己攻擊時、身上有裝備Tool，草屬性能量-1
+      if (attacker.abilities?.[0]?.name === "En-fruits-iastic" && attacker.tool) {
+        let removed = false;
+        effectiveCost = effectiveCost.filter(c => { if (!removed && c === 'Grass') { removed = true; return false; } return true; });
+      }
       if (!pocketCanPayCost(attacker, effectiveCost)) { send(ws, { type: 'error', message: '能量不足，無法使用這個招式' }); return; }
       const defender = oppSide.active;
       if (!defender) return;
@@ -7303,6 +7513,9 @@ async function handleMessage(ws, msg) {
         if (side.namedBoostThisTurn?.names.includes(attacker.name) && (!side.namedBoostThisTurn.exOnly || defender.ex)) mainDamage += side.namedBoostThisTurn.amount;
         if (side.typeBoostThisTurn && (attacker.types || []).includes(side.typeBoostThisTurn.type)) mainDamage += side.typeBoostThisTurn.amount;
         if (side.exOnlyBoostThisTurn && defender.ex) mainDamage += side.exOnlyBoostThisTurn;
+        // Eevee Bag（2026-08-08新增）：跟typeBoostThisTurn同一種「這回合限定加傷」的flag，
+        // 判斷條件是evolveFrom==='Eevee'而不是屬性，所以獨立開一個欄位不共用typeBoostThisTurn
+        if (side.eeveeBoostThisTurn && attacker.evolveFrom === 'Eevee') mainDamage += 10;
         // 訓練場（Training Area）：雙方Stage1寶可夢的攻擊都+10——場地卡沒有「自己/對方」之分，
         // 不管是哪一方打出這張場地卡，雙方符合條件的攻擊都吃得到加成
         if (G.activeStadium?.id === 'B2-153' && attacker.stage === 'Stage1') mainDamage += 10;
@@ -7381,6 +7594,13 @@ async function handleMessage(ws, msg) {
       if (attackerDied0 && attacker.abilities?.[0]?.name === 'Guts' && pocketFlipCoin()) {
         attacker.curHp = 10; attackerDied0 = false;
       }
+      // Hala（2026-08-08新增，支援者卡）：跟Guts同一種「KO-prevention→HP變10」機制，差別是
+      // 這個沒有擲硬幣（卡面沒寫flip a coin，是必定生效）、限定持有者名字是Hariyama/Crabominable、
+      // 而且只在「對手上一次打出Hala」設定的時效內（oppSide.halaProtectUntilTurn，見TRAINER_EFFECTS
+      // 的'B1-222'），不是永久特性
+      if (defenderDied && ['Hariyama', 'Crabominable'].includes(defender.name) && oppSide.halaProtectUntilTurn === G.turnNumber) {
+        defender.curHp = 10; defenderDied = false;
+      }
       // Lucky Mittens（2026-08-07新增Tool）：裝備者的攻擊擊倒對手主戰時，裝備者的擁有者抽1張牌
       // ——不管attacker自己這次交鋒有沒有也一起死掉（雙殺），只要defender真的被這次攻擊打倒就算
       if (defenderDied && attacker.tool?.id === 'B1-220' && side.deck.length > 0) {
@@ -7406,6 +7626,11 @@ async function handleMessage(ws, msg) {
         } else if (defAbility === 'Fade into Darkness' && pocketFlipCoin()) {
           awardPointForDefender = false; // 只套用在單獨defenderDied分支，雙殺情境維持既有pocketResolveMutualKO不變（範圍刻意限縮，避免雙重特殊規則疊加）
         }
+        // Illusive Trickery：跟上面幾個「defender被KO時defender自己的特性觸發」方向不同，
+        // 這是「attacker用自己的招式擊倒對手」時attacker自己的特性——沿用既有invulnerableUntilTurn
+        // 機制（跟其他「下回合完全免疫傷害+效果」的招式效果共用同一個旗標跟判定點），如果attacker
+        // 這次也雙殺死了，設在已死的instance上是安全的no-op（下回合它已經不在場上，不會被讀到）
+        if (attacker.abilities?.[0]?.name === 'Illusive Trickery') attacker.invulnerableUntilTurn = G.turnNumber + 1;
       }
       const attackerDied = attackerDied0 || (!ctx.skipMainDamage && attacker.curHp <= 0 && side.active === attacker);
       if (attackerDied && defenderDied) {
@@ -7491,8 +7716,25 @@ async function handleMessage(ws, msg) {
           pocketBroadcastState(pRoom);
           return;
         }
+        // pool='ownDiscardSupporter'（2026-08-07新增，Search for Friends）：目標不是board上
+        // 的寶可夢，是自己棄牌堆裡的一張支援者卡，跟oppHand同一種「操作卡片而非寶可夢」的分支，
+        // 但這裡noEndTurn一定是true（進化觸發不結束回合），不像oppHand那些攻擊觸發的固定結束回合
+        if (pending.pool === 'ownDiscardSupporter') {
+          if (!pending.eligibleUids.includes(msg.uid)) return;
+          const idx = side.discard.findIndex(c => c.uid === msg.uid);
+          if (idx < 0) return;
+          const [card] = side.discard.splice(idx, 1);
+          side.hand.push(card);
+          G.pendingChoice = null;
+          G.phase = 'active';
+          if (!pending.noEndTurn) pocketAdvanceTurn(G);
+          pocketBroadcastState(pRoom);
+          return;
+        }
         const target = pending.pool === 'oppAll'
           ? [oppSide.active, ...oppSide.bench].find(p => p && p.uid === msg.uid)
+          : pending.pool === 'ownAll'
+          ? [side.active, ...side.bench].find(p => p && p.uid === msg.uid)
           : side.bench.find(p => p.uid === msg.uid);
         if (!target) return;
         if (pending.action === 'attachEnergy') {
@@ -7560,12 +7802,27 @@ async function handleMessage(ws, msg) {
         pending.eligibleUids = pending.eligibleUids.filter(u => u !== msg.uid);
         pending.remaining--;
         if (pending.remaining > 0 && pending.eligibleUids.length > 0) { pocketBroadcastState(pRoom); return; }
+      } else if (pending.kind === 'pick_hand_multi') {
+        // May（2026-08-08新增）：選N張自己手牌洗回牌庫——跟pick_target_multi同一種「選N個、
+        // 選過的要排除」結構，但操作對象是手牌卡片不是board寶可夢，候選池在觸發當下（已經先
+        // 把2張隨機寶可夢放進手牌之後）才算出來，玩家能看到真正抽到了什麼再決定要洗掉哪2張
+        if (!pending.eligibleUids.includes(msg.uid)) return;
+        const idx = side.hand.findIndex(c => c.uid === msg.uid);
+        if (idx < 0) return;
+        const [card] = side.hand.splice(idx, 1);
+        side.deck.push(card);
+        pending.eligibleUids = pending.eligibleUids.filter(u => u !== msg.uid);
+        pending.remaining--;
+        if (pending.remaining > 0 && pending.eligibleUids.length > 0) { pocketBroadcastState(pRoom); return; }
+        side.deck = pocketShuffle(side.deck);
       } else {
         return;
       }
       G.pendingChoice = null;
       G.phase = 'active';
-      pocketAdvanceTurn(G);
+      // noEndTurn：進化觸發型選擇（Healing Ripples/Search for Friends）解析完不能結束回合，
+      // 跟其他攻擊觸發的pending（一定會結束回合）用同一個旗標區分，見EVOLVE_TRIGGER_ABILITIES註解
+      if (!pending.noEndTurn) pocketAdvanceTurn(G);
       pocketBroadcastState(pRoom);
       return;
     }

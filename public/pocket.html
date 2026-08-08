@@ -1492,6 +1492,8 @@ const ABILITY_NAMES_SUPPORTED = new Set([
   'Slow Sear', 'Ice Maker', 'Cunning Link', 'Melodious Healing', 'Illuminate', 'Fire Breath',
   'Extra Heal', 'Passionate Voice', 'Psychic Connect', 'Rising Road', 'Forest Breath', 'Psychic Healing',
   'Fragrance Trap', 'Ultra Thrusters', 'Catching Tail', 'Shifting Stream',
+  // 2026-08-08新增：第三批按鈕觸發型特性
+  'Reckless Shearing', 'CHECK', 'Wash Out', 'Dismantling Keys',
 ]);
 
 function renderBoard() {
@@ -1659,13 +1661,28 @@ function renderBoard() {
           <img src="${pocketThumbUrl(c.image)}" alt="${c.name}">
           <div class="board-name">${c.name}</div>
         </div>`).join('');
+    } else if (pendingChoice.kind === 'pick_target' && pendingChoice.pool === 'ownDiscardSupporter') {
+      // 2026-08-07新增（Search for Friends）：目標是自己棄牌堆裡的支援者卡，不是board上的寶可夢
+      // ——跟oppHand同一種「卡片清單」渲染方式，但讀自己的discard（本來就公開，不用lastPeekedCards）
+      titleEl.textContent = '選擇要從棄牌堆拿回哪張支援者卡';
+      subEl.textContent = '';
+      const eligible = (you.discard || []).filter(c => pendingChoice.eligibleUids.includes(c.uid));
+      optionsEl.innerHTML = eligible.map(c => `
+        <div class="board-slot pickable" data-attack-choice-pick="1" data-uid="${c.uid}" style="min-width:120px">
+          <img src="${pocketThumbUrl(c.image)}" alt="${c.name}">
+          <div class="board-name">${c.name}</div>
+        </div>`).join('');
     } else if (pendingChoice.kind === 'pick_target') {
       const isOwn = pendingChoice.pool !== 'oppAll';
-      titleEl.textContent = pendingChoice.action === 'attachEnergy'
+      titleEl.textContent = pendingChoice.action === 'heal'
+        ? `選擇要治療哪隻寶可夢（回復 ${pendingChoice.amount} 血量）`
+        : pendingChoice.action === 'attachEnergy'
         ? `選擇要附加 ${TYPE_ZH[pendingChoice.energyType] || pendingChoice.energyType} 能量的${isOwn ? '板凳' : ''}寶可夢`
         : `選擇要${isOwn ? '犧牲哪隻板凳寶可夢承受傷害' : '攻擊對手場上的哪隻寶可夢'}`;
       subEl.textContent = '';
-      const boardPool = isOwn ? (you.bench || []) : [opponent.active, ...(opponent.bench || [])];
+      const boardPool = pendingChoice.pool === 'oppAll' ? [opponent.active, ...(opponent.bench || [])]
+        : pendingChoice.pool === 'ownAll' ? [you.active, ...(you.bench || [])]
+        : (you.bench || []);
       const eligible = boardPool.filter(p => p && pendingChoice.eligibleUids.includes(p.uid));
       optionsEl.innerHTML = eligible.map(p =>
         renderPokeSlot(p, { pickable: true, dataset: { 'attack-choice-pick': '1' } })
@@ -1677,6 +1694,18 @@ function renderBoard() {
       optionsEl.innerHTML = eligible.map(p =>
         renderPokeSlot(p, { pickable: true, dataset: { 'attack-choice-pick': '1' } })
       ).join('');
+    } else if (pendingChoice.kind === 'pick_hand_multi') {
+      // May（2026-08-08新增）：選N張自己手牌洗回牌庫——跟pick_target_multi同一種「選N次、
+      // 選過的排除」結構，但候選池是手牌卡片不是board寶可夢，用跟oppHand/ownDiscardSupporter
+      // 一樣的卡片清單渲染方式
+      titleEl.textContent = `選擇 ${pendingChoice.remaining} 張手牌洗回牌庫`;
+      subEl.textContent = '';
+      const eligible = (you.hand || []).filter(c => pendingChoice.eligibleUids.includes(c.uid));
+      optionsEl.innerHTML = eligible.map(c => `
+        <div class="board-slot pickable" data-attack-choice-pick="1" data-uid="${c.uid}" style="min-width:120px">
+          <img src="${pocketThumbUrl(c.image)}" alt="${c.name}">
+          <div class="board-name">${c.name}</div>
+        </div>`).join('');
     } else if (pendingChoice.kind === 'pick_move') {
       // 招式借用（2026-08-07新增）：選對手主戰身上的哪一招當作這次攻擊，跟其他pendingChoice
       // 「點board slot選寶可夢」不同，這裡要列出招式清單讓玩家選——不是複用renderPokeSlot
@@ -1747,6 +1776,8 @@ const TRAINER_NEEDS_TARGET = new Set([
   'A4-155', 'A4a-067', 'B1-218', 'B1-219', 'B1-220', 'B2-147', 'B2-148', 'B2a-087',
   // 2026-08-07新增：第二批支援者/道具卡，只有下面4張需要選board目標
   'A2-150', 'A3-152', 'A3-144', 'B1a-067', // Cyrus / Lana / Rare Candy / Quick-Grow Extract
+  // 2026-08-08新增：Acerola / Kiawe，選own board目標（server端再驗證是不是符合條件的指定種族）
+  'A3-148', 'A3-150',
 ]);
 const TRAINER_NEEDS_DISCARD_TARGET = new Set(['A1a-064']); // Pokémon Flute：目標是對手棄牌堆的卡，不是board上的寶可夢
 // 2026-08-06新增：需要玩家指定目標的特性，value是目標池在哪一側（'own'=己方場上/'opp'=對手場上）
@@ -1754,6 +1785,9 @@ const ABILITY_NEEDS_TARGET = {
   'Water Shuriken': 'opp', 'Dark Chase': 'opp', 'Captivating Rhythm': 'opp',
   'Forest Breath': 'own', 'Psychic Connect': 'own', 'Psychic Healing': 'own', 'Extra Heal': 'own',
   'Fragrance Trap': 'opp', 'Ultra Thrusters': 'own', 'Shifting Stream': 'own',
+  // Wash Out（2026-08-08新增）：目標是「自己板凳上要移出能量的水屬性寶可夢」（來源，不是移入的
+  // 主戰）——跟其他own-target一樣點board slot送target，server端再從target身上拿能量搬到主戰
+  'Wash Out': 'own',
 };
 // 跟server.js的TRAINER_EFFECTS同一份清單——A1~B2a擴充後訓練師卡從18張暴增到197張，
 // 只有這份清單裡的卡有做效果，其餘先讓玩家看得到卡但打不出去
@@ -1778,6 +1812,8 @@ const TRAINER_EFFECTS_IMPLEMENTED = new Set([
   // 2026-08-07新增：第二批支援者/道具卡，12張
   'A1a-068', 'A2-150', 'A2a-072', 'A2a-074', 'A3-144', 'A3-151', 'A3-152', 'B1-226',
   'B1a-067', 'B1a-068', 'B1a-069', 'B2-145',
+  // 2026-08-08新增：訓練師卡第三批，6張
+  'A2-146', 'A3-148', 'A3-150', 'A3b-066', 'B1-222', 'B1-223',
 ]);
 
 // event delegation：own board (active/bench) 點擊
@@ -1898,6 +1934,31 @@ function computeHandCardActions(card) {
           wsSend({ type: isSupporter ? 'pocket_play_supporter' : 'pocket_play_item', handUid: card.uid, target: uid });
         });
       } }];
+    }
+    // Pokémon Communication（2026-08-08新增）：目標是「自己手牌裡的一張寶可夢」，不是board/
+    // 對手棄牌堆——複用openDiscardTargetPicker這個通用選卡modal（名字雖然叫discard，其實只是
+    // 「彈窗選一張卡」，跟棄牌堆無關，卡片清單直接傳自己手牌即可）
+    if ((card.effectId || card.id) === 'A2-146') {
+      return [{ label: '選擇要換掉的手牌寶可夢', primary: true, onClick: () => {
+        const eligible = (state.you.hand || []).filter(c => c.category === 'Pokemon' && c.uid !== card.uid);
+        openDiscardTargetPicker('選擇要跟牌庫隨機寶可夢互換的手牌', eligible, (uid) => {
+          wsSend({ type: isSupporter ? 'pocket_play_supporter' : 'pocket_play_item', handUid: card.uid, target: uid });
+        });
+      } }];
+    }
+    // Eevee Bag（2026-08-08新增）：2選1效果，直接給2顆按鈕各自送出不同的msg.choice，
+    // 不需要另外開選擇modal
+    if ((card.effectId || card.id) === 'A3b-066') {
+      return [
+        { label: '本回合：Eeveelution攻擊+10傷害', primary: true, onClick: () => {
+          spawnPlayFlourish(pocketThumbUrl(card.image), document.getElementById('my-discard-pile'));
+          wsSend({ type: isSupporter ? 'pocket_play_supporter' : 'pocket_play_item', handUid: card.uid, choice: 'boost' });
+        } },
+        { label: '治療我方全部Eeveelution 20血', primary: true, onClick: () => {
+          spawnPlayFlourish(pocketThumbUrl(card.image), document.getElementById('my-discard-pile'));
+          wsSend({ type: isSupporter ? 'pocket_play_supporter' : 'pocket_play_item', handUid: card.uid, choice: 'heal' });
+        } },
+      ];
     }
     return [{ label: isSupporter ? '使用這張支援者卡' : '使用這張道具卡', primary: true, onClick: () => {
       spawnPlayFlourish(pocketThumbUrl(card.image), document.getElementById('my-discard-pile'));
