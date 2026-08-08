@@ -678,6 +678,12 @@
   <div class="peek-overlay" id="peek-overlay" style="display:none">
     <div class="peek-box">
       <h2 id="peek-title"></h2>
+      <!-- 2026-08-08新增：棄牌堆裡沒有卡片可以掛的「純能量」（Rainbow Cave等場地卡棄置能量區
+           效果的來源），跟peek-list(卡片列表)分開顯示，不然這些能量會找不到地方放 -->
+      <div id="peek-loose-energy" style="display:none;margin-bottom:0.6rem;font-size:0.75rem;color:var(--muted)">
+        <div>其他能量：</div>
+        <div style="display:flex;gap:3px;flex-wrap:wrap;justify-content:center;margin-top:0.3rem" id="peek-loose-energy-icons"></div>
+      </div>
       <div class="peek-list" id="peek-list"></div>
       <button class="btn btn-secondary" onclick="closePeek()">關閉</button>
     </div>
@@ -1961,7 +1967,9 @@ const ABILITY_NEEDS_TARGET = {
 const ABILITY_NEEDS_ENERGY_TYPE = new Set(['Dragon’s Blessing']);
 let _energyPickerPokemonUid = null;
 function openEnergyTypePicker(pokemonUid) {
-  const types = [...new Set((state.you.discard || []).flatMap(c => c.energy || []))];
+  // 2026-08-08修正：棄牌堆的能量有兩個來源——卡片身上殘留的(discard[].energy)+沒有卡片
+  // 可以掛的純能量(discardEnergy，Rainbow Cave這類場地卡棄置能量區的來源)，兩個都要算
+  const types = [...new Set([...(state.you.discard || []).flatMap(c => c.energy || []), ...(state.you.discardEnergy || [])])];
   if (!types.length) { flashActionHint('棄牌堆沒有能量可以拿'); return; }
   _energyPickerPokemonUid = pokemonUid;
   document.getElementById('energy-type-picker-options').innerHTML = types.map(t =>
@@ -2306,7 +2314,7 @@ document.getElementById('discard-target-picker-list').addEventListener('click', 
 });
 
 let peekCards = []; // 2026-08-08新增：showPeek目前顯示的卡片清單，供點擊放大用index查回原始卡片物件
-function showPeek(title, cards) {
+function showPeek(title, cards, looseEnergy) {
   peekCards = cards || [];
   document.getElementById('peek-title').textContent = title;
   // 2026-08-08新增：棄牌堆等清單裡的卡片點了也能看放大圖——沿用跟其他地方一樣的showCardDetail，
@@ -2319,6 +2327,15 @@ function showPeek(title, cards) {
       <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${c.name}"><div>${c.name}</div>
       ${c.energy?.length ? `<div style="display:flex;justify-content:center;gap:1px;flex-wrap:wrap;margin-top:2px">${c.energy.map(e => energyIconHtml(e, true)).join('')}</div>` : ''}
     </div>`).join('') || '<div class="lobby-sub">（沒有卡片）</div>';
+  // 2026-08-08新增：Rainbow Cave等場地卡棄置能量區能量後，那份能量沒有卡片可以掛（不是
+  // 哪隻寶可夢身上殘留的），另外用discardEnergy欄位承接——這裡跟卡片列表分開顯示
+  const looseEnergyEl = document.getElementById('peek-loose-energy');
+  if (looseEnergy?.length) {
+    looseEnergyEl.style.display = '';
+    document.getElementById('peek-loose-energy-icons').innerHTML = looseEnergy.map(e => energyIconHtml(e, true)).join('');
+  } else {
+    looseEnergyEl.style.display = 'none';
+  }
   document.getElementById('peek-overlay').style.display = 'flex';
 }
 function closePeek() { document.getElementById('peek-overlay').style.display = 'none'; }
@@ -2386,8 +2403,8 @@ function enableDragScroll(wrapEl) {
 document.querySelectorAll('.hand-fan-wrap').forEach(enableDragScroll);
 
 // 棄牌堆點擊檢視
-document.getElementById('my-discard-pile').addEventListener('click', () => showPeek('我的棄牌堆', state?.you?.discard));
-document.getElementById('opp-discard-pile').addEventListener('click', () => showPeek('對手的棄牌堆', state?.opponent?.discard));
+document.getElementById('my-discard-pile').addEventListener('click', () => showPeek('我的棄牌堆', state?.you?.discard, state?.you?.discardEnergy));
+document.getElementById('opp-discard-pile').addEventListener('click', () => showPeek('對手的棄牌堆', state?.opponent?.discard, state?.opponent?.discardEnergy));
 
 // 能量區拖曳到寶可夢身上＝附加能量（跟原本點擊能量區→點目標的模式並存，兩種操作都可以）
 const energyChipEl = document.getElementById('energy-zone-chip');

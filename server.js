@@ -2689,6 +2689,12 @@ function pocketEmitToolActivation(G, role, tool, label) {
 function pocketFreshSide(drawn, deckIds, energyTypesOverride) {
   return {
     ...drawn, active: null, bench: [], discard: [], points: 0, pendingEnergy: null, previewEnergy: null,
+    // 2026-08-08新增：真實規則裡任何被棄置的能量（不管來源是招式成本、攻擊者自傷、或場地卡
+    // 效果）都會進到一個共用、可被「從棄牌堆拿能量」類效果撿回的能量棄牌區——這個引擎原本
+    // 完全沒有這個概念，只把「殘留在被擊倒寶可夢卡身上的能量」當作棄牌堆能量來源。Rainbow
+    // Cave（能量區棄置重抽）第一個踩到這個缺口：棄掉的能量憑空消失，Dragon's Blessing之後
+    // 找不到。discardEnergy只承接「沒有卡片可以掛」的這類能量，見pocketTakeEnergyFromDiscard
+    discardEnergy: [],
     energyAttachedThisTurn: false, retreatedThisTurn: false, supporterUsedThisTurn: false,
     energyTypes: energyTypesOverride || pocketDeckEnergyTypes(deckIds), boardReady: false,
     giovanniBoostThisTurn: false, blaineBoostNamesThisTurn: null, retreatDiscountThisTurn: 0,
@@ -3282,7 +3288,9 @@ function pocketCanPayCost(pokemon, cost, side) {
 }
 function pocketViewFor(G, role) {
   const op = role === 'p1' ? 'p2' : 'p1';
-  const pub = side => ({ active: side.active, bench: side.bench, discard: side.discard, points: side.points, deckCount: side.deck.length });
+  // discardEnergy（2026-08-08新增）：沒有卡片可以掛的「純能量」棄牌區（Rainbow Cave等來源），
+  // 雙方都是公開資訊（棄牌堆本來就雙方都看得到），所以放進pub()而不是只給you那份
+  const pub = side => ({ active: side.active, bench: side.bench, discard: side.discard, discardEnergy: side.discardEnergy || [], points: side.points, deckCount: side.deck.length });
   return {
     turn: G.turn, turnNumber: G.turnNumber, phase: G.phase, winner: G.winner, pendingSwitchRole: G.pendingSwitchRole,
     pendingChoice: G.pendingChoice,
@@ -6672,6 +6680,10 @@ const ABILITY_EFFECTS = {
 // 存放卡片跟已丟棄的能量——我們的引擎沒有獨立的能量棄牌堆，改成直接掃discard裡的寶可夢
 // 卡物件本身殘留的.energy陣列，找到就扣掉那一點，語意上等價）
 function pocketTakeEnergyFromDiscard(side, type) {
+  // 2026-08-08新增：先查沒有卡片可以掛的「純能量」棄牌區（見discardEnergy欄位說明），
+  // 找不到再退回原本掃殘留在被擊倒寶可夢卡身上的能量——兩個來源合起來才是完整的棄牌堆
+  const looseIdx = (side.discardEnergy || []).indexOf(type);
+  if (looseIdx >= 0) { side.discardEnergy.splice(looseIdx, 1); return true; }
   for (const c of side.discard) {
     if (c.energy?.includes(type)) { c.energy.splice(c.energy.indexOf(type), 1); return true; }
   }
@@ -9842,6 +9854,9 @@ async function handleMessage(ws, msg) {
         if (side.stadiumUsedThisTurn) { send(ws, { type: 'error', message: '這回合已經用過場地卡效果了' }); return; }
         if (!side.pendingEnergy) { send(ws, { type: 'error', message: '能量區目前沒有能量可以棄掉' }); return; }
         side.stadiumUsedThisTurn = true;
+        // 2026-08-08修正：棄掉的能量原本憑空消失，導致Dragon's Blessing之後找不到——
+        // 真實規則被棄掉的能量會進棄牌堆，這裡丟進discardEnergy（見該欄位說明）
+        side.discardEnergy.push(side.pendingEnergy);
         side.pendingEnergy = pocketPickEnergy(side.energyTypes);
       } else {
         return;
