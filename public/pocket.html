@@ -558,6 +558,7 @@
       <div class="attack-row" id="attack-row"></div>
       <div class="turn-controls">
         <button class="btn btn-secondary" id="cancel-action-btn" onclick="cancelAction()" style="display:none">取消</button>
+        <button class="btn btn-secondary" id="stadium-trigger-btn" onclick="wsSend({type:'pocket_use_stadium'})" style="display:none">場地卡：擲硬幣抽卡</button>
         <button class="btn btn-primary" id="end-turn-btn" onclick="endTurn()">結束回合</button>
       </div>
     </div>
@@ -1496,6 +1497,8 @@ const ABILITY_NAMES_SUPPORTED = new Set([
   'Reckless Shearing', 'CHECK', 'Wash Out', 'Dismantling Keys',
   // 2026-08-08再接續：Shadow Void（as often as you like，見pocket_use_ability的unlimitedUse白名單）
   'Shadow Void',
+  // 2026-08-08再接續：Portrait（借用對手手牌隨機支援者卡效果，完全自動不需要選目標）
+  'Portrait',
 ]);
 
 function renderBoard() {
@@ -1566,8 +1569,10 @@ function renderBoard() {
   // attack buttons
   const atkRow = document.getElementById('attack-row');
   if (you.active && myTurn && phase === 'active') {
-    atkRow.innerHTML = (you.active.attacks || []).map((a, i) => {
-      const affordable = pocketCanPayCostClient(you.active, a.cost);
+    // Memory Light（2026-08-08新增）：裝備者的可用招式清單改用server算好的effectiveAttacks
+    // （包含前面所有進化階段的招式），沒裝備的寶可夢這個欄位跟attacks完全一樣
+    atkRow.innerHTML = (you.active.effectiveAttacks || you.active.attacks || []).map((a, i) => {
+      const affordable = pocketCanPayCostClient(you.active, a.cost, you);
       const costHtml = (a.cost || []).map(t => energyIconHtml(t)).join('');
       return `<button class="attack-btn" ${affordable ? '' : 'disabled'} onclick="doAttack(${i})">
         <span>${a.name}</span>
@@ -1580,6 +1585,9 @@ function renderBoard() {
   }
 
   document.getElementById('end-turn-btn').style.display = myTurn && phase === 'active' ? '' : 'none';
+  // Mesagoza（2026-08-08新增）：只有場上剛好是這張場地卡、輪到我、這回合還沒用過時才顯示
+  document.getElementById('stadium-trigger-btn').style.display =
+    (myTurn && phase === 'active' && state.activeStadium?.id === 'B2a-093' && !you.stadiumUsedThisTurn) ? '' : 'none';
   document.getElementById('cancel-action-btn').style.display = selectedAction ? '' : 'none';
 
   // 抽卡動畫：比對這次render跟上次的手牌張數，多出來的張數視為「剛抽到」，從牌庫堆飛到手牌區
@@ -1765,11 +1773,15 @@ function updateActionHint() {
 
 function cancelAction() { selectedAction = null; renderBoard(); }
 
-function pocketCanPayCostClient(pokemon, cost) {
+function pocketCanPayCostClient(pokemon, cost, side) {
   const need = {}; let colorlessNeed = 0;
   for (const t of (cost || [])) { if (t === 'Colorless') colorlessNeed++; else need[t] = (need[t] || 0) + 1; }
+  // Jungle Totem（2026-08-08新增）：跟server端pocketCanPayCost同一套判斷，只是這裡是client端
+  // 純粹用來決定按鈕要不要disable的預測，真正付得起與否還是server端authoritative判定
+  const hasJungleTotem = side && (pokemon.types || []).includes('Grass') &&
+    [side.active, ...(side.bench || [])].some(p => p?.abilities?.[0]?.name === 'Jungle Totem');
   const have = {};
-  for (const e of (pokemon.energy || [])) have[e] = (have[e] || 0) + 1;
+  for (const e of (pokemon.energy || [])) have[e] = (have[e] || 0) + (hasJungleTotem && e === 'Grass' ? 2 : 1);
   for (const t in need) { if ((have[t] || 0) < need[t]) return false; have[t] -= need[t]; }
   const leftover = Object.values(have).reduce((a, b) => a + b, 0);
   return leftover >= colorlessNeed;
@@ -1784,14 +1796,16 @@ const TRAINER_NEEDS_TARGET = new Set([
   'A3-155', 'A2-154', 'A2-153', 'A2b-070', 'B1-221', 'A4a-069', 'A3-154', 'B2-149', 'A3-149', 'A4-157',
   // Lillie / Dawn / Volkner / Pokémon Center Lady / Marlon / Whitney / Mallow / Diantha / Ilima / Lyra
   // 2026-08-07新增：Pokémon Tool系統——裝備類道具卡全部需要選裝備目標，跟Potion共用同一套
-  // item-target流程（見server.js的pocketAttachTool說明），Beastite(A3a-066)/Memory Light(A4a-068)
-  // 因為缺少Ultra Beast標籤/需要合併進化鏈招式，複雜度太高刻意跳過，不在這份清單裡
+  // item-target流程（見server.js的pocketAttachTool說明）。Memory Light(A4a-068)因為需要合併
+  // 進化鏈招式，複雜度太高仍然跳過；Beastite(A3a-066)已於2026-08-08補上Ultra Beast標籤機制
   'A2-147', 'A2-148', 'A2-149', 'A3-146', 'A3-147', 'A3a-065', 'A3b-067', 'A4-153', 'A4-154',
   'A4-155', 'A4a-067', 'B1-218', 'B1-219', 'B1-220', 'B2-147', 'B2-148', 'B2a-087',
   // 2026-08-07新增：第二批支援者/道具卡，只有下面4張需要選board目標
   'A2-150', 'A3-152', 'A3-144', 'B1a-067', // Cyrus / Lana / Rare Candy / Quick-Grow Extract
   // 2026-08-08新增：Acerola / Kiawe，選own board目標（server端再驗證是不是符合條件的指定種族）
   'A3-148', 'A3-150',
+  // 2026-08-08再接續：Ultra Beast系列2張需要own board目標（Beast Wall不需要，沒有target）
+  'A3a-066', 'A3a-069',
 ]);
 const TRAINER_NEEDS_DISCARD_TARGET = new Set(['A1a-064']); // Pokémon Flute：目標是對手棄牌堆的卡，不是board上的寶可夢
 // 2026-08-06新增：需要玩家指定目標的特性，value是目標池在哪一側（'own'=己方場上/'opp'=對手場上）
@@ -1821,7 +1835,7 @@ const TRAINER_EFFECTS_IMPLEMENTED = new Set([
   'B2a-090', 'A2b-071', 'A2-154', 'A2-153', 'B1-224', 'A2b-070', 'B1-221', 'A4a-069', 'A3-154',
   'B2-149', 'A2-151', 'A2a-073', 'A3a-067', 'B1-225', 'A2-155', 'A2b-072', 'A1a-066', 'A3-149',
   'A4-157', 'A4a-070', 'B2-150', 'A3a-068', 'A4-159', 'B2-152', 'B2-151', 'B2a-088', 'A4-161', 'A4a-071',
-  // 2026-08-07新增：Pokémon Tool系統，17張（Beastite/Memory Light跳過，理由見TRAINER_NEEDS_TARGET）
+  // 2026-08-07新增：Pokémon Tool系統，17張（Memory Light跳過，理由見TRAINER_NEEDS_TARGET）
   'A2-147', 'A2-148', 'A2-149', 'A3-146', 'A3-147', 'A3a-065', 'A3b-067', 'A4-153', 'A4-154',
   'A4-155', 'A4a-067', 'B1-218', 'B1-219', 'B1-220', 'B2-147', 'B2-148', 'B2a-087',
   // 2026-08-07新增：第二批支援者/道具卡，12張
@@ -1831,6 +1845,16 @@ const TRAINER_EFFECTS_IMPLEMENTED = new Set([
   'A2-146', 'A3-148', 'A3-150', 'A3b-066', 'B1-222', 'B1-223',
   // 2026-08-08再接續：訓練師卡第四批，3張（Silver/Flame Patch/Prank Spinner）
   'A4-158', 'B1-217', 'B1-213',
+  // 2026-08-08再接續：Starting Plains（動態HP場地卡，實際加成邏輯在server.js的pocketSyncHpBonuses）
+  'B2-154',
+  // 2026-08-08再接續：Ultra Beast系列3張（Beast Wall/Beastite/Lusamine）
+  'A3a-063', 'A3a-066', 'A3a-069',
+  // 2026-08-08再接續：Will（下次擲硬幣第一枚必正面）
+  'A4-156',
+  // 2026-08-08再接續：Penny（借用對手牌庫隨機支援者卡效果，完全自動不需要選目標）
+  'A3b-069',
+  // 2026-08-08再接續：Mesagoza（場地本身，主動觸發走獨立的stadium-trigger-btn按鈕）
+  'B2a-093',
 ]);
 
 // event delegation：own board (active/bench) 點擊

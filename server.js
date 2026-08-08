@@ -2692,7 +2692,7 @@ function pocketRunCheckup(G) {
     if (endingSide.active.curHp <= 0) {
       pocketResolveActiveKO(G, endingRole);
       if (G.phase === 'forced_switch' || G.phase === 'done') return true;
-    } else if (pocketFlipCoin()) {
+    } else if (pocketFlipCoin({ G, role: endingRole })) {
       endingSide.active.status = null;
     }
   }
@@ -2803,6 +2803,7 @@ function pocketStartNextTurn(G) {
   // Sweets Relay promote成LastTurn（供這回合判斷），再清空ThisTurn準備重新記錄
   side.usedSweetsRelayLastTurn = side.usedSweetsRelayThisTurn || false;
   side.usedSweetsRelayThisTurn = false;
+  side.stadiumUsedThisTurn = false; // Mesagoza（2026-08-08新增）
   // 回合開始觸發型被動特性：Strange Singing——隨機把一隻{P}寶可夢從牌庫放進手牌（"put...into
   // your hand"沒有寫"you may"，是強制觸發，不用暫停等玩家確認）
   if (side.active?.abilities?.[0]?.name === 'Strange Singing') {
@@ -3059,8 +3060,21 @@ function pocketIsFirstTurnFor(pRoom, G, role) {
 }
 // ctx可選：如果有傳，會把每次擲的結果記進ctx.coinFlips，讓client端可以重播真實的擲硬幣過程
 // （而不是只顯示「反正最後結果是這樣」，玩家會覺得動畫跟結果對不上）
+// Will（2026-08-08新增）：ctx.G.forceHeadsForRole記錄「誰的下一次擲硬幣必須正面」，用一次
+// 就清掉（forceHeadsUsed旗標，不是true/false直接清forceHeadsForRole是因為同一時刻可能有
+// 好幾個呼叫點依序執行，用旗標比較不會有「清空後又被其他判斷式誤讀成沒設過」的時序問題）。
+// 已知簡化：判斷「這是不是你的擲硬幣」只看role是否匹配，不細分「這是不是真的攻擊/特性/
+// 訓練師卡效果」（跟中毒自癒/睡眠甦醒這類自動狀態機制的擲硬幣也會被影響）——真實卡面文字
+// 限定後者不算，但要精確區分每個呼叫點的語意分類，投入產出比對1張promo卡太低，因此接受
+// 「只要角色對得上就算」這個較寬鬆但簡單的判定。
 function pocketFlipCoin(ctx) {
-  const r = Math.random() < 0.5;
+  let r;
+  if (ctx?.G && ctx.role != null && ctx.G.forceHeadsForRole === ctx.role && !ctx.G.forceHeadsUsed) {
+    r = true;
+    ctx.G.forceHeadsUsed = true;
+  } else {
+    r = Math.random() < 0.5;
+  }
   if (ctx) (ctx.coinFlips = ctx.coinFlips || []).push(r);
   return r;
 }
@@ -3069,15 +3083,21 @@ function pocketFlipCoins(n, ctx) {
   for (let i = 0; i < n; i++) if (pocketFlipCoin(ctx)) h++;
   return h;
 }
-function pocketCanPayCost(pokemon, cost) {
+// side參數（2026-08-08新增，選填，向後相容）：Jungle Totem用——「己方場上有Serperior時，
+// 身上每點草能量在付費判定上算2點」，真實規則"provides Energy"只限定用在付費用途，跟其他
+// 招式效果讀的"attached Energy"（實際附加數量）是分開兩個概念，所以只改這個函式，不用動
+// 任何數energy數量的招式效果（那些讀的是真實附加數量，不受這個特性影響）
+function pocketCanPayCost(pokemon, cost, side) {
   const need = {};
   let colorlessNeed = 0;
   for (const t of (cost || [])) {
     if (t === 'Colorless') colorlessNeed++;
     else need[t] = (need[t] || 0) + 1;
   }
+  const hasJungleTotem = side && (pokemon.types || []).includes('Grass') &&
+    [side.active, ...side.bench].some(p => p?.abilities?.[0]?.name === 'Jungle Totem');
   const have = {};
-  for (const e of pokemon.energy) have[e] = (have[e] || 0) + 1;
+  for (const e of pokemon.energy) have[e] = (have[e] || 0) + (hasJungleTotem && e === 'Grass' ? 2 : 1);
   for (const t in need) {
     if ((have[t] || 0) < need[t]) return false;
     have[t] -= need[t];
@@ -3092,6 +3112,10 @@ function pocketViewFor(G, role) {
     turn: G.turn, turnNumber: G.turnNumber, phase: G.phase, winner: G.winner, pendingSwitchRole: G.pendingSwitchRole,
     pendingChoice: G.pendingChoice,
     lastEvent: G.lastEvent,
+    // Mesagoza（2026-08-08新增）：activeStadium原本完全沒有送進view，client端沒有任何管道
+    // 知道場上有哪張場地卡——這次為了讓Mesagoza的主動觸發按鈕知道「要不要顯示」而補上，
+    // 順便修正了「場上有沒有場地卡」這個一直存在但沒被注意到的顯示缺口
+    activeStadium: G.activeStadium || null,
     you: {
       ...pub(G[role]), hand: G[role].hand, pendingEnergy: G[role].pendingEnergy,
       energyAttachedThisTurn: G[role].energyAttachedThisTurn, retreatedThisTurn: G[role].retreatedThisTurn,
@@ -3101,6 +3125,7 @@ function pocketViewFor(G, role) {
       // 有正確套用折扣，但這個欄位從來沒有被送進view——client端讀到的永遠是undefined（當0用），
       // 導致畫面上顯示/擋下的撤退成本沒扣到這1點折扣，玩家會覺得「明明用了X Speed，還是撤退不了」。
       retreatDiscountThisTurn: G[role].retreatDiscountThisTurn || 0,
+      stadiumUsedThisTurn: G[role].stadiumUsedThisTurn || false, // Mesagoza
     },
     opponent: { ...pub(G[op]), handCount: G[op].hand.length },
   };
@@ -3112,6 +3137,25 @@ function pocketOneOff(pRoom, role, extra) {
 /* ── 找own場上（主戰+板凳）某隻寶可夢，供訓練師卡/特性指定目標用 ── */
 function pocketFindOwn(side, uid) { return [side.active, ...side.bench].find(p => p && p.uid === uid); }
 function pocketFindOwnByName(side, names) { return [side.active, ...side.bench].find(p => p && names.includes(p.name)); }
+// Memory Light（2026-08-08新增Tool）：裝備者可以使用「前面所有進化階段」的招式（一路往
+// evolveFrom回溯，用name在POCKET_CARDS裡查回每一階的原始卡片資料）。沒裝備這張Tool時原封
+// 不動回傳poke.attacks，招式index語意完全不變——這樣pocket_attack讀取msg.attackIndex的地方
+// 可以直接無條件換成呼叫這個函式，不用另外判斷「有沒有裝Memory Light」。用seen集合防止
+// 進化鏈資料萬一有循環引用時無窮迴圈（理論上不會發生，但防呆成本低）。
+function pocketEffectiveMoves(poke) {
+  if (poke.tool?.id !== 'A4a-068') return poke.attacks || [];
+  const moves = [...(poke.attacks || [])];
+  let chainName = poke.evolveFrom;
+  const seen = new Set([poke.name]);
+  while (chainName && !seen.has(chainName)) {
+    seen.add(chainName);
+    const prevCard = POCKET_CARDS.find(c => c.category === 'Pokemon' && c.name === chainName);
+    if (!prevCard) break;
+    moves.push(...(prevCard.attacks || []));
+    chainName = prevCard.evolveFrom;
+  }
+  return moves;
+}
 
 /* ── 招式文字效果對照表（Phase 5）──
    key是TCGdex原始英文效果全文（逐字比對，不是regex猜語意，比較不會誤判）。
@@ -4516,6 +4560,11 @@ const TRAINER_EFFECTS = {
      場地卡沒有「己方/對方」之分，蓋在G.activeStadium上是全場共用，兩邊都受影響。 */
   'B2-153': (ctx) => { ctx.G.activeStadium = { id: 'B2-153', name: 'Training Area' }; return null; }, // 訓練場：雙方Stage1攻擊+10
   'B2-155': (ctx) => { ctx.G.activeStadium = { id: 'B2-155', name: 'Peculiar Plaza' }; return null; }, // 奇異廣場：雙方超能力寶可夢撤退-2
+  // Starting Plains（2026-08-08新增）：雙方基礎階+20HP，實際加成邏輯在pocketSyncHpBonuses
+  // （動態HP機制），這裡只負責設場地卡本身
+  'B2-154': (ctx) => { ctx.G.activeStadium = { id: 'B2-154', name: 'Starting Plains' }; return null; },
+  // Mesagoza：場地本身只負責蓋上去，主動觸發的效果走獨立的'pocket_use_stadium'訊息（見那裡）
+  'B2a-093': (ctx) => { ctx.G.activeStadium = { id: 'B2a-093', name: 'Mesagoza' }; return null; },
 
   /* ── 2026-08-06新增：道具卡（Item）第一批 ── */
   // 2026-08-06修正（使用者第二次糾正）：原本擲硬幣正面就隨機挑1隻板凳電系附加，改成玩家
@@ -5013,6 +5062,7 @@ const TRAINER_EFFECTS = {
       'A4-154': 'Dark Pendant', 'A4-155': 'Rescue Scarf', 'A4a-067': 'Inflatable Boat',
       'B1-218': 'Sitrus Berry', 'B1-219': 'Heavy Helmet', 'B1-220': 'Lucky Mittens',
       'B2-147': 'Protective Poncho', 'B2-148': 'Metal Core Barrier', 'B2a-087': 'Big Air Balloon',
+      'A4a-068': 'Memory Light', // 2026-08-08新增：沒有附加當下的一次性效果，實際借招邏輯在pocketEffectiveMoves
     };
     const out = {};
     Object.entries(simpleToolIds).forEach(([id, name]) => {
@@ -5125,6 +5175,58 @@ const TRAINER_EFFECTS = {
     picked.owner.deck = pocketShuffle(picked.owner.deck);
     return null;
   },
+  // 2026-08-08再接續：Ultra Beast系列3張（Beast Wall/Beastite/Lusamine），標籤機制見
+  // pocketIsUltraBeast——用官方11隻真名比對，不需要卡池資料本身有分類欄位
+  'A3a-063': (ctx) => { // Beast Wall：對手分數必須是0才能用；設side層級的時限減傷，實際判定在mainDamage計算式
+    if ((ctx.oppSide.points || 0) !== 0) return '對手已經得分過，無法使用這張卡';
+    ctx.side.ultraBeastShieldUntilTurn = ctx.G.turnNumber + 1;
+    ctx.side.ultraBeastShieldAmount = 20;
+    return null;
+  },
+  'A3a-066': (ctx, msg) => { // Beastite：只能裝備在Ultra Beast身上（跟Leaf Cape那種「誰都能裝、
+    // 只是條件不符沒加成」不同，這張卡面本身定義了裝備對象，非UB直接拒絕）
+    const target = pocketFindOwn(ctx.side, msg.target);
+    if (!target) return '請選擇要裝備的寶可夢';
+    if (!pocketIsUltraBeast(target)) return '這張卡只能裝備在Ultra Beast身上';
+    if (target.tool) return '這隻寶可夢已經裝備了道具卡';
+    target.tool = { id: 'A3a-066', name: 'Beastite' };
+    return null;
+  },
+  'A3a-069': (ctx, msg) => { // Lusamine：對手分數必須至少1才能用；選1隻自己的Ultra Beast，從棄牌堆隨機拿2點能量附上去
+    if ((ctx.oppSide.points || 0) < 1) return '對手還沒有得分，無法使用這張卡';
+    const target = [ctx.side.active, ...ctx.side.bench].find(p => p && p.uid === msg.target && pocketIsUltraBeast(p));
+    if (!target) return '請選擇場上的一隻Ultra Beast';
+    const pool = [];
+    ctx.side.discard.forEach(c => (c.energy || []).forEach(e => pool.push(e)));
+    for (let i = 0; i < 2 && pool.length; i++) {
+      const idx = Math.floor(Math.random() * pool.length);
+      const [e] = pool.splice(idx, 1);
+      target.energy.push(e);
+      // 從棄牌堆卡片實際扣掉這點能量，避免同一點能量被重複拿取（跟pocketTakeEnergyFromDiscard同一種一致性考量）
+      const owner = ctx.side.discard.find(c => (c.energy || []).includes(e));
+      if (owner) owner.energy.splice(owner.energy.indexOf(e), 1);
+    }
+    return null;
+  },
+  // Will（2026-08-08新增）：只保證「下一批擲硬幣」的第一枚正面，不是全部——設定forceHeadsForRole
+  // 讓pocketFlipCoin下次被呼叫時（只要role對得上）強制回傳true，用一次就被pocketFlipCoin
+  // 自己內部的forceHeadsUsed清掉，天然只影響「第一枚」不影響同一批的後續硬幣
+  'A4-156': (ctx) => {
+    ctx.G.forceHeadsForRole = ctx.role;
+    ctx.G.forceHeadsUsed = false;
+    return null;
+  },
+  // Penny（2026-08-08新增）：跟Portrait同一種「借用效果」機制，差別是來源池是對手牌庫（不是
+  // 手牌）、排除自己同名（不能借另一張Penny，避免自我遞迴/無窮借用鏈）——「look at...and
+  // shuffle it back」代表只是偷看+洗回去，牌庫組成沒有真的改變，不用動ctx.oppSide.deck
+  'A3b-069': (ctx) => {
+    const eligible = ctx.oppSide.deck.filter(c => c.category === 'Trainer' && c.trainerType === 'Supporter' && c.name !== 'Penny');
+    if (!eligible.length) return null;
+    const picked = eligible[Math.floor(Math.random() * eligible.length)];
+    const handler = TRAINER_EFFECTS[picked.effectId || picked.id];
+    if (handler) handler(ctx, {});
+    return null;
+  },
 };
 
 // ── Pokémon Tool 被動效果 hook（跟pocketPassive*系列的特性被動是同一套設計理念，只是
@@ -5137,6 +5239,19 @@ function pocketToolDamageReduction(defender) {
   if (toolId === 'A4-153' && (defender.types || []).includes('Metal')) return 10;
   if (toolId === 'B1-219' && (defender.retreat || 0) >= 3) return 20;
   if (toolId === 'B2-148' && (defender.types || []).includes('Metal')) return 50;
+  return 0;
+}
+// Ultra Beast標籤（2026-08-08新增）：卡池資料沒有這個分類欄位，改用官方11隻Ultra Beast的
+// 真名清單比對（跟Zangoose/Falinks等其他「用真名判斷」的card是同一種慣例）——" ex"字尾要
+// 先去掉再比對，因為ex版本是不同的card.name字串
+const ULTRA_BEAST_NAMES = new Set(['Nihilego', 'Buzzwole', 'Pheromosa', 'Xurkitree', 'Celesteela', 'Kartana', 'Guzzlord', 'Poipole', 'Naganadel', 'Stakataka', 'Blacephalon']);
+function pocketIsUltraBeast(poke) {
+  return ULTRA_BEAST_NAMES.has((poke?.name || '').replace(/ ex$/, ''));
+}
+// Beastite（2026-08-08新增Tool，只能裝備在Ultra Beast身上，見TRAINER_EFFECTS的attach-time
+// 限制）：裝備者攻擊時，依「自己這一方目前的分數」每點+10傷害給對手主戰
+function pocketToolDamageBonus(attacker, side) {
+  if (attacker.tool?.id === 'A3a-066') return (side.points || 0) * 10;
   return 0;
 }
 // 被攻擊打中時觸發（跟pocketPassiveOnHit同一套時機，mainDamage>0就觸發，不需要defender死亡）：
@@ -5551,6 +5666,19 @@ const ABILITY_EFFECTS = {
     poke.curHp = Math.max(0, poke.curHp - dmg);
     return null;
   },
+  // Portrait（2026-08-08新增）：借用對手手牌隨機1張支援者卡的效果——直接呼叫TRAINER_EFFECTS
+  // 裡對應的handler（該表這時候已經是完整初始化好的top-level const，這個閉包執行時一定讀得到），
+  // 用空msg呼叫，如果借來的效果需要msg.target(玩家互動選擇)而我們沒有提供，handler會回傳
+  // 錯誤字串——這裡直接忽略那個錯誤（安靜視為「這次沒有效果」），不會讓Portrait自己也失敗。
+  // 「you may」但沒有明顯downside，比照EVOLVE_TRIGGER_ABILITIES的既有慣例自動觸發，不用額外UI
+  'Portrait': (ctx) => {
+    const eligible = ctx.oppSide.hand.filter(c => c.category === 'Trainer' && c.trainerType === 'Supporter');
+    if (!eligible.length) return null;
+    const picked = eligible[Math.floor(Math.random() * eligible.length)];
+    const handler = TRAINER_EFFECTS[picked.effectId || picked.id];
+    if (handler) handler(ctx, {});
+    return null;
+  },
 };
 // 從棄牌堆裡任何一張還留有該屬性能量的寶可夢卡上拿1點能量（真實Pocket規則的棄牌堆同時
 // 存放卡片跟已丟棄的能量——我們的引擎沒有獨立的能量棄牌堆，改成直接掃discard裡的寶可夢
@@ -5601,8 +5729,75 @@ const EVOLVE_TRIGGER_ABILITIES = {
     ctx.oppSide.hand = ctx.oppSide.deck.splice(0, Math.min(drawCount, ctx.oppSide.deck.length));
   },
 };
+// Power of Alchemy（2026-08-08新增）：「Basic Pokémon in play (both yours and your opponent's)
+// have no Abilities」——這個引擎裡`poke.abilities?.[0]?.name`這種讀法分散在33處，改成統一經過
+// helper函式風險高（漏改就會不一致），改用「直接抽換poke.abilities本身」：真正的特性資料備份在
+// `poke._realAbilities`，判定要封鎖時把`poke.abilities`暫時清空成`[]`，這樣全部既有讀取點完全
+//不用改，天然讀到undefined。只在`pocketBroadcastState`這一個「每次狀態變更後都必經」的關卡
+// 統一重新計算，不用在每個「board組成可能改變」的地方各自呼叫（bench_play/evolve/KO/棄牌/
+// 洗回牌庫等散布幾十處，逐一補呼叫風險比這個高很多）。
+// 已知簡化：Power of Alchemy持有者自己如果剛好是Basic階（現有卡池的Alolan Muk是Stage1，
+// 不會發生），不特別處理自我悖論（"我封鎖了自己導致條件不成立"的無限迴圈），因為目前資料
+// 不會踩到這個情況。
+function pocketSyncAbilitySuppression(G) {
+  const anyAlchemy = ['p1', 'p2'].some(r => [G[r]?.active, ...(G[r]?.bench || [])].some(p => {
+    const real = p?._realAbilities ?? p?.abilities;
+    return real?.[0]?.name === 'Power of Alchemy';
+  }));
+  for (const r of ['p1', 'p2']) {
+    if (!G[r]) continue;
+    for (const p of [G[r].active, ...G[r].bench]) {
+      if (!p) continue;
+      if (p._realAbilities === undefined) p._realAbilities = p.abilities;
+      const isAlchemyHolder = p._realAbilities?.[0]?.name === 'Power of Alchemy';
+      p.abilities = (anyAlchemy && p.stage === 'Basic' && !isAlchemyHolder) ? [] : p._realAbilities;
+    }
+  }
+}
+// 動態HP（2026-08-08新增）：Toughness Aroma(隊伍型，own side有Lilligant時己方全部草屬性+20)/
+// Infinite Increase(自己身上超能力能量數量×30)/Starting Plains(場地卡，雙方基礎階都+20)——
+// 這個引擎的curHp存的是「剩餘血量絕對值」不是「已受傷量」，動態調整hp上限時如果不同步調整
+// curHp，等於憑空多冒出/減少「已受傷量」的認知。解法：記錄每隻寶可夢「目前已套用的加成」
+// (`_hpBonus`)，只在加成**改變**的那一刻，把hp/curHp同步加減同一個delta——這樣「已受傷量」
+// (hp-curHp)在加成變動前後維持不變，等同真實規則「傷害計數器不受HP上限變動影響」的效果。
+// 一樣掛在pocketBroadcastState這個唯一必經關卡（不用在每個「場上組成/能量可能改變」的地方
+// 各自呼叫），且必須排在pocketSyncAbilitySuppression之後——Toughness Aroma如果因為Power of
+// Alchemy被封鎖，這裡讀到的p.abilities已經反映封鎖後的狀態，天然正確。
+function pocketSyncHpBonuses(G) {
+  for (const r of ['p1', 'p2']) {
+    if (!G[r]) continue;
+    const side = G[r];
+    for (const p of [side.active, ...side.bench]) {
+      if (!p) continue;
+      let bonus = 0;
+      if ((p.types || []).includes('Grass') && [side.active, ...side.bench].some(q => q?.abilities?.[0]?.name === 'Toughness Aroma')) bonus += 20;
+      if (p.abilities?.[0]?.name === 'Infinite Increase') bonus += p.energy.filter(e => e === 'Psychic').length * 30;
+      if (G.activeStadium?.id === 'B2-154' && p.stage === 'Basic') bonus += 20;
+      const oldBonus = p._hpBonus || 0;
+      if (bonus !== oldBonus) {
+        const delta = bonus - oldBonus;
+        p.hp = Math.max(10, (p.hp || 0) + delta);
+        p.curHp = Math.max(0, Math.min(p.hp, (p.curHp ?? p.hp) + delta));
+        p._hpBonus = bonus;
+      }
+    }
+  }
+}
+// Memory Light（2026-08-08新增）：把pocketEffectiveMoves算好的清單放進`effectiveAttacks`，
+// client端渲染攻擊按鈕時改讀這個欄位（沒裝備的寶可夢這個欄位就跟attacks完全一樣）
+function pocketSyncEffectiveAttacks(G) {
+  for (const r of ['p1', 'p2']) {
+    if (!G[r]) continue;
+    for (const p of [G[r].active, ...G[r].bench]) {
+      if (p) p.effectiveAttacks = pocketEffectiveMoves(p);
+    }
+  }
+}
 function pocketBroadcastState(pRoom) {
   const G = pRoom.G;
+  pocketSyncAbilitySuppression(G);
+  pocketSyncHpBonuses(G);
+  pocketSyncEffectiveAttacks(G);
   send(pRoom.p1, { type: 'pocket_turn_state', ...pocketViewFor(G, 'p1') });
   send(pRoom.p2, { type: 'pocket_turn_state', ...pocketViewFor(G, 'p2') });
 }
@@ -7958,7 +8153,7 @@ async function handleMessage(ws, msg) {
       if (G.turn !== role) return;
       const side = G[role]; const oppSide = G[op];
       const attacker = side.active;
-      const atk = attacker?.attacks?.[msg.attackIndex];
+      const atk = attacker && pocketEffectiveMoves(attacker)[msg.attackIndex];
       if (!atk) return;
       let wakeCoinFlip = null;
       if (attacker.status === 'paralyzed') {
@@ -7967,7 +8162,7 @@ async function handleMessage(ws, msg) {
         pocketAdvanceTurn(G); pocketBroadcastState(pRoom); return;
       }
       if (attacker.status === 'asleep') {
-        const woke = pocketFlipCoin();
+        const woke = pocketFlipCoin({ G, role });
         wakeCoinFlip = woke;
         if (!woke) {
           send(ws, { type: 'error', message: '睡眠中，攻擊失敗' });
@@ -7981,7 +8176,7 @@ async function handleMessage(ws, msg) {
       // 撤退時清status的邏輯）。
       let confusionCoinFlip = null;
       if (attacker.status === 'confused') {
-        const ok = pocketFlipCoin();
+        const ok = pocketFlipCoin({ G, role });
         confusionCoinFlip = ok;
         if (!ok) {
           attacker.curHp = Math.max(0, attacker.curHp - 30);
@@ -8026,7 +8221,7 @@ async function handleMessage(ws, msg) {
       // Boltund/Veluza（2026-08-08新增）：條件成立時完全取代成固定的替代花費，不是疊加/扣減
       if (atk.name === 'Defiant Spark' && attacker.curHp < attacker.hp) effectiveCost = ['Lightning'];
       if (atk.name === 'Shedding Spiral' && side.deck.length === 0) effectiveCost = ['Water'];
-      if (!pocketCanPayCost(attacker, effectiveCost)) { send(ws, { type: 'error', message: '能量不足，無法使用這個招式' }); return; }
+      if (!pocketCanPayCost(attacker, effectiveCost, side)) { send(ws, { type: 'error', message: '能量不足，無法使用這個招式' }); return; }
       const defender = oppSide.active;
       if (!defender) return;
       // 2026-08-06新增：「攻擊前擲硬幣，反面攻擊失敗」的封印效果（跟混亂不同，這個是對手招式
@@ -8034,7 +8229,7 @@ async function handleMessage(ws, msg) {
       let flipLockCoinFlip = null;
       if (attacker.attackFlipLockUntilTurn === G.turnNumber) {
         attacker.attackFlipLockUntilTurn = 0;
-        const ok = pocketFlipCoin();
+        const ok = pocketFlipCoin({ G, role });
         flipLockCoinFlip = ok;
         if (!ok) {
           send(ws, { type: 'error', message: '對方的封印效果生效，這次攻擊被擋下' });
@@ -8102,6 +8297,7 @@ async function handleMessage(ws, msg) {
         // stackBuffName=null設定
         if (attacker.stackBuffName === atk.name) mainDamage += (attacker.stackBuffAmount || 0);
         mainDamage += pocketPassiveDamageBonus(attacker, side); // 被動特性：Fighting Coach/Power Link/Cursed Metal這類「全隊加傷」
+        mainDamage += pocketToolDamageBonus(attacker, side); // Beastite：依分數加傷
         // Morgrem/Ledian（2026-08-08新增）：「這次攻擊的傷害不受對手身上任何效果影響」——完全跳過
         // 弱點以外(Ledian額外跳過弱點)、被動減傷/Tool減傷/selfShield這幾個defender方的計算
         const ignoreWeak = ctx.ignoreDefenderWeakness;
@@ -8114,7 +8310,9 @@ async function handleMessage(ws, msg) {
         if (!ctx.ignoreDefenderEffects) {
           // 被動特性：Fur Coat/Thick Fat/Resilience Link這類「自己減傷/免疫」，Infinity代表完全免疫
           // Tool：Steel Apron/Heavy Helmet/Metal Core Barrier這類固定減傷，跟被動特性的減傷加總扣
-          const passiveReduction = pocketPassiveDamageReduction(defender, oppSide, attacker) + pocketToolDamageReduction(defender);
+          // Beast Wall（2026-08-08新增）：side層級的時限減傷，只保護defenderSide場上的Ultra Beast
+          const beastWallReduction = (oppSide.ultraBeastShieldUntilTurn === G.turnNumber && pocketIsUltraBeast(defender)) ? (oppSide.ultraBeastShieldAmount || 0) : 0;
+          const passiveReduction = pocketPassiveDamageReduction(defender, oppSide, attacker) + pocketToolDamageReduction(defender) + beastWallReduction;
           // Mr. Mime/Cosmoem/Chansey等（2026-08-08新增selfShield機制）：「下回合被攻擊時-N傷害」，
           // 跟dmgDebuffUntilTurn（attacker自己招式效果種下的debuff）不同來源，這是defender自己種的
           // 保護——selfShieldCondition可選'ex'/'basic'限定只對特定種類的attacker生效
@@ -8193,10 +8391,10 @@ async function handleMessage(ws, msg) {
       let defenderDied = !ctx.skipMainDamage && defender.curHp <= 0 && oppSide.active === defender;
       // Guts：即將被攻擊傷害擊倒時擲硬幣，正面則不被擊倒、殘餘HP強制變成10——要在KO觸發特性
       // /雙殺判斷之前處理，一旦生效這隻就不算「死亡」，後面所有分支自然不會走到
-      if (defenderDied && defender.abilities?.[0]?.name === 'Guts' && pocketFlipCoin()) {
+      if (defenderDied && defender.abilities?.[0]?.name === 'Guts' && pocketFlipCoin({ G, role: op })) {
         defender.curHp = 10; defenderDied = false;
       }
-      if (attackerDied0 && attacker.abilities?.[0]?.name === 'Guts' && pocketFlipCoin()) {
+      if (attackerDied0 && attacker.abilities?.[0]?.name === 'Guts' && pocketFlipCoin({ G, role })) {
         attacker.curHp = 10; attackerDied0 = false;
       }
       // Hala（2026-08-08新增，支援者卡）：跟Guts同一種「KO-prevention→HP變10」機制，差別是
@@ -8222,13 +8420,13 @@ async function handleMessage(ws, msg) {
         if (defAbility === 'Innards Out') {
           attacker.curHp = Math.max(0, attacker.curHp - 50);
         } else if (defAbility === 'Perish Body') {
-          if (pocketFlipCoin()) attacker.curHp = 0;
+          if (pocketFlipCoin({ G, role: op })) attacker.curHp = 0;
         } else if (defAbility === 'Offload Pass' && oppSide.bench.length) {
           const fEnergy = defender.energy.filter(e => e === 'Fighting');
           if (fEnergy.length) { defender.energy = defender.energy.filter(e => e !== 'Fighting'); oppSide.bench[0].energy.push(...fEnergy); }
         } else if (defAbility === 'Final Scream') {
           [side.active, ...side.bench].filter(Boolean).forEach(p => { if (p.curHp > 0) p.curHp = Math.max(0, p.curHp - 10); });
-        } else if (defAbility === 'Fade into Darkness' && pocketFlipCoin()) {
+        } else if (defAbility === 'Fade into Darkness' && pocketFlipCoin({ G, role: op })) {
           awardPointForDefender = false; // 只套用在單獨defenderDied分支，雙殺情境維持既有pocketResolveMutualKO不變（範圍刻意限縮，避免雙重特殊規則疊加）
         }
         // Illusive Trickery：跟上面幾個「defender被KO時defender自己的特性觸發」方向不同，
@@ -8404,7 +8602,7 @@ async function handleMessage(ws, msg) {
         if (!borrowedAtk) return; // 不合法的招式索引，維持pendingChoice等玩家重選
         // 部分卡面版本多了「沒有必要能量就完全沒效果」的條件，跟一般攻擊事前擋下不同——這裡
         // 是「選了才知道要不要付得起」，付不起就直接結束回合、什麼都不做（不是拒絕這次選擇）
-        if (pending.checkEnergy && !pocketCanPayCost(attacker, borrowedAtk.cost || [])) {
+        if (pending.checkEnergy && !pocketCanPayCost(attacker, borrowedAtk.cost || [], side)) {
           G.pendingChoice = null;
           G.phase = 'active';
           pocketAdvanceTurn(G);
@@ -8491,6 +8689,27 @@ async function handleMessage(ws, msg) {
         // 兩個選項只能二選一，安全性優先於覆蓋率。
         if (G.pendingSwitchReason === 'endTurn') pocketStartNextTurn(G);
         G.pendingSwitchReason = null;
+      }
+      pocketBroadcastState(pRoom);
+      return;
+    }
+
+    // Mesagoza（2026-08-08新增）：這個引擎第一張「場地卡本身主動觸發」的卡——跟其餘場地卡
+    // 都是被動判定（掛在傷害計算式/撤退成本等既有hook）不同，這張需要獨立的按鈕+WS訊息。
+    // 「once during each player's turn」＝只有正在行動的一方能觸發，一回合限1次
+    if (type === 'pocket_use_stadium') {
+      const pRoom = pocketRooms.get(ws.pocketRoomCode);
+      if (!pRoom?.G || pRoom.G.phase !== 'active') return;
+      const G = pRoom.G; const role = ws.pocketRole;
+      if (G.turn !== role) return;
+      if (G.activeStadium?.id !== 'B2a-093') return;
+      const side = G[role];
+      if (side.stadiumUsedThisTurn) { send(ws, { type: 'error', message: '這回合已經用過場地卡效果了' }); return; }
+      side.stadiumUsedThisTurn = true;
+      if (pocketFlipCoin({ G, role }) && side.deck.length) {
+        const idx = Math.floor(Math.random() * side.deck.length);
+        const [card] = side.deck.splice(idx, 1);
+        side.hand.push(card);
       }
       pocketBroadcastState(pRoom);
       return;
