@@ -3836,10 +3836,10 @@ const ATTACK_EFFECTS = {
       t.curHp = Math.max(0, t.curHp - 50);
     }
   },
-  "Discard 1 {R} Energy from this Pokémon.": ctx => pocketDiscardEnergy(ctx.attacker, 'Fire', 1),
-  "Discard 2 {P} Energy from this Pokémon.": ctx => pocketDiscardEnergy(ctx.attacker, 'Psychic', 2),
-  "Discard 2 {R} Energy from this Pokémon.": ctx => pocketDiscardEnergy(ctx.attacker, 'Fire', 2),
-  "Discard a {R} Energy from this Pokémon.": ctx => pocketDiscardEnergy(ctx.attacker, 'Fire', 1),
+  "Discard 1 {R} Energy from this Pokémon.": ctx => pocketDiscardEnergy(ctx.side, ctx.attacker, 'Fire', 1),
+  "Discard 2 {P} Energy from this Pokémon.": ctx => pocketDiscardEnergy(ctx.side, ctx.attacker, 'Psychic', 2),
+  "Discard 2 {R} Energy from this Pokémon.": ctx => pocketDiscardEnergy(ctx.side, ctx.attacker, 'Fire', 2),
+  "Discard a {R} Energy from this Pokémon.": ctx => pocketDiscardEnergy(ctx.side, ctx.attacker, 'Fire', 1),
   "Discard all Energy from this Pokémon.": ctx => { ctx.attacker.energy = []; },
   "During your opponent's next turn, the Defending Pokémon can't attack.": ctx => { ctx.defender.cantAttackUntilTurn = ctx.G.turnNumber + 1; },
   "During your opponent's next turn, the Defending Pokémon can't retreat.": ctx => { ctx.defender.cantRetreatUntilTurn = ctx.G.turnNumber + 1; },
@@ -4091,11 +4091,11 @@ const ATTACK_EFFECTS = {
     if (ctx.defender?.energy.length) ctx.defender.energy.splice(Math.floor(Math.random() * ctx.defender.energy.length), 1);
   },
   "Discard a {R}, {W}, and {L} Energy from this Pokémon.": ctx => {
-    pocketDiscardEnergy(ctx.attacker, 'Fire', 1); pocketDiscardEnergy(ctx.attacker, 'Water', 1); pocketDiscardEnergy(ctx.attacker, 'Lightning', 1);
+    pocketDiscardEnergy(ctx.side, ctx.attacker, 'Fire', 1); pocketDiscardEnergy(ctx.side, ctx.attacker, 'Water', 1); pocketDiscardEnergy(ctx.side, ctx.attacker, 'Lightning', 1);
   },
   "Discard all {R} Energy from this Pokémon.": ctx => { ctx.attacker.energy = ctx.attacker.energy.filter(e => e !== 'Fire'); },
-  "Discard a {F} Energy from this Pokémon.": ctx => pocketDiscardEnergy(ctx.attacker, 'Fighting', 1),
-  "Discard 3 {R} Energy from this Pokémon.": ctx => pocketDiscardEnergy(ctx.attacker, 'Fire', 3),
+  "Discard a {F} Energy from this Pokémon.": ctx => pocketDiscardEnergy(ctx.side, ctx.attacker, 'Fighting', 1),
+  "Discard 3 {R} Energy from this Pokémon.": ctx => pocketDiscardEnergy(ctx.side, ctx.attacker, 'Fire', 3),
   "Take a {L} Energy from your Energy Zone and attach it to this Pokémon.": ctx => { ctx.attacker.energy.push('Lightning'); },
   "Take 3 {R} Energy from your Energy Zone and attach it to this Pokémon.": ctx => { for (let i = 0; i < 3; i++) ctx.attacker.energy.push('Fire'); },
   // 2026-08-06修正（使用者第二次糾正同一個問題）：「attach it to 1 of your Benched Pokémon」
@@ -4281,7 +4281,7 @@ const ATTACK_EFFECTS = {
     ctx.rawDamage += 30 * (ctx.defender?.retreat || 0);
   },
   "Discard Fire{R} Energy from this Pokémon. Your opponent's Active Pokémon is now Burned.": ctx => {
-    pocketDiscardEnergy(ctx.attacker, 'Fire', 1);
+    pocketDiscardEnergy(ctx.side, ctx.attacker, 'Fire', 1);
     if (ctx.defender) ctx.defender.status = 'burned';
   },
   "If the amount of Energy attached to both Active Pokémon is 5 or more, this attack does 60 more damage.": ctx => {
@@ -4313,7 +4313,7 @@ const ATTACK_EFFECTS = {
     ctx.defender.dmgDebuffUntilTurn = ctx.G.turnNumber + 1; ctx.defender.dmgDebuffAmount = 20;
   },
   "Discard 3 {W} Energy from this Pokémon. This attack also does 20 damage to each of your opponent's Benched Pokémon.": ctx => {
-    pocketDiscardEnergy(ctx.attacker, 'Water', 3);
+    pocketDiscardEnergy(ctx.side, ctx.attacker, 'Water', 3);
     for (const p of ctx.oppSide.bench) p.curHp = Math.max(0, p.curHp - 20);
   },
   "Flip 2 coins. This attack does 90 damage for each heads. Your opponent's Active Pokémon is now Confused.": ctx => {
@@ -4341,7 +4341,7 @@ const ATTACK_EFFECTS = {
   "Flip 2 coins. This attack does 100 damage for each heads.": ctx => { ctx.rawDamage = pocketFlipCoins(2, ctx) * 100; },
   "This attack does 30 damage for each of your Benched Pokémon.": ctx => { ctx.rawDamage = 30 * ctx.side.bench.length; },
   "Discard 2 {R} Energy from this Pokémon. This attack does 80 damage to 1 of your opponent's Pokémon.": ctx => {
-    pocketDiscardEnergy(ctx.attacker, 'Fire', 2);
+    pocketDiscardEnergy(ctx.side, ctx.attacker, 'Fire', 2);
     ctx.rawDamage = 0;
     const pool = [ctx.defender, ...ctx.oppSide.bench].filter(Boolean);
     if (pool.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: pool.map(p => p.uid), action: 'damage', amount: 80 };
@@ -4713,11 +4713,11 @@ const ATTACK_EFFECTS = {
     if (ctx.side.energyTypes.includes('Water')) ctx.attacker.energy.push('Water');
     if (ctx.side.energyTypes.includes('Lightning')) ctx.attacker.energy.push('Lightning');
   },
-  "Discard a {W} and a {L} Energy from this Pokémon.": ctx => { pocketDiscardEnergy(ctx.attacker, 'Water', 1); pocketDiscardEnergy(ctx.attacker, 'Lightning', 1); },
+  "Discard a {W} and a {L} Energy from this Pokémon.": ctx => { pocketDiscardEnergy(ctx.side, ctx.attacker, 'Water', 1); pocketDiscardEnergy(ctx.side, ctx.attacker, 'Lightning', 1); },
   "This attack does 20 more damage for each Benched Pokémon (both yours and your opponent's).": ctx => { ctx.rawDamage += 20 * (ctx.side.bench.length + ctx.oppSide.bench.length); },
   "If you have any Stage 2 Pokémon on your Bench, this attack does 50 more damage.": ctx => { if (ctx.side.bench.some(p => p.stage === 'Stage2')) ctx.rawDamage += 50; },
-  "Discard a {G} Energy from this Pokémon. Your opponent's Active Pokémon is now Poisoned.": ctx => { pocketDiscardEnergy(ctx.attacker, 'Grass', 1); if (ctx.defender) ctx.defender.status = 'poisoned'; },
-  "Discard a {R} Energy from your opponent's Active Pokémon.": ctx => { if (ctx.defender) pocketDiscardEnergy(ctx.defender, 'Fire', 1); },
+  "Discard a {G} Energy from this Pokémon. Your opponent's Active Pokémon is now Poisoned.": ctx => { pocketDiscardEnergy(ctx.side, ctx.attacker, 'Grass', 1); if (ctx.defender) ctx.defender.status = 'poisoned'; },
+  "Discard a {R} Energy from your opponent's Active Pokémon.": ctx => { if (ctx.defender) pocketDiscardEnergy(ctx.oppSide, ctx.defender, 'Fire', 1); },
   "If your opponent's Active Pokémon is Asleep, this attack does 60 more damage.": ctx => { if (ctx.defender?.status === 'asleep') ctx.rawDamage += 60; },
   // 「失去全部特性，直到離開主戰位置」——用_realAbilities同一套快取機制強制清空，離開主戰時
   // （撤退/board_switch）解除，見那兩處呼叫pocketClearAbilityLock的地方
@@ -4765,7 +4765,7 @@ const ATTACK_EFFECTS = {
     }
   },
   "Discard a {W} Energy from this Pokémon, and this attack also does 40 damage to 1 of your opponent's Benched Pokémon.": ctx => {
-    pocketDiscardEnergy(ctx.attacker, 'Water', 1);
+    pocketDiscardEnergy(ctx.side, ctx.attacker, 'Water', 1);
     if (ctx.oppSide.bench.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: ctx.oppSide.bench.map(p => p.uid), action: 'damage', amount: 40 };
   },
   "If any of your Pokémon were Knocked Out by damage from an attack during your opponent's last turn, this attack does 60 more damage, and your opponent's Active Pokémon is now Paralyzed.": ctx => {
@@ -4798,7 +4798,7 @@ const ATTACK_EFFECTS = {
     if (pool.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: pool.map(p => p.uid), action: 'damage', amount: 60 };
   },
   "During your opponent's next turn, they can't play any Pokémon from their hand to evolve their Pokémon.": ctx => { ctx.oppSide.evolveLockedUntilTurn = ctx.G.turnNumber + 1; },
-  "Discard a {D} Energy from this Pokémon.": ctx => { pocketDiscardEnergy(ctx.attacker, 'Darkness', 1); },
+  "Discard a {D} Energy from this Pokémon.": ctx => { pocketDiscardEnergy(ctx.side, ctx.attacker, 'Darkness', 1); },
   "If any of your {D} Pokémon were Knocked Out by damage from an attack during your opponent's last turn, this attack does 80 more damage.": ctx => { if (ctx.side.lostToAttackLastOppTurn) ctx.rawDamage += 80; },
   "If your opponent has any {P} Pokémon in play, this attack does 50 more damage.": ctx => {
     if ([ctx.oppSide.active, ...ctx.oppSide.bench].some(p => p && (p.types || []).includes('Psychic'))) ctx.rawDamage += 50;
@@ -4968,7 +4968,7 @@ const ATTACK_EFFECTS = {
   "This Pokémon recovers from all Special Conditions.": ctx => { ctx.attacker.status = null; },
   "If your opponent's Active Pokémon is a {F} Pokémon, this attack does 70 more damage.": ctx => { if ((ctx.defender?.types || []).includes('Fighting')) ctx.rawDamage += 70; },
   "Discard 3 {W} Energy from this Pokémon, and this attack does 50 damage to each of your opponent's Pokémon.": ctx => {
-    pocketDiscardEnergy(ctx.attacker, 'Water', 3);
+    pocketDiscardEnergy(ctx.side, ctx.attacker, 'Water', 3);
     for (const p of [ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean)) p.curHp = Math.max(0, p.curHp - 50);
     ctx.rawDamage = 0;
   },
@@ -5065,10 +5065,14 @@ function pocketDiscardRandomEnergyOwnSide(side, n) {
     p.energy.splice(Math.floor(Math.random() * p.energy.length), 1);
   }
 }
-function pocketDiscardEnergy(pokemon, type, n) {
+// 2026-08-08新增side參數：被棄置的能量原本直接消失，跟Rainbow Cave那次同一個問題——真實
+// 規則棄掉的能量會進棄牌堆、可以被Dragon's Blessing這類「從棄牌堆挖能量」的效果撿回。
+// side是「能量原本掛的那隻寶可夢所屬的一方」（不一定是ctx.side——例如Squirt Bottle棄的是
+// 對手身上的能量，要塞進ctx.oppSide.discardEnergy，不是ctx.side的）
+function pocketDiscardEnergy(side, pokemon, type, n) {
   for (let i = 0; i < n; i++) {
     const idx = pokemon.energy.indexOf(type);
-    if (idx >= 0) pokemon.energy.splice(idx, 1);
+    if (idx >= 0) { pokemon.energy.splice(idx, 1); side.discardEnergy.push(type); }
   }
 }
 
@@ -5199,7 +5203,7 @@ const TRAINER_EFFECTS = {
     ctx.oppSide.bench.push(p);
     return null;
   },
-  'A4-152': (ctx) => { pocketDiscardEnergy(ctx.oppSide.active, 'Fire', 1); return null; }, // Squirt Bottle（卡面原文就是{R}不是{W}，照實作）
+  'A4-152': (ctx) => { pocketDiscardEnergy(ctx.oppSide, ctx.oppSide.active, 'Fire', 1); return null; }, // Squirt Bottle（卡面原文就是{R}不是{W}，照實作）
   'B1-215': (ctx) => { // Hitting Hammer：連續2枚都正面才丟能量（丟哪一點能量文字本身就寫"a random Energy"，維持隨機）
     const h1 = pocketFlipCoin(ctx), h2 = pocketFlipCoin(ctx);
     if (h1 && h2 && ctx.oppSide.active?.energy.length) {
@@ -5370,7 +5374,7 @@ const TRAINER_EFFECTS = {
     }
     const before = target.curHp;
     target.curHp = Math.min(target.hp, target.curHp + 90);
-    if (target.curHp > before) { pocketDiscardEnergy(target, 'Psychic', 2); }
+    if (target.curHp > before) { pocketDiscardEnergy(ctx.side, target, 'Psychic', 2); }
     ctx.healUid = target.uid; ctx.healAmount = target.curHp - before;
     return null;
   },
