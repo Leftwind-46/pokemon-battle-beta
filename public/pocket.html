@@ -266,6 +266,8 @@
   .energy-zone-dock .energy-zone.has-energy { cursor:grab; }
   .energy-zone-dock .energy-zone.has-energy:active { cursor:grabbing; }
   .energy-zone-label { font-size:0.6rem; color:var(--muted); }
+  .energy-preview-row { display:flex; align-items:center; gap:0.25rem; font-size:0.55rem; color:var(--muted); white-space:nowrap; }
+  .energy-preview-dot { width:13px; height:13px; border-radius:50%; flex:none; border:1px solid var(--border); }
 
   /* ── 場地卡顯示（2026-08-08新增）：跟energy-zone-dock同一排、同樣的直式排版習慣 ── */
   .stadium-dock { display:flex; flex-direction:column; align-items:center; gap:0.2rem; cursor:pointer; }
@@ -547,6 +549,10 @@
     <div class="energy-zone-dock">
       <div class="energy-zone" id="energy-zone-chip"></div>
       <div class="energy-zone-label">能量區</div>
+      <div class="energy-preview-row" id="energy-preview-row" title="下回合能量區會產生的能量預覽">
+        <div class="energy-preview-dot" id="energy-preview-dot"></div>
+        <span id="energy-preview-text"></span>
+      </div>
     </div>
     <!-- 場地卡顯示（2026-08-08新增）：雙方共用，放在戰場中間這條分隔帶，跟能量區同一排——
          沒有場地卡在場時整個隱藏，不佔位置 -->
@@ -1319,6 +1325,7 @@ loadCards().then(handlePocketEntryParam);
 ───────────────────────────────────────── */
 let ws = null;
 let myRole = null; // 'p1' | 'p2'
+let myIsFirstPlayer = null; // 2026-08-08新增：撤退成本試算需要知道「這是不是我方第一回合」（Wimp Out用），從pocket_match_start的firstPlayer存下來
 let lastMyPoints = 0, lastOppPoints = 0; // 用來判斷分數是否剛好在這次render增加，觸發標記彈跳動畫
 let lastMyActiveUid = null, lastOppActiveUid = null; // 用來判斷主戰是不是剛好換了一隻新的，觸發上場特效
 let lastMyHandCount = 0, lastOppHandCount = 0; // 用來判斷手牌是不是剛好變多，觸發抽卡動畫
@@ -1388,6 +1395,7 @@ function handleWsMsg(msg) {
       break;
     case 'pocket_match_start': {
       const iAmFirst = msg.firstPlayer === myRole;
+      myIsFirstPlayer = iAmFirst;
       lobbyShowStep('started');
       document.getElementById('started-status').textContent = `先攻：${iAmFirst ? '你' : '對手'}`;
       setTimeout(() => {
@@ -1401,7 +1409,12 @@ function handleWsMsg(msg) {
       applyState(msg);
       break;
     case 'pocket_peek':
-      showPeek(msg.title, msg.cards);
+      // 2026-08-08修正：interactive===true代表這次揭露緊接著會有互動選擇（pendingChoice.pool
+      // ==='oppHand'），不能再疊一個唯讀showPeek彈窗——它的z-index比互動選擇框高，會直接蓋住
+      // 玩家真正要點選的畫面，玩家只看得到「揭露手牌」卻進不去「選一張」那一步（使用者回報
+      // Mega Absol ex的Darkness Claw「只檢查手牌、選不到支援者卡棄掉」就是這個bug）。
+      // 純唯讀的揭露（沒有接著的選擇，例如單純"reveals their hand"沒有choose）維持原本顯示。
+      if (!msg.interactive) showPeek(msg.title, msg.cards);
       // 2026-08-07新增：同一份揭露內容也暫存起來，給pendingChoice.pool==='oppHand'的選擇UI用
       // （"Your opponent reveals their hand. Choose a card..."這類效果——WS訊息同一連線保證
       // 送達順序，這則pocket_peek一定比接下來帶pendingChoice的state更新先到，暫存讀取安全）
@@ -1609,6 +1622,17 @@ function renderBoard() {
     chip.draggable = false;
     chip.onclick = null;
     chip.style.background = 'transparent';
+  }
+  // 下回合能量預覽（2026-08-08新增）：server端previewEnergy是「下次輪到你時會產生的能量」，
+  // 固定值不會每次render重roll，讓玩家能提前規劃（跟真實Pocket TCG能量區可以看到下一顆的設計一致）
+  const previewDot = document.getElementById('energy-preview-dot');
+  const previewText = document.getElementById('energy-preview-text');
+  if (you.previewEnergy) {
+    previewDot.style.background = TYPE_COLOR[you.previewEnergy] || '#888';
+    previewText.textContent = `下回合：${TYPE_ZH[you.previewEnergy] || you.previewEnergy}`;
+  } else {
+    previewDot.style.background = 'transparent';
+    previewText.textContent = '';
   }
 
   // 場地卡顯示（2026-08-08新增）：state.activeStadium只有{id,name}，查ALL_CARDS拿圖片+完整卡面
@@ -1825,7 +1849,7 @@ function updateActionHint() {
   if (selectedAction.mode === 'attach') text = '點擊己方的寶可夢來附加能量';
   else if (selectedAction.mode === 'evolve') text = `點擊要進化成 ${selectedAction.name} 的寶可夢`;
   else if (selectedAction.mode === 'retreat') text = '點擊板凳寶可夢來撤退交換';
-  else if (selectedAction.mode === 'item-target') text = '點擊己方場上的寶可夢作為目標';
+  else if (selectedAction.mode === 'item-target') text = selectedAction.side === 'opp' ? '點擊對手場上的寶可夢作為目標' : '點擊己方場上的寶可夢作為目標';
   else if (selectedAction.mode === 'ability-target') text = selectedAction.side === 'opp' ? '點擊對手場上的寶可夢作為目標' : '點擊己方場上的寶可夢作為目標';
   hint.classList.add('active');
   hint.innerHTML = `<span>${text}</span><button class="hint-cancel" onclick="cancelAction()">取消</button>`;
@@ -1868,6 +1892,11 @@ const TRAINER_NEEDS_TARGET = new Set([
   'A3a-066', 'A3a-069',
 ]);
 const TRAINER_NEEDS_DISCARD_TARGET = new Set(['A1a-064']); // Pokémon Flute：目標是對手棄牌堆的卡，不是board上的寶可夢
+// 2026-08-08新增：TRAINER_NEEDS_TARGET裡目標池在哪一側，預設'own'（沒列出的都是選自己場上）。
+// Cyrus/Lana兩張是「換上對手身上有傷/任一板凳寶可夢當主戰」，目標必須是對手場上——
+// 原本的item-target點擊只認#my-active/#my-bench，導致這兩張卡的目標永遠送不出去
+// （點對手board完全不會觸發任何handler），跟ABILITY_NEEDS_TARGET的'opp'是同一種problem/修法。
+const TRAINER_TARGET_SIDE = { 'A2-150': 'opp', 'A3-152': 'opp' };
 // 2026-08-06新增：需要玩家指定目標的特性，value是目標池在哪一側（'own'=己方場上/'opp'=對手場上）
 const ABILITY_NEEDS_TARGET = {
   'Water Shuriken': 'opp', 'Dark Chase': 'opp', 'Captivating Rhythm': 'opp',
@@ -1943,7 +1972,7 @@ document.getElementById('board-overlay').addEventListener('click', e => {
       wsSend({ type: 'pocket_evolve', handUid: selectedAction.handUid, target: uid });
     }
     else if (selectedAction.mode === 'retreat' && slot.closest('#my-bench')) wsSend({ type: 'pocket_retreat', target: uid });
-    else if (selectedAction.mode === 'item-target') {
+    else if (selectedAction.mode === 'item-target' && selectedAction.side !== 'opp') {
       spawnPlayFlourish(pocketThumbUrl(pocketFindCardByUid(selectedAction.handUid)?.image), slot);
       wsSend({ type: selectedAction.isSupporter ? 'pocket_play_supporter' : 'pocket_play_item', handUid: selectedAction.handUid, target: uid });
     }
@@ -1993,6 +2022,13 @@ document.getElementById('board-overlay').addEventListener('click', e => {
     selectedAction = null;
     return;
   }
+  // 2026-08-08新增：Cyrus/Lana這類目標是對手場上寶可夢的道具/支援者卡
+  if (oppSlot && selectedAction?.mode === 'item-target' && selectedAction.side === 'opp') {
+    spawnPlayFlourish(pocketThumbUrl(pocketFindCardByUid(selectedAction.handUid)?.image), oppSlot);
+    wsSend({ type: selectedAction.isSupporter ? 'pocket_play_supporter' : 'pocket_play_item', handUid: selectedAction.handUid, target: oppSlot.dataset.uid });
+    selectedAction = null;
+    return;
+  }
   if (oppSlot && !selectedAction) {
     const card = pocketFindCardByUid(oppSlot.dataset.uid);
     if (card) showCardDetail(card);
@@ -2029,7 +2065,8 @@ function computeHandCardActions(card) {
     }
     if (TRAINER_NEEDS_TARGET.has(card.effectId || card.id)) {
       return [{ label: '選擇目標寶可夢', primary: true, onClick: () => {
-        selectedAction = { mode: 'item-target', handUid: card.uid, isSupporter };
+        const targetSide = TRAINER_TARGET_SIDE[card.effectId || card.id] || 'own';
+        selectedAction = { mode: 'item-target', handUid: card.uid, isSupporter, side: targetSide };
         updateActionHint(); renderBoard();
       } }];
     }
@@ -2075,6 +2112,33 @@ function computeHandCardActions(card) {
   return [];
 }
 
+// 2026-08-08新增：跟server端pocket_retreat handler的cost公式逐項對應的client端試算——
+// 原本這裡只算了retreat-retreatDiscountThisTurn，完全沒算Tool折扣(Inflatable Boat/Big Air
+// Balloon)/被動特性免費撤退/Sky Support/Trap Territory/Oranguru陷阱，導致按鈕顯示的費用
+// 比server端實際判定的還要高、甚至誤把明明付得起的撤退disable掉（使用者回報Inflatable Boat
+// 裝了還是要2點能量就是這個問題）。firstPlayer資訊用myIsFirstPlayer（見pocket_match_start）。
+function pocketComputeRetreatCostClient(card, you, opponent, state) {
+  const ability = card.abilities?.[0]?.name;
+  const hasArceus = [you.active, ...(you.bench || [])].some(p => p && ['Arceus', 'Arceus ex'].includes(p.name));
+  const hasLatias = [you.active, ...(you.bench || [])].some(p => p && p.name === 'Latias');
+  const myFirstTurn = myIsFirstPlayer === true ? state.turnNumber === 1 : myIsFirstPlayer === false ? state.turnNumber === 2 : false;
+  const freeByAbility = (ability === 'Levitate' && (card.energy?.length || 0) > 0)
+    || (ability === 'Speed Link' && hasArceus)
+    || (ability === 'Retreat Directive' && card.name === 'Dondozo')
+    || (ability === 'Fantastical Floating' && hasLatias)
+    || (ability === 'Surge Surfer' && !!state.activeStadium)
+    || (ability === 'Wimp Out' && myFirstTurn)
+    || [you.active, ...(you.bench || [])].some(p => p?.abilities?.[0]?.name === 'Fluffy Flight');
+  const toolId = card.tool?.id;
+  const toolFree = toolId === 'B2a-087' && card.stage === 'Stage2';
+  const toolDiscount = (toolId === 'A4a-067' && (card.types || []).includes('Water')) ? 1 : 0;
+  if (freeByAbility || toolFree) return 0;
+  const plazaDiscount = (state.activeStadium?.id === 'B2-155' && (card.types || []).includes('Psychic')) ? 2 : 0;
+  const benchDiscount = card.stage === 'Basic' ? (you.bench || []).filter(p => p.abilities?.[0]?.name === 'Sky Support').length : 0;
+  const trapIncrease = [opponent?.active, ...(opponent?.bench || [])].filter(p => p?.abilities?.[0]?.name === 'Trap Territory').length;
+  const oranguruIncrease = card.retreatIncreaseUntilTurn === state.turnNumber ? (card.retreatIncreaseAmount || 0) : 0;
+  return Math.max(0, (card.retreat || 0) - (you.retreatDiscountThisTurn || 0) - plazaDiscount - benchDiscount - toolDiscount + trapIncrease + oranguruIncrease);
+}
 // 己方場上寶可夢可用動作——撤退原本是「點板凳直接觸發」的隱藏捷徑（容易誤觸浪費這回合僅有
 // 一次的撤退機會），現在統一成「點主戰→撤退按鈕→再點板凳完成交換」兩步驟，跟附加能量共用
 // 同一套「先選動作再點目標」的既有selectedAction模式（reused，不是新機制）。
@@ -2085,7 +2149,7 @@ function computeOwnBoardActions(card) {
   const isActive = you.active?.uid === card.uid;
   if (isActive && !you.retreatedThisTurn && !card.isFossil && card.status !== 'asleep' && card.status !== 'paralyzed'
       && card.cantRetreatUntilTurn !== state.turnNumber && you.bench.length) {
-    const cost = Math.max(0, (card.retreat || 0) - (you.retreatDiscountThisTurn || 0));
+    const cost = pocketComputeRetreatCostClient(card, you, state.opponent, state);
     const affordable = (card.energy?.length || 0) >= cost;
     actions.push({
       label: `撤退（消耗 ${cost} 點能量）`, primary: true, disabled: !affordable,

@@ -2658,7 +2658,7 @@ function pocketEmitToolActivation(G, role, tool, label) {
 }
 function pocketFreshSide(drawn, deckIds, energyTypesOverride) {
   return {
-    ...drawn, active: null, bench: [], discard: [], points: 0, pendingEnergy: null,
+    ...drawn, active: null, bench: [], discard: [], points: 0, pendingEnergy: null, previewEnergy: null,
     energyAttachedThisTurn: false, retreatedThisTurn: false, supporterUsedThisTurn: false,
     energyTypes: energyTypesOverride || pocketDeckEnergyTypes(deckIds), boardReady: false,
     giovanniBoostThisTurn: false, blaineBoostNamesThisTurn: null, retreatDiscountThisTurn: 0,
@@ -2683,6 +2683,11 @@ function pocketPickEnergy(types) {
 function pocketStartFirstTurn(G) {
   const side = G[G.turn];
   if (side.deck.length > 0) side.hand.push(side.deck.shift());
+  // 2026-08-08新增：能量預覽——雙方一開局就先各自算好「自己第一次會拿到的能量」，不用等
+  // pocketStartNextTurn第一次幫該側跑過一輪才有預覽可看（先攻方要到第3回合才會有能量，
+  // 但從對局一開始就該讓他看到「你的第一份能量會是X」，不是憑空卡在null直到第3回合前一刻）
+  G.p1.previewEnergy = pocketPickEnergy(G.p1.energyTypes);
+  G.p2.previewEnergy = pocketPickEnergy(G.p2.energyTypes);
 }
 // 中毒在「該側回合結束」時扣血（不是對手回合結束）——真實TCG通用時機慣例
 // Pokémon Checkup（回合結束當下的狀態結算）：中毒/燒傷/麻痺 + 回合結束觸發型被動特性。
@@ -2808,12 +2813,19 @@ function pocketStartNextTurn(G) {
   if (side.deck.length > 0) side.hand.push(side.deck.shift());
   // Porygon-Z（2026-08-08新增）：對手指定「下次能量區產生的能量」隨機變成某個屬性——
   // 用一次性欄位覆蓋，套用後立刻清掉，不會持續影響之後每回合的能量產生
+  // 2026-08-08再接續：能量預覽——previewEnergy是上一輪就先算好、玩家已經看過的「這回合會拿到
+  // 的能量」，這裡直接拿來當真正的pendingEnergy用（不重新roll，不然畫面上先前顯示的預覽會
+  // 變成謊話）；nextEnergyOverride仍然優先於預覽（Porygon-Z那類效果生效時也會同步覆蓋掉
+  // previewEnergy，見下方effect handler），確保「玩家看到的預覽」永遠等於「實際拿到的」。
   if (side.nextEnergyOverride) {
     side.pendingEnergy = side.nextEnergyOverride;
     side.nextEnergyOverride = null;
+  } else if (side.previewEnergy) {
+    side.pendingEnergy = side.previewEnergy;
   } else {
     side.pendingEnergy = pocketPickEnergy(side.energyTypes);
   }
+  side.previewEnergy = pocketPickEnergy(side.energyTypes);
   side.energyAttachedThisTurn = false;
   side.retreatedThisTurn = false;
   side.supporterUsedThisTurn = false;
@@ -3152,6 +3164,7 @@ function pocketViewFor(G, role) {
     activeStadium: G.activeStadium || null,
     you: {
       ...pub(G[role]), hand: G[role].hand, pendingEnergy: G[role].pendingEnergy,
+      previewEnergy: G[role].previewEnergy, // 下回合能量預覽（2026-08-08新增，見pocketStartNextTurn說明）
       energyAttachedThisTurn: G[role].energyAttachedThisTurn, retreatedThisTurn: G[role].retreatedThisTurn,
       energyTypes: G[role].energyTypes, supporterUsedThisTurn: G[role].supporterUsedThisTurn,
       abilitiesUsedThisTurn: G[role].abilitiesUsedThisTurn,
@@ -3287,6 +3300,9 @@ const ATTACK_EFFECTS = {
   "Change the type of the next Energy that will be generated for your opponent to 1 of the following at random: {G}, {R}, {W}, {L}, {P}, {F}, {D}, or {M}.": ctx => { // Porygon-Z：對手下次能量區產生的能量隨機變成其中一種
     const types = ['Grass', 'Fire', 'Water', 'Lightning', 'Psychic', 'Fighting', 'Darkness', 'Metal'];
     ctx.oppSide.nextEnergyOverride = types[Math.floor(Math.random() * types.length)];
+    // 同步更新對手看到的能量預覽，不然玩家畫面上先前顯示的「下回合能量」會跟這張卡改完
+    // 之後實際拿到的對不上（見pocketStartNextTurn的previewEnergy說明）
+    ctx.oppSide.previewEnergy = ctx.oppSide.nextEnergyOverride;
   },
   "Flip a coin. If heads, put your opponent's Active Pokémon into their hand.": ctx => { // Fan Rotom：coin+把對手主戰放回手牌（不是board，不是棄牌堆）
     if (!pocketFlipCoin(ctx)) { ctx.rawDamage = 0; return; }
@@ -8044,7 +8060,10 @@ async function handleMessage(ws, msg) {
       if (ctx.coinFlips?.length || ctx.healUid) {
         G.lastEvent = { seq: ++G.eventSeq, kind: 'trainer', coinFlips: ctx.coinFlips || null, healUid: ctx.healUid || null, healAmount: ctx.healAmount || 0 };
       }
-      if (ctx.peekHand) send(ws, { type: 'pocket_peek', title: '對手手牌', cards: ctx.peekHand });
+      // 2026-08-08修正：跟pocket_attack的peekOpponentHand同一個bug，interactive旗標讓client
+      // 端在後面接著needsChoice互動選擇時跳過唯讀showPeek彈窗（例如Silver：揭露對手手牌+選1張
+      // 支援者洗回牌庫），不然唯讀彈窗的z-index比互動選擇框高，會直接蓋住真正要點的畫面
+      if (ctx.peekHand) send(ws, { type: 'pocket_peek', title: '對手手牌', cards: ctx.peekHand, interactive: !!ctx.needsChoice });
       if (ctx.peekDeck) send(ws, { type: 'pocket_peek', title: '牌庫頂3張', cards: ctx.peekDeck });
       // May（2026-08-08新增）：跟pocket_evolve的ctx.needsChoice同一套convention，第一次用在
       // 訓練師卡流程——卡片本身已經在上面移出手牌進棄牌堆，這裡只是暫停等玩家選子效果的目標
@@ -8458,7 +8477,12 @@ async function handleMessage(ws, msg) {
       pocketResolveBenchKOs(G, oppSide, role);
       pocketResolveBenchKOs(G, side, op); // 例如Raging Thunder自己的板凳也可能被自己招式波及
 
-      if (ctx.peekOpponentHand) send(ws, { type: 'pocket_peek', title: '對手手牌', cards: oppSide.hand });
+      // 2026-08-08修正：interactive旗標——如果這次peek緊接著會有互動選擇(ctx.needsChoice，
+      // 例如Mega Absol ex揭露對手手牌後要選1張支援者棄置)，client端不該再疊一個唯讀的
+      // showPeek彈窗在上面（原本z-index比互動選擇框高，會直接蓋住玩家真正要點選的畫面，
+      // 使用者只看到「揭露手牌」卻進不去「選一張棄置」那步）。單純揭露、沒有後續選擇的
+      // 效果（例如"Your opponent reveals their hand."沒有接choose）維持原本的唯讀彈窗顯示。
+      if (ctx.peekOpponentHand) send(ws, { type: 'pocket_peek', title: '對手手牌', cards: oppSide.hand, interactive: !!ctx.needsChoice });
 
       if (pocketCheckWin(G)) { pocketBroadcastState(pRoom); return; }
 
