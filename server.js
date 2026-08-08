@@ -2678,10 +2678,11 @@ function pocketPickEnergy(types) {
   return types[Math.floor(Math.random() * types.length)];
 }
 // 第1回合（先攻方）沒有能量區能量，但雙方從第1回合就要抽牌
+// 2026-08-08修正：使用者確認Pocket TCG（跟紙牌版TCG不同）沒有「牌庫抽完直接落敗」這條規則
+// ——原本這裡誤套用了紙牌版TCG的通用慣例，已移除；牌庫空的時候單純不抽牌，不判定勝負
 function pocketStartFirstTurn(G) {
   const side = G[G.turn];
-  if (side.deck.length === 0) { G.winner = G.turn === 'p1' ? 'p2' : 'p1'; G.phase = 'done'; return; }
-  side.hand.push(side.deck.shift());
+  if (side.deck.length > 0) side.hand.push(side.deck.shift());
 }
 // 中毒在「該側回合結束」時扣血（不是對手回合結束）——真實TCG通用時機慣例
 // Pokémon Checkup（回合結束當下的狀態結算）：中毒/燒傷/麻痺 + 回合結束觸發型被動特性。
@@ -2802,8 +2803,9 @@ function pocketStartNextTurn(G) {
   G.turn = endingRole === 'p1' ? 'p2' : 'p1';
   G.turnNumber++;
   const side = G[G.turn];
-  if (side.deck.length === 0) { G.winner = G.turn === 'p1' ? 'p2' : 'p1'; G.phase = 'done'; return; }
-  side.hand.push(side.deck.shift());
+  // 2026-08-08修正：Pocket TCG沒有「牌庫抽完直接落敗」這條規則（跟紙牌版TCG不同），
+  // 牌庫空的時候單純不抽牌繼續進行，不判定勝負
+  if (side.deck.length > 0) side.hand.push(side.deck.shift());
   // Porygon-Z（2026-08-08新增）：對手指定「下次能量區產生的能量」隨機變成某個屬性——
   // 用一次性欄位覆蓋，套用後立刻清掉，不會持續影響之後每回合的能量產生
   if (side.nextEnergyOverride) {
@@ -2855,8 +2857,13 @@ function pocketEnterForcedSwitch(G, koRole, reason) {
 }
 
 // 共用的「主戰寶可夢死亡」處理：加分給對方、丟棄、視情況進入forced_switch或判定勝負。
-// koRole = 死掉的那隻寶可夢的擁有者。awardPoint=false 用在「非擊倒」的移除情境（例如Sabrina/幽浮硬幣把對手主戰換走），
-// 這種情況不算KO、不給分，但一樣要走「板凳空了就輸」跟「換人」流程。
+// koRole = 死掉的那隻寶可夢的擁有者。awardPoint=false 用在「非擊倒」的移除情境（例如Aerodactyl
+// 「洗回牌庫」、Fan Rotom「擲硬幣放回對手手牌」、Guzzlord「棄置對手主戰」、Liepard「洗回自己牌庫」
+// 這幾個ATTACK_EFFECTS——見3292/3549/3604/3707行），這種情況不算KO、不給分，但一樣要走
+// 「板凳空了就輸」跟「換人」流程。
+// 注意：娜姿(Sabrina/A1-225)不是這種情境——她是純粹的「強制對手換人」，直接操作
+// oppSide.active/bench+呼叫pocketEnterForcedSwitch，完全不經過這個函式，跟對手的寶可夢
+// 有沒有被擊倒無關（原本這裡的註解誤把娜姿列成這個函式的用例，已更正）。
 function pocketResolveActiveKO(G, koRole, awardPoint = true) {
   const koSide = G[koRole];
   const otherRole = koRole === 'p1' ? 'p2' : 'p1';
