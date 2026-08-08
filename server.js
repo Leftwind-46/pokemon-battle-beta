@@ -806,7 +806,7 @@ function tryHealingRainbowRevive(poke, log) {
 // Executes attack and mutates defender/buffs. Returns { damage, mult }.
 function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult = 1, standbyGuardMult = 1) {
   const atkType   = aBuff.typeOverride || atk.type;
-  const burnMult  = attacker.status?.type === 'burn' ? 0.94 : 1;
+  const burnMult  = attacker.status?.type === 'burn' ? 0.7 : 1;
   // aRole/dRole moved up from further down (identity-comparison only, doesn't depend on anything
   // computed later) so the early-return immunity branches below can also respect 封印特性.
   const aRole = aBuff === G.p1Buff ? 'p1' : 'p2';
@@ -886,7 +886,7 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     const rStadiumFlatBonus = rLavaBonus + rDragonValleyBonus + rInvertBonus + rElectricStormBonus + rIceTundraBonus + rSteelFortressBonus + rBugHiveBonus + rFairyWardBonus + rOceanPokeBonus;
     const rShieldTerm = (dBuff.ignoreShield || atk.ignoreShield || defenderAbility?.id === 'crowned-sword-might') ? 0 : (attackerAbility?.id === 'shield-invert' ? -aBuff.shield : aBuff.shield);
     const rCrownedShieldReduction = attackerAbility?.id === 'crowned-shield-aegis' ? 70 : 0;
-    const rBurnMult = defender.status?.type === 'burn' ? 0.94 : 1;
+    const rBurnMult = defender.status?.type === 'burn' ? 0.7 : 1;
     const dmg = (rMult === 0) ? 0 : Math.max(0, Math.max(1, Math.floor(
       (atk.dmg + dBuff.atkBonus + rStadiumFlatBonus + rAbilityDmgBonus + rMegaBoostBonus + rBonusVsTypeBonus) *
       dBuff.atkMult * rBurnMult * rMult * rStabMult * rAbilityDmgMult * rDefAbilityMult * rStadiumMult

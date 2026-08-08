@@ -1635,7 +1635,7 @@
       <ul>
         <li>每次攻擊的傷害分三層計算：先把所有「固定加成」加總，再乘上所有「倍率」，最後扣掉「固定減傷」。</li>
         <li><b>① 固定加成（相加）</b>：招式本身的基礎威力，加上場地卡／特性／訓練師卡給的固定攻擊力加成（例如「攻擊傷害 +40」「+70」這類數字）全部加總在一起。</li>
-        <li><b>② 倍率（相乘）</b>：屬性相剋（×0～×1.6）、STAB 屬性加成（×1.1 或 ×1.2）、燒傷降低攻擊力（×0.94）、部分特性或場地卡的傷害倍率（例如猛火系特性 HP 過低時 ×1.1）全部連乘在一起。</li>
+        <li><b>② 倍率（相乘）</b>：屬性相剋（×0～×1.6）、STAB 屬性加成（×1.1 或 ×1.2）、燒傷降低攻擊力（×0.7）、部分特性或場地卡的傷害倍率（例如猛火系特性 HP 過低時 ×1.1）全部連乘在一起。</li>
         <li><b>③ 固定減傷（相減）</b>：對方的護盾牌／防禦強化、部分場地卡（岩石地帶、鋼鐵堡壘等）的固定減傷數值，會在最後一步直接扣除——最多扣到 0，不會讓攻擊方倒扣血量、反而幫對方加血。</li>
         <li>只要攻擊沒有被完全無效化（×0）、閃避或格擋，最終傷害至少為 1。</li>
         <li><b>Mega 進化對傷害的影響</b>：不能 Mega 進化的寶可夢，攻擊傷害固定 +40；能 Mega 進化但還沒進化的，反而 −20；已經 Mega 進化的，+100（同時招式消耗能量打 8 折）——刻意讓「已進化」明顯比「不能進化」更強、「能進化卻還沒進化」略弱一截，鼓勵盡快湊滿 Mega 能量進化，而不是一直維持在原形態觀望。</li>
@@ -1645,7 +1645,7 @@
       <h3>異常狀態</h3>
       <ul>
         <li><b>☠ 中毒</b>：損失 1/8 最大 HP，在該回合的行動（攻擊或格擋）結束後才扣血，不會搶在攻擊之前把你打倒。</li>
-        <li><b>🔥 燒傷</b>：損失 1/16 最大 HP（同樣是行動後才扣），且攻擊力降低 6%（×0.94）。</li>
+        <li><b>🔥 燒傷</b>：損失 1/16 最大 HP（同樣是行動後才扣），且攻擊力降低 30%（×0.7）。</li>
         <li><b>⚡ 麻痺</b>：每回合 50% 機率完全無法行動。</li>
         <li><b>💤 睡眠</b>：無法行動 2–3 回合後自然醒來；回合數每回合都會減少，格擋也算一回合。</li>
         <li><b>❄ 結凍</b>：無法行動；冰凍 2 回合後自動解凍，或被火系招式命中立即解凍，自己使出火屬性招式也能立即解凍；回合數每回合都會減少，格擋也算一回合。</li>
@@ -5522,7 +5522,7 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   const attackerAbility = isAbilitySealed(aSide) ? null : attacker.ability;
   const defenderAbility = isAbilitySealed(dSide) ? null : defender.ability;
   const atkType  = aBuff.typeOverride || atk.type;
-  const burnMult = attacker.status?.type === 'burn' ? 0.94 : 1;
+  const burnMult = attacker.status?.type === 'burn' ? 0.7 : 1;
   const aLabel   = aSide === 'player' ? '你的' : '對手的';
   const dLabel   = dSide === 'player' ? '你的' : '對手的';
   const atkTypeName = TYPE_ZH[atkType] || atkType;
@@ -5610,7 +5610,7 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
     const rStadiumFlatBonus = rLavaBonus + rDragonValleyBonus + rInvertBonus + rElectricStormBonus + rIceTundraBonus + rSteelFortressBonus + rBugHiveBonus + rFairyWardBonus + rOceanPokeBonus;
     const rShieldTerm = (dBuff.ignoreShield || atk.ignoreShield || defenderAbility?.id === 'crowned-sword-might') ? 0 : (attackerAbility?.id === 'shield-invert' ? -aBuff.shield : aBuff.shield);
     const rCrownedShieldReduction = attackerAbility?.id === 'crowned-shield-aegis' ? 70 : 0;
-    const rBurnMult = defender.status?.type === 'burn' ? 0.94 : 1;
+    const rBurnMult = defender.status?.type === 'burn' ? 0.7 : 1;
     const dmg = (rMult === 0) ? 0 : Math.max(0, Math.max(1, Math.floor(
       (atk.dmg + dBuff.atkBonus + rStadiumFlatBonus + rAbilityDmgBonus + rMegaBoostBonus + rBonusVsTypeBonus) *
       dBuff.atkMult * rBurnMult * rMult * rStabMult * rAbilityDmgMult * rDefAbilityMult * rStadiumMult
