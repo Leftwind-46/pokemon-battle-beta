@@ -2755,8 +2755,10 @@ function pocketRunCheckup(G) {
   // （turn 1=先攻方第一回合、turn 2=後攻方第一回合，不管誰先攻都成立，不需要額外查firstPlayer）。
   // 不限持有者在主戰/板凳，跟Snowy Terrain(限定主戰)不同，掃全場
   if (G.turnNumber <= 2 && endingSide.energyTypes.includes('Lightning')) {
-    const holder = [endingSide.active, ...endingSide.bench].find(p => p?.abilities?.[0]?.name === 'Thunderclap Flash');
-    if (holder) { holder.energy.push('Lightning'); pocketEmitCardActivation(G, endingRole, holder, '特性觸發：Thunderclap Flash'); }
+    // 2026-08-08修正：原本用find()只抓場上第一隻符合的持有者，場上同時有2隻以上Zeraora時
+    // 只有一隻會觸發——這個特性沒有「每回合限用1次」的場地限定，應該每一隻持有者都各自觸發
+    const holders = [endingSide.active, ...endingSide.bench].filter(p => p?.abilities?.[0]?.name === 'Thunderclap Flash');
+    for (const holder of holders) { holder.energy.push('Lightning'); pocketEmitCardActivation(G, endingRole, holder, '特性觸發：Thunderclap Flash'); }
   }
   // 回合結束觸發型Tool（2026-08-07新增）：Leftovers只在主戰位置生效，Lum Berry/Sitrus Berry
   // 沒有位置限制（"the Pokémon this card is attached to"沒有寫"in the Active Spot"），要檢查
