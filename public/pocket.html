@@ -267,6 +267,12 @@
   .energy-zone-dock .energy-zone.has-energy:active { cursor:grabbing; }
   .energy-zone-label { font-size:0.6rem; color:var(--muted); }
 
+  /* ── 場地卡顯示（2026-08-08新增）：跟energy-zone-dock同一排、同樣的直式排版習慣 ── */
+  .stadium-dock { display:flex; flex-direction:column; align-items:center; gap:0.2rem; cursor:pointer; }
+  .stadium-dock .stadium-img { width:52px; height:52px; object-fit:cover; border-radius:10px;
+    border:2px solid rgba(248,208,48,0.55); box-shadow:0 0 8px rgba(248,208,48,0.25); }
+  .stadium-label { font-size:0.6rem; color:var(--muted); max-width:70px; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
   /* ── 能量圖示：漸層發光圓底+原創SVG線稿符號，取代原本純色小圓點/emoji ── */
   .energy-icon { width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
   .energy-icon svg { width:60%; height:60%; filter:drop-shadow(0 1px 1px rgba(0,0,0,0.6)); }
@@ -541,6 +547,12 @@
     <div class="energy-zone-dock">
       <div class="energy-zone" id="energy-zone-chip"></div>
       <div class="energy-zone-label">能量區</div>
+    </div>
+    <!-- 場地卡顯示（2026-08-08新增）：雙方共用，放在戰場中間這條分隔帶，跟能量區同一排——
+         沒有場地卡在場時整個隱藏，不佔位置 -->
+    <div class="stadium-dock" id="stadium-dock" style="display:none">
+      <img class="stadium-img" id="stadium-img" src="" alt="">
+      <div class="stadium-label" id="stadium-label"></div>
     </div>
     <div class="action-hint" id="action-hint"></div>
   </div>
@@ -1431,6 +1443,11 @@ function pocketFindCardByUid(uid) {
     state.opponent?.active, ...(state.opponent?.bench || [])];
   return pools.find(c => c && c.uid === uid) || null;
 }
+// 場地卡顯示用（2026-08-08新增）：state.activeStadium只有{id,name}（server端這樣存，見
+// pocketViewFor），沒有image欄位——查ALL_CARDS這個組牌畫面本來就會載入的完整卡池拿圖片
+function pocketFindCardById(id) {
+  return ALL_CARDS.find(c => c.id === id) || null;
+}
 // actions（可選）：[{label, primary, disabled, onClick}] ——2026-08-05新增，讓卡片預覽面板
 // 兼任「點卡→看到能做什麼→確認」的操作入口，取代原本手牌/場上寶可夢單擊直接觸發動作
 // （沒有預覽、容易誤觸）的舊行為。純檢視用途（例如查看對手的卡）不傳actions就跟以前一樣。
@@ -1584,6 +1601,20 @@ function renderBoard() {
     chip.draggable = false;
     chip.onclick = null;
     chip.style.background = 'transparent';
+  }
+
+  // 場地卡顯示（2026-08-08新增）：state.activeStadium只有{id,name}，查ALL_CARDS拿圖片+完整卡面
+  const stadiumDock = document.getElementById('stadium-dock');
+  if (state.activeStadium) {
+    const stadiumCard = pocketFindCardById(state.activeStadium.id);
+    stadiumDock.style.display = 'flex';
+    document.getElementById('stadium-img').src = pocketThumbUrl(stadiumCard?.image) || '';
+    document.getElementById('stadium-label').textContent = state.activeStadium.name;
+    stadiumDock.title = `場地卡：${state.activeStadium.name}（點擊查看詳情）`;
+    stadiumDock.onclick = () => { if (stadiumCard) showCardDetail(stadiumCard); };
+  } else {
+    stadiumDock.style.display = 'none';
+    stadiumDock.onclick = null;
   }
 
   // attack buttons
