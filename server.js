@@ -5423,6 +5423,18 @@ const ABILITY_EFFECTS = {
     ctx.side.active.energy.push('Psychic');
     return null;
   },
+  // Ignition（2026-08-08修正）：原本照卡面文字字面「when you play this Pokémon from your
+  // hand to evolve...」誤判成進化觸發型，放進EVOLVE_TRIGGER_ABILITIES——使用者實際遊玩回報
+  // 這張卡在遊戲裡其實是「每回合限用1次」的按鈕型特性，不綁定進化當下那個瞬間，之後每回合
+  // 都能用。跟Psy Shadow同一種「從能量區拿1點指定屬性能量給場上是指定屬性的主戰」寫法，
+  // 差別只在屬性換成火（Psychic→Fire），且不限定holder自己在主戰位置（跟Bouncy Body那類
+  // 「持有者不用在主戰，只影響主戰」的既有慣例一致）
+  'Ignition': (ctx) => {
+    if (!ctx.side.active || !(ctx.side.active.types || []).includes('Fire')) return '主戰必須是火屬性';
+    if (!ctx.side.energyTypes.includes('Fire')) return '你的能量區沒有火屬性能量';
+    ctx.side.active.energy.push('Fire');
+    return null;
+  },
   'Gas Leak': (ctx, poke) => { // Weezing：只有在主戰位置時，每回合1次讓對方主戰中毒
     if (ctx.side.active?.uid !== poke.uid) return 'Weezing必須在主戰位置才能使用特性';
     if (ctx.oppSide.active) ctx.oppSide.active.status = 'poisoned';
@@ -5752,11 +5764,6 @@ const EVOLVE_TRIGGER_ABILITIES = {
     }
   },
   'Unruly Claw': (ctx) => { if (ctx.oppSide.active?.energy.length) ctx.oppSide.active.energy.splice(Math.floor(Math.random() * ctx.oppSide.active.energy.length), 1); },
-  'Ignition': (ctx, poke) => { // 目標固定是「主戰位置上的火屬性寶可夢」，不是「1 of」語法，不用玩家選
-    if (ctx.side.active && (ctx.side.active.types || []).includes('Fire') && ctx.side.energyTypes.includes('Fire')) {
-      ctx.side.active.energy.push('Fire');
-    }
-  },
   'Refreshing Tea': (ctx) => {
     const drawCount = Math.max(0, 3 - ctx.oppSide.points);
     ctx.oppSide.deck = pocketShuffle([...ctx.oppSide.deck, ...ctx.oppSide.hand]);
