@@ -5996,8 +5996,11 @@ const TRAINER_EFFECTS = {
     const pool = [ctx.side.active, ...ctx.side.bench].filter(p => p && FUTURE_POKEMON_NAMES.has(p.name));
     const target = pool.find(p => p.uid === msg.target);
     if (!target) return '請選擇己方場上的近未來寶可夢(Future Pokémon)';
-    if (ctx.side.active === target) ctx.side.active = null; else ctx.side.bench = ctx.side.bench.filter(p => p.uid !== target.uid);
+    const wasActive = ctx.side.active === target;
+    if (wasActive) ctx.side.active = null; else ctx.side.bench = ctx.side.bench.filter(p => p.uid !== target.uid);
     ctx.side.deck = pocketShuffle([...ctx.side.deck, structuredClone(POCKET_CARDS_BY_ID[target.id])]);
+    // 選走的如果剛好是主戰，不能放著主戰位置空著沒人——跟Parasol Lady/Sabrina/Drive Off同一套強制換人流程
+    if (wasActive) pocketEnterForcedSwitch(ctx.G, ctx.role, 'noEndTurn');
     return null;
   },
   // Area Zero：打出來只負責蓋場地卡，「每回合各自可以用一次」的主動效果跟Mesagoza/Fragrant
