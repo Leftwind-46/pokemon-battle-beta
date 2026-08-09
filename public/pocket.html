@@ -367,6 +367,14 @@
   /* ── 狀態/增益小圖示 ── */
   .status-badges { display:flex; gap:2px; justify-content:center; flex-wrap:wrap; margin-top:2px; }
   .status-chip { font-size:0.6rem; background:rgba(255,255,255,0.1); border-radius:4px; padding:0 3px; }
+  /* 2026-08-09新增：異常狀態（中毒/麻痺/睡眠/灼傷/混亂）跟其他一般小徽章（禁止攻擊/裝備等）
+     共用同一個.status-chip樣式，太不顯眼容易被忽略——比照主戰鬥模式(pokemon_battle.html)
+     已經在用的顏色語言，異常狀態改用專屬彩色底+粗體，一眼就能跟其他灰底徽章分開 */
+  .status-chip.status-poisoned  { background:#7b1fa2; color:#fff; font-weight:700; }
+  .status-chip.status-paralyzed { background:#f57f17; color:#111; font-weight:700; }
+  .status-chip.status-asleep    { background:#283593; color:#fff; font-weight:700; }
+  .status-chip.status-confused  { background:#880e4f; color:#fff; font-weight:700; }
+  .status-chip.status-burned    { background:#bf360c; color:#fff; font-weight:700; }
 </style>
 </head>
 <body>
@@ -1538,7 +1546,7 @@ function renderPokeSlot(p, { pickable = false, dataset = {}, own = false } = {})
   const energyIcons = (p.energy || []).map(e => energyIconHtml(e, true)).join('');
   const attrs = Object.entries(dataset).map(([k, v]) => `data-${k}="${v}"`).join(' ');
   const badges = [];
-  if (p.status) badges.push(`<span class="status-chip">${STATUS_LABEL[p.status] || p.status}</span>`);
+  if (p.status) badges.push(`<span class="status-chip status-${p.status}">${STATUS_LABEL[p.status] || p.status}</span>`);
   const tn = state?.turnNumber ?? 0;
   if (p.cantAttackUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合不能攻擊">🚫⚔</span>`);
   if (p.cantRetreatUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合不能撤退">🚫🔄</span>`);
