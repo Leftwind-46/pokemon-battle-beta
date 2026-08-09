@@ -1682,8 +1682,19 @@ function renderBoard() {
     stadiumDock.style.display = 'flex';
     document.getElementById('stadium-img').src = pocketThumbUrl(stadiumCard?.image) || '';
     document.getElementById('stadium-label').textContent = state.activeStadium.name;
-    stadiumDock.title = `場地卡：${state.activeStadium.name}（點擊查看詳情）`;
-    stadiumDock.onclick = () => { if (stadiumCard) showCardDetail(stadiumCard); };
+    // Field Blower等可以棄場地卡的道具卡選取中時，點場地卡改成送出target:'stadium'，
+    // 不是打開詳情面板——跟item-target點board上寶可夢是同一套流程，只是目標池換成場地卡本體
+    if (selectedAction?.mode === 'item-target' && TRAINER_CAN_TARGET_STADIUM.has(selectedAction.effectId)) {
+      stadiumDock.title = `棄掉場地卡：${state.activeStadium.name}`;
+      stadiumDock.onclick = () => {
+        spawnPlayFlourish(pocketThumbUrl(pocketFindCardByUid(selectedAction.handUid)?.image), stadiumDock);
+        wsSend({ type: selectedAction.isSupporter ? 'pocket_play_supporter' : 'pocket_play_item', handUid: selectedAction.handUid, target: 'stadium' });
+        selectedAction = null;
+      };
+    } else {
+      stadiumDock.title = `場地卡：${state.activeStadium.name}（點擊查看詳情）`;
+      stadiumDock.onclick = () => { if (stadiumCard) showCardDetail(stadiumCard); };
+    }
   } else {
     stadiumDock.style.display = 'none';
     stadiumDock.onclick = null;
@@ -1893,7 +1904,10 @@ function updateActionHint() {
   if (selectedAction.mode === 'attach') text = '點擊己方的寶可夢來附加能量';
   else if (selectedAction.mode === 'evolve') text = `點擊要進化成 ${selectedAction.name} 的寶可夢`;
   else if (selectedAction.mode === 'retreat') text = '點擊板凳寶可夢來撤退交換';
-  else if (selectedAction.mode === 'item-target') text = selectedAction.side === 'opp' ? '點擊對手場上的寶可夢作為目標' : selectedAction.side === 'any' ? '點擊雙方場上任一隻寶可夢作為目標' : '點擊己方場上的寶可夢作為目標';
+  else if (selectedAction.mode === 'item-target') {
+    text = selectedAction.side === 'opp' ? '點擊對手場上的寶可夢作為目標' : selectedAction.side === 'any' ? '點擊雙方場上任一隻寶可夢作為目標' : '點擊己方場上的寶可夢作為目標';
+    if (TRAINER_CAN_TARGET_STADIUM.has(selectedAction.effectId) && state?.activeStadium) text += '，或點擊場地卡改成棄掉場地卡';
+  }
   else if (selectedAction.mode === 'ability-target') text = selectedAction.side === 'opp' ? '點擊對手場上的寶可夢作為目標' : '點擊己方場上的寶可夢作為目標';
   hint.classList.add('active');
   hint.innerHTML = `<span>${text}</span><button class="hint-cancel" onclick="cancelAction()">取消</button>`;
@@ -1947,9 +1961,11 @@ const TRAINER_NEEDS_DISCARD_TARGET = new Set(['A1a-064']); // Pokémon Flute：�
 const TRAINER_TARGET_SIDE = {
   'A2-150': 'opp', 'A3-152': 'opp',
   // 2026-08-08再接續：Psychic(B4-150)目標是對手板凳；Field Blower(B3-147)雙方場上任一隻皆可選
-  // （'any'，跳過「或棄場地卡」的替代用法，理由見memory的documented simplification）
   'B4-150': 'opp', 'B3-147': 'any',
 };
+// Field Blower：除了選寶可夢身上的道具卡，也可以改成點場地卡本體棄掉——server端(B3-147)
+// 本來就支援msg.target==='stadium'，這裡補上client端讓場地卡可以被點擊選為目標
+const TRAINER_CAN_TARGET_STADIUM = new Set(['B3-147']);
 // 2026-08-06新增：需要玩家指定目標的特性，value是目標池在哪一側（'own'=己方場上/'opp'=對手場上）
 const ABILITY_NEEDS_TARGET = {
   'Water Shuriken': 'opp', 'Dark Chase': 'opp', 'Captivating Rhythm': 'opp',
@@ -2155,7 +2171,7 @@ function computeHandCardActions(card) {
     if (TRAINER_NEEDS_TARGET.has(card.effectId || card.id)) {
       return [{ label: '選擇目標寶可夢', primary: true, onClick: () => {
         const targetSide = TRAINER_TARGET_SIDE[card.effectId || card.id] || 'own';
-        selectedAction = { mode: 'item-target', handUid: card.uid, isSupporter, side: targetSide };
+        selectedAction = { mode: 'item-target', handUid: card.uid, isSupporter, side: targetSide, effectId: card.effectId || card.id };
         updateActionHint(); renderBoard();
       } }];
     }
