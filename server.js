@@ -2713,6 +2713,18 @@ function pocketFreshSide(drawn, deckIds, energyTypesOverride) {
 function pocketPickEnergy(types) {
   return types[Math.floor(Math.random() * types.length)];
 }
+// 能量區「產生下一個能量」的共用邏輯——不管是回合開始自然觸發，還是Rainbow Cave這種回合中
+// 提前觸發，規則都一樣：pendingEnergy直接繼承previewEnergy（那份「下一個能量」本來就已經
+// 產生好、玩家已經看過預覽，不是重新roll一個新的），previewEnergy再重新roll一份新的預覽。
+function pocketProduceEnergy(side) {
+  if (side.nextEnergyOverride) {
+    side.pendingEnergy = side.nextEnergyOverride;
+    side.nextEnergyOverride = null;
+  } else {
+    side.pendingEnergy = side.previewEnergy || pocketPickEnergy(side.energyTypes);
+  }
+  side.previewEnergy = pocketPickEnergy(side.energyTypes);
+}
 // 第1回合（先攻方）沒有能量區能量，但雙方從第1回合就要抽牌
 // 2026-08-08修正：使用者確認Pocket TCG（跟紙牌版TCG不同）沒有「牌庫抽完直接落敗」這條規則
 // ——原本這裡誤套用了紙牌版TCG的通用慣例，已移除；牌庫空的時候單純不抽牌，不判定勝負
@@ -2927,17 +2939,9 @@ function pocketStartNextTurn(G) {
   // 用一次性欄位覆蓋，套用後立刻清掉，不會持續影響之後每回合的能量產生
   // 2026-08-08再接續：能量預覽——previewEnergy是上一輪就先算好、玩家已經看過的「這回合會拿到
   // 的能量」，這裡直接拿來當真正的pendingEnergy用（不重新roll，不然畫面上先前顯示的預覽會
-  // 變成謊話）；nextEnergyOverride仍然優先於預覽（Porygon-Z那類效果生效時也會同步覆蓋掉
-  // previewEnergy，見下方effect handler），確保「玩家看到的預覽」永遠等於「實際拿到的」。
-  if (side.nextEnergyOverride) {
-    side.pendingEnergy = side.nextEnergyOverride;
-    side.nextEnergyOverride = null;
-  } else if (side.previewEnergy) {
-    side.pendingEnergy = side.previewEnergy;
-  } else {
-    side.pendingEnergy = pocketPickEnergy(side.energyTypes);
-  }
-  side.previewEnergy = pocketPickEnergy(side.energyTypes);
+  // 變成謊話），確保「玩家看到的預覽」永遠等於「實際拿到的」。共用邏輯見pocketProduceEnergy
+  // （Rainbow Cave回合中提前觸發同一套規則，2026-08-09抽出共用避免兩處drift）。
+  pocketProduceEnergy(side);
   side.energyAttachedThisTurn = false;
   side.retreatedThisTurn = false;
   side.supporterUsedThisTurn = false;
@@ -9853,14 +9857,19 @@ async function handleMessage(ws, msg) {
         side.hand.push(toolCard);
         side.deck.push(handCard);
         side.deck = pocketShuffle(side.deck);
-      } else if (stadiumId === 'B4-155') { // Rainbow Cave：棄掉目前能量區的能量，立刻重新產生一份新的
+      } else if (stadiumId === 'B4-155') { // Rainbow Cave：棄掉目前能量區的能量，「下一個能量」直接補上來
         if (side.stadiumUsedThisTurn) { send(ws, { type: 'error', message: '這回合已經用過場地卡效果了' }); return; }
         if (!side.pendingEnergy) { send(ws, { type: 'error', message: '能量區目前沒有能量可以棄掉' }); return; }
         side.stadiumUsedThisTurn = true;
         // 2026-08-08修正：棄掉的能量原本憑空消失，導致Dragon's Blessing之後找不到——
         // 真實規則被棄掉的能量會進棄牌堆，這裡丟進discardEnergy（見該欄位說明）
         side.discardEnergy.push(side.pendingEnergy);
-        side.pendingEnergy = pocketPickEnergy(side.energyTypes);
+        // 2026-08-09修正：原本重新隨機roll一個全新的pendingEnergy，完全沒動previewEnergy——
+        // 但玩家在這之前就已經看過「下一回合能量」的預覽（previewEnergy不是回合開始才產生，
+        // 是已經先算好、只是正常情況要下回合才能用），卡面「the next Energy is produced」指的
+        // 就是這份已經存在的預覽直接補上來，不是無關的重新隨機。改用跟回合開始同一套
+        // pocketProduceEnergy：pendingEnergy繼承原本的previewEnergy，再重新roll一份新預覽。
+        pocketProduceEnergy(side);
       } else {
         return;
       }
