@@ -4954,12 +4954,14 @@ const ATTACK_EFFECTS = {
     ctx.attacker.curHp = Math.min(ctx.attacker.hp, ctx.attacker.curHp + 30);
     if (ctx.defender) ctx.defender.cantRetreatUntilTurn = ctx.G.turnNumber + 1;
   },
-  // 「if you do, THIS attack does N more」要在同一次攻擊結算同步生效——不能用needsChoice
-  // （那個是暫停等玩家之後回應，跟mainDamage同步計算的架構對不上），改成跟Rare Candy同一種
-  // 「自動選第一張符合條件的」簡化，選擇本身沒有策略深度差異（板凳基礎草寶可夢都一樣被棄置）
+  // 2026-08-09修正：原本「自動選第一張符合條件的」是誤判——「may」代表玩家可以選擇要不要
+  // 棄、棄哪一隻都該由玩家決定，不是沒有策略深度（棄哪隻板凳草寶可夢當然有差）。base傷害
+  // 這裡不動（維持atk.damage解析出的預設值，正常隨mainDamage結算），只用needsChoice暫停
+  // 問玩家要不要棄+棄哪隻，pool='ownBench'+optional:true讓client多顯示一個「不棄」按鈕，
+  // 解析邏輯見pocket_attack_choice的action==='discardForBoost'分支
   "You may discard 1 of your Benched Basic {G} Pokémon. If you do, this attack does 70 more damage.": ctx => {
-    const idx = ctx.side.bench.findIndex(p => p.stage === 'Basic' && (p.types || []).includes('Grass'));
-    if (idx >= 0) { ctx.side.discard.push(ctx.side.bench.splice(idx, 1)[0]); ctx.rawDamage += 70; }
+    const eligible = ctx.side.bench.filter(p => p.stage === 'Basic' && (p.types || []).includes('Grass'));
+    if (eligible.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownBench', eligibleUids: eligible.map(p => p.uid), action: 'discardForBoost', boostAmount: 70, optional: true };
   },
   "Your opponent's Active Pokémon is now Poisoned and Paralyzed. Shuffle this Pokémon and all attached cards into your deck.": ctx => {
     if (ctx.defender) { ctx.defender.status = 'poisoned'; }
@@ -9620,6 +9622,12 @@ async function handleMessage(ws, msg) {
         bench.enteredActiveThisTurn = G.turnNumber; // Golisopod/Scizor/Basculin
         side.bench[idx] = attacker;
         side.active = bench;
+      } else if (pending.kind === 'pick_target' && pending.optional && msg.skip) {
+        // 2026-08-09新增：optional的pick_target允許玩家不選任何目標直接跳過——目前只有
+        // discardForBoost(Vespiquen ex「可以棄1隻板凳換多傷害，不棄也可以」)用到，卡面是
+        // "you may"不是強制。擺在一般pick_target分支之前優先攔截msg.skip，不動到既有分支
+        // 內容；base傷害已經在pocket_attack當下打完，這裡什麼都不用做，直接落到下面的共用
+        // 收尾（清pendingChoice+結束回合）。
       } else if (pending.kind === 'pick_target') {
         // 通用「1 of your (opponent's) (Benched) Pokémon」目標選擇——pool='ownBench'只能選
         // 自己板凳，pool='oppAll'可以選對手主戰+板凳（例如打對手任一寶可夢的攻擊效果）
@@ -9710,6 +9718,20 @@ async function handleMessage(ws, msg) {
           }
           if (pocketCheckWin(G)) { G.pendingChoice = null; pocketBroadcastState(pRoom); return; }
           if (G.phase === 'forced_switch' || G.phase === 'done') { G.pendingChoice = null; pocketBroadcastState(pRoom); return; }
+        } else if (pending.action === 'discardForBoost') {
+          // Vespiquen ex「Chase Order」：base傷害已經在pocket_attack當下正常結算過（打的是
+          // 固定的defender，不是玩家選的），這裡只處理「棄掉選中的板凳寶可夢」+補上額外傷害，
+          // 跟damage/damagePerEnergy同一種「延遲生效，自己重跑KO/勝負判定」模式
+          side.bench = side.bench.filter(p => p.uid !== target.uid);
+          side.discard.push(target);
+          const defender = oppSide.active;
+          if (defender) {
+            defender.curHp = Math.max(0, defender.curHp - pending.boostAmount);
+            pocketResolveBenchKOs(G, oppSide, role);
+            if (oppSide.active?.uid === defender.uid && defender.curHp <= 0) pocketResolveActiveKO(G, op);
+            if (pocketCheckWin(G)) { G.pendingChoice = null; pocketBroadcastState(pRoom); return; }
+            if (G.phase === 'forced_switch' || G.phase === 'done') { G.pendingChoice = null; pocketBroadcastState(pRoom); return; }
+          }
         }
       } else if (pending.kind === 'pick_move') {
         // 「Choose 1 of your opponent's Active Pokémon's attacks and use it as this attack.」

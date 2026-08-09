@@ -659,6 +659,10 @@
       <h2 id="attack-choice-title"></h2>
       <p class="lobby-sub" id="attack-choice-sub"></p>
       <div class="setup-hand" id="attack-choice-options"></div>
+      <!-- 2026-08-09新增：optional的pick_target（目前只有Vespiquen ex的discardForBoost）
+           讓玩家可以直接跳過不選，卡面是"you may"不是強制——其他pendingChoice都是必選，
+           這個按鈕只在pendingChoice.optional時顯示，見renderBoard()的切換邏輯 -->
+      <button class="btn btn-secondary" id="attack-choice-skip-btn" style="display:none;margin-top:0.6rem" onclick="wsSend({type:'pocket_attack_choice', skip:true})">不棄置，維持原本傷害</button>
     </div>
   </div>
 
@@ -1791,6 +1795,7 @@ function renderBoard() {
     const titleEl = document.getElementById('attack-choice-title');
     const subEl = document.getElementById('attack-choice-sub');
     const optionsEl = document.getElementById('attack-choice-options');
+    document.getElementById('attack-choice-skip-btn').style.display = pendingChoice.optional ? '' : 'none';
     if (pendingChoice.kind === 'energy_distribute') {
       const queue = pendingChoice.energyQueue || [];
       titleEl.textContent = `分配 ${TYPE_ZH[queue[0]] || queue[0]} 能量`;
@@ -1835,8 +1840,10 @@ function renderBoard() {
         ? `選擇要治療哪隻寶可夢（回復 ${pendingChoice.amount} 血量）`
         : pendingChoice.action === 'attachEnergy'
         ? `選擇要附加 ${TYPE_ZH[pendingChoice.energyType] || pendingChoice.energyType} 能量的${isOwn ? '板凳' : ''}寶可夢`
+        : pendingChoice.action === 'discardForBoost'
+        ? `可以棄掉1隻板凳基礎草屬性寶可夢，讓這次攻擊多打 ${pendingChoice.boostAmount} 傷害`
         : `選擇要${isOwn ? '犧牲哪隻板凳寶可夢承受傷害' : '攻擊對手場上的哪隻寶可夢'}`;
-      subEl.textContent = '';
+      subEl.textContent = pendingChoice.action === 'discardForBoost' ? '也可以選擇不棄，維持原本傷害' : '';
       const boardPool = pendingChoice.pool === 'oppAll' ? [opponent.active, ...(opponent.bench || [])]
         : pendingChoice.pool === 'ownAll' ? [you.active, ...(you.bench || [])]
         : (you.bench || []);
