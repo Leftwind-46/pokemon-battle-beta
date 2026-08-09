@@ -6139,11 +6139,11 @@ function pocketToolRetreatDiscount(poke) {
   if (toolId === 'B3b-064' && poke.stage === 'Basic') return { free: false, discount: 1 }; // Small Balloon
   return { free: false, discount: 0 };
 }
-// 板凳傷害免疫：Protective Poncho，裝備者在板凳上時完全不受對手招式/特性造成的傷害——
-// 跟其他hook不同，這個要在「板凳寶可夢受到濺傷」的地方額外檢查（pocketResolveBenchKOs的
-// 呼叫端，board splash傷害計算當下），不是KO判定本身
-function pocketToolBenchImmune(poke, isOnBench) {
-  return isOnBench && poke.tool?.id === 'B2-147';
+// 板凳傷害免疫：Protective Poncho/Shell Shield，裝備者(或特性持有者)在板凳上時完全不受
+// 對手招式/特性造成的傷害——集中成一個判斷式，snapshot/enforce流程跟KO觸發型特性(Final
+// Scream)兩種call site共用，避免同一條規則散落兩份、其中一份忘了更新
+function pocketBenchDamageImmune(poke, isOnBench) {
+  return isOnBench && (poke.tool?.id === 'B2-147' || poke.abilities?.[0]?.name === 'Shell Shield');
 }
 
 // ── 完全免疫異常狀態（2026-08-07新增）：Fabled Luster/Insomnia(僅睡眠)/Flower Shield/
@@ -6183,8 +6183,7 @@ function pocketSnapshotBenchHp(side) {
 }
 function pocketEnforceBenchImmunity(side, snapshot) {
   side.bench.forEach(p => {
-    if (snapshot.has(p.uid) && p.curHp < snapshot.get(p.uid) &&
-        (p.tool?.id === 'B2-147' || p.abilities?.[0]?.name === 'Shell Shield')) { // Shell Shield：2026-08-07新增，Protective Poncho同一機制的特性版本
+    if (snapshot.has(p.uid) && p.curHp < snapshot.get(p.uid) && pocketBenchDamageImmune(p, true)) {
       p.curHp = snapshot.get(p.uid);
     }
   });
@@ -9525,7 +9524,13 @@ async function handleMessage(ws, msg) {
           const fEnergy = defender.energy.filter(e => e === 'Fighting');
           if (fEnergy.length) { defender.energy = defender.energy.filter(e => e !== 'Fighting'); oppSide.bench[0].energy.push(...fEnergy); pocketEmitCardActivation(G, op, defender, '特性觸發：Offload Pass'); }
         } else if (defAbility === 'Final Scream') {
-          [side.active, ...side.bench].filter(Boolean).forEach(p => { if (p.curHp > 0) p.curHp = Math.max(0, p.curHp - 10); });
+          // 2026-08-09修正：這是defender(對手)的特性打到攻擊方整隊，板凳上裝Protective
+          // Poncho/Shell Shield的原本完全沒被保護到——這條路徑是KO觸發型特性，不是走
+          // effectFn(ctx)那套snapshot/enforce包裝，之前漏了單獨補這個判斷
+          const isBench = p => side.bench.includes(p);
+          [side.active, ...side.bench].filter(Boolean).forEach(p => {
+            if (p.curHp > 0 && !pocketBenchDamageImmune(p, isBench(p))) p.curHp = Math.max(0, p.curHp - 10);
+          });
           pocketEmitCardActivation(G, op, defender, '特性觸發：Final Scream');
         } else if (defAbility === 'Fade into Darkness' && pocketFlipCoin({ G, role: op })) {
           awardPointForDefender = false; // 只套用在單獨defenderDied分支，雙殺情境維持既有pocketResolveMutualKO不變（範圍刻意限縮，避免雙重特殊規則疊加）
