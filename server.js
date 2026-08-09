@@ -2582,8 +2582,10 @@ const POCKET_FOSSIL_IDS = new Set(['A1-216', 'A1-217', 'A1-218', 'A1a-063', 'A2-
 // 2026-08-08新增：「Ancient Pokémon」/「Future Pokémon」是這批卡才出現的新archetype標籤，
 // CSV資料沒有掃到任何rules-box欄位能判斷「哪些寶可夢算」——固定寫死成真實對戰卡池已知的
 // 準古神獸清單（Iron開頭=Future，其餘=Ancient，這是SV系列公開的官方分類，不是猜的）
-const ANCIENT_POKEMON_NAMES = new Set(['Great Tusk', 'Scream Tail', 'Brute Bonnet', 'Flutter Mane', 'Slither Wing', 'Sandy Shocks', 'Roaring Moon', 'Walking Wake', 'Gouging Fire', 'Raging Bolt']);
-const FUTURE_POKEMON_NAMES = new Set(['Iron Treads', 'Iron Bundle', 'Iron Hands', 'Iron Jugulis', 'Iron Moth', 'Iron Thorns', 'Iron Valiant', 'Iron Leaves', 'Iron Boulder', 'Iron Crown']);
+// Koraidon/Miraidon（含ex）本身也印有Ancient/Future規則框標記，不是只有典型的準古/近未來
+// Paradox寶可夢才算——2026-08-09補上，之前漏掉導致Professor Turo選密勒頓ex時判斷失敗
+const ANCIENT_POKEMON_NAMES = new Set(['Great Tusk', 'Scream Tail', 'Brute Bonnet', 'Flutter Mane', 'Slither Wing', 'Sandy Shocks', 'Roaring Moon', 'Walking Wake', 'Gouging Fire', 'Raging Bolt', 'Koraidon', 'Koraidon ex']);
+const FUTURE_POKEMON_NAMES = new Set(['Iron Treads', 'Iron Bundle', 'Iron Hands', 'Iron Jugulis', 'Iron Moth', 'Iron Thorns', 'Iron Valiant', 'Iron Leaves', 'Iron Boulder', 'Iron Crown', 'Miraidon', 'Miraidon ex']);
 function makePocketFossilInstance(cardId) {
   const base = POCKET_CARDS_BY_ID[cardId];
   return {
@@ -2999,6 +3001,12 @@ function pocketEnterForcedSwitch(G, koRole, reason) {
 // 注意：娜姿(Sabrina/A1-225)不是這種情境——她是純粹的「強制對手換人」，直接操作
 // oppSide.active/bench+呼叫pocketEnterForcedSwitch，完全不經過這個函式，跟對手的寶可夢
 // 有沒有被擊倒無關（原本這裡的註解誤把娜姿列成這個函式的用例，已更正）。
+// 擊倒得分：一般1分、ex 2分、Mega Evolution ex（名字開頭"Mega "且ex，跟Calem判斷同一個
+// 慣例）3分——比一般ex更強的獨立分級，不是「ex再加碼」的疊加規則
+function pocketKoPoints(dead) {
+  if (dead.ex && (dead.name || '').startsWith('Mega ')) return 3;
+  return dead.ex ? 2 : 1;
+}
 function pocketResolveActiveKO(G, koRole, awardPoint = true) {
   const koSide = G[koRole];
   const otherRole = koRole === 'p1' ? 'p2' : 'p1';
@@ -3022,7 +3030,7 @@ function pocketResolveActiveKO(G, koRole, awardPoint = true) {
     }
   }
   if (awardPoint) {
-    otherSide.points += dead.ex ? 2 : 1;
+    otherSide.points += pocketKoPoints(dead);
     // Rescue Scarf（2026-08-07新增Tool）：裝備者被擊倒時進手牌而非棄牌堆，重置成一張全新的卡
     // （化石卡實例當作Pokemon類別放board，理論上也能裝Tool，但這個組合太邊緣，刻意不處理，
     // 維持原本進棄牌堆的行為，避免把Trainer類的化石卡錯誤地當Pokemon卡塞進手牌）
@@ -3057,7 +3065,7 @@ function pocketResolveMutualKO(G, roleA, roleB) {
     const otherRole = koRole === 'p1' ? 'p2' : 'p1';
     const dead = koSide.active;
     koSide.pokemonKnockedOutCount = (koSide.pokemonKnockedOutCount || 0) + 1; // Overlord's Blade，跟pocketResolveActiveKO同一個計數
-    G[otherRole].points += dead.ex ? 2 : 1;
+    G[otherRole].points += pocketKoPoints(dead);
     koSide.discard.push(dead);
     koSide.active = null;
     return { koRole, otherRole, benchEmpty: koSide.bench.length === 0 };
@@ -3078,7 +3086,7 @@ function pocketResolveBenchKOs(G, side, otherRole) {
   side.bench = side.bench.filter(p => {
     if (p.curHp > 0) return true;
     side.pokemonKnockedOutCount = (side.pokemonKnockedOutCount || 0) + 1; // Overlord's Blade，跟pocketResolveActiveKO同一個計數
-    otherSide.points += p.ex ? 2 : 1;
+    otherSide.points += pocketKoPoints(p);
     side.discard.push(p);
     return false; // 從板凳移除
   });
@@ -4140,8 +4148,8 @@ const ATTACK_EFFECTS = {
       ctx.side.bench.push(p);
     }
   },
-  "Discard the top card of your opponent's deck.": ctx => { if (ctx.oppSide.deck.length) ctx.oppSide.deck.shift(); },
-  "Discard the top 3 cards of your opponent's deck.": ctx => { ctx.oppSide.deck.splice(0, 3); },
+  "Discard the top card of your opponent's deck.": ctx => { if (ctx.oppSide.deck.length) ctx.oppSide.discard.push(ctx.oppSide.deck.shift()); },
+  "Discard the top 3 cards of your opponent's deck.": ctx => { ctx.oppSide.discard.push(...ctx.oppSide.deck.splice(0, 3)); },
   "Discard a random card from your opponent's hand.": ctx => {
     if (ctx.oppSide.hand.length) ctx.oppSide.hand.splice(Math.floor(Math.random() * ctx.oppSide.hand.length), 1);
   },
@@ -4365,7 +4373,7 @@ const ATTACK_EFFECTS = {
       ctx.needsChoice = { kind: 'pick_target_multi', eligibleUids: ctx.side.bench.map(p => p.uid), energyType: 'Water', remaining: Math.min(2, ctx.side.bench.length) };
     }
   },
-  "Discard the top 3 cards of your deck.": ctx => { ctx.side.deck.splice(0, 3); },
+  "Discard the top 3 cards of your deck.": ctx => { ctx.side.discard.push(...ctx.side.deck.splice(0, 3)); },
   "Flip 2 coins. This attack does 20 more damage for each heads.": ctx => { ctx.rawDamage += pocketFlipCoins(2, ctx) * 20; },
   "This attack does 10 damage to each of your opponent's Pokémon.": ctx => {
     ctx.rawDamage = 0;
@@ -6362,7 +6370,7 @@ const ABILITY_EFFECTS = {
     ctx.oppSide.active = chosen;
     return null;
   },
-  'Slow Sear': (ctx) => { if (ctx.oppSide.deck.length) ctx.oppSide.deck.shift(); return null; },
+  'Slow Sear': (ctx) => { if (ctx.oppSide.deck.length) ctx.oppSide.discard.push(ctx.oppSide.deck.shift()); return null; },
   'Ice Maker': (ctx) => { // 主戰必須是水屬性，從能量區拿1水能量給主戰
     if (!ctx.side.active || !(ctx.side.active.types || []).includes('Water')) return '主戰必須是水屬性';
     if (!ctx.side.energyTypes.includes('Water')) return '你的能量區沒有水屬性能量';
