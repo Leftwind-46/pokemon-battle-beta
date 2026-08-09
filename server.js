@@ -6629,7 +6629,7 @@ const ABILITY_EFFECTS = {
     ctx.oppSide.active.curHp = Math.max(0, ctx.oppSide.active.curHp - dmg);
     return null;
   },
-  'Legendary Drive': (ctx, poke) => { // 跟主戰交換，並把自己身上全部能量移到主戰身上
+  'Legendary Drive': (ctx, poke) => { // 跟主戰交換，並把「場上」(原主戰+全部板凳，不只原主戰一隻)身上全部能量移到新主戰身上
     if (poke.boardTurn !== ctx.G.turnNumber) return '這個特性只能在上場的那個回合使用';
     if (!ctx.side.active) return '沒有主戰寶可夢';
     const oldActive = ctx.side.active;
@@ -6639,8 +6639,7 @@ const ABILITY_EFFECTS = {
     oldActive.status = null;
     ctx.side.bench.push(oldActive);
     ctx.side.active = poke;
-    poke.energy.push(...oldActive.energy);
-    oldActive.energy = [];
+    for (const p of ctx.side.bench) { poke.energy.push(...p.energy); p.energy = []; }
     return null;
   },
   'Ancient Roar': (ctx, poke) => { // 把對手主戰換到板凳（對手自選新主戰）
