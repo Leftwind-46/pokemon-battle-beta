@@ -1555,6 +1555,23 @@ function renderPokeSlot(p, { pickable = false, dataset = {}, own = false } = {})
   if (p.cantAttackUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合不能攻擊">🚫⚔</span>`);
   if (p.cantRetreatUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合不能撤退">🚫🔄</span>`);
   if (p.dmgDebuffUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合攻擊傷害-${p.dmgDebuffAmount}">↓${p.dmgDebuffAmount}</span>`);
+  // 2026-08-09新增：其餘「本回合/下回合限定」招式效果旗標——原本只有上面3個有徽章，其他像
+  // Mirror Shot(attackFlipLockUntilTurn)這類招式效果打在對手身上完全沒有畫面提示，玩家只能
+  // 從log猜有沒有生效。跟既有3個共用同一套=== tn（跟server端pocket_attack檢查同一個turnNumber
+  // 相等判斷）判斷慣例，資料本來就已經在state裡（pub()整包回傳寶可夢物件，不用額外欄位）。
+  if (p.attackFlipLockUntilTurn === tn) badges.push(`<span class="status-chip" title="攻擊前擲硬幣，反面攻擊直接失敗">🪙⚔</span>`);
+  if (p.costIncreaseUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合攻擊多付${p.costIncreaseAmount}個無色能量">💧+${p.costIncreaseAmount}</span>`);
+  if (p.retreatIncreaseUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合撤退多付${p.retreatIncreaseAmount}個無色能量">🔄+${p.retreatIncreaseAmount}</span>`);
+  if (p.delayedDamageUntilTurn === tn) badges.push(`<span class="status-chip" title="回合結束時會受到${p.delayedDamageAmount}點延遲傷害">⏳${p.delayedDamageAmount}</span>`);
+  if (p.selfVulnUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合受到攻擊傷害+${p.selfVulnAmount}">🎯+${p.selfVulnAmount}</span>`);
+  if (p.selfShieldUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合受到攻擊傷害${p.selfShieldAmount === Infinity ? '完全免疫' : '-' + p.selfShieldAmount}">🛡${p.selfShieldAmount === Infinity ? '∞' : p.selfShieldAmount}</span>`);
+  if (p.invulnerableUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合完全免疫傷害與招式效果">✨免疫</span>`);
+  if (p.noWeaknessUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合弱點無效">⭕弱點</span>`);
+  if (p.retaliateUntilTurn === tn) badges.push(`<span class="status-chip" title="被攻擊時反彈${p.retaliateAmount}傷害給攻擊者">↩${p.retaliateAmount}</span>`);
+  if (p.retreatTrapUntilTurn === tn) badges.push(`<span class="status-chip" title="對手撤退換人時，新主戰會受到${p.retreatTrapAmount}傷害">🪤${p.retreatTrapAmount}</span>`);
+  if (p.sleepTrapUntilTurn === tn) badges.push(`<span class="status-chip" title="下次從能量區附加能量時會陷入睡眠">💤陷阱</span>`);
+  if (p.moveLockUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合不能使用【${p.moveLockName}】">🚫【${p.moveLockName}】</span>`);
+  if (p.moveBuffUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合使用【${p.moveBuffName}】傷害+${p.moveBuffAmount}">【${p.moveBuffName}】+${p.moveBuffAmount}</span>`);
   if (p.tool) badges.push(`<span class="status-chip" title="裝備：${p.tool.name}">🔧${p.tool.name}</span>`);
   const statusHtml = badges.length ? `<div class="status-badges">${badges.join('')}</div>` : '';
   // 2026-08-08修正：拿掉🔍按鈕——點卡片本體（board-overlay的click委派）本來就會開啟同樣的
