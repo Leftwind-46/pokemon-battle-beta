@@ -624,7 +624,7 @@
       <div class="attack-row" id="attack-row"></div>
       <div class="turn-controls">
         <button class="btn btn-secondary" id="cancel-action-btn" onclick="cancelAction()" style="display:none">取消</button>
-        <button class="btn btn-secondary" id="stadium-trigger-btn" onclick="wsSend({type:'pocket_use_stadium'})" style="display:none">場地卡：擲硬幣抽卡</button>
+        <button class="btn btn-secondary" id="stadium-trigger-btn" onclick="triggerStadiumEffect()" style="display:none">場地卡：擲硬幣抽卡</button>
         <button class="btn btn-primary" id="end-turn-btn" onclick="endTurn()">結束回合</button>
         <button class="btn btn-danger" id="surrender-btn" onclick="surrender()">投降</button>
       </div>
@@ -2413,6 +2413,28 @@ document.getElementById('discard-target-picker-list').addEventListener('click', 
   closeDiscardTargetPicker();
   cb(el.dataset.discardPickUid);
 });
+
+// 2026-08-11新增：Area Zero(B3a-074)/Kid's Room(B3b-069)的手牌那半是玩家自選（卡面沒有
+// random字樣），跟Mesagoza/Fragrant Forest/Rainbow Cave（純隨機或不需要選手牌）不同——
+// 複用既有的openDiscardTargetPicker（雖然名字叫discard，其實只是通用「選一張卡」彈窗）
+// 讓玩家先選手牌，選完才真的送pocket_use_stadium帶上target
+function triggerStadiumEffect() {
+  const stadiumId = state?.activeStadium?.id;
+  if (stadiumId === 'B3a-074') {
+    const eligible = (state.you.hand || []).filter(c => c.category === 'Pokemon' && c.stage === 'Basic');
+    openDiscardTargetPicker('選擇要洗回牌庫的基礎寶可夢', eligible, (uid) => {
+      wsSend({ type: 'pocket_use_stadium', target: uid });
+    });
+    return;
+  }
+  if (stadiumId === 'B3b-069') {
+    openDiscardTargetPicker('選擇要交換掉的手牌', state.you.hand || [], (uid) => {
+      wsSend({ type: 'pocket_use_stadium', target: uid });
+    });
+    return;
+  }
+  wsSend({ type: 'pocket_use_stadium' });
+}
 
 let peekCards = []; // 2026-08-08新增：showPeek目前顯示的卡片清單，供點擊放大用index查回原始卡片物件
 function showPeek(title, cards, looseEnergy) {

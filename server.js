@@ -3934,8 +3934,8 @@ const ATTACK_EFFECTS = {
   },
   "This attack does 30 damage to 1 of your opponent's Pokémon.": ctx => {
     ctx.rawDamage = 0;
-    const pool = ctx.oppSide.bench.length ? ctx.oppSide.bench : (ctx.defender ? [ctx.defender] : []);
-    if (pool.length) { const t = pool[Math.floor(Math.random() * pool.length)]; t.curHp = Math.max(0, t.curHp - 30); }
+    const pool = [ctx.defender, ...ctx.oppSide.bench].filter(Boolean);
+    if (pool.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: pool.map(p => p.uid), action: 'damage', amount: 30 };
   },
   "This attack does 30 more damage for each Energy attached to your opponent's Active Pokémon.": ctx => {
     ctx.rawDamage += 30 * (ctx.defender?.energy.length || 0);
@@ -4000,50 +4000,48 @@ const ATTACK_EFFECTS = {
     ctx.healUid = ctx.attacker.uid; ctx.healAmount = ctx.attacker.curHp - before;
   },
   "Draw a card.": ctx => { if (ctx.side.deck.length) ctx.side.hand.push(ctx.side.deck.shift()); },
+  // 2026-08-11修正：這3個「also does N damage to 1 of your opponent's Benched Pokémon」
+  // 原本用Math.random()隨機選板凳目標，但卡面文字沒有「at random」——包含Raikou ex
+  // 「Voltaic Bullet」在內，改成跟已經正確實作的50傷害版本(3816行)同一套needsChoice流程，
+  // 讓玩家自己選要打哪一隻（見feedback_pocket_effect_choice_not_random既有慣例）
   "This attack also does 20 damage to 1 of your opponent's Benched Pokémon.": ctx => {
-    if (ctx.oppSide.bench.length) {
-      const t = ctx.oppSide.bench[Math.floor(Math.random() * ctx.oppSide.bench.length)];
-      t.curHp = Math.max(0, t.curHp - 20);
-    }
+    if (ctx.oppSide.bench.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: ctx.oppSide.bench.map(p => p.uid), action: 'damage', amount: 20 };
   },
-  "This attack also does 10 damage to 1 of your opponent's Benched Pokémon.": ctx => {
-    if (ctx.oppSide.bench.length) {
-      const t = ctx.oppSide.bench[Math.floor(Math.random() * ctx.oppSide.bench.length)];
-      t.curHp = Math.max(0, t.curHp - 10);
-    }
+  "This attack also does 10 damage to 1 of your opponent's Benched Pokémon.": ctx => { // Raikou ex「Voltaic Bullet」
+    if (ctx.oppSide.bench.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: ctx.oppSide.bench.map(p => p.uid), action: 'damage', amount: 10 };
   },
   "This attack also does 30 damage to 1 of your opponent's Benched Pokémon.": ctx => {
-    if (ctx.oppSide.bench.length) {
-      const t = ctx.oppSide.bench[Math.floor(Math.random() * ctx.oppSide.bench.length)];
-      t.curHp = Math.max(0, t.curHp - 30);
-    }
+    if (ctx.oppSide.bench.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: ctx.oppSide.bench.map(p => p.uid), action: 'damage', amount: 30 };
   },
   "This attack also does 20 damage to each of your opponent's Benched Pokémon.": ctx => {
     for (const p of ctx.oppSide.bench) p.curHp = Math.max(0, p.curHp - 20);
   },
+  // 2026-08-11修正：這4個「does N damage to 1 of your opponent's Pokémon」（含主戰/板凳任一隻）
+  // 原本用Math.random()隨機選，卡面沒有「at random」——改成跟70/60傷害版本（3531/3636行）
+  // 同一套needsChoice，玩家自己選要打誰
   "This attack does 50 damage to 1 of your opponent's Pokémon.": ctx => {
     ctx.rawDamage = 0;
     const pool = [ctx.defender, ...ctx.oppSide.bench].filter(Boolean);
-    if (pool.length) { const t = pool[Math.floor(Math.random() * pool.length)]; t.curHp = Math.max(0, t.curHp - 50); }
+    if (pool.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: pool.map(p => p.uid), action: 'damage', amount: 50 };
   },
   "This attack does 40 damage to 1 of your opponent's Pokémon.": ctx => {
     ctx.rawDamage = 0;
     const pool = [ctx.defender, ...ctx.oppSide.bench].filter(Boolean);
-    if (pool.length) { const t = pool[Math.floor(Math.random() * pool.length)]; t.curHp = Math.max(0, t.curHp - 40); }
+    if (pool.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: pool.map(p => p.uid), action: 'damage', amount: 40 };
   },
   "This attack does 20 damage to 1 of your opponent's Pokémon.": ctx => {
     ctx.rawDamage = 0;
     const pool = [ctx.defender, ...ctx.oppSide.bench].filter(Boolean);
-    if (pool.length) { const t = pool[Math.floor(Math.random() * pool.length)]; t.curHp = Math.max(0, t.curHp - 20); }
+    if (pool.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: pool.map(p => p.uid), action: 'damage', amount: 20 };
   },
   "This attack does 10 damage to 1 of your opponent's Pokémon.": ctx => {
     ctx.rawDamage = 0;
     const pool = [ctx.defender, ...ctx.oppSide.bench].filter(Boolean);
-    if (pool.length) { const t = pool[Math.floor(Math.random() * pool.length)]; t.curHp = Math.max(0, t.curHp - 10); }
+    if (pool.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: pool.map(p => p.uid), action: 'damage', amount: 10 };
   },
   "This attack does 20 damage to 1 of your opponent's Benched Pokémon.": ctx => {
     ctx.rawDamage = 0;
-    if (ctx.oppSide.bench.length) { const t = ctx.oppSide.bench[Math.floor(Math.random() * ctx.oppSide.bench.length)]; t.curHp = Math.max(0, t.curHp - 20); }
+    if (ctx.oppSide.bench.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: ctx.oppSide.bench.map(p => p.uid), action: 'damage', amount: 20 };
   },
   "This attack does 20 more damage for each Energy attached to your opponent's Active Pokémon.": ctx => {
     ctx.rawDamage += 20 * (ctx.defender?.energy.length || 0);
@@ -4239,7 +4237,7 @@ const ATTACK_EFFECTS = {
   /* ── 2026-08-06第二批新增：修完彎引號bug後，依出現頻率繼續補高頻效果 ── */
   "This attack does 30 damage to 1 of your opponent's Benched Pokémon.": ctx => {
     ctx.rawDamage = 0;
-    if (ctx.oppSide.bench.length) { const t = ctx.oppSide.bench[Math.floor(Math.random() * ctx.oppSide.bench.length)]; t.curHp = Math.max(0, t.curHp - 30); }
+    if (ctx.oppSide.bench.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: ctx.oppSide.bench.map(p => p.uid), action: 'damage', amount: 30 };
   },
   // 新機制：攻擊前擲硬幣，反面攻擊直接失敗——旗標蓋在「被打的那隻」身上，實際檢查在
   // pocket_attack handler最前面（跟paralyzed/asleep同一批前置檢查）
@@ -4285,7 +4283,7 @@ const ATTACK_EFFECTS = {
   "This attack does 100 damage to 1 of your opponent's Pokémon that have damage on them.": ctx => {
     ctx.rawDamage = 0;
     const pool = [ctx.defender, ...ctx.oppSide.bench].filter(p => p && p.curHp < p.hp);
-    if (pool.length) { const t = pool[Math.floor(Math.random() * pool.length)]; t.curHp = Math.max(0, t.curHp - 100); }
+    if (pool.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: pool.map(p => p.uid), action: 'damage', amount: 100 };
   },
   "This attack does 30 more damage for each Energy in your opponent's Active Pokémon's Retreat Cost.": ctx => {
     ctx.rawDamage += 30 * (ctx.defender?.retreat || 0);
@@ -4965,9 +4963,11 @@ const ATTACK_EFFECTS = {
     if (ctx.defender) { ctx.defender.status = 'poisoned'; }
     // Paralyzed跟Poisoned不能共存於這個引擎單一status欄位——卡面文字寫兩個狀態同時附加，
     // 簡化成優先套用中毒（傷害持續性較高），麻痺效果省略（已知簡化）
-    const preservedUid = ctx.attacker.uid;
+    // 2026-08-11修正：原本用structuredClone(POCKET_CARDS_BY_ID[...])塞回牌庫，這份資料完全
+    // 沒有uid/curHp/energy等instance欄位——之後被抽到手牌會因為uid缺失完全點不到（跟Professor
+    // Turo同一類bug，見makePocketInstance才是正確建立「一張全新卡片實例」的方式）
     ctx.attacker.energy = []; ctx.attacker.tool = null; ctx.attacker.status = null;
-    ctx.side.deck = pocketShuffle([...ctx.side.deck, structuredClone(POCKET_CARDS_BY_ID[ctx.attacker.id])]);
+    ctx.side.deck = pocketShuffle([...ctx.side.deck, makePocketInstance(ctx.attacker.id)]);
     ctx.side.active = null;
     ctx.rawDamage = 0; ctx.skipMainDamage = true;
     pocketEnterForcedSwitch(ctx.G, ctx.role, 'endTurn');
@@ -5007,7 +5007,7 @@ const ATTACK_EFFECTS = {
   "If you have the same number of cards in your hand as your opponent, this attack does 40 more damage.": ctx => { if (ctx.side.hand.length === ctx.oppSide.hand.length) ctx.rawDamage += 40; },
   "Before doing damage, shuffle all Pokémon Tools from each of your opponent's Pokémon into their deck.": ctx => {
     for (const p of [ctx.oppSide.active, ...ctx.oppSide.bench]) {
-      if (p?.tool) { ctx.oppSide.deck.push(structuredClone(POCKET_CARDS_BY_ID[p.tool.id])); p.tool = null; }
+      if (p?.tool) { ctx.oppSide.deck.push(makePocketInstance(p.tool.id)); p.tool = null; } // 2026-08-11修正：補uid，理由同上
     }
     ctx.oppSide.deck = pocketShuffle(ctx.oppSide.deck);
   },
@@ -5971,9 +5971,10 @@ const TRAINER_EFFECTS = {
     if (!target) return '請選擇己方非ex的水屬性寶可夢';
     const wasActive = ctx.side.active === target;
     if (wasActive) ctx.side.active = null; else ctx.side.bench = ctx.side.bench.filter(p => p.uid !== target.uid);
-    // 簡化：真實規則放回手牌時應該還原成手牌卡（清掉uid/curHp/energy等實例欄位），
-    // 跟其他「放回手牌」效果同一套處理（找不到既有前例特別處理，這裡直接reset成乾淨的卡片資料）
-    ctx.side.hand.push(structuredClone(POCKET_CARDS_BY_ID[target.id]));
+    // 2026-08-11修正：放回手牌要用makePocketInstance建立一張全新的乾淨卡片實例（含新uid），
+    // 不能直接structuredClone原始卡池資料——那份資料沒有uid，抽到手牌會完全點不到（同一類bug
+    // 出現在Professor Turo等好幾張卡，見那裡的完整說明）
+    ctx.side.hand.push(makePocketInstance(target.id));
     // 選走的如果剛好是主戰，不能放著主戰位置空著沒人——跟Sabrina/Drive Off同一套強制換人流程
     if (wasActive) pocketEnterForcedSwitch(ctx.G, ctx.role, 'noEndTurn');
     return null;
@@ -6006,7 +6007,10 @@ const TRAINER_EFFECTS = {
     if (!target) return '請選擇己方場上的近未來寶可夢(Future Pokémon)';
     const wasActive = ctx.side.active === target;
     if (wasActive) ctx.side.active = null; else ctx.side.bench = ctx.side.bench.filter(p => p.uid !== target.uid);
-    ctx.side.deck = pocketShuffle([...ctx.side.deck, structuredClone(POCKET_CARDS_BY_ID[target.id])]);
+    // 2026-08-11修正：改用makePocketInstance建立全新卡片實例（含新uid）——原本用structuredClone
+    // 直接塞回牌庫，缺少uid導致之後重新抽到手牌時完全點不到（使用者回報「用Professor Turo將
+    // 密勒頓洗回牌組後，重新抽到會無法點擊」）
+    ctx.side.deck = pocketShuffle([...ctx.side.deck, makePocketInstance(target.id)]);
     // 選走的如果剛好是主戰，不能放著主戰位置空著沒人——跟Parasol Lady/Sabrina/Drive Off同一套強制換人流程
     if (wasActive) pocketEnterForcedSwitch(ctx.G, ctx.role, 'noEndTurn');
     return null;
@@ -6017,7 +6021,7 @@ const TRAINER_EFFECTS = {
   'B3b-066': (ctx) => { // Elesa：雙方場上全部寶可夢的道具卡都放回持有者手牌
     for (const r of ['p1', 'p2']) {
       for (const p of [ctx.G[r].active, ...ctx.G[r].bench]) {
-        if (p?.tool) { ctx.G[r].hand.push(structuredClone(POCKET_CARDS_BY_ID[p.tool.id])); p.tool = null; }
+        if (p?.tool) { ctx.G[r].hand.push(makePocketInstance(p.tool.id)); p.tool = null; } // 2026-08-11修正：補uid，理由同上
       }
     }
     return null;
@@ -10000,10 +10004,11 @@ async function handleMessage(ws, msg) {
         if (idxs.length) { const idx = idxs[Math.floor(Math.random() * idxs.length)]; side.hand.push(side.deck.splice(idx, 1)[0]); }
       } else if (stadiumId === 'B3a-074') { // Area Zero：手牌1張基礎寶可夢洗回牌庫，若真的洗了就抽1張
         if (side.stadiumUsedThisTurn) { send(ws, { type: 'error', message: '這回合已經用過場地卡效果了' }); return; }
-        // 簡化：真實規則玩家自選要洗哪張，這個引擎的通用stadium觸發訊息沒有額外target欄位，
-        // 跟Rare Candy同一種「自動挑第一張符合條件的」簡化precedent
-        const target = side.hand.find(c => c.category === 'Pokemon' && c.stage === 'Basic');
-        if (!target) { send(ws, { type: 'error', message: '手牌沒有基礎寶可夢可以洗回牌庫' }); return; }
+        // 2026-08-11修正：卡面「may shuffle a Basic Pokémon from their hand」沒有random，原本
+        // 用side.hand.find(...)自動挑第一張是誤判成跟Rare Candy一樣的架構限制——其實通用
+        // stadium觸發訊息只要多帶一個target欄位（client端先跳手牌選擇器）就能解決，不需要新機制
+        const target = side.hand.find(c => c.uid === msg.target && c.category === 'Pokemon' && c.stage === 'Basic');
+        if (!target) { send(ws, { type: 'error', message: '請選擇手牌裡要洗回牌庫的基礎寶可夢' }); return; }
         side.stadiumUsedThisTurn = true;
         side.hand = side.hand.filter(c => c.uid !== target.uid);
         side.deck = pocketShuffle([...side.deck, target]);
@@ -10013,8 +10018,11 @@ async function handleMessage(ws, msg) {
         if (!side.hand.length) { send(ws, { type: 'error', message: '手牌沒有卡可以交換' }); return; }
         const toolIdxs = side.deck.map((c, i) => (c.category === 'Trainer' && c.trainerType === 'Tool') ? i : -1).filter(i => i >= 0);
         if (!toolIdxs.length) { send(ws, { type: 'error', message: '牌庫沒有道具卡可以交換' }); return; }
+        // 2026-08-11修正：卡面是「choose a card in their hand」+「a random Pokémon Tool card」
+        // ——手牌這邊要玩家自選，牌庫道具卡那邊才是真的random，原本兩邊都隨機挑，手牌那半判斷錯了
+        const handIdx = side.hand.findIndex(c => c.uid === msg.target);
+        if (handIdx < 0) { send(ws, { type: 'error', message: '請選擇要交換掉的手牌' }); return; }
         side.stadiumUsedThisTurn = true;
-        const handIdx = Math.floor(Math.random() * side.hand.length);
         const [handCard] = side.hand.splice(handIdx, 1);
         const toolIdx = toolIdxs[Math.floor(Math.random() * toolIdxs.length)];
         const [toolCard] = side.deck.splice(toolIdx, 1);
