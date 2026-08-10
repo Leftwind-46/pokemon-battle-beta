@@ -2772,8 +2772,13 @@ function pocketRunCheckup(G) {
     if (endingSide.active.curHp <= 0) {
       pocketResolveActiveKO(G, endingRole);
       if (G.phase === 'forced_switch' || G.phase === 'done') return true;
-    } else if (pocketFlipCoin({ G, role: endingRole })) {
-      endingSide.active.status = null;
+    } else {
+      // 2026-08-11修正：這顆治癒硬幣原本完全沒有回饋，玩家看不到到底有沒有真的擲——
+      // 補上lastEvent，跟Mesagoza同一個修法。checkup只會執行一次（每次回合切換endingSide
+      // 只有一側），不會有兩顆硬幣搶著設同一個G.lastEvent的疑慮
+      const cured = pocketFlipCoin({ G, role: endingRole });
+      G.lastEvent = { seq: ++G.eventSeq, kind: 'checkup', coinFlips: [cured] };
+      if (cured) endingSide.active.status = null;
     }
   }
   // 麻痺（跟睡眠/中毒不同）在真實規則裡是限時debuff：只擋這一整個回合的攻擊/撤退，
@@ -9993,7 +9998,13 @@ async function handleMessage(ws, msg) {
       if (stadiumId === 'B2a-093') { // Mesagoza：擲硬幣，正面隨機1張寶可夢進手牌
         if (side.stadiumUsedThisTurn) { send(ws, { type: 'error', message: '這回合已經用過場地卡效果了' }); return; }
         side.stadiumUsedThisTurn = true;
-        if (pocketFlipCoin({ G, role }) && side.deck.length) {
+        // 2026-08-11修正：這整個pocket_use_stadium handler原本完全沒有設定G.lastEvent，
+        // Mesagoza的擲硬幣結果對client端來說完全無聲無息（使用者回報「需要有擲硬幣的動畫」）——
+        // 跟pocket_attack/pocket_play_item/pocket_use_ability等其餘handler一樣補上lastEvent，
+        // client的handlePocketEvent只看evt.coinFlips有沒有值，不挑kind，任何值都能觸發動畫
+        const heads = pocketFlipCoin({ G, role });
+        G.lastEvent = { seq: ++G.eventSeq, kind: 'stadium', coinFlips: [heads] };
+        if (heads && side.deck.length) {
           const idx = Math.floor(Math.random() * side.deck.length);
           side.hand.push(side.deck.splice(idx, 1)[0]);
         }
