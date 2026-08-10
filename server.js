@@ -9918,6 +9918,23 @@ async function handleMessage(ws, msg) {
       return;
     }
 
+    // 投降（2026-08-10新增）：不限自己回合、不管目前在哪個phase（active/attack_choice/
+    // forced_switch都可以）——隨時可以觸發，對手直接判定獲勝。跟其他end-game路徑
+    // （pocketResolveActiveKO/pocketResolveMutualKO等）一樣只設G.winner+G.phase='done'，
+    // 不用額外清pendingChoice等欄位——client端renderBoard()檢查phase==='done'的順序在
+    // 所有pendingChoice相關渲染邏輯之後，broadcast出去的phase已經是'done'就不會再顯示
+    // 任何選擇中的UI。
+    if (type === 'pocket_surrender') {
+      const pRoom = pocketRooms.get(ws.pocketRoomCode);
+      if (!pRoom?.G || pRoom.G.phase === 'done') return;
+      const G = pRoom.G; const role = ws.pocketRole;
+      if (role !== 'p1' && role !== 'p2') return;
+      G.winner = role === 'p1' ? 'p2' : 'p1';
+      G.phase = 'done';
+      pocketBroadcastState(pRoom);
+      return;
+    }
+
     // Mesagoza（2026-08-08新增）：這個引擎第一張「場地卡本身主動觸發」的卡——跟其餘場地卡
     // 都是被動判定（掛在傷害計算式/撤退成本等既有hook）不同，這張需要獨立的按鈕+WS訊息。
     // 「once during each player's turn」＝只有正在行動的一方能觸發，一回合限1次

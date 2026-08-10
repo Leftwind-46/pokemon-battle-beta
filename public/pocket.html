@@ -106,6 +106,10 @@
   .btn-primary:disabled { opacity:0.35; cursor:not-allowed; }
   .btn-secondary { background:rgba(255,255,255,0.07); color:var(--text); border:1px solid var(--border); }
   .btn-secondary:hover { background:rgba(255,255,255,0.13); }
+  /* 投降按鈕（2026-08-10新增）——跟btn-secondary同一個底色，只用紅色文字/邊框標示「這是
+     不可逆的離場動作」，不用太搶眼的實心紅底（跟一般錯誤訊息的#ef5350用同一色但弱化底色） */
+  .btn-danger { background:rgba(239,83,80,0.10); color:#ef5350; border:1px solid rgba(239,83,80,0.4); }
+  .btn-danger:hover { background:rgba(239,83,80,0.2); }
   .btn-row { display:flex; gap:0.5rem; }
   .btn-row .btn { flex:1; }
 
@@ -622,6 +626,7 @@
         <button class="btn btn-secondary" id="cancel-action-btn" onclick="cancelAction()" style="display:none">取消</button>
         <button class="btn btn-secondary" id="stadium-trigger-btn" onclick="wsSend({type:'pocket_use_stadium'})" style="display:none">場地卡：擲硬幣抽卡</button>
         <button class="btn btn-primary" id="end-turn-btn" onclick="endTurn()">結束回合</button>
+        <button class="btn btn-danger" id="surrender-btn" onclick="surrender()">投降</button>
       </div>
     </div>
     <div class="hand-fan-wrap" id="hand-fan-wrap"><div class="hand-fan hand-row" id="hand-row"></div></div>
@@ -2000,6 +2005,12 @@ function pocketCanPayCostClient(pokemon, cost, side) {
 
 function doAttack(i) { wsSend({ type: 'pocket_attack', attackIndex: i }); }
 function endTurn() { wsSend({ type: 'pocket_end_turn' }); }
+// 投降（2026-08-10新增）：不可逆動作，跟開卡包同一種confirm()提醒慣例——確定才送出，
+// 不限自己回合都能按（server端pocket_surrender沒有檢查G.turn），對手直接判定獲勝
+function surrender() {
+  if (!confirm('確定要投降嗎？這場對戰將直接判定你落敗。')) return;
+  wsSend({ type: 'pocket_surrender' });
+}
 
 const POCKET_FOSSIL_IDS = new Set(['A1-216', 'A1-217', 'A1-218', 'A1a-063', 'A2-144', 'A2-145', 'B1-214', 'B1-216', 'B2-144', 'B2-146', 'B4-146', 'B4-147']);
 const TRAINER_NEEDS_TARGET = new Set([
