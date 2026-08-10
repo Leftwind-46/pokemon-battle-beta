@@ -125,6 +125,15 @@
   .lobby-error { color:#ff8a80; font-size:0.8rem; margin-top:0.7rem; min-height:1em; }
   .room-code { font-size:2.2rem; font-weight:800; letter-spacing:0.15em; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:0.8rem; margin-bottom:0.8rem; }
 
+  /* ── 擲硬幣決定先後攻（2026-08-10新增，樣式/動畫逐字比照public/pvp.html的#coin-overlay，
+     維持全站視覺語言一致）── */
+  #coin-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.82); z-index:150; display:none; align-items:center; justify-content:center; flex-direction:column; gap:1.5rem; text-align:center; }
+  #coin-overlay.open { display:flex; }
+  .coin { width:90px; height:90px; border-radius:50%; background:linear-gradient(135deg,#f8d030,#f0a030); border:5px solid #c8880a; font-size:2.5rem; display:flex; align-items:center; justify-content:center; animation:coinSpin 1s ease-in-out; box-shadow:0 0 32px rgba(248,208,48,0.6); }
+  @keyframes coinSpin { 0%{transform:rotateY(0deg) scale(0.3)} 50%{transform:rotateY(720deg) scale(1.2)} 100%{transform:rotateY(1440deg) scale(1)} }
+  .coin-result { font-size:1.3rem; font-weight:900; color:#f8d030; }
+  .coin-sub    { font-size:0.9rem; color:var(--muted); }
+
   /* ── board ── */
   .board-overlay { position:fixed; inset:0; z-index:60; background:var(--bg); display:none; flex-direction:column; overflow-y:auto; }
   .board-overlay.open { display:flex; }
@@ -529,12 +538,14 @@
       <h2>雙方已連線</h2>
       <p class="lobby-sub" id="ready-status">已送出牌組，等待對手...</p>
     </div>
-
-    <div id="lobby-step-started" style="display:none">
-      <h2>對戰開始！</h2>
-      <p class="lobby-sub" id="started-status"></p>
-    </div>
   </div>
+</div>
+
+<!-- ── 擲硬幣決定先後攻（2026-08-10新增，逐字比照public/pvp.html的#coin-overlay）── -->
+<div id="coin-overlay">
+  <div class="coin" id="coin-icon">🪙</div>
+  <div class="coin-result" id="coin-result"></div>
+  <div class="coin-sub" id="coin-sub"></div>
 </div>
 
 <div class="board-overlay" id="board-overlay">
@@ -1388,7 +1399,9 @@ let lastMyActiveUid = null, lastOppActiveUid = null; // 用來判斷主戰是不
 let lastMyHandCount = 0, lastOppHandCount = 0; // 用來判斷手牌是不是剛好變多，觸發抽卡動畫
 
 function lobbyShowStep(step) {
-  ['choose', 'waiting', 'ready', 'started'].forEach(s => {
+  // 2026-08-10移除'started'：對戰開始改用#coin-overlay擲硬幣動畫直接接手（見pocket_match_start
+  // 訊息處理），不再經過這個lobby步驟，對應的HTML區塊也一併刪除
+  ['choose', 'waiting', 'ready'].forEach(s => {
     document.getElementById(`lobby-step-${s}`).style.display = s === step ? '' : 'none';
   });
 }
@@ -1451,15 +1464,15 @@ function handleWsMsg(msg) {
       document.getElementById('ready-status').textContent = '對手已送出牌組，等待對戰開始...';
       break;
     case 'pocket_match_start': {
+      // 2026-08-10改版：原本只是lobby裡靜靜顯示「先攻：你/對手」文字900ms就切過去，使用者
+      // 希望看得到真的擲硬幣動畫——改成跟public/pvp.html的showCoinFlip同一套流程：先切進對戰
+      // 畫面（棋盤已經在背後畫好），硬幣動畫疊在最上層轉完才收起，视觉上更接近「真的擲了一次」
       const iAmFirst = msg.firstPlayer === myRole;
       myIsFirstPlayer = iAmFirst;
-      lobbyShowStep('started');
-      document.getElementById('started-status').textContent = `先攻：${iAmFirst ? '你' : '對手'}`;
-      setTimeout(() => {
-        document.getElementById('lobby-overlay').classList.remove('open');
-        document.getElementById('board-overlay').classList.add('open');
-        applyState(msg);
-      }, 900);
+      document.getElementById('lobby-overlay').classList.remove('open');
+      document.getElementById('board-overlay').classList.add('open');
+      applyState(msg);
+      showCoinFlip(iAmFirst);
       break;
     }
     case 'pocket_turn_state':
@@ -1499,6 +1512,17 @@ function applyState(msg) {
   state = msg;
   selectedAction = null;
   renderBoard();
+}
+
+// 2026-08-10新增：開場擲硬幣動畫，逐字比照public/pvp.html的showCoinFlip（1秒3D翻轉+文字結果，
+// 2.8秒後自動收起），維持全站視覺語言一致——board在動畫開始前就已經applyState畫好了，硬幣只是
+// 疊在最上層(z-index:150)的短暫展示，收起後直接看到已經就緒的棋盤，不用額外呼叫renderBoard
+function showCoinFlip(iAmFirst) {
+  const overlay = document.getElementById('coin-overlay');
+  document.getElementById('coin-result').textContent = iAmFirst ? '🎉 你先攻！' : '對手先攻！';
+  document.getElementById('coin-sub').textContent = iAmFirst ? '硬幣正面朝上，你獲得先攻權！' : '硬幣反面朝上，對手先攻！';
+  overlay.classList.add('open');
+  setTimeout(() => { overlay.classList.remove('open'); }, 2800);
 }
 
 function typeDots(types) {
