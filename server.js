@@ -6522,29 +6522,32 @@ const ABILITY_EFFECTS = {
     ctx.side.active.energy.push('Water');
     return null;
   },
-  // Fan Made系列（2026-08-10新增）：捷克羅姆ex/萊希拉姆ex的「渦輪電壓/渦輪火焰」——卡面文字
-  // 沒有「Once during your turn」這種限定語，跟Shadow Void（as often as you like）一樣判定成
-  // 不限每回合1次（見pocket_use_ability的unlimitedUse白名單）。跟Wash Out不同的是：①不限制
-  // 主戰屬性（卡面沒寫主戰要是電/火屬性）②一次把來源寶可夢身上「所有」符合屬性的能量都移過去
-  // （卡面是「能量」不是「一點能量」），不是固定1點。
+  // Fan Made系列（2026-08-10新增，2026-08-11修正移動方式）：捷克羅姆ex/萊希拉姆ex的
+  // 「渦輪電壓/渦輪火焰」——使用者明確要求「玩家可以自由選擇怎麼移動能量」，不是一次把整隻
+  // 板凳寶可夢身上符合屬性的能量全部強制搬空。改成每次觸發只移動選定來源身上「1點」符合屬性
+  // 的能量（挑哪隻、要不要繼續移下一點，都是玩家自己決定）——真正的「自由」在於這個特性沒有
+  // 「Once during your turn」限定語、不限每回合1次（見pocket_use_ability的unlimitedUse白名單，
+  // 跟Shadow Void同一個判例），玩家可以連續點好幾次特性按鈕、每次挑不同板凳來源，湊出他想要的
+  // 任意能量分配結果，而不是被迫一次全部倒過去。跟Wash Out的差別只剩①不限制主戰屬性（卡面沒
+  // 寫主戰要是電/火屬性）②不限每回合1次。
   '渦輪電壓': (ctx, poke, msg) => {
     if (!ctx.side.active) return '沒有主戰寶可夢';
     const src = ctx.side.bench.find(p => p.uid === msg.target);
     if (!src) return '請選擇板凳上的寶可夢';
-    const moving = src.energy.filter(e => e === 'Lightning');
-    if (!moving.length) return '這隻沒有電屬性能量可以移動';
-    src.energy = src.energy.filter(e => e !== 'Lightning');
-    ctx.side.active.energy.push(...moving);
+    const idx = src.energy.indexOf('Lightning');
+    if (idx < 0) return '這隻沒有電屬性能量可以移動';
+    src.energy.splice(idx, 1);
+    ctx.side.active.energy.push('Lightning');
     return null;
   },
   '渦輪火焰': (ctx, poke, msg) => {
     if (!ctx.side.active) return '沒有主戰寶可夢';
     const src = ctx.side.bench.find(p => p.uid === msg.target);
     if (!src) return '請選擇板凳上的寶可夢';
-    const moving = src.energy.filter(e => e === 'Fire');
-    if (!moving.length) return '這隻沒有火屬性能量可以移動';
-    src.energy = src.energy.filter(e => e !== 'Fire');
-    ctx.side.active.energy.push(...moving);
+    const idx = src.energy.indexOf('Fire');
+    if (idx < 0) return '這隻沒有火屬性能量可以移動';
+    src.energy.splice(idx, 1);
+    ctx.side.active.energy.push('Fire');
     return null;
   },
   'Dismantling Keys': (ctx, poke) => { // 必須在板凳上才能用，棄掉對手主戰的工具卡+棄掉自己
