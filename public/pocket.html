@@ -2320,7 +2320,12 @@ function pocketComputeRetreatCostClient(card, you, opponent, state) {
     || [you.active, ...(you.bench || [])].some(p => p?.abilities?.[0]?.name === 'Fluffy Flight');
   const toolId = card.tool?.id;
   const toolFree = toolId === 'B2a-087' && card.stage === 'Stage2';
-  const toolDiscount = (toolId === 'A4a-067' && (card.types || []).includes('Water')) ? 1 : 0;
+  // 2026-08-11修正：Small Balloon(B3b-064，基礎階-1)原本沒列進這份client試算，跟server端
+  // pocketToolRetreatDiscount對不上——玩家裝了氣球但沒多附能量時，按鈕還是顯示要付1點能量
+  // 且energy不足就被disabled，實際上server端會判定免費，變成明明能撤退卻點不下去的假當機
+  // （使用者回報「裝了Small Balloon想撤退結果當掉」）
+  const toolDiscount = ((toolId === 'A4a-067' && (card.types || []).includes('Water')) ? 1 : 0)
+    + ((toolId === 'B3b-064' && card.stage === 'Basic') ? 1 : 0);
   if (freeByAbility || toolFree) return 0;
   const plazaDiscount = (state.activeStadium?.id === 'B2-155' && (card.types || []).includes('Psychic')) ? 2 : 0;
   let benchDiscount = card.stage === 'Basic' ? (you.bench || []).filter(p => p.abilities?.[0]?.name === 'Sky Support').length : 0;

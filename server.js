@@ -9280,7 +9280,11 @@ async function handleMessage(ws, msg) {
       if (active.energy.length < cost) { send(ws, { type: 'error', message: '能量不足，無法撤退' }); return; }
       const idx = side.bench.findIndex(p => p.uid === msg.target);
       if (idx < 0) return;
-      active.energy.splice(0, cost);
+      // 2026-08-11修正：撤退成本付出的能量原本直接splice消失，沒有進discardEnergy——真實規則
+      // 撤退付出的能量要進棄牌堆，跟Rainbow Cave/招式效果棄能量那批（19處call site）是同一個
+      // 架構缺口，只是這處撤退成本付款當時漏掉沒一起修（使用者回報：特性拿到的能量，撤退付掉
+      // 之後沒有出現在棄牌堆）
+      side.discardEnergy.push(...active.energy.splice(0, cost));
       // 真實規則：異常狀態（中毒等）只作用在主戰位置，撤退到板凳時要清除——不然中毒的寶可夢
       // 撤退後status還留著，之後又換回主戰時會被誤判成「重新中毒」，繼續扣血。
       // （asleep/paralyzed已經在上面被擋死不會走到這裡，這裡實務上只會清到poisoned，
