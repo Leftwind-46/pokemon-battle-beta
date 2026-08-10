@@ -480,7 +480,12 @@
     <div class="pack-box">
       <h2 id="pack-title">開卡包中...</h2>
       <div class="pack-reveal-row" id="pack-reveal-row"></div>
-      <button class="btn btn-primary" id="pack-close-btn" onclick="closePackFlow()" style="display:none">關閉</button>
+      <!-- 2026-08-10新增：開完（尤其十連抽）後問要不要用同一個系列/張數再抽一次，不用每次
+           手動關閉→重新點十連抽→重新選系列，直接沿用剛剛那次的count/setId -->
+      <div id="pack-result-actions" style="display:none;gap:0.6rem;justify-content:center;flex-wrap:wrap">
+        <button class="btn btn-primary" id="pack-continue-btn" onclick="continuePackFlow()">再抽一次</button>
+        <button class="btn btn-secondary" id="pack-close-btn" onclick="closePackFlow()">不用了，關閉</button>
+      </div>
     </div>
   </div>
 
@@ -1217,17 +1222,20 @@ async function dismantleAllExtra() {
 /* ── 開卡包（2026-08-06新增count參數支援10連抽+set參數支援選版本）── */
 // 點「開卡包」/「十連抽」按鈕不再直接開包，先跳版本選擇modal（見下面openPackSetPicker），
 // 選完系列才真的呼叫這支函式送出count+set
+let lastPackCount = 1, lastPackSetId = 'A1';
 async function openPackFlow(count = 1, setId = 'A1') {
   if (!pocketIsLoggedIn()) return;
+  lastPackCount = count; lastPackSetId = setId;
   document.getElementById('pack-overlay').style.display = 'flex';
   document.getElementById('pack-title').textContent = count > 1 ? '十連抽開包中...' : '開卡包中...';
   document.getElementById('pack-reveal-row').innerHTML = '';
-  document.getElementById('pack-close-btn').style.display = 'none';
+  document.getElementById('pack-result-actions').style.display = 'none';
   try {
     const data = await pocketApiFetch('/api/pocket/open-pack', { method: 'POST', body: JSON.stringify({ count, set: setId }) });
     const setName = ALL_SETS.find(s => s.id === data.set)?.name || data.set;
     const parts = [`【${setName}】`];
-    if (data.packsOpened < count) parts.push(`⚠️ 金幣不足，只開了 ${data.packsOpened}/${count} 包`);
+    const shortOnGold = data.packsOpened < count;
+    if (shortOnGold) parts.push(`⚠️ 金幣不足，只開了 ${data.packsOpened}/${count} 包`);
     else if (count > 1) parts.push(`十連抽完成（${data.freeUsedCount} 包免費 + ${data.paidUsedCount} 包付費）`);
     else parts.push(data.usedFree ? `今日免費開包（${data.freePacksUsedToday}/5）` : '花費 50 金幣開包');
     if (data.pityHits > 0) parts.push(`✨ 保底觸發 ${data.pityHits} 次`);
@@ -1239,14 +1247,19 @@ async function openPackFlow(count = 1, setId = 'A1') {
         <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${c.name}">
         <div class="n">${c.name}${POCKET_HIGH_RARITIES.has(c.rarity) ? ' ✨' : ''}</div>
       </div>`).join('');
-    document.getElementById('pack-close-btn').style.display = '';
+    document.getElementById('pack-result-actions').style.display = 'flex';
+    // 金幣已經不夠了，「再抽一次」按下去只會立刻重複同一句金幣不足訊息——直接不給這個選項，
+    // 避免看起來像是在鼓勵一次注定失敗的操作
+    document.getElementById('pack-continue-btn').style.display = shortOnGold ? 'none' : '';
     await loadCollection();
     renderPool();
   } catch (e) {
     document.getElementById('pack-title').textContent = e.message || '開包失敗';
-    document.getElementById('pack-close-btn').style.display = '';
+    document.getElementById('pack-result-actions').style.display = 'flex';
+    document.getElementById('pack-continue-btn').style.display = 'none';
   }
 }
+function continuePackFlow() { openPackFlow(lastPackCount, lastPackSetId); }
 function closePackFlow() { document.getElementById('pack-overlay').style.display = 'none'; }
 
 // 2026-08-06新增：開包前先選版本——每個系列一張卡片，點下去才真的呼叫openPackFlow(count, setId)
