@@ -1653,6 +1653,8 @@ const ABILITY_NAMES_SUPPORTED = new Set([
   'Reckless Shearing', 'CHECK', 'Wash Out', 'Dismantling Keys',
   // 2026-08-08再接續：Shadow Void（as often as you like，見pocket_use_ability的unlimitedUse白名單）
   'Shadow Void',
+  // 2026-08-10新增：Fan Made系列（捷克羅姆ex/萊希拉姆ex），同樣是unlimitedUse白名單成員
+  '渦輪電壓', '渦輪火焰',
   // 2026-08-08再接續：Portrait（借用對手手牌隨機支援者卡效果，完全自動不需要選目標）
   'Portrait',
   // 2026-08-08再接續：B2b~B4系列特性第一批（16個按鈕型，含7個evolve/bench-play限時觸發，見下面ABILITY_ONLY_ON_EVOLVE_TURN）
@@ -2055,6 +2057,8 @@ const ABILITY_NEEDS_TARGET = {
   // 主戰）——跟其他own-target一樣點board slot送target，server端再從target身上拿能量搬到主戰
   'Wash Out': 'own',
   'Shadow Void': 'own',
+  // Fan Made系列（2026-08-10新增）：目標是「板凳上要移出能量的來源寶可夢」，跟Wash Out同一種own-target
+  '渦輪電壓': 'own', '渦輪火焰': 'own',
   // 2026-08-08新增：Metal Transport（跟主戰交換的板凳寶可夢）/Soothing Ribbon（治療己方任一隻）
   'Metal Transport': 'own', 'Soothing Ribbon': 'own',
 };

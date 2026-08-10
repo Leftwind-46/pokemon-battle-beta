@@ -5056,6 +5056,14 @@ const ATTACK_EFFECTS = {
     if (ctx.defender && ctx.attacker.energy.some(e => ctx.defender.energy.includes(e))) ctx.rawDamage += 30;
   },
   "If your opponent's Active Pokémon is a Pokémon ex, this attack does 90 more damage.": ctx => { if (ctx.defender?.ex) ctx.rawDamage += 90; },
+  // Fan Made系列（2026-08-10新增，見pocket-tcg skill）：使用者自製卡，效果文字本身就是中文
+  // （不是TCGdex來源），跟其餘卡池的英文key不一致是刻意的——卡圖本身全中文，detail panel
+  // 顯示這段文字時要跟卡面一致，不能直接借用既有的英文key（雖然邏輯完全相同）。
+  "這隻寶可夢也受到30點傷害。": ctx => { ctx.selfDamage = (ctx.selfDamage || 0) + 30; }, // 捷克羅姆ex「野性電擊」
+  "可給予1隻自己的板凳火屬性寶可夢1個火屬性能量。": ctx => { // 萊希拉姆ex「青焰」——直接生成能量，不扣能量區
+    const targets = ctx.side.bench.filter(p => (p.types || []).includes('Fire'));
+    if (targets.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownBench', eligibleUids: targets.map(p => p.uid), action: 'attachEnergy', energyType: 'Fire', count: 1 };
+  },
 };
 // 場上所有寶可夢（雙方主戰+板凳）裡隨機選n次、每次隨機丟掉1點能量——「both yours and your
 // opponent's」代表池子橫跨雙方場面，不是各自獨立各丟一次，且身上沒能量的寶可夢不會被選中
@@ -6512,6 +6520,31 @@ const ABILITY_EFFECTS = {
     if (idx < 0) return '這隻沒有水屬性能量可以移動';
     src.energy.splice(idx, 1);
     ctx.side.active.energy.push('Water');
+    return null;
+  },
+  // Fan Made系列（2026-08-10新增）：捷克羅姆ex/萊希拉姆ex的「渦輪電壓/渦輪火焰」——卡面文字
+  // 沒有「Once during your turn」這種限定語，跟Shadow Void（as often as you like）一樣判定成
+  // 不限每回合1次（見pocket_use_ability的unlimitedUse白名單）。跟Wash Out不同的是：①不限制
+  // 主戰屬性（卡面沒寫主戰要是電/火屬性）②一次把來源寶可夢身上「所有」符合屬性的能量都移過去
+  // （卡面是「能量」不是「一點能量」），不是固定1點。
+  '渦輪電壓': (ctx, poke, msg) => {
+    if (!ctx.side.active) return '沒有主戰寶可夢';
+    const src = ctx.side.bench.find(p => p.uid === msg.target);
+    if (!src) return '請選擇板凳上的寶可夢';
+    const moving = src.energy.filter(e => e === 'Lightning');
+    if (!moving.length) return '這隻沒有電屬性能量可以移動';
+    src.energy = src.energy.filter(e => e !== 'Lightning');
+    ctx.side.active.energy.push(...moving);
+    return null;
+  },
+  '渦輪火焰': (ctx, poke, msg) => {
+    if (!ctx.side.active) return '沒有主戰寶可夢';
+    const src = ctx.side.bench.find(p => p.uid === msg.target);
+    if (!src) return '請選擇板凳上的寶可夢';
+    const moving = src.energy.filter(e => e === 'Fire');
+    if (!moving.length) return '這隻沒有火屬性能量可以移動';
+    src.energy = src.energy.filter(e => e !== 'Fire');
+    ctx.side.active.energy.push(...moving);
     return null;
   },
   'Dismantling Keys': (ctx, poke) => { // 必須在板凳上才能用，棄掉對手主戰的工具卡+棄掉自己
@@ -9118,8 +9151,9 @@ async function handleMessage(ws, msg) {
       if (!poke || !ability || !ABILITY_EFFECTS[ability.name]) return;
       // Shadow Void（2026-08-08新增）：卡面是「as often as you like」，跟其他「每回合限用1次」
       // 的特性方向相反，用名字白名單跳過once-per-turn gate（只有這一個特性需要，不值得為此
-      // 改整個ABILITY_EFFECTS的資料結構加欄位）
-      const unlimitedUse = ability.name === 'Shadow Void';
+      // 改整個ABILITY_EFFECTS的資料結構加欄位）。渦輪電壓/渦輪火焰（2026-08-10新增，Fan Made
+      // 系列）同一種情況——卡面沒有「Once during your turn」限定語，判定成同樣不限次數。
+      const unlimitedUse = ability.name === 'Shadow Void' || ability.name === '渦輪電壓' || ability.name === '渦輪火焰';
       if (!unlimitedUse && side.abilitiesUsedThisTurn.includes(poke.uid)) { send(ws, { type: 'error', message: '這隻寶可夢這回合已經用過特性了' }); return; }
       const abilityCtx = { G, role, op, side, oppSide };
       const statusSnapA = pocketSnapshotStatus(side), statusSnapB = pocketSnapshotStatus(oppSide);
