@@ -3327,10 +3327,6 @@ function pocketViewFor(G, role) {
     opponent: { ...pub(G[op]), handCount: G[op].hand.length },
   };
 }
-function pocketOneOff(pRoom, role, extra) {
-  send(pRoom[role], { type: 'pocket_peek', ...extra });
-}
-
 /* ── 找own場上（主戰+板凳）某隻寶可夢，供訓練師卡/特性指定目標用 ── */
 function pocketFindOwn(side, uid) { return [side.active, ...side.bench].find(p => p && p.uid === uid); }
 function pocketFindOwnByName(side, names) { return [side.active, ...side.bench].find(p => p && names.includes(p.name)); }
@@ -6125,11 +6121,6 @@ function pocketToolOnHit(defender) {
   if (toolId === 'A3-146') result.poisonAttacker = true;
   if (toolId === 'A4-154') result.revealShuffleOpp = true;
   return result;
-}
-// 完全免疫異常狀態：目前只有Steel Apron一張（鋼屬性裝備者），跟crowned-shield-aegis
-// （pokemon_battle.html的盾之王神威）同樣的「持有者完全免疫」概念，這裡是Pocket版本
-function pocketToolStatusImmune(poke) {
-  return poke.tool?.id === 'A4-153' && (poke.types || []).includes('Metal');
 }
 // 撤退折扣：Inflatable Boat(-1，水屬性裝備者)、Big Air Balloon(免費，Stage2裝備者)——
 // 跟pocketPassiveFreeRetreat/pocketPassiveBenchRetreatDiscount同一組hook點，回傳
