@@ -5,14 +5,15 @@ description: Use when adding, editing, or looking up Pokémon (POKEMON array), m
 
 # Pokémon Data (寶可夢相關)
 
-## Where the data lives — two independent copies, always edit both
+## Where the data lives — three copies as of 2026-08-10, always edit all that apply
 
 | File | Role |
 |---|---|
 | `pokemon_battle.html` | Single-player source of truth. `public/single.html` is a byte-for-byte mirror — after editing `pokemon_battle.html`, always run `cp pokemon_battle.html public/single.html` and verify with `diff`. |
-| `server.js` | PvP source of truth (server-authoritative). Has its own separate `POKEMON`/`TRAINERS` arrays — **not shared** with the HTML files. `public/pvp.html` has no Pokémon data of its own; it only renders whatever the server broadcasts. |
+| `server.js` | PvP source of truth (server-authoritative). Has its own separate `POKEMON`/`TRAINERS` arrays — **not shared** with the HTML files. |
+| `public/pvp.html` | Still a thin render client for actual battle state (no local data drives gameplay — it only renders whatever the server broadcasts). **But since 2026-08-10 it also carries its own `POKEMON`/`TRAINERS` arrays, copied verbatim from `pokemon_battle.html`, used ONLY by the rules-modal's Pokémon/item/supporter/stadium encyclopedia tabs** (see ui-rendering skill's "PvP版補上跟單人版同等的5分頁+圖鑑" section). Battle logic itself still ignores this copy entirely. |
 
-There is no shared data module — this is 4 static HTML/JS files, no build step. Any change to a Pokémon's stats/moves/ability must be made **twice**: once in `pokemon_battle.html` (then synced to `single.html`), once in `server.js`.
+There is no shared data module — this is 4 static HTML/JS files, no build step. Any change to a Pokémon's stats/moves/ability must be made in `pokemon_battle.html` (then synced to `single.html`) and `server.js` for gameplay to reflect it. **If the change is the kind a player would look up in the rules-modal encyclopedia (new Pokémon, changed move/ability text, new trainer card), also update the copy in `public/pvp.html`** — it won't break anything if you forget (gameplay is unaffected), but the PvP encyclopedia will silently show stale info until someone notices.
 
 ## POKEMON entry shape
 

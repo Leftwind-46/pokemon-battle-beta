@@ -113,6 +113,16 @@ Researched via MDPro3's decompiled (stub-only) `HandCardPlace.cs`/`CardMoveMotio
 
 **同一次順便修的相關bug**：`renderDex()`的招式效果說明（點開寶可夢圖鑑看到的每個招式下方小字）跟戰鬥中的`showMoveInfo()`彈窗一樣，原本都漏了`megaDraw`/`megaSeal`/`bonusVsType`/`ignoreShield`/`status2`幾個欄位（2026-07-31/08-01才新增的招式欄位，兩個顯示點都各自維護一份邏輯、都沒跟上）。抽成共用的`moveEffectDescParts(a)`function，`renderDex()`改呼叫它；`showMoveInfo()`維持自己原本的逐行`<div class="mip-row">`結構沒有跟著重構（兩處視覺呈現本來就不同，一個是joined字串、一個是分行），只各自確保欄位覆蓋完整。
 
-**`public/pvp.html`範圍**：PvP版的說明彈窗完全沒有分頁系統、也沒有本地的`POKEMON`/`TRAINERS`陣列（thin render client，卡牌資料只在對戰進行中由server廣播特定房間內容，不會有完整清單）——沒有嘗試比照套用5分頁+圖鑑，那需要先把完整153隻寶可夢+121張卡片資料複製一份到`pvp.html`維護，是一個更大、需要另外決定要不要做的獨立任務。只把新增的「💥 傷害如何計算」文字章節同步補進`pvp.html`既有規則說明的對應位置（屬性相剋之後、異常狀態之前）——這段是純文字，不依賴圖鑑資料，可以直接複製；`pvp.html`原本的「訓練師牌」「特性」大段手寫清單維持不變、沒有被刪除，因為它沒有圖鑑分頁可以承接這些資訊，仍然需要這份文字。
+**`public/pvp.html`範圍（2026-08-07當時的狀態）**：PvP版的說明彈窗完全沒有分頁系統、也沒有本地的`POKEMON`/`TRAINERS`陣列（thin render client，卡牌資料只在對戰進行中由server廣播特定房間內容，不會有完整清單）——當時沒有嘗試比照套用5分頁+圖鑑，只把新增的「💥 傷害如何計算」文字章節同步補進`pvp.html`既有規則說明的對應位置，`pvp.html`原本的「訓練師牌」「特性」大段手寫清單維持不變沒有被刪除。**這個gap已在2026-08-10補上，見下一節。**
 
 驗證：`node --check`確認語法、`npm run verify`確認`single.html`同步/資料parity全過，`javascript_tool`實際打開彈窗、切換所有5個分頁、在4個圖鑑分頁分別打搜尋字串確認即時過濾+計數正確、確認寶可夢圖鑑搜尋後空的關卡標籤有正確隱藏。
+
+## PvP版補上跟單人版同等的5分頁+圖鑑 (2026-08-10)
+
+使用者回報「單人模式說明改好了，但雙人模式沒改，希望之後這兩個是連動的」——問過使用者要用哪種方式補齊（讓`pvp.html`帶一份本地資料 vs. 先只記錄gap之後再做），選擇前者。把`pokemon_battle.html`的`POKEMON`（153隻，行2049-2222）跟`TRAINERS`（131張去重後，行2343-2489）兩個陣列**逐字複製**進`public/pvp.html`（放在既有的`getTrainerIcon()`後面，因為圖鑑渲染會用到它），連同`GUIDE_TABS`/`showGuideTab`/`moveEffectDescParts`/`renderDex`/`renderCardDex`/`filterDexSearch`/`updateDexSearchCount`這7個函式+對應CSS（`.guide-tabs`/`.guide-tab`/`.dex-*`/`.tcard-dex-*`）也逐字搬過去，HTML結構（5個tab按鈕+`guide-tab-rules`包住原本規則內容+4個新的`guide-tab-{dex,items,supporters,stadiums}`容器）跟單人版對齊。
+
+**這份複製的資料只給圖鑑UI顯示用，不影響PvP對戰邏輯本身**——對戰中場上實際的寶可夢/卡片還是完全由`server.js`透過WS廣播決定，`pvp.html`裡這份新增的`POKEMON`/`TRAINERS`只有規則說明彈窗的4個圖鑑分頁會讀取。原本`pvp.html`的「訓練師牌」「特性」兩段手寫`<li>`清單被整段刪除，跟單人版當初的理由一樣：改用程式化生成的圖鑑分頁，不留第二份容易跟真實卡片效果脫節的手寫文字。
+
+**新的維護代價**：`POKEMON`/`TRAINERS`現在有3份需要保持一致——`pokemon_battle.html`（含`public/single.html`鏡射）、`server.js`（PvP對戰邏輯實際使用）、`public/pvp.html`（這次新增，只給圖鑑UI用）。之後改動寶可夢招式/特性資料或`TRAINERS`卡片內容時，battle-logic/pokemon-data skill原本「single/pvp/server三處要一起改」的規則現在要擴大成「連`pvp.html`的圖鑑複本也要一起改」，否則圖鑑會顯示過時資料（雖然不會造成對戰邏輯錯誤，但會誤導玩家）。**這是使用者在提出這次需求時已經知情並選擇的取捨**（AskUserQuestion問過「讓pvp.html也帶一份本地資料」vs「先只記錄不做」，選了前者）。
+
+驗證：`node -e`直接抽取`<script>`內容跑過`new Function`確認語法、`npm run verify`全過；瀏覽器開`pvp.html`呼叫`openGuide()`+點過所有5個分頁+在寶可夢圖鑑打關鍵字搜尋確認即時過濾（"噴火龍"→1/153筆，關卡標籤正確跟著隱藏）+確認支援者卡圖鑑7張/競技場卡圖鑑24張跟單人版數字一致。
