@@ -532,6 +532,8 @@ function dailyCoinsForHappiness(happiness) {
 }
 // 飢餓值每經過這麼多秒掉1點，抓保守值，之後可依實際遊戲節奏調整
 const HUNGER_DECAY_INTERVAL_SEC = 900;
+// 第二隻寵物的價格（2026-08-10新增，見/api/pet/buy-second）
+const SECOND_PET_PRICE = 5000;
 
 /* ═══════════════════════════════════════════
    GAME LOGIC  (synchronous server-side)
@@ -7142,6 +7144,10 @@ app.get('/api/pet', requireAuth, async (req, res) => {
     const { rows: decorRows } = await pool.query('SELECT id, item_id, pos_x, pos_y, scale FROM pet_decorations WHERE user_id = $1', [req.user.id]);
     const decorations = decorRows.map(r => ({ id: r.id, itemId: r.item_id, x: r.pos_x, y: r.pos_y, scale: r.scale }));
     const hunger = await decayHunger(req.user.id);
+    // 第二隻寵物（2026-08-10新增）：只需要species_id給左側切換鈕顯示牠是誰，好感度/飢餓值
+    // 要切換過去才會讀（見/api/pet/switch），這裡不用先算decayHunger，省一次沒必要的UPDATE
+    const { rows: benchRows } = await pool.query('SELECT species_id FROM pet_bench WHERE user_id = $1', [req.user.id]);
+    const benchSpeciesId = benchRows[0]?.species_id ?? null;
     const { rows: fishRows } = await pool.query(
       'SELECT id, fish_type, caught_at, is_favorite FROM pet_fish WHERE user_id = $1 ORDER BY caught_at DESC', [req.user.id]
     );
@@ -7164,7 +7170,7 @@ app.get('/api/pet', requireAuth, async (req, res) => {
     ];
     const pokeDisplayFlipped = [rows[0].poke_display1_flip, rows[0].poke_display2_flip, rows[0].poke_display3_flip];
     res.json({
-      pet: { speciesId: rows[0].species_id, happiness: rows[0].happiness, coins: rows[0].coins, hunger, ...balls, fishTankPos, fishDexPos, birdcagePos, pokeDisplayIds, pokeDisplayPos, pokeDisplayFlipped },
+      pet: { speciesId: rows[0].species_id, happiness: rows[0].happiness, coins: rows[0].coins, hunger, ...balls, fishTankPos, fishDexPos, birdcagePos, pokeDisplayIds, pokeDisplayPos, pokeDisplayFlipped, benchSpeciesId },
       badges, decorations, fish, displayFish, birds, displayBird,
     });
   } catch (e) {
@@ -8137,6 +8143,81 @@ app.post('/api/pet/choose', requireAuth, async (req, res) => {
   } catch (e) {
     console.error('pet choose error:', e.message);
     res.status(503).json({ error: 'db_error' });
+  }
+});
+
+/* 買第二隻寵物（2026-08-10新增）：花SECOND_PET_PRICE金幣，species不能跟目前顯示中的那隻重複，
+   而且pet_bench已經有一列就代表額度用完了（user_id是PK，天然限制最多備用1隻，符合這次「先開放
+   只能多買一隻」的範圍）。扣錢+新增備用寵物包成一個交易——要嘛都成功、要嘛都沒發生，不會出現
+   「錢扣了但沒拿到寵物」的中間態。買完不會立刻上場，維持顯示原本那隻寵物，玩家自己按左側切換鈕。 */
+app.post('/api/pet/buy-second', requireAuth, async (req, res) => {
+  const speciesId = Number(req.body?.speciesId);
+  if (!PET_SPECIES.some(s => s.id === speciesId)) {
+    return res.status(400).json({ error: 'invalid_species' });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: petRows } = await client.query('SELECT species_id, coins FROM pets WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+    if (!petRows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'no_pet' }); }
+    if (petRows[0].species_id === speciesId) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'already_owned_species' }); }
+    const { rows: benchRows } = await client.query('SELECT species_id FROM pet_bench WHERE user_id = $1 FOR UPDATE', [req.user.id]);
+    if (benchRows.length) { await client.query('ROLLBACK'); return res.status(409).json({ error: 'bench_full' }); }
+    if (petRows[0].coins < SECOND_PET_PRICE) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'not_enough_coins' }); }
+    const { rows: updated } = await client.query(
+      'UPDATE pets SET coins = coins - $1 WHERE user_id = $2 AND coins >= $1 RETURNING coins',
+      [SECOND_PET_PRICE, req.user.id]
+    );
+    if (!updated.length) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'not_enough_coins' }); }
+    await client.query(
+      'INSERT INTO pet_bench (user_id, species_id, happiness, hunger, last_fed_at, last_interaction_at) VALUES ($1, $2, 50, 100, NOW(), NULL)',
+      [req.user.id, speciesId]
+    );
+    await client.query('COMMIT');
+    res.status(201).json({ coins: updated[0].coins, benchSpeciesId: speciesId });
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch (_) { /* 連線本身可能已經斷了，rollback失敗就不用管 */ }
+    console.error('pet buy-second error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  } finally {
+    client.release();
+  }
+});
+
+/* 切換寵物（2026-08-10新增）：把pets表跟pet_bench表的「每隻寵物專屬」欄位整組互換——切換之後
+   目前顯示中的寵物永遠是pets這張表（跟原本一模一樣），其餘40多個既有寵物端點完全不用改一行，
+   都繼續讀pets就對了。coins/裝飾/球數/Pocket TCG相關欄位留在pets上不參與互換，帳號共用不分寵物。
+   備用中的那隻，飢餓值/好感度照樣隨真實時間流逝（沒有暫停邏輯），跟電子雞「疏於照顧會變差」
+   的精神一致，切回去看到的是牠這段時間沒人理的真實結果。 */
+app.post('/api/pet/switch', requireAuth, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: petRows } = await client.query(
+      'SELECT species_id, happiness, hunger, last_fed_at, last_interaction_at FROM pets WHERE user_id = $1 FOR UPDATE', [req.user.id]
+    );
+    if (!petRows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'no_pet' }); }
+    const { rows: benchRows } = await client.query(
+      'SELECT species_id, happiness, hunger, last_fed_at, last_interaction_at FROM pet_bench WHERE user_id = $1 FOR UPDATE', [req.user.id]
+    );
+    if (!benchRows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'no_bench_pet' }); }
+    const active = petRows[0], bench = benchRows[0];
+    await client.query(
+      'UPDATE pets SET species_id = $1, happiness = $2, hunger = $3, last_fed_at = $4, last_interaction_at = $5 WHERE user_id = $6',
+      [bench.species_id, bench.happiness, bench.hunger, bench.last_fed_at, bench.last_interaction_at, req.user.id]
+    );
+    await client.query(
+      'UPDATE pet_bench SET species_id = $1, happiness = $2, hunger = $3, last_fed_at = $4, last_interaction_at = $5 WHERE user_id = $6',
+      [active.species_id, active.happiness, active.hunger, active.last_fed_at, active.last_interaction_at, req.user.id]
+    );
+    await client.query('COMMIT');
+    res.json({ speciesId: bench.species_id, happiness: bench.happiness, hunger: bench.hunger, benchSpeciesId: active.species_id });
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch (_) { /* 連線本身可能已經斷了，rollback失敗就不用管 */ }
+    console.error('pet switch error:', e.message);
+    res.status(503).json({ error: 'db_error' });
+  } finally {
+    client.release();
   }
 });
 
@@ -10837,6 +10918,20 @@ async function initDB() {
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS pocket_pity_counter INTEGER NOT NULL DEFAULT 0`);
     // 卡牌晶鑽（見POCKET_DISMANTLE_SHARDS/POCKET_SYNTHESIZE_COST）：分解卡片獲得、合成卡片消耗
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS pocket_shards INTEGER NOT NULL DEFAULT 0`);
+    // 第二隻寵物（2026-08-10新增，見pet-tamagotchi skill）：花5000金幣買下的第二隻寵物先進「備用」，
+    // 不會取代目前顯示的那隻——玩家用左側切換鈕才會真的把pets表跟這張表的內容互換。只存「每隻
+    // 寵物各自的身分/照顧狀態」欄位（物種/好感度/飢餓值/上次餵食+互動時間），不存coins/裝飾/球數/
+    // Pocket TCG相關欄位——那些是帳號共用的錢包/收藏，不是單一寵物的專屬狀態，切換時不動它們。
+    // user_id當PK天然限制「最多只能備用1隻」，符合這次「先開放只能多買一隻」的範圍。
+    await pool.query(`CREATE TABLE IF NOT EXISTS pet_bench (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      species_id INTEGER NOT NULL,
+      happiness INTEGER NOT NULL DEFAULT 50,
+      hunger INTEGER NOT NULL DEFAULT 100,
+      last_fed_at TIMESTAMPTZ DEFAULT NOW(),
+      last_interaction_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
     console.log('PostgreSQL connected');
   } catch (e) {
     console.warn('PostgreSQL not available, running without DB:', e.message);

@@ -65,6 +65,12 @@
   #ball-counter{position:absolute;left:10px;top:10px;z-index:10;display:flex;flex-direction:column;gap:0.3rem;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:10px;padding:0.4rem 0.55rem;pointer-events:none}
   .ball-counter-row{display:flex;align-items:center;gap:0.3rem;font-size:0.78rem;font-weight:700;color:var(--text)}
   .ball-counter-row img{width:18px;height:18px;image-rendering:pixelated}
+  /* 切換寵物按鈕（2026-08-10新增）：跟#ball-counter同一個理由放在#pet-stage-wrap而不是
+     #pet-stage裡面——只在買了第二隻寵物(pet.benchSpeciesId存在)時才顯示，left用負值讓按鈕
+     一半露在寵物空間外側，視覺上讀作「掛在房間邊緣的一格」而不是蓋在房間內容上面 */
+  #switch-pet-btn{position:absolute;left:-18px;top:50%;transform:translateY(-50%);z-index:10;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.08);border:2px solid var(--border);display:none;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:0 2px 10px rgba(0,0,0,0.35)}
+  #switch-pet-btn:hover{background:rgba(255,255,255,0.16);border-color:rgba(248,208,48,0.5)}
+  #switch-pet-btn img{width:32px;height:32px;image-rendering:pixelated;pointer-events:none}
   /* z-index:8——2026-07-26應使用者要求「選擇的寶可夢是主軸，應該在所有圖層的最上方」，
      蓋過房間裡其他固定物件(z-index:6，見.decor-room-item等的說明)。取捨：寶可夢走到跟
      某個裝飾/魚缸/鳥籠重疊的那一刻，該物件會短暫被寶可夢擋住點不到，等寶可夢走開就好，
@@ -409,6 +415,7 @@
           <div class="ball-counter-row"><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/great-ball.png" alt="">×<span id="ball-counter-great">0</span></div>
           <div class="ball-counter-row"><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/ultra-ball.png" alt="">×<span id="ball-counter-ultra">0</span></div>
         </div>
+        <button id="switch-pet-btn" onclick="switchPet()" title="切換寵物"><img id="switch-pet-btn-img" src="" alt="切換寵物"></button>
         <div id="pet-stage"></div>
       </div>
       <div id="pet-reaction-text"></div>
@@ -651,6 +658,9 @@ const PET_SPECIES = [
   { id: 132, name: '百變怪',   type: 'normal', custom: true },
   { id: 133, name: '伊布',     type: 'normal', custom: true },
 ];
+// 第二隻寵物的價格（2026-08-10新增）——跟server.js的SECOND_PET_PRICE保持一致，純顯示/前端
+// 提前擋用，真正的扣款驗證在server端/api/pet/buy-second
+const SECOND_PET_PRICE = 5000;
 const TYPE_COLOR = { grass:'#78c850', fire:'#f05030', water:'#6890f0', electric:'#f8d030', ghost:'#705898', normal:'#a8a878' };
 
 /* 「我的收藏」側欄用的完整18屬性色表——上面的 TYPE_COLOR 只涵蓋6種「我的寶可夢」房間主題色，
@@ -960,7 +970,9 @@ async function init() {
   }
 }
 
-function renderSpeciesCard(sp) {
+// onClickFn（2026-08-10新增參數）：預設是choosePet（第一次選寵物流程），第二隻寵物的
+// showSecondPetPicker傳chooseSecondPet進來共用同一張卡片，不用重寫一份render邏輯
+function renderSpeciesCard(sp, onClickFn = choosePet) {
   const col = TYPE_COLOR[sp.type] || '#888';
   const urls = spriteUrls(sp);
   const el = document.createElement('div');
@@ -970,7 +982,7 @@ function renderSpeciesCard(sp) {
     <img src="${urls.animated}" alt="${sp.name}" onerror="this.onerror=null;this.src='${urls.static}'">
     <div class="sp-name">${sp.name}</div>
   `;
-  el.onclick = () => choosePet(sp.id);
+  el.onclick = () => onClickFn(sp.id);
   return el;
 }
 
@@ -1019,6 +1031,78 @@ async function choosePet(speciesId) {
   } catch (e) { /* 網路失敗，留在選擇畫面讓玩家再試一次 */ }
 }
 
+/* 買第二隻寵物（2026-08-10新增）：商城按鈕先跳confirm()提醒花費（跟openPackFromPetPage的
+   50金幣提醒同一種寫法），確定後才離開商城、跳到選擇畫面——這裡還沒真的扣錢，選完寶可夢
+   呼叫API那一刻才是server端真正扣款+建立備用寵物的時間點，確保不會出現「錢扣了但沒選到
+   寶可夢」的中間態（玩家在選擇畫面按返回取消，等同整個流程沒發生過）。 */
+function openBuySecondPetFlow() {
+  if (pet.benchSpeciesId) { showToast('已經有一隻備用寵物了'); return; }
+  if ((pet.coins || 0) < SECOND_PET_PRICE) { showToast('金幣不足'); return; }
+  if (!confirm(`購買新寵物需要花費 ${SECOND_PET_PRICE} 金幣，確定要購買嗎？`)) return;
+  closeShopModal();
+  showSecondPetPicker();
+}
+
+function showSecondPetPicker() {
+  const grid = document.getElementById('pick-grid');
+  grid.innerHTML = '';
+  document.getElementById('pick-subtitle').textContent = '選一隻新的寶可夢（不能跟目前這隻同種）';
+  const backLink = document.getElementById('pick-back-link');
+  backLink.textContent = '← 取消，返回房間';
+  backLink.href = 'javascript:void(0)';
+  backLink.onclick = (e) => { e.preventDefault(); startStage(); };
+  // 只排除「目前顯示中」的那隻——bench最多1隻的限制已經在openBuySecondPetFlow擋過，
+  // 進得了這個畫面就代表bench還是空的，不用另外排除bench的物種
+  PET_SPECIES.filter(sp => sp.id !== pet.speciesId).forEach(sp => grid.appendChild(renderSpeciesCard(sp, chooseSecondPet)));
+  showScreen('pick-screen');
+}
+
+async function chooseSecondPet(speciesId) {
+  try {
+    const res = await fetch('/api/pet/buy-second', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${myToken}` },
+      body: JSON.stringify({ speciesId }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      const msg = data.error === 'not_enough_coins' ? '金幣不足'
+        : data.error === 'bench_full' ? '已經有一隻備用寵物了'
+        : data.error === 'already_owned_species' ? '不能選跟目前這隻一樣的寶可夢'
+        : '購買失敗，請稍後再試';
+      startStage();
+      showToast(msg);
+      return;
+    }
+    const data = await res.json();
+    pet.coins = data.coins;
+    pet.benchSpeciesId = data.benchSpeciesId;
+    updateCoinsUI(pet.coins);
+    startStage();
+    showToast('已經買到新寵物了！按左側的切換按鈕可以看看牠');
+  } catch (e) { startStage(); showToast('網路錯誤，請稍後再試'); }
+}
+
+/* 切換寵物（2026-08-10新增）：跟pets/pet_bench互換內容的server端邏輯對應——切換後pet物件
+   整個換成新的內容（物種/好感度/飢餓值都變了），跟choosePet成功後的處理方式一樣直接呼叫
+   startStage()整個重繪，不特別做局部更新（切換寵物本來就是大改動，房間主題色/待機圖都要換）。 */
+async function switchPet() {
+  if (!pet || !pet.benchSpeciesId) return;
+  try {
+    const res = await fetch('/api/pet/switch', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${myToken}` },
+    });
+    if (!res.ok) { showToast('切換失敗，請稍後再試'); return; }
+    const data = await res.json();
+    pet.speciesId = data.speciesId;
+    pet.happiness = data.happiness;
+    pet.hunger = data.hunger;
+    pet.benchSpeciesId = data.benchSpeciesId;
+    startStage();
+  } catch (e) { showToast('網路錯誤，請稍後再試'); }
+}
+
 /* ─────────────────────────────────────────
    PET STAGE — 待機閒晃動畫 + 點擊互動
 ───────────────────────────────────────── */
@@ -1034,6 +1118,7 @@ function startStage() {
   updateCoinsUI(pet.coins || 0);
   updateHungerUI(pet.hunger != null ? pet.hunger : 100);
   updateBallCounterUI();
+  updateSwitchPetBtnUI();
 
   const stage = document.getElementById('pet-stage');
   stage.innerHTML = '';
@@ -1220,6 +1305,22 @@ function updateBallCounterUI() {
   document.getElementById('ball-counter-normal').textContent = pet.ballNormal || 0;
   document.getElementById('ball-counter-great').textContent = pet.ballGreat || 0;
   document.getElementById('ball-counter-ultra').textContent = pet.ballUltra || 0;
+}
+
+// 2026-08-10新增：只有買了第二隻寵物(pet.benchSpeciesId存在)才顯示這顆按鈕，圖示用備用中
+// 那隻的sprite，讓玩家一眼看出「按下去會換成誰」，不是空白的通用切換icon
+function updateSwitchPetBtnUI() {
+  const btn = document.getElementById('switch-pet-btn');
+  if (!pet.benchSpeciesId) { btn.style.display = 'none'; return; }
+  const benchSpecies = PET_SPECIES.find(s => s.id === pet.benchSpeciesId);
+  if (!benchSpecies) { btn.style.display = 'none'; return; }
+  const urls = spriteUrls(benchSpecies);
+  const img = document.getElementById('switch-pet-btn-img');
+  img.src = urls.animated;
+  img.onerror = () => { img.onerror = null; img.src = urls.static; };
+  img.alt = `切換成 ${benchSpecies.name}`;
+  btn.title = `切換成 ${benchSpecies.name}`;
+  btn.style.display = 'flex';
 }
 
 /* ─────────────────────────────────────────
@@ -1573,8 +1674,25 @@ function renderShopList() {
       </div>
     `;
   }).join('');
+  // 第二隻寵物（2026-08-10新增）：不是shopItems資料驅動的一般商品（沒有icon/名稱/單純購買即完成
+  // 這種形狀），是「確認花費→跳到選寶可夢畫面」的專屬流程，所以獨立寫死一個區塊，不塞進上面
+  // 那兩組迴圈裡。bench_full時（已經買過一隻備用寵物）跟金幣不夠時都直接disable按鈕。
+  const benchFull = !!pet.benchSpeciesId;
+  const affordSecondPet = (pet.coins || 0) >= SECOND_PET_PRICE;
+  const secondPetDisabledReason = benchFull ? '（已經有一隻備用寵物了）' : !affordSecondPet ? '（金幣不足）' : '';
+  const secondPetHtml = `
+    <div class="shop-item">
+      <span class="icon">🆕</span>
+      <div class="info">
+        <div class="name">新寵物${secondPetDisabledReason}</div>
+        <div class="price">🪙 ${SECOND_PET_PRICE}</div>
+      </div>
+      <button ${benchFull || !affordSecondPet ? 'disabled' : ''} onclick="openBuySecondPetFlow()">購買</button>
+    </div>
+  `;
   list.innerHTML = (balls.length ? `<div class="shop-group-title">寶可夢球</div>${ballHtml}` : '')
-    + (decor.length ? `<div class="shop-group-title">房間裝飾</div>${decorHtml}` : '');
+    + (decor.length ? `<div class="shop-group-title">房間裝飾</div>${decorHtml}` : '')
+    + `<div class="shop-group-title">寵物</div>${secondPetHtml}`;
 }
 
 async function buyItem(itemId) {
