@@ -429,6 +429,16 @@
         <select id="type">
           <option value="">全部屬性</option>
         </select>
+        <select id="sort">
+          <option value="default">預設順序</option>
+          <option value="name">名稱（A→Z）</option>
+          <option value="hp-desc">HP（高→低）</option>
+          <option value="hp-asc">HP（低→高）</option>
+          <option value="retreat-asc">撤退費用（低→高）</option>
+          <option value="rarity-desc">稀有度（高→低）</option>
+          <option value="rarity-asc">稀有度（低→高）</option>
+          <option value="owned-desc">擁有張數（多→少）</option>
+        </select>
       </div>
       <div class="pool-count" id="pool-count"></div>
       <div class="grid" id="grid"></div>
@@ -1294,18 +1304,39 @@ function openPackSetPicker(count = 1) {
 }
 function closePackSetPicker() { document.getElementById('pack-set-picker-overlay').style.display = 'none'; }
 
+// 2026-08-11新增：組牌頁排序——rarity的高低沿用既有POCKET_DISMANTLE_SHARDS_CLIENT
+// 分解晶鑽價值當作稀有度強度的既有排序依據（這個專案本來就沒有另一份獨立的稀有度階級表，
+// 分解價值本身就是跟稀有度嚴格正相關的既有數字），沒有列在裡面的（例如'None'）排最低。
+function pocketRarityRank(card) {
+  return POCKET_DISMANTLE_SHARDS_CLIENT[card.rarity] || 0;
+}
+function pocketSortPool(cards, sortKey) {
+  const arr = cards.slice();
+  switch (sortKey) {
+    case 'name': return arr.sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'));
+    case 'hp-desc': return arr.sort((a, b) => (b.hp || 0) - (a.hp || 0));
+    case 'hp-asc': return arr.sort((a, b) => (a.hp || 0) - (b.hp || 0));
+    case 'retreat-asc': return arr.sort((a, b) => (a.retreat ?? 99) - (b.retreat ?? 99));
+    case 'rarity-desc': return arr.sort((a, b) => pocketRarityRank(b) - pocketRarityRank(a));
+    case 'rarity-asc': return arr.sort((a, b) => pocketRarityRank(a) - pocketRarityRank(b));
+    case 'owned-desc': return arr.sort((a, b) => (ownedCounts[b.id] || 0) - (ownedCounts[a.id] || 0));
+    default: return arr;
+  }
+}
 function renderPool() {
   const q = document.getElementById('q').value.trim().toLowerCase();
   const cat = document.getElementById('cat').value;
   const type = document.getElementById('type').value;
+  const sortKey = document.getElementById('sort').value;
   // 2026-08-05：卡池不再是全部ALL_CARDS，只顯示自己擁有至少1張的卡——組牌只能用抽到的卡牌
   const ownedPool = ALL_CARDS.filter(c => (ownedCounts[c.id] || 0) > 0);
-  const filtered = ownedPool.filter(c => {
+  let filtered = ownedPool.filter(c => {
     if (q && !c.name.toLowerCase().includes(q)) return false;
     if (cat && c.category !== cat) return false;
     if (type && !(c.types || []).includes(type)) return false;
     return true;
   });
+  filtered = pocketSortPool(filtered, sortKey);
   document.getElementById('pool-count').textContent = `顯示 ${filtered.length} / 擁有 ${ownedPool.length} 種`;
 
   const grid = document.getElementById('grid');
@@ -1378,7 +1409,7 @@ function computeDeckCardActions(card) {
   return [{ label: '從牌組移除', primary: true, onClick: () => removeCard(card.id) }];
 }
 
-['q', 'cat', 'type'].forEach(id => document.getElementById(id).addEventListener('input', renderPool));
+['q', 'cat', 'type', 'sort'].forEach(id => document.getElementById(id).addEventListener('input', renderPool));
 
 // 2026-08-06新增：從「我的寶可夢」頁的「卡牌」入口導過來時，用?open=collection|dex|pack
 // 自動開啟對應畫面——只有登入玩家才會用到這個入口（tamagotchi.html的卡牌icon本來就只有
