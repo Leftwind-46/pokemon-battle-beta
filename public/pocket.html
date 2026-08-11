@@ -789,6 +789,14 @@ const TYPE_ZH = {
   Fighting:'格鬥', Darkness:'惡', Dragon:'龍', Colorless:'無色', Grass:'草',
   Metal:'鋼'
 };
+// 2026-08-11新增：卡牌全面中文化——card.zh_name/attack.name_zh/attack.effect_zh/
+// ability.name_zh/ability.effect_zh是額外附加在pocket-cards.json每筆資料上的翻譯欄位，
+// 純顯示用。原本的.name/.effect（英文）完全不動——server端遊戲邏輯、client端
+// ABILITY_NEEDS_TARGET/ABILITY_ONLY_ON_EVOLVE_TURN等lookup table都還是拿英文.name當key
+// 比對，兩者互不影響，所以這裡只加顯示層，不會動到任何判斷邏輯。找不到翻譯時退回英文原文
+// （代表這張卡還沒補上翻譯，或未來新增的卡還沒跑過翻譯批次）。
+function zhName(x) { return x?.zh_name || x?.name_zh || x?.name || ''; }
+function zhEffect(x) { return x?.effect_zh || x?.effect || ''; }
 // 自製能量圖示（不是官方PTCG圖檔——那是任天堂/Creatures的版權美術，這個專案一貫不直接使用
 // 官方遊戲素材，比照8-bit音效用合成取代真實音檔的原則）。2026-08-05：原本用emoji疊在色底圓圈上，
 // 使用者反應「emoji有點醜」——emoji本身自帶多色、跟色底圓圈的顏色打架。改成純白色單色SVG線稿
@@ -1116,10 +1124,10 @@ function openCollectionView() {
   const owned = ALL_CARDS.filter(c => (ownedCounts[c.id] || 0) > 0);
   document.getElementById('collection-count').textContent = `共擁有 ${owned.length} 種、${Object.values(ownedCounts).reduce((a, b) => a + b, 0)} 張`;
   grid.innerHTML = owned.map(c => `
-    <div class="card-tile" title="${c.name}">
+    <div class="card-tile" title="${zhName(c)}">
       <div class="count-badge">${ownedCounts[c.id]}</div>
-      <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${c.name}">
-      <div class="name">${c.name}</div>
+      <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${zhName(c)}">
+      <div class="name">${zhName(c)}</div>
       <div class="meta">${c.rarity || ''}</div>
     </div>`).join('') || '<div style="color:var(--muted)">還沒有任何收藏，先去開卡包吧</div>';
   document.getElementById('collection-overlay').style.display = 'flex';
@@ -1154,10 +1162,10 @@ function renderDexGrid() {
   grid.innerHTML = filtered.map(c => {
     const owned = ownedCounts[c.id] || 0;
     return `
-    <div class="card-tile ${owned ? '' : 'dex-unowned'}" title="${c.name}" onclick="openDexAction('${c.id}')">
+    <div class="card-tile ${owned ? '' : 'dex-unowned'}" title="${zhName(c)}" onclick="openDexAction('${c.id}')">
       ${owned ? `<div class="count-badge">${owned}</div>` : ''}
-      <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${c.name}">
-      <div class="name">${c.name}</div>
+      <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${zhName(c)}">
+      <div class="name">${zhName(c)}</div>
       <div class="meta">${c.rarity || ''}</div>
     </div>`;
   }).join('');
@@ -1270,8 +1278,8 @@ async function openPackFlow(count = 1, setId = 'A1') {
     const row = document.getElementById('pack-reveal-row');
     row.innerHTML = data.cards.map((c, i) => `
       <div class="pack-reveal-card ${POCKET_HIGH_RARITIES.has(c.rarity) ? 'chase' : ''}" style="animation-delay:${Math.min(i, 20) * 0.08}s">
-        <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${c.name}">
-        <div class="n">${c.name}${POCKET_HIGH_RARITIES.has(c.rarity) ? ' ✨' : ''}</div>
+        <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${zhName(c)}">
+        <div class="n">${zhName(c)}${POCKET_HIGH_RARITIES.has(c.rarity) ? ' ✨' : ''}</div>
       </div>`).join('');
     document.getElementById('pack-result-actions').style.display = 'flex';
     // 金幣已經不夠了，「再抽一次」按下去只會立刻重複同一句金幣不足訊息——直接不給這個選項，
@@ -1351,8 +1359,8 @@ function renderPool() {
     return `
       <div class="card-tile ${maxed && n < cap ? 'maxed' : ''}" onclick="showCardDetail(cardById['${c.id}'], computePoolCardActions(cardById['${c.id}']))" title="擁有${ownedCounts[c.id]}張 · 點擊查看詳情">
         ${n > 0 ? `<div class="count-badge">${n}/${ownedCounts[c.id]}</div>` : `<div class="count-badge" style="opacity:0.5">×${ownedCounts[c.id]}</div>`}
-        <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${c.name}">
-        <div class="name">${c.name}</div>
+        <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${zhName(c)}">
+        <div class="name">${zhName(c)}</div>
         <div class="meta">${metaLine}</div>
       </div>`;
   }).join('');
@@ -1389,8 +1397,8 @@ function renderDeck() {
     const c = cardById[g.id];
     return `
       <div class="deck-row" onclick="showCardDetail(cardById['${g.id}'], computeDeckCardActions(cardById['${g.id}']))">
-        <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${c.name}">
-        <div class="n">${c.name}</div>
+        <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${zhName(c)}">
+        <div class="n">${zhName(c)}</div>
         <div class="x">×${g.count}</div>
         <button onclick="event.stopPropagation();removeCard('${g.id}')">−</button>
       </div>`;
@@ -1585,19 +1593,19 @@ function showCardDetail(card, actions) {
   if (!card) return;
   const body = document.getElementById('card-detail-body');
   const isPoke = card.category === 'Pokemon';
-  let html = `<img class="detail-img" src="${card.image}" alt="${card.name}">
-    <h3>${card.name}${card.ex ? ' EX' : ''}</h3>
+  let html = `<img class="detail-img" src="${card.image}" alt="${zhName(card)}">
+    <h3>${zhName(card)}${card.ex ? ' EX' : ''}</h3>
     <div class="detail-meta">${card.rarity || ''}${isPoke ? ` · ${card.stage === 'Basic' ? '基礎' : card.stage} · HP ${card.hp}` : ` · ${card.trainerType === 'Supporter' ? '支援者卡' : '道具卡'}`}</div>`;
   if (isPoke) {
     html += (card.attacks || []).map(a => `
       <div class="detail-attack">
-        <div class="dname"><span>${a.name}</span><span>${(a.cost || []).map(t => energyIconHtml(t, true)).join('')} ${a.damage || ''}</span></div>
-        ${a.effect ? `<div class="detail-effect">${a.effect}</div>` : ''}
+        <div class="dname"><span>${zhName(a)}</span><span>${(a.cost || []).map(t => energyIconHtml(t, true)).join('')} ${a.damage || ''}</span></div>
+        ${a.effect ? `<div class="detail-effect">${zhEffect(a)}</div>` : ''}
       </div>`).join('');
-    if (card.abilities?.length) html += card.abilities.map(ab => `<div class="detail-attack"><div class="dname">特性：${ab.name}</div><div class="detail-effect">${ab.effect}</div></div>`).join('');
+    if (card.abilities?.length) html += card.abilities.map(ab => `<div class="detail-attack"><div class="dname">特性：${zhName(ab)}</div><div class="detail-effect">${zhEffect(ab)}</div></div>`).join('');
     if (card.weaknesses?.length) html += `<div class="detail-meta">弱點：${card.weaknesses.map(w => (TYPE_ZH[w.type] || w.type) + w.value).join(', ')}${card.retreat != null ? ` · 撤退 ${card.retreat}` : ' · 無法撤退'}</div>`;
   } else {
-    html += `<div class="detail-effect">${card.effect || ''}</div>`;
+    html += `<div class="detail-effect">${zhEffect(card)}</div>`;
   }
   window.__detailActions = actions || [];
   if (actions && actions.length) {
@@ -1645,7 +1653,7 @@ function renderPokeSlot(p, { pickable = false, dataset = {}, own = false } = {})
   if (p.sleepTrapUntilTurn === tn) badges.push(`<span class="status-chip" title="下次從能量區附加能量時會陷入睡眠">💤陷阱</span>`);
   if (p.moveLockUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合不能使用【${p.moveLockName}】">🚫【${p.moveLockName}】</span>`);
   if (p.moveBuffUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合使用【${p.moveBuffName}】傷害+${p.moveBuffAmount}">【${p.moveBuffName}】+${p.moveBuffAmount}</span>`);
-  if (p.tool) badges.push(`<span class="status-chip" title="裝備：${p.tool.name}">🔧${p.tool.name}</span>`);
+  if (p.tool) badges.push(`<span class="status-chip" title="裝備：${zhName(p.tool)}">🔧${zhName(p.tool)}</span>`);
   const statusHtml = badges.length ? `<div class="status-badges">${badges.join('')}</div>` : '';
   // 2026-08-08修正：拿掉🔍按鈕——點卡片本體（board-overlay的click委派）本來就會開啟同樣的
   // showCardDetail，🔍是完全多餘的重複入口，使用者反映占位又容易跟特性/棄置按鈕混在一起
@@ -1663,8 +1671,8 @@ function renderPokeSlot(p, { pickable = false, dataset = {}, own = false } = {})
   }
   return `
     <div class="board-slot ${pickable ? 'pickable' : ''}" data-uid="${p.uid}" ${attrs}>
-      <img src="${pocketThumbUrl(p.image)}" loading="lazy" alt="${p.name}">
-      <div class="board-name">${p.name}${p.ex ? ' EX' : ''}</div>
+      <img src="${pocketThumbUrl(p.image)}" loading="lazy" alt="${zhName(p)}">
+      <div class="board-name">${zhName(p)}${p.ex ? ' EX' : ''}</div>
       <div class="hp-bar"><div class="hp-fill ${hpPct <= 30 ? 'low' : ''}" style="width:${hpPct}%"></div></div>
       <div>${p.curHp ?? p.hp}/${p.hp}</div>
       <div class="energy-row">${energyIcons}</div>
@@ -1785,18 +1793,18 @@ function renderBoard() {
     const stadiumCard = pocketFindCardById(state.activeStadium.id);
     stadiumDock.style.display = 'flex';
     document.getElementById('stadium-img').src = pocketThumbUrl(stadiumCard?.image) || '';
-    document.getElementById('stadium-label').textContent = state.activeStadium.name;
+    document.getElementById('stadium-label').textContent = zhName(state.activeStadium);
     // Field Blower等可以棄場地卡的道具卡選取中時，點場地卡改成送出target:'stadium'，
     // 不是打開詳情面板——跟item-target點board上寶可夢是同一套流程，只是目標池換成場地卡本體
     if (selectedAction?.mode === 'item-target' && TRAINER_CAN_TARGET_STADIUM.has(selectedAction.effectId)) {
-      stadiumDock.title = `棄掉場地卡：${state.activeStadium.name}`;
+      stadiumDock.title = `棄掉場地卡：${zhName(state.activeStadium)}`;
       stadiumDock.onclick = () => {
         spawnPlayFlourish(pocketThumbUrl(pocketFindCardByUid(selectedAction.handUid)?.image), stadiumDock);
         wsSend({ type: selectedAction.isSupporter ? 'pocket_play_supporter' : 'pocket_play_item', handUid: selectedAction.handUid, target: 'stadium' });
         selectedAction = null;
       };
     } else {
-      stadiumDock.title = `場地卡：${state.activeStadium.name}（點擊查看詳情）`;
+      stadiumDock.title = `場地卡：${zhName(state.activeStadium)}（點擊查看詳情）`;
       stadiumDock.onclick = () => { if (stadiumCard) showCardDetail(stadiumCard); };
     }
   } else {
@@ -1813,7 +1821,7 @@ function renderBoard() {
       const affordable = pocketCanPayCostClient(you.active, a.cost, you);
       const costHtml = (a.cost || []).map(t => energyIconHtml(t)).join('');
       return `<button class="attack-btn" ${affordable ? '' : 'disabled'} onclick="doAttack(${i})">
-        <span>${a.name}</span>
+        <span>${zhName(a)}</span>
         <span class="attack-cost">${costHtml}</span>
         <span>${a.damage || '-'}</span>
       </button>`;
@@ -1849,8 +1857,8 @@ function renderBoard() {
     const label = c.category === 'Pokemon' ? `${c.stage === 'Basic' ? '基礎' : c.stage === 'Stage1' ? '第1階' : '第2階'}` : (c.trainerType === 'Supporter' ? '支援者' : '道具');
     const locked = c.trainerType === 'Supporter' && you.supporterUsedThisTurn;
     return `<div class="board-slot ${locked ? 'maxed' : ''}" data-hand-uid="${c.uid}" data-hand-kind="${c.category}">
-      <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${c.name}">
-      <div class="board-name">${c.name}</div>
+      <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${zhName(c)}">
+      <div class="board-name">${zhName(c)}</div>
       <div>${label}</div>
     </div>`;
   }).join('');
@@ -1912,8 +1920,8 @@ function renderBoard() {
       const eligible = lastPeekedCards.filter(c => pendingChoice.eligibleUids.includes(c.uid));
       optionsEl.innerHTML = eligible.map(c => `
         <div class="board-slot pickable" data-attack-choice-pick="1" data-uid="${c.uid}" style="min-width:120px">
-          <img src="${pocketThumbUrl(c.image)}" alt="${c.name}">
-          <div class="board-name">${c.name}</div>
+          <img src="${pocketThumbUrl(c.image)}" alt="${zhName(c)}">
+          <div class="board-name">${zhName(c)}</div>
         </div>`).join('');
     } else if (pendingChoice.kind === 'pick_target' && pendingChoice.pool === 'ownDiscardSupporter') {
       // 2026-08-07新增（Search for Friends）：目標是自己棄牌堆裡的支援者卡，不是board上的寶可夢
@@ -1923,8 +1931,8 @@ function renderBoard() {
       const eligible = (you.discard || []).filter(c => pendingChoice.eligibleUids.includes(c.uid));
       optionsEl.innerHTML = eligible.map(c => `
         <div class="board-slot pickable" data-attack-choice-pick="1" data-uid="${c.uid}" style="min-width:120px">
-          <img src="${pocketThumbUrl(c.image)}" alt="${c.name}">
-          <div class="board-name">${c.name}</div>
+          <img src="${pocketThumbUrl(c.image)}" alt="${zhName(c)}">
+          <div class="board-name">${zhName(c)}</div>
         </div>`).join('');
     } else if (pendingChoice.kind === 'pick_target') {
       const isOwn = pendingChoice.pool !== 'oppAll';
@@ -1959,8 +1967,8 @@ function renderBoard() {
       const eligible = (you.hand || []).filter(c => pendingChoice.eligibleUids.includes(c.uid));
       optionsEl.innerHTML = eligible.map(c => `
         <div class="board-slot pickable" data-attack-choice-pick="1" data-uid="${c.uid}" style="min-width:120px">
-          <img src="${pocketThumbUrl(c.image)}" alt="${c.name}">
-          <div class="board-name">${c.name}</div>
+          <img src="${pocketThumbUrl(c.image)}" alt="${zhName(c)}">
+          <div class="board-name">${zhName(c)}</div>
         </div>`).join('');
     } else if (pendingChoice.kind === 'pick_move' && pendingChoice.pool === 'ownBench') {
       // Ditto（2026-08-08新增）：跟一般pick_move借「對手主戰」方向不同，這是借自己板凳任一隻
@@ -1971,7 +1979,7 @@ function renderBoard() {
       (you.bench || []).filter(p => !p.ex).forEach(p => (p.attacks || []).forEach((m, i) => options.push({ p, m, i })));
       optionsEl.innerHTML = options.map(({ p, m, i }) => `
         <div class="board-slot pickable" data-move-choice-pick="${i}" data-move-choice-uid="${p.uid}" style="min-width:160px">
-          <div class="board-name">${p.name}：${m.name}</div>
+          <div class="board-name">${zhName(p)}：${zhName(m)}</div>
           <div>威力 ${m.damage || 0}</div>
         </div>`).join('');
     } else if (pendingChoice.kind === 'pick_move') {
@@ -1982,7 +1990,7 @@ function renderBoard() {
       const moves = opponent.active?.attacks || [];
       optionsEl.innerHTML = moves.map((m, i) => `
         <div class="board-slot pickable" data-move-choice-pick="${i}" style="min-width:160px">
-          <div class="board-name">${m.name}</div>
+          <div class="board-name">${zhName(m)}</div>
           <div>威力 ${m.damage || 0}</div>
         </div>`).join('');
     }
@@ -2264,7 +2272,7 @@ function computeHandCardActions(card) {
     } }];
   }
   if (card.category === 'Pokemon') {
-    return [{ label: `選擇要進化成 ${card.name} 的寶可夢`, primary: true, onClick: () => {
+    return [{ label: `選擇要進化成 ${zhName(card)} 的寶可夢`, primary: true, onClick: () => {
       selectedAction = { mode: 'evolve', handUid: card.uid, name: card.name };
       updateActionHint(); renderBoard();
     } }];
@@ -2403,8 +2411,8 @@ function renderSetupHand() {
     const isBasic = c.category === 'Pokemon' && c.stage === 'Basic';
     const cls = c.uid === setupActive ? 'chosen-active' : setupBench.includes(c.uid) ? 'chosen-bench' : '';
     return `<div class="board-slot ${cls}" data-setup-uid="${c.uid}" data-basic="${isBasic}">
-      <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${c.name}">
-      <div class="board-name">${c.name}</div>
+      <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${zhName(c)}">
+      <div class="board-name">${zhName(c)}</div>
       <div>${isBasic ? '基礎' : (c.category === 'Pokemon' ? c.stage : c.trainerType)}</div>
     </div>`;
   }).join('');
@@ -2437,7 +2445,7 @@ function openDiscardTargetPicker(title, cards, onPick) {
   document.getElementById('discard-target-picker-title').textContent = title;
   document.getElementById('discard-target-picker-list').innerHTML = (cards || []).map(c => `
     <div style="text-align:center;font-size:0.65rem;cursor:pointer" data-discard-pick-uid="${c.uid}">
-      <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${c.name}"><div>${c.name}</div>
+      <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${zhName(c)}"><div>${zhName(c)}</div>
     </div>`).join('') || '<div class="lobby-sub">（沒有符合條件的卡片）</div>';
   document.getElementById('discard-target-picker-overlay').style.display = 'flex';
 }
@@ -2483,7 +2491,7 @@ function showPeek(title, cards, looseEnergy) {
   // 圖片+名字，玩家完全看不出棄牌堆裡到底還有哪些能量可以撿，這裡補上能量圖示列
   document.getElementById('peek-list').innerHTML = peekCards.map((c, i) => `
     <div style="text-align:center;font-size:0.65rem;cursor:pointer" onclick="showCardDetail(peekCards[${i}])">
-      <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${c.name}"><div>${c.name}</div>
+      <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${zhName(c)}"><div>${zhName(c)}</div>
       ${c.energy?.length ? `<div style="display:flex;justify-content:center;gap:1px;flex-wrap:wrap;margin-top:2px">${c.energy.map(e => energyIconHtml(e, true)).join('')}</div>` : ''}
     </div>`).join('') || '<div class="lobby-sub">（沒有卡片）</div>';
   // 2026-08-08新增：Rainbow Cave等場地卡棄置能量區能量後，那份能量沒有卡片可以掛（不是
