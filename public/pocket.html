@@ -680,7 +680,7 @@
   </div>
 
   <div class="setup-overlay" id="switch-wait-overlay" style="display:none">
-    <div class="setup-box"><h2>對手的寶可夢倒下了</h2><p class="lobby-sub">等待對方選擇替補寶可夢中...</p></div>
+    <div class="setup-box"><h2 id="switch-wait-title">對手的寶可夢倒下了</h2><p class="lobby-sub">等待對方選擇替補寶可夢中...</p></div>
   </div>
 
   <!-- 2026-08-06新增：招式效果需要玩家自選的情況（例如Moltres ex自選能量分配對象、
@@ -1713,7 +1713,7 @@ const ABILITY_ONLY_ON_EVOLVE_TURN = new Set([
 
 function renderBoard() {
   if (!state) return;
-  const { you, opponent, turn, turnNumber, phase, pendingSwitchRole } = state;
+  const { you, opponent, turn, turnNumber, phase, pendingSwitchRole, pendingSwitchExcludeUid, pendingSwitchIsKO } = state;
   const myTurn = turn === myRole;
 
   document.getElementById('turn-indicator').textContent = phase === 'done' ? '對戰結束' : `第 ${turnNumber} 回合 · ${myTurn ? '輪到你' : '對手回合'}`;
@@ -1880,9 +1880,21 @@ function renderBoard() {
   document.getElementById('switch-overlay').style.display = needMySwitch ? 'flex' : 'none';
   document.getElementById('switch-wait-overlay').style.display = needOppSwitch ? 'flex' : 'none';
   if (needMySwitch) {
-    document.getElementById('switch-choices').innerHTML = (you.bench || []).map(p =>
+    // 2026-08-12修正：Sabrina這類效果會帶pendingSwitchExcludeUid（剛被換下板凳的那隻）——
+    // 板凳還有其他選項時要排除掉，不然可以選回同一隻等於這張卡沒發生任何事（跟server端
+    // pocket_choose_active的驗證同一套規則，這裡先過濾掉不給點，UI層級就先擋掉，不用等
+    // server回錯誤才知道不能選）
+    const bench = you.bench || [];
+    const switchPool = (pendingSwitchExcludeUid && bench.length > 1)
+      ? bench.filter(p => p.uid !== pendingSwitchExcludeUid) : bench;
+    document.getElementById('switch-choices').innerHTML = switchPool.map(p =>
       renderPokeSlot(p, { pickable: true, dataset: { 'switch-pick': '1' } })
     ).join('');
+  }
+  if (needOppSwitch) {
+    // 2026-08-12修正：只有真的KO才顯示「倒下了」，Sabrina這類純卡片效果強制換人跳同一個
+    // wait-overlay卻一律顯示「倒下了」文字是錯的（見pendingSwitchIsKO的說明）
+    document.getElementById('switch-wait-title').textContent = pendingSwitchIsKO ? '對手的寶可夢倒下了' : '對手正在換人';
   }
 
   // attack_choice overlay——招式效果需要玩家自選目標時暫停在這裡（見server.js的pendingChoice）
@@ -2372,7 +2384,12 @@ function pocketComputeRetreatCostClient(card, you, opponent, state) {
   if ((card.types || []).includes('Darkness')) benchDiscount += (you.bench || []).filter(p => p.abilities?.[0]?.name === 'Villainous Delivery').length;
   // Conductive Body（2026-08-08新增）：持有者自己的撤退折扣，條件是場上還有另一隻同名寶可夢
   const selfDiscount = (ability === 'Conductive Body' && [you.active, ...(you.bench || [])].some(p => p && p.uid !== card.uid && p.name === card.name)) ? 2 : 0;
-  const trapIncrease = [opponent?.active, ...(opponent?.bench || [])].filter(p => p?.abilities?.[0]?.name === 'Trap Territory').length;
+  // 2026-08-12新增酋雷姆ex「冰封世界」：跟Trap Territory同一種「對手場上不限位置」常駐撤退負擔，
+  // 每隻+2不是+1，一定要跟server端pocketPassiveRetreatIncrease同步更新，不然又會踩到Small Balloon
+  // 那次「client試算漏掉新機制、按鈕顯示錯誤費用」的同一種坑
+  const oppRetreatPool = [opponent?.active, ...(opponent?.bench || [])];
+  const trapIncrease = oppRetreatPool.filter(p => p?.abilities?.[0]?.name === 'Trap Territory').length
+    + oppRetreatPool.filter(p => p?.abilities?.[0]?.name === '冰封世界').length * 2;
   const oranguruIncrease = card.retreatIncreaseUntilTurn === state.turnNumber ? (card.retreatIncreaseAmount || 0) : 0;
   return Math.max(0, (card.retreat || 0) - (you.retreatDiscountThisTurn || 0) - plazaDiscount - benchDiscount - selfDiscount - toolDiscount + trapIncrease + oranguruIncrease);
 }

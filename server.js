@@ -3002,11 +3002,20 @@ function pocketAdvanceTurn(G) {
 // 進入強制換人狀態——用佇列而不是單一欄位，讓「雙方主戰同時都需要換人」（見下面
 // pocketResolveMutualKO）也能正確依序處理，不會有後呼叫覆蓋前呼叫的問題。
 // pendingSwitchRole 維持等於佇列第一位，client端讀的是這個欄位，佇列本身是內部實作細節。
-function pocketEnterForcedSwitch(G, koRole, reason) {
+// 2026-08-12新增excludeUid/isKO兩個參數：
+// - excludeUid：Sabrina/Drive Off這類「把對手主戰換到板凳、對手自選新主戰」的效果，換下來的
+//   那隻會先被push進bench才呼叫這裡，如果對手板凳還有其他選項，不該讓對手選回「剛被換下來的
+//   那隻」（使用者：那樣等於卡沒效果）——只有板凳真的只剩它自己一個選項時才放行，見
+//   pocket_choose_active handler的驗證。真正KO（死掉進棄牌堆，不是換到板凳）不會用到這個參數。
+// - isKO：純粹給client端「等待畫面」用的顯示旗標——區分「對手寶可夢真的倒下了」跟「對手只是
+//   被卡片效果強制換人」，兩種文案不一樣（使用者回報Sabrina跳出「寶可夢倒下了」文字是錯的）。
+function pocketEnterForcedSwitch(G, koRole, reason, excludeUid = null, isKO = false) {
   G.pendingSwitchQueue = [...(G.pendingSwitchQueue || []).filter(r => r !== koRole), koRole];
   G.phase = 'forced_switch';
   G.pendingSwitchRole = G.pendingSwitchQueue[0];
   G.pendingSwitchReason = reason;
+  G.pendingSwitchExcludeUid = excludeUid;
+  G.pendingSwitchIsKO = isKO;
 }
 
 // 共用的「主戰寶可夢死亡」處理：加分給對方、丟棄、視情況進入forced_switch或判定勝負。
@@ -3063,7 +3072,7 @@ function pocketResolveActiveKO(G, koRole, awardPoint = true) {
   koSide.active = null;
   if (awardPoint && otherSide.points >= 3) { G.winner = otherRole; G.phase = 'done'; return; }
   if (koSide.bench.length) {
-    pocketEnterForcedSwitch(G, koRole, 'endTurn'); // 攻擊/中毒造成的換人＝這回合的行動已經用掉，換完人回合換對方
+    pocketEnterForcedSwitch(G, koRole, 'endTurn', null, true); // 攻擊/中毒造成的換人＝這回合的行動已經用掉，換完人回合換對方；isKO=true給client顯示「倒下了」
   } else {
     G.winner = otherRole; G.phase = 'done';
   }
@@ -3093,8 +3102,8 @@ function pocketResolveMutualKO(G, roleA, roleB) {
   const outOfMons = info.filter(i => i.benchEmpty);
   if (outOfMons.length === 2) { G.winner = 'draw'; G.phase = 'done'; return; }
   if (outOfMons.length === 1) { G.winner = outOfMons[0].otherRole; G.phase = 'done'; return; }
-  pocketEnterForcedSwitch(G, roleA, 'endTurn');
-  pocketEnterForcedSwitch(G, roleB, 'endTurn');
+  pocketEnterForcedSwitch(G, roleA, 'endTurn', null, true);
+  pocketEnterForcedSwitch(G, roleB, 'endTurn', null, true);
 }
 // 板凳寶可夢被濺傷打死（不會觸發forced_switch，因為主戰沒被動到）
 function pocketResolveBenchKOs(G, side, otherRole) {
@@ -3250,9 +3259,13 @@ function pocketPassiveBenchRetreatDiscount(active, side) {
 // Trap Territory：卡面「Your opponent's Active Pokémon's Retreat Cost is 1 more」——跟上面
 // discount系列方向相反，是對手場上（不限主戰，板凳也算，卡面沒限定持有者位置）的Ariados
 // 讓「我方」主戰撤退+1。呼叫端傳oppSide（對手的side），不是active自己的side
+// 2026-08-12新增酋雷姆ex「冰封世界」：跟Trap Territory同一種「對手場上不限位置」的常駐+撤退負擔，
+// 差別只在每隻+2不是+1，所以用個別filter().length各自加總，不是共用同一個+1係數
 function pocketPassiveRetreatIncrease(oppSide) {
   if (!oppSide) return 0;
-  return [oppSide.active, ...oppSide.bench].filter(p => p?.abilities?.[0]?.name === 'Trap Territory').length;
+  const pool = [oppSide.active, ...oppSide.bench];
+  return pool.filter(p => p?.abilities?.[0]?.name === 'Trap Territory').length
+    + pool.filter(p => p?.abilities?.[0]?.name === '冰封世界').length * 2;
 }
 // 「這是role這一方的第一個回合」——turnNumber是全域遞增（1=先攻方第1回合、2=後攻方第1回合、
 // 3=先攻方第2回合...），不是每方各自從1開始算，所以「我方第一回合」要看自己是不是先攻方
@@ -3321,6 +3334,11 @@ function pocketViewFor(G, role) {
   const pub = side => ({ active: side.active, bench: side.bench, discard: side.discard, discardEnergy: side.discardEnergy || [], points: side.points, deckCount: side.deck.length });
   return {
     turn: G.turn, turnNumber: G.turnNumber, phase: G.phase, winner: G.winner, pendingSwitchRole: G.pendingSwitchRole,
+    // 2026-08-12新增：pendingSwitchExcludeUid給client端過濾掉「剛被換下來的那隻」（Sabrina等
+    // 效果專用，見pocketEnterForcedSwitch的說明）；pendingSwitchIsKO給等待畫面判斷要不要顯示
+    // 「寶可夢倒下了」文字（純卡片效果換人不算倒下，之前錯誤地永遠顯示這句）
+    pendingSwitchExcludeUid: G.pendingSwitchExcludeUid || null,
+    pendingSwitchIsKO: G.pendingSwitchIsKO || false,
     pendingChoice: G.pendingChoice,
     lastEvent: G.lastEvent,
     cardActivations: G.cardActivations || [], // 卡牌發動顯示（2026-08-08新增），見pocketEmitCardActivation
@@ -3409,10 +3427,11 @@ const ATTACK_EFFECTS = {
   "Switch out your opponent’s Active Pokémon to the Bench. (Your opponent chooses the new Active Pokémon.)": ctx => { // Grapploct：把對手主戰換到板凳（對手自選新主戰），跟Drive Off同一套
     ctx.rawDamage = ctx.rawDamage; // 這張卡本身沒有base damage欄位以外的變化，維持原樣
     if (!ctx.oppSide.active) return;
+    const excludedUid = ctx.oppSide.active.uid; // 見Sabrina(A1-225)同一處excludeUid說明
     ctx.oppSide.active.status = null;
     ctx.oppSide.bench.push(ctx.oppSide.active);
     ctx.oppSide.active = null;
-    pocketEnterForcedSwitch(ctx.G, ctx.op, 'noEndTurn');
+    pocketEnterForcedSwitch(ctx.G, ctx.op, 'noEndTurn', excludedUid);
   },
   "Put 1 random Nidoran♂ from your deck onto your Bench.": ctx => { // Nidoran♀：牌庫隨機1隻Nidoran♂上板凳
     if (ctx.side.bench.length >= 3) return;
@@ -5078,6 +5097,10 @@ const ATTACK_EFFECTS = {
     const targets = ctx.side.bench.filter(p => (p.types || []).includes('Fire'));
     if (targets.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownBench', eligibleUids: targets.map(p => p.uid), action: 'attachEnergy', energyType: 'Fire', count: 1 };
   },
+  // 酋雷姆ex「絕對零度」（2026-08-12新增）：跟既有英文卡「If your opponent's Active Pokémon is
+  // an Evolution Pokémon, this attack does 40 more damage.」同一種stage!=='Basic'判斷，只是
+  // 額外傷害改成60，中文key的理由跟上面兩張同一批Fan Made卡一致
+  "若對手的戰鬥寶可夢為進化寶可夢，則增加60點傷害。": ctx => { if (ctx.defender && ctx.defender.stage !== 'Basic') ctx.rawDamage += 60; },
 };
 // 場上所有寶可夢（雙方主戰+板凳）裡隨機選n次、每次隨機丟掉1點能量——「both yours and your
 // opponent's」代表池子橫跨雙方場面，不是各自獨立各丟一次，且身上沒能量的寶可夢不會被選中
@@ -5172,13 +5195,14 @@ const TRAINER_EFFECTS = {
   },
   'A1-225': (ctx) => { // Sabrina：把對手主戰換到板凳，對手選新主戰
     if (!ctx.oppSide.active) return '對手沒有主戰寶可夢';
-    // 這裡刻意不擋「對手沒有其他板凳寶可夢」的情況：active是先push進bench才被清空，所以
-    // bench在forced_switch開始時永遠至少有1隻（剛被換下來的那隻自己）可選——對手沒有其他板凳
-    // 選項時，選回同一隻只是效果對等於沒發生（浪費一張卡），不會卡死在forced_switch選不到目標。
+    // 2026-08-12修正：excludeUid排除「剛被換下來的那隻」——使用者回報如果對手板凳還有其他選項，
+    // 不該讓對手選回同一隻（那樣等於這張卡沒發生任何事）。真的沒有其他板凳選項時，
+    // pocket_choose_active handler會放行選回同一隻，不會卡死在forced_switch選不到目標。
+    const excludedUid = ctx.oppSide.active.uid;
     ctx.oppSide.active.status = null; // 異常狀態只作用在主戰位置，離開主戰要清除（同撤退那邊的理由）
     ctx.oppSide.bench.push(ctx.oppSide.active);
     ctx.oppSide.active = null;
-    pocketEnterForcedSwitch(ctx.G, ctx.op, 'noEndTurn'); // 支援者卡不會結束回合，換完人回合還是你的
+    pocketEnterForcedSwitch(ctx.G, ctx.op, 'noEndTurn', excludedUid); // 支援者卡不會結束回合，換完人回合還是你的
     return null;
   },
   'A1-226': (ctx) => { // Lt. Surge：把所有板凳的電能量集中給主戰（限主戰是Raichu/Electrode/Electabuzz）
@@ -5278,10 +5302,11 @@ const TRAINER_EFFECTS = {
     if (!ctx.oppSide.active) return '對手沒有主戰寶可夢';
     if (ctx.oppSide.active.stage !== 'Basic') return '對手主戰不是基礎寶可夢，無法使用';
     if (!ctx.oppSide.bench.length) return '對手沒有板凳寶可夢可以換上';
+    const excludedUid = ctx.oppSide.active.uid; // 見Sabrina(A1-225)同一處excludeUid說明
     ctx.oppSide.active.status = null;
     ctx.oppSide.bench.push(ctx.oppSide.active);
     ctx.oppSide.active = null;
-    pocketEnterForcedSwitch(ctx.G, ctx.op, 'noEndTurn');
+    pocketEnterForcedSwitch(ctx.G, ctx.op, 'noEndTurn', excludedUid);
     return null;
   },
   'B1a-066': (ctx) => { ctx.side.namedBoostThisTurn = { names: ['Magneton', 'Heliolisk'], amount: 20 }; return null; }, // Clemont's Backpack
@@ -6347,20 +6372,22 @@ const ABILITY_EFFECTS = {
   },
   'Drive Off': (ctx) => { // 把對手主戰換到板凳，對手選新主戰（跟Sabrina同一套）
     if (!ctx.oppSide.active) return '對手沒有主戰寶可夢';
+    const excludedUid = ctx.oppSide.active.uid; // 見Sabrina(A1-225)同一處excludeUid說明
     ctx.oppSide.active.status = null;
     ctx.oppSide.bench.push(ctx.oppSide.active);
     ctx.oppSide.active = null;
-    pocketEnterForcedSwitch(ctx.G, ctx.op, 'noEndTurn');
+    pocketEnterForcedSwitch(ctx.G, ctx.op, 'noEndTurn', excludedUid);
     return null;
   },
   'Repelling Wind': (ctx) => { // 同Drive Off但限定對手主戰必須是基礎寶可夢
     if (!ctx.oppSide.active) return '對手沒有主戰寶可夢';
     if (ctx.oppSide.active.stage !== 'Basic') return '對手主戰不是基礎寶可夢';
     if (!ctx.oppSide.bench.length) return '對手沒有板凳寶可夢可以換上';
+    const excludedUid = ctx.oppSide.active.uid; // 見Sabrina(A1-225)同一處excludeUid說明
     ctx.oppSide.active.status = null;
     ctx.oppSide.bench.push(ctx.oppSide.active);
     ctx.oppSide.active = null;
-    pocketEnterForcedSwitch(ctx.G, ctx.op, 'noEndTurn');
+    pocketEnterForcedSwitch(ctx.G, ctx.op, 'noEndTurn', excludedUid);
     return null;
   },
   'Data Scan': (ctx) => { if (ctx.side.deck.length) ctx.peekDeck = [ctx.side.deck[0]]; return null; },
@@ -6607,10 +6634,11 @@ const ABILITY_EFFECTS = {
   'Frozen Flow': (ctx, poke) => { // 只有在主戰位置時，把對手主戰換到板凳（對手自選新主戰），跟Gas Leak同一類「必須在主戰」限制
     if (ctx.side.active?.uid !== poke.uid) return '必須在主戰位置才能使用特性';
     if (!ctx.oppSide.active) return '對手沒有主戰寶可夢';
+    const excludedUid = ctx.oppSide.active.uid; // 見Sabrina(A1-225)同一處excludeUid說明
     ctx.oppSide.active.status = null;
     ctx.oppSide.bench.push(ctx.oppSide.active);
     ctx.oppSide.active = null;
-    pocketEnterForcedSwitch(ctx.G, ctx.op, 'noEndTurn');
+    pocketEnterForcedSwitch(ctx.G, ctx.op, 'noEndTurn', excludedUid);
     return null;
   },
   'Perplexing Ears': (ctx, poke) => { // 只有在主戰位置時，讓對手主戰混亂
@@ -6708,10 +6736,11 @@ const ABILITY_EFFECTS = {
   'Ancient Roar': (ctx, poke) => { // 把對手主戰換到板凳（對手自選新主戰）
     if (poke.boardTurn !== ctx.G.turnNumber) return '這個特性只能在上場的那個回合使用';
     if (!ctx.oppSide.active) return '對手沒有主戰寶可夢';
+    const excludedUid = ctx.oppSide.active.uid; // 見Sabrina(A1-225)同一處excludeUid說明
     ctx.oppSide.active.status = null;
     ctx.oppSide.bench.push(ctx.oppSide.active);
     ctx.oppSide.active = null;
-    pocketEnterForcedSwitch(ctx.G, ctx.op, 'noEndTurn');
+    pocketEnterForcedSwitch(ctx.G, ctx.op, 'noEndTurn', excludedUid);
     return null;
   },
   'Hospitality': (ctx, poke) => { // 治療自己的草屬性主戰20血
@@ -9125,6 +9154,12 @@ async function handleMessage(ws, msg) {
       const healSnap = pocketSnapshotAllHp(G);
       const err = handler(ctx, msg);
       if (err) { send(ws, { type: 'error', message: err }); return; }
+      // 2026-08-12修正：場地卡的主動觸發效果(pocket_use_stadium，Mesagoza等5張)用stadiumUsedThisTurn
+      // 卡「每回合1次」，這個旗標原本只在回合開始重置（見pocketAdvanceTurn），沒有隨「換上一張不同
+      // 的新場地卡」重置——導致這回合已經觸發過舊場地效果後，換上完全不同的新場地卡，新場地卡的
+      // 觸發按鈕仍然被視為「已用過」而擋住，明明是全新的一張卡（使用者回報「放上新場地應該要能發
+      // 效果」）。場地卡是雙方共用的單一實體，這裡直接重置雙方旗標，不分是誰打出這張新場地卡。
+      if (card.trainerType === 'Stadium') { G.p1.stadiumUsedThisTurn = false; G.p2.stadiumUsedThisTurn = false; }
       pocketEnforceStatusImmunity(side, statusSnapA); pocketEnforceStatusImmunity(oppSide, statusSnapB);
       pocketEnforceBenchImmunity(oppSide, benchSnap);
       pocketEnforceHealBlock(G, healSnap);
@@ -9947,6 +9982,13 @@ async function handleMessage(ws, msg) {
       const side = G[role];
       const idx = side.bench.findIndex(p => p.uid === msg.target);
       if (idx < 0) return;
+      // 2026-08-12修正：Sabrina這類「把對手主戰換到板凳」效果會設pendingSwitchExcludeUid（見
+      // pocketEnterForcedSwitch的說明）——只有板凳真的只剩這隻自己一個選項時才放行選回同一隻，
+      // 不然等於這張卡沒發生任何事，使用者回報這個限制原本沒做。
+      if (G.pendingSwitchExcludeUid && msg.target === G.pendingSwitchExcludeUid && side.bench.length > 1) {
+        send(ws, { type: 'error', message: '不能選擇剛被換下來的這隻，板凳還有其他寶可夢可以選' });
+        return;
+      }
       const chosen = side.bench[idx];
       side.bench.splice(idx, 1);
       side.active = chosen;
@@ -9972,6 +10014,8 @@ async function handleMessage(ws, msg) {
         // 兩個選項只能二選一，安全性優先於覆蓋率。
         if (G.pendingSwitchReason === 'endTurn') pocketStartNextTurn(G);
         G.pendingSwitchReason = null;
+        G.pendingSwitchExcludeUid = null;
+        G.pendingSwitchIsKO = false;
       }
       pocketBroadcastState(pRoom);
       return;
