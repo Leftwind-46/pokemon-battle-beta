@@ -9340,7 +9340,12 @@ async function handleMessage(ws, msg) {
       // 的特性方向相反，用名字白名單跳過once-per-turn gate（只有這一個特性需要，不值得為此
       // 改整個ABILITY_EFFECTS的資料結構加欄位）。渦輪電壓/渦輪火焰（2026-08-10新增，Fan Made
       // 系列）同一種情況——卡面沒有「Once during your turn」限定語，判定成同樣不限次數。
-      const unlimitedUse = ability.name === 'Shadow Void' || ability.name === '渦輪電壓' || ability.name === '渦輪火焰';
+      // 覺醒（圓陸鯊FM-004，2026-08-12新增）：不是真的不限次數（進化完就不再是圓陸鯊，這個
+      // 特性物理上不可能再觸發第二次）——放進這份白名單純粹是為了不要讓下面的
+      // abilitiesUsedThisTurn.push(poke.uid)執行，否則poke.uid在進化前後是同一個（preservedUid），
+      // 會害剛進化出來的烈咬陸鯊被誤判成「這回合已經用過特性」，導致牠自己的魯莽剪除同一回合
+      // 完全按不了（使用者回報「透過圓陸鯊特性進化出來的烈咬陸鯊無法使用特性」）。
+      const unlimitedUse = ability.name === 'Shadow Void' || ability.name === '渦輪電壓' || ability.name === '渦輪火焰' || ability.name === '覺醒';
       if (!unlimitedUse && side.abilitiesUsedThisTurn.includes(poke.uid)) { send(ws, { type: 'error', message: '這隻寶可夢這回合已經用過特性了' }); return; }
       const abilityCtx = { G, role, op, side, oppSide };
       const statusSnapA = pocketSnapshotStatus(side), statusSnapB = pocketSnapshotStatus(oppSide);
