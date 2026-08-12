@@ -5714,6 +5714,12 @@ const TRAINER_EFFECTS = {
     target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
     target.boardTurn = ctx.G.turnNumber;
     target._realAbilities = undefined; // 2026-08-08修正：進化後身分變了，清掉舊快取讓特性正確重抓
+    // 2026-08-13修正：化石寶可夢(target.stage==='Basic'讓化石本來就是合法目標)用糖果跳階進化
+    // 成真正的物種後（例如舊珀→化石翼龍），target.isFossil這個合成欄位是makePocketFossilInstance
+    // 塞的、Object.assign只會覆蓋來源物件「有」的欄位，不會清掉來源沒有的舊欄位，導致進化後
+    // 還留著isFossil:true，client端「隨時可棄置」的化石專屬按鈕繼續顯示——使用者回報「化石
+    // 寶可夢使用糖果進化後怎麼還可以棄置」。
+    target.isFossil = false;
     pocketApplyDoubleType(target);
     ctx.side.hand = ctx.side.hand.filter(c => c.uid !== handCard.uid);
     return null;
@@ -9430,6 +9436,9 @@ async function handleMessage(ws, msg) {
       // Object.assign上去的正確特性——清成undefined讓sync函式下次判斷「第一次見到」重新抓取，
       // 這是使用者回報「忍蛙/三首惡龍明明有特性卻沒得按」的根因，不是按鈕清單漏寫
       target._realAbilities = undefined;
+      // 2026-08-13修正：化石寶可夢(name例如「舊珀」)可以走一般進化正常升成對應物種（例如化石
+      // 翼龍evolveFrom==='Old Amber'），同一個isFossil殘留問題——見同一批A3-144糖果的說明
+      target.isFossil = false;
       pocketApplyDoubleType(target);
       side.hand = side.hand.filter(c => c.uid !== handCard.uid);
       // 進化觸發型特性：進化「成」的這張新卡（target已經是進化後的資料）如果帶著這種特性，
