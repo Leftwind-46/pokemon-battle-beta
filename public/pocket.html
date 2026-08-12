@@ -1666,7 +1666,10 @@ function renderPokeSlot(p, { pickable = false, dataset = {}, own = false } = {})
     // 才能用的特性——真實卡面文字是「when you play this Pokémon...to evolve」限定的觸發窗口，
     // 不是「每回合都能按」，用p.boardTurn===tn（進化/上場的那個回合）額外限制按鈕只在那一回合顯示
     const evolveTurnOnly = ABILITY_ONLY_ON_EVOLVE_TURN.has(ability?.name) && p.boardTurn !== tn;
-    if (ability && ABILITY_NAMES_SUPPORTED.has(ability.name) && !evolveTurnOnly && !state.you.abilitiesUsedThisTurn.includes(p.uid)) {
+    // 覺醒（圓陸鯊FM-004，2026-08-12新增）：卡面「在場上度過一個回合後」——跟evolveTurnOnly
+    // 方向相反，是上場當回合先不能按，等過了一個回合才能按，用同一個boardTurn===tn判斷但條件反過來
+    const notYetOnBoard = ability?.name === '覺醒' && p.boardTurn === tn;
+    if (ability && ABILITY_NAMES_SUPPORTED.has(ability.name) && !evolveTurnOnly && !notYetOnBoard && !state.you.abilitiesUsedThisTurn.includes(p.uid)) {
       extraBtns += `<button class="ability-btn" data-ability-uid="${p.uid}" title="${ability.name}">特性</button>`;
     }
     if (p.isFossil) extraBtns += `<button class="mini-btn" data-fossil-uid="${p.uid}">棄置</button>`;
@@ -1702,6 +1705,9 @@ const ABILITY_NAMES_SUPPORTED = new Set([
   'Frozen Flow', 'Perplexing Ears', 'Accept Pain', 'Happiness Supplement', 'Aqua Charge',
   'Variety Powder', 'Dragon’s Blessing', 'Metal Transport', 'Soothing Ribbon',
   'Swift Shot', 'Legendary Drive', 'Ancient Roar', 'Hospitality', 'Stance', 'Evoshock', 'Treasure Collecting',
+  // 2026-08-12新增：覺醒（圓陸鯊FM-004，Fan Made）——見notYetOnBoard說明，不是unlimitedUse
+  // （進化完就不再是圓陸鯊，這個特性自然不會再出現）
+  '覺醒',
 ]);
 // 2026-08-08再接續：跟ABILITY_NAMES_SUPPORTED是「能不能用」的AND條件——只有進化/上場的那個
 // 回合才顯示按鈕（見renderPokeSlot的evolveTurnOnly判斷），使用者反映Ignition原本完全沒有
@@ -2007,6 +2013,17 @@ function renderBoard() {
           <div class="board-name">${zhName(m)}</div>
           <div>威力 ${m.damage || 0}</div>
         </div>`).join('');
+    } else if (pendingChoice.kind === 'retreat_discard') {
+      // 撤退棄能量（2026-08-12新增）：只有主戰身上能量種類不只1種、且不是全部要棄光時才會
+      // 暫停在這裡（見server.js的pocket_retreat說明）——列出目前身上各屬性能量各幾個，
+      // 玩家逐個點選要棄掉哪一種，不是複用renderPokeSlot（選的是能量屬性，不是寶可夢）
+      const counts = {};
+      (you.active?.energy || []).forEach(e => counts[e] = (counts[e] || 0) + 1);
+      titleEl.textContent = `選擇要棄掉的能量（還需棄 ${pendingChoice.remaining} 個）`;
+      subEl.textContent = '';
+      optionsEl.innerHTML = Object.entries(counts).map(([t, n]) => `
+        <button class="btn btn-secondary" onclick="wsSend({type:'pocket_attack_choice', energyType:'${t}'})" style="display:flex;align-items:center;gap:0.4rem;justify-content:center">${energyIconHtml(t)}${TYPE_ZH[t] || t} ×${n}</button>`
+      ).join('');
     }
   }
 

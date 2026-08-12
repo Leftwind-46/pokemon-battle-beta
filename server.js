@@ -5192,6 +5192,33 @@ function pocketDiscardEnergy(side, pokemon, type, n) {
     if (idx >= 0) { pokemon.energy.splice(idx, 1); side.discardEnergy.push(type); }
   }
 }
+// 2026-08-12新增：把pocket_retreat「真的執行換人」的部分拆成共用函式——原本的撤退能量成本
+// 永遠是自動splice(0,cost)、不會暫停，這次改成能量種類不只1種時要先暫停等玩家選（見
+// pocket_retreat handler跟pocket_attack_choice的'retreat_discard'分支），所以「選完能量之後
+// 才真正換人上場」跟「不用選、付完能量立刻換人上場」這兩條路徑需要共用同一段換人邏輯，
+// 不能再直接寫死在pocket_retreat handler裡一路到底。
+function pocketFinalizeRetreat(G, role, benchUid) {
+  const side = G[role];
+  const active = side.active;
+  const idx = side.bench.findIndex(p => p.uid === benchUid);
+  if (idx < 0) return;
+  // 真實規則：異常狀態（中毒等）只作用在主戰位置，撤退到板凳時要清除——不然中毒的寶可夢
+  // 撤退後status還留著，之後又換回主戰時會被誤判成「重新中毒」，繼續扣血。
+  active.status = null;
+  active.stackBuffName = null; active.stackBuffAmount = 0; // Miltank/Mega Mawile ex
+  active._abilitiesLockedOff = false; // Prickly Powder：離開主戰位置時解除特性封鎖
+  const target = side.bench[idx];
+  target.enteredActiveThisTurn = G.turnNumber; // Golisopod/Scizor/Basculin
+  side.bench[idx] = active;
+  side.active = target;
+  side.retreatedThisTurn = true;
+  const oppSide = G[role === 'p1' ? 'p2' : 'p1'];
+  // Galarian Stunfisk：對手主戰身上種的「我方撤退時打新主戰」陷阱
+  if (oppSide.active?.retreatTrapUntilTurn === G.turnNumber) {
+    target.curHp = Math.max(0, target.curHp - (oppSide.active.retreatTrapAmount || 0));
+    if (target.curHp <= 0) pocketResolveActiveKO(G, role);
+  }
+}
 
 /* ── 訓練師卡效果表（Phase 5）── key用卡片id（同名重印卡id不同，統一用A1原版/PromoA原版的id）
    handler簽名：(ctx, msg) => string|null，回傳錯誤訊息字串代表不合法擋下，null代表成功。 */
@@ -6852,6 +6879,26 @@ const ABILITY_EFFECTS = {
     const rest = top.filter(c => !items.includes(c));
     ctx.side.hand.push(...items);
     ctx.side.deck = pocketShuffle([...ctx.side.deck, ...rest]);
+    return null;
+  },
+  '覺醒': (ctx, poke) => { // 圓陸鯊(FM-004，Fan Made，2026-08-12新增)：在場上度過一個回合後，
+    // 可以直接從牌組把「烈咬陸鯊」(非ex，跳過中間的尖牙陸鯊階)疊上來進化——跟Rare Candy
+    // (A3-144)同一套「Object.assign整隻換掉」evolve邏輯，只是來源是牌組不是手牌，目標卡
+    // 固定是烈咬陸鯊(非ex)，不像Rare Candy那樣泛用比對任意Stage1鏈。client端按鈕在
+    // notYetOnBoard擋掉「剛上場那回合」，這裡authoritative再檢查一次。
+    if (poke.boardTurn >= ctx.G.turnNumber) return '這隻寶可夢這回合剛上場，不能使用';
+    const idx = ctx.side.deck.findIndex(c => c.category === 'Pokemon' && c.name === 'Garchomp');
+    if (idx < 0) return '牌組沒有「烈咬陸鯊」可以進化';
+    const deckCard = ctx.side.deck.splice(idx, 1)[0];
+    const preservedDamage = (poke.hp || 0) - (poke.curHp ?? poke.hp ?? 0);
+    const preservedEnergy = poke.energy;
+    const preservedUid = poke.uid;
+    Object.assign(poke, structuredClone(POCKET_CARDS_BY_ID[deckCard.id]));
+    poke.uid = preservedUid; poke.energy = preservedEnergy;
+    poke.curHp = Math.max(1, (poke.hp || 0) - preservedDamage);
+    poke.boardTurn = ctx.G.turnNumber;
+    poke._realAbilities = undefined; // 進化後身分變了，清掉舊快取讓特性正確重抓（同Rare Candy）
+    pocketApplyDoubleType(poke);
     return null;
   },
 };
@@ -9398,6 +9445,8 @@ async function handleMessage(ws, msg) {
       if (active.status === 'asleep') { send(ws, { type: 'error', message: '睡眠中無法撤退' }); return; }
       if (active.status === 'paralyzed') { send(ws, { type: 'error', message: '麻痺中無法撤退' }); return; }
       if (active.isFossil || active.retreat == null) { send(ws, { type: 'error', message: '這隻沒有撤退成本可以撤退（化石卡不能撤退）' }); return; }
+      const idx = side.bench.findIndex(p => p.uid === msg.target);
+      if (idx < 0) return;
       // 奇異廣場（Peculiar Plaza）：雙方超能力寶可夢撤退成本-2，跟retreatDiscountThisTurn(X Speed)
       // 是同一個「扣減」概念但來源不同（場地常駐 vs 單次道具buff），兩者疊加直接一起扣
       const plazaDiscount = (G.activeStadium?.id === 'B2-155' && (active.types || []).includes('Psychic')) ? 2 : 0;
@@ -9412,39 +9461,25 @@ async function handleMessage(ws, msg) {
       const cost = (pocketPassiveFreeRetreat(active, side, G, pocketIsFirstTurnFor(pRoom, G, role)) || toolRetreat.free) ? 0 : Math.max(0,
         (active.retreat || 0) - (side.retreatDiscountThisTurn || 0) - plazaDiscount - pocketPassiveBenchRetreatDiscount(active, side) - pocketPassiveSelfRetreatDiscount(active, side) - toolRetreat.discount + pocketPassiveRetreatIncrease(oppSide) + retreatTrapIncrease);
       if (active.energy.length < cost) { send(ws, { type: 'error', message: '能量不足，無法撤退' }); return; }
-      const idx = side.bench.findIndex(p => p.uid === msg.target);
-      if (idx < 0) return;
-      // 2026-08-11修正：撤退成本付出的能量原本直接splice消失，沒有進discardEnergy——真實規則
-      // 撤退付出的能量要進棄牌堆，跟Rainbow Cave/招式效果棄能量那批（19處call site）是同一個
-      // 架構缺口，只是這處撤退成本付款當時漏掉沒一起修（使用者回報：特性拿到的能量，撤退付掉
-      // 之後沒有出現在棄牌堆）
-      side.discardEnergy.push(...active.energy.splice(0, cost));
-      // 真實規則：異常狀態（中毒等）只作用在主戰位置，撤退到板凳時要清除——不然中毒的寶可夢
-      // 撤退後status還留著，之後又換回主戰時會被誤判成「重新中毒」，繼續扣血。
-      // （asleep/paralyzed已經在上面被擋死不會走到這裡，這裡實務上只會清到poisoned，
-      // 但寫成清全部status比較不會漏未來新增的狀態種類）
-      active.status = null;
-      // Miltank/Mega Mawile ex（2026-08-08新增）：離開主戰位置時清空疊加的stackBuff
-      active.stackBuffName = null; active.stackBuffAmount = 0;
-      // Prickly Powder（2026-08-08新增）：離開主戰位置時解除特性封鎖
-      active._abilitiesLockedOff = false;
-      const target = side.bench[idx];
-      // Golisopod/Scizor/Basculin（2026-08-08新增）：記錄「這回合從板凳換上主戰」，讓那幾張卡
-      // 的「if this Pokémon moved from your Bench to the Active Spot this turn」條件可以判斷
-      target.enteredActiveThisTurn = G.turnNumber;
-      side.bench[idx] = active;
-      side.active = target;
-      side.retreatedThisTurn = true;
-      // Galarian Stunfisk（2026-08-08新增）：對手（oppSide）主戰身上種的「我方撤退時打新主戰」
-      // 陷阱——這裡的side是正在撤退的一方，oppSide是陷阱持有者那一方
-      if (oppSide.active?.retreatTrapUntilTurn === G.turnNumber) {
-        target.curHp = Math.max(0, target.curHp - (oppSide.active.retreatTrapAmount || 0));
-        if (target.curHp <= 0) {
-          pocketResolveActiveKO(G, role);
+      if (cost > 0) {
+        // 2026-08-12新增：主戰身上能量種類不只1種、且付完還會剩下能量時，讓玩家自選要棄哪些——
+        // 原本永遠splice(0,cost)棄陣列最前面的，玩家完全沒得選要留哪種能量（使用者回報這個問題）。
+        // 只有「真的有選擇空間」時才暫停（種類>1且不是要全部棄光），全同色或全部棄光都不用問，
+        // 直接沿用原本的splice寫法。
+        const distinctTypes = new Set(active.energy).size;
+        if (distinctTypes > 1 && active.energy.length > cost) {
+          G.phase = 'attack_choice';
+          G.pendingChoice = { role, kind: 'retreat_discard', benchUid: msg.target, remaining: cost };
           pocketBroadcastState(pRoom);
           return;
         }
+        // 2026-08-11修正：撤退成本付出的能量原本直接splice消失，沒有進discardEnergy——真實規則
+        // 撤退付出的能量要進棄牌堆，跟Rainbow Cave/招式效果棄能量那批（19處call site）是同一個
+        // 架構缺口，只是這處撤退成本付款當時漏掉沒一起修（使用者回報：特性拿到的能量，撤退付掉
+        // 之後沒有出現在棄牌堆）
+        side.discardEnergy.push(...active.energy.splice(0, cost));
       }
+      pocketFinalizeRetreat(G, role, msg.target);
       pocketBroadcastState(pRoom);
       return;
     }
@@ -9888,6 +9923,21 @@ async function handleMessage(ws, msg) {
         bench.enteredActiveThisTurn = G.turnNumber; // Golisopod/Scizor/Basculin
         side.bench[idx] = attacker;
         side.active = bench;
+      } else if (pending.kind === 'retreat_discard') {
+        // 2026-08-12新增：撤退時玩家自選要棄哪個能量，見pocket_retreat handler跟
+        // pocketFinalizeRetreat的說明——這裡跟其餘pendingChoice分支不同，退場本身不算
+        // 結束回合，所以自己early return，不落到最下面共用的pocketAdvanceTurn收尾
+        if (!msg.energyType || !side.active.energy.includes(msg.energyType)) return;
+        side.active.energy.splice(side.active.energy.indexOf(msg.energyType), 1);
+        side.discardEnergy.push(msg.energyType);
+        pending.remaining--;
+        if (pending.remaining > 0) { pocketBroadcastState(pRoom); return; }
+        const benchUid = pending.benchUid;
+        G.pendingChoice = null;
+        G.phase = 'active';
+        pocketFinalizeRetreat(G, role, benchUid);
+        pocketBroadcastState(pRoom);
+        return;
       } else if (pending.kind === 'pick_target' && pending.optional && msg.skip) {
         // 2026-08-09新增：optional的pick_target允許玩家不選任何目標直接跳過——目前只有
         // discardForBoost(Vespiquen ex「可以棄1隻板凳換多傷害，不棄也可以」)用到，卡面是
