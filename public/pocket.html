@@ -697,6 +697,10 @@
            讓玩家可以直接跳過不選，卡面是"you may"不是強制——其他pendingChoice都是必選，
            這個按鈕只在pendingChoice.optional時顯示，見renderBoard()的切換邏輯 -->
       <button class="btn btn-secondary" id="attack-choice-skip-btn" style="display:none;margin-top:0.6rem" onclick="wsSend({type:'pocket_attack_choice', skip:true})">不棄置，維持原本傷害</button>
+      <!-- 2026-08-12新增：pick_target_multi_optional（暴鯉龍「狂野揮擊」）——棄幾隻由玩家自己
+           決定(0~全部)，跟上面單選的skip不同，這裡是「先點選任意數量，再按確認一次送出」，
+           見renderBoard()的multiOptionalSelected狀態 -->
+      <button class="btn btn-primary" id="attack-choice-confirm-multi-btn" style="display:none;margin-top:0.6rem" onclick="confirmMultiOptionalChoice()">確認（可以不選任何一隻）</button>
     </div>
   </div>
 
@@ -1930,6 +1934,7 @@ function renderBoard() {
     const subEl = document.getElementById('attack-choice-sub');
     const optionsEl = document.getElementById('attack-choice-options');
     document.getElementById('attack-choice-skip-btn').style.display = pendingChoice.optional ? '' : 'none';
+    document.getElementById('attack-choice-confirm-multi-btn').style.display = pendingChoice.kind === 'pick_target_multi_optional' ? '' : 'none';
     if (pendingChoice.kind === 'energy_distribute') {
       const queue = pendingChoice.energyQueue || [];
       titleEl.textContent = `分配 ${TYPE_ZH[queue[0]] || queue[0]} 能量`;
@@ -1992,6 +1997,19 @@ function renderBoard() {
       optionsEl.innerHTML = eligible.map(p =>
         renderPokeSlot(p, { pickable: true, dataset: { 'attack-choice-pick': '1' } })
       ).join('');
+    } else if (pendingChoice.kind === 'pick_target_multi_optional') {
+      // 暴鯉龍「狂野揮擊」（2026-08-12新增）：卡面是「you may discard any number」——棄幾隻
+      // (0~全部候選)由玩家自己決定，不是像pick_target_multi那樣被迫選滿固定數量。用本地
+      // multiOptionalSelected這個Set追蹤目前選了哪些，點一下切換選取狀態（不會立刻送出），
+      // 選好之後按「確認」（attack-choice-confirm-multi-btn）才一次把整批uid送出。
+      multiOptionalSelected = new Set([...multiOptionalSelected].filter(u => pendingChoice.eligibleUids.includes(u)));
+      titleEl.textContent = `選擇要棄掉的板凳水系寶可夢（每隻 +${pendingChoice.boostPerPick} 傷害，可以不選任何一隻）`;
+      subEl.textContent = `已選 ${multiOptionalSelected.size} 隻，點擊卡片可以切換選取`;
+      const eligible = (you.bench || []).filter(p => pendingChoice.eligibleUids.includes(p.uid));
+      optionsEl.innerHTML = eligible.map(p => `
+        <div onclick="toggleMultiOptionalPick('${p.uid}')" style="cursor:pointer;border-radius:10px;${multiOptionalSelected.has(p.uid) ? 'outline:3px solid #4caf50' : ''}">
+          ${renderPokeSlot(p, {})}
+        </div>`).join('');
     } else if (pendingChoice.kind === 'pick_hand_multi') {
       // May（2026-08-08新增）：選N張自己手牌洗回牌庫——跟pick_target_multi同一種「選N次、
       // 選過的排除」結構，但候選池是手牌卡片不是board寶可夢，用跟oppHand/ownDiscardSupporter
@@ -2074,6 +2092,20 @@ function updateActionHint() {
 }
 
 function cancelAction() { selectedAction = null; renderBoard(); }
+
+// pick_target_multi_optional（暴鯉龍「狂野揮擊」，2026-08-12新增）：本地追蹤玩家目前選了
+// 哪些板凳寶可夢要棄掉，點擊只切換選取狀態，按「確認」才一次送出整批uid，跟其他pendingChoice
+// 「點一下就直接送出」不同——見renderBoard()裡的pick_target_multi_optional渲染分支
+let multiOptionalSelected = new Set();
+function toggleMultiOptionalPick(uid) {
+  if (multiOptionalSelected.has(uid)) multiOptionalSelected.delete(uid);
+  else multiOptionalSelected.add(uid);
+  renderBoard();
+}
+function confirmMultiOptionalChoice() {
+  wsSend({ type: 'pocket_attack_choice', uids: [...multiOptionalSelected] });
+  multiOptionalSelected = new Set();
+}
 
 function pocketCanPayCostClient(pokemon, cost, side) {
   const need = {}; let colorlessNeed = 0;

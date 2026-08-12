@@ -3438,12 +3438,17 @@ const ATTACK_EFFECTS = {
   /* ── 2026-08-08再接續：回頭補完7個原本skip的長尾（見memory的skip清單），
      Rampardos/Gyarados/Octillery/Ditto/Eldegoss/Meowscarada/Mega Kangaskhan ex ── */
   "If your opponent's Pokémon is Knocked Out by damage from this attack, this Pokémon also does 50 damage to itself.": (ctx) => { ctx.selfDamageIfDefenderKO = 50; },
-  "You may discard any number of your Benched {W} Pokémon. This attack does 40 more damage for each Benched Pokémon you discarded in this way.": (ctx) => { // Gyarados：已知簡化——「任意數量」自選改成自動棄置全部符合條件的板凳水系（永遠是較優選擇，無其他downside）
-  const idxs2 = [];
-  ctx.side.bench.forEach((p, i) => { if ((p.types || []).includes('Water')) idxs2.push(i); });
-  ctx.rawDamage += idxs2.length * 40;
-  idxs2.sort((a, b) => b - a).forEach(i => { const [p] = ctx.side.bench.splice(i, 1); ctx.side.discard.push(p); });
-},
+  // 2026-08-12修正：原本「任意數量」自選被簡化成自動棄置全部符合條件的板凳水系，理由是
+  // 「傷害永遠較優、無downside」——但這個判斷忽略了玩家可能有其他理由想留著板凳上的水系
+  // 寶可夢（撤退候補/進化素材/其他卡片combo），使用者回報「應該要讓玩家決定要不要，以及要
+  // 棄哪幾隻」。base傷害(20)維持不動、正常結算，跟discardForBoost(Vespiquen ex)同一種「固定
+  // 基礎傷害+可選加成」模式，只是這裡是「任意數量」(0~全部)而不是固定1隻，所以用新的
+  // pick_target_multi_optional（不是既有的pick_target_multi，那個是「剛好選N隻」，這裡的N
+  // 由玩家自己決定，一次把整批uid送出，見pocket_attack_choice的解析分支）。
+  "You may discard any number of your Benched {W} Pokémon. This attack does 40 more damage for each Benched Pokémon you discarded in this way.": (ctx) => {
+    const eligible = ctx.side.bench.filter(p => (p.types || []).includes('Water'));
+    if (eligible.length) ctx.needsChoice = { kind: 'pick_target_multi_optional', pool: 'ownBench', eligibleUids: eligible.map(p => p.uid), boostPerPick: 40 };
+  },
   "If the Defending Pokémon tries to use an attack, your opponent flips a coin. If tails, that attack doesn't happen. This effect lasts until the Defending Pokémon leaves the Active Spot, and it doesn't stack.": (ctx) => { // Octillery：已知簡化——真實卡面「持續到離開主戰、不疊加」簡化成只鎖對手下一次攻擊嘗試，重用既有attackFlipLockUntilTurn機制
   if (ctx.defender) ctx.defender.attackFlipLockUntilTurn = ctx.G.turnNumber + 1;
 },
@@ -10131,6 +10136,31 @@ async function handleMessage(ws, msg) {
         pending.remaining--;
         if (pending.remaining > 0 && pending.eligibleUids.length > 0) { pocketBroadcastState(pRoom); return; }
         side.deck = pocketShuffle(side.deck);
+      } else if (pending.kind === 'pick_target_multi_optional') {
+        // Gyarados「Wild Swing」（2026-08-12新增）：跟pick_target_multi不同，這裡的「棄幾隻」
+        // 由玩家自己決定（0~全部候選），不是固定N——一次把整批選好的uid送過來(msg.uids)，
+        // 不是像pick_target_multi那樣一次選1隻、選完扣remaining直到0才收尾。base傷害已經在
+        // pocket_attack當下正常結算過，這裡只處理「棄掉選中的每一隻」+補上對應加成傷害，
+        // 跟discardForBoost（Vespiquen ex，固定棄1隻）同一種「延遲生效，自己重跑KO/勝負判定」模式。
+        const uids = Array.isArray(msg.uids) ? [...new Set(msg.uids)] : [];
+        const validUids = uids.filter(u => pending.eligibleUids.includes(u));
+        const discarded = [];
+        validUids.forEach(u => {
+          const idx = side.bench.findIndex(p => p.uid === u);
+          if (idx >= 0) { const [p] = side.bench.splice(idx, 1); side.discard.push(p); discarded.push(p); }
+        });
+        if (discarded.length) {
+          const op2 = role === 'p1' ? 'p2' : 'p1';
+          const oppSide2 = G[op2];
+          const defender = oppSide2.active;
+          if (defender) {
+            defender.curHp = Math.max(0, defender.curHp - discarded.length * pending.boostPerPick);
+            pocketResolveBenchKOs(G, oppSide2, role);
+            if (oppSide2.active?.uid === defender.uid && defender.curHp <= 0) pocketResolveActiveKO(G, op2);
+            if (pocketCheckWin(G)) { G.pendingChoice = null; pocketBroadcastState(pRoom); return; }
+            if (G.phase === 'forced_switch' || G.phase === 'done') { G.pendingChoice = null; pocketBroadcastState(pRoom); return; }
+          }
+        }
       } else {
         return;
       }
