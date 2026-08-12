@@ -9113,9 +9113,19 @@ async function handleMessage(ws, msg) {
       }
       const usedUids = new Set([activeHandCard.uid, ...benchHandCards.map(c => c.uid)]);
       side.hand = side.hand.filter(c => !usedUids.has(c.uid));
-      const activeCard = pocketInstantiateBoardCard(activeHandCard, G.turnNumber);
+      // 2026-08-12修正：開局擺盤時G.turnNumber永遠是1（setup階段兩人都還沒真正輪到，turnNumber
+      // 要等pocketStartNextTurn才會遞增），先前兩邊起始board都直接set boardTurn=G.turnNumber(1)。
+      // 對先攻方這剛好等於他的第1回合turnNumber，「這回合剛上場不能用」的門檻正確擋住；但後攻方
+      // 的第1回合turnNumber其實是2，1<2讓boardTurn門檻直接被繞過去——後攻方一開局就能對起始board
+      // 上的寶可夢使用「上場滿1回合才能用」的特性/糖果跳階進化，變成先後攻規則不對稱（使用者
+      // 回報「圓陸鯊在後手方第一回合不應該能發動特性」）。改成跟pocketIsFirstTurnFor同一套
+      // 判斷式：起始boardTurn要設成「這個玩家自己第1回合」對應的turnNumber（先攻=1、後攻=2），
+      // 不是不分先後攻都套用setup當下的G.turnNumber。這是通用修法，Rare Candy/一般進化等其餘
+      // 所有boardTurn門檻檢查都會一併受益，不用逐一特判。
+      const initialBoardTurn = role === pRoom.firstPlayer ? 1 : 2;
+      const activeCard = pocketInstantiateBoardCard(activeHandCard, initialBoardTurn);
       side.active = activeCard;
-      side.bench = benchHandCards.map(c => pocketInstantiateBoardCard(c, G.turnNumber));
+      side.bench = benchHandCards.map(c => pocketInstantiateBoardCard(c, initialBoardTurn));
       side.boardReady = true;
       send(ws, { type: 'pocket_setup_wait' });
       if (G.p1.boardReady && G.p2.boardReady) {
