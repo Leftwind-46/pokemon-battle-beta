@@ -429,6 +429,9 @@
         <select id="type">
           <option value="">全部屬性</option>
         </select>
+        <select id="set">
+          <option value="">全部卡包</option>
+        </select>
         <select id="sort">
           <option value="default">預設順序</option>
           <option value="name">名稱（A→Z）</option>
@@ -927,6 +930,15 @@ async function loadCards() {
     typeSel.appendChild(o);
   });
 
+  // 2026-08-12新增：組牌畫面卡池也能依卡包篩選——跟卡牌圖鑑的dex-set-filter同一份ALL_SETS
+  // 資料來源、同一種option文字格式（系列名＋id），只是這裡是另一個獨立的select元素
+  const setSel = document.getElementById('set');
+  ALL_SETS.forEach(s => {
+    const o = document.createElement('option');
+    o.value = s.id; o.textContent = `${s.name}（${s.id}）`;
+    setSel.appendChild(o);
+  });
+
   await loadCollection();
   await loadSavedDecks();
   renderPool();
@@ -1337,6 +1349,7 @@ function renderPool() {
   const q = document.getElementById('q').value.trim().toLowerCase();
   const cat = document.getElementById('cat').value;
   const type = document.getElementById('type').value;
+  const set = document.getElementById('set').value;
   const sortKey = document.getElementById('sort').value;
   // 2026-08-05：卡池不再是全部ALL_CARDS，只顯示自己擁有至少1張的卡——組牌只能用抽到的卡牌
   const ownedPool = ALL_CARDS.filter(c => (ownedCounts[c.id] || 0) > 0);
@@ -1344,6 +1357,7 @@ function renderPool() {
     if (q && !c.name.toLowerCase().includes(q)) return false;
     if (cat && c.category !== cat) return false;
     if (type && !(c.types || []).includes(type)) return false;
+    if (set && c.set !== set) return false;
     return true;
   });
   filtered = pocketSortPool(filtered, sortKey);
@@ -1419,7 +1433,7 @@ function computeDeckCardActions(card) {
   return [{ label: '從牌組移除', primary: true, onClick: () => removeCard(card.id) }];
 }
 
-['q', 'cat', 'type', 'sort'].forEach(id => document.getElementById(id).addEventListener('input', renderPool));
+['q', 'cat', 'type', 'set', 'sort'].forEach(id => document.getElementById(id).addEventListener('input', renderPool));
 
 // 2026-08-06新增：從「我的寶可夢」頁的「卡牌」入口導過來時，用?open=collection|dex|pack
 // 自動開啟對應畫面——只有登入玩家才會用到這個入口（tamagotchi.html的卡牌icon本來就只有
