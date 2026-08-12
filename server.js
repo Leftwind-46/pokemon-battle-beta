@@ -3105,6 +3105,39 @@ function pocketResolveMutualKO(G, roleA, roleB) {
   pocketEnterForcedSwitch(G, roleA, 'endTurn', null, true);
   pocketEnterForcedSwitch(G, roleB, 'endTurn', null, true);
 }
+// 2026-08-12新增：處理「攻擊本身的傷害就把defender/attacker打死，但這次攻擊效果同時又需要
+// 玩家自選（ctx.needsChoice）」的情境——例如超級阿勃梭魯ex「黑暗之爪」，80傷害可能直接
+// KO對手主戰，但效果本身還要玩家從對手（已公開的）手牌選1張支援者棄掉。原本pocket_attack
+// handler是KO分支先return，needsChoice的檢查永遠執行不到，效果整個消失不見（使用者回報
+// 「使用招式時不會發動他的效果」）。修法：KO判斷完成後，如果同時有needsChoice，不立刻呼叫
+// pocketResolveMutualKO/pocketResolveActiveKO，而是先把「死亡資訊」存進G.pendingChoice.deferredKO，
+// 等玩家選完（pocket_attack_choice）才真正執行KO——這裡就是那段「真正執行」邏輯，抽成共用
+// 函式讓pocket_attack_choice的多個分支結尾都能呼叫，不用各自重複一份KO判斷。
+// 回傳true代表已經處理完並廣播state（呼叫端要接著return，不要再往下走一般的pocketAdvanceTurn）。
+function pocketResolveDeferredKO(G, pRoom, deferredKO) {
+  if (!deferredKO) return false;
+  const { attackerDied, defenderDied, awardPointForDefender, attackerRole, defenderRole } = deferredKO;
+  if (attackerDied && defenderDied) {
+    pocketResolveMutualKO(G, attackerRole, defenderRole);
+    pocketBroadcastState(pRoom);
+    return true;
+  }
+  if (attackerDied) {
+    pocketResolveActiveKO(G, attackerRole);
+    pocketBroadcastState(pRoom);
+    return true;
+  }
+  if (defenderDied) {
+    const attackerSide = G[attackerRole];
+    const attacker = attackerSide.active;
+    pocketResolveActiveKO(G, defenderRole, awardPointForDefender);
+    if (awardPointForDefender && attackerSide.irisBonusThisTurn && attacker?.name === 'Haxorus') attackerSide.points += 1;
+    pocketResolveBenchKOs(G, attackerSide, defenderRole);
+    pocketBroadcastState(pRoom);
+    return true;
+  }
+  return false;
+}
 // 板凳寶可夢被濺傷打死（不會觸發forced_switch，因為主戰沒被動到）
 function pocketResolveBenchKOs(G, side, otherRole) {
   const otherSide = G[otherRole];
@@ -5822,11 +5855,15 @@ const TRAINER_EFFECTS = {
   'A2-146': (ctx, msg) => { // Pokémon Communication：手牌選1隻寶可夢跟牌庫隨機1隻互換——
     // 手牌側玩家自選（category==='Pokemon'篩選天然排除掉這張卡自己，因為它是Trainer類）；
     // 牌庫側卡面沒寫玩家自選，維持隨機（跟"Discard a random card..."系列同一種慣例）
+    // 2026-08-12修正：牌庫側原本沒有篩category==='Pokemon'，隨機池涵蓋整副牌庫（含訓練師卡）——
+    // 卡面文字明講「a random Pokémon in your deck」，換回一張訓練師卡完全不符合卡面規則
+    // （使用者回報「只能換到牌堆裡的寶可夢」），牌庫沒有寶可夢卡可換時直接擋掉，不執行互換。
     const idx = ctx.side.hand.findIndex(c => c.uid === msg.target && c.category === 'Pokemon');
     if (idx < 0) return '請選擇手牌裡的一張寶可夢卡';
-    if (!ctx.side.deck.length) return '牌庫是空的';
+    const deckPokeIdxs = ctx.side.deck.map((c, i) => c.category === 'Pokemon' ? i : -1).filter(i => i >= 0);
+    if (!deckPokeIdxs.length) return '牌庫裡沒有寶可夢卡可以交換';
     const [handPoke] = ctx.side.hand.splice(idx, 1);
-    const deckIdx = Math.floor(Math.random() * ctx.side.deck.length);
+    const deckIdx = deckPokeIdxs[Math.floor(Math.random() * deckPokeIdxs.length)];
     const [deckPoke] = ctx.side.deck.splice(deckIdx, 1);
     ctx.side.hand.push(deckPoke);
     ctx.side.deck.push(handPoke);
@@ -6573,10 +6610,14 @@ const ABILITY_EFFECTS = {
     return null;
   },
   // 2026-08-08新增：第三批按鈕觸發型特性
-  'Reckless Shearing': (ctx) => { // 使用門檻是「棄1張手牌」，棄哪張卡面沒指定玩家自選/隨機——
-    // 沿用"Discard a card from your hand..."(3401行)那個招式效果同樣的既有慣例：隨機棄1張
+  // 2026-08-12修正：原本隨機棄1張手牌——卡面「discard a card from your hand」沒有"at random"字樣，
+  // 依專案既有慣例（[[feedback_pocket_effect_choice_not_random]]）該讓玩家自選要棄哪張，不是隨機。
+  // client端先用openDiscardTargetPicker跳出手牌選擇器，選完才送pocket_use_ability帶discardHandUid。
+  'Reckless Shearing': (ctx, poke, msg) => {
     if (!ctx.side.hand.length) return '手牌是空的，無法使用這個特性';
-    ctx.side.hand.splice(Math.floor(Math.random() * ctx.side.hand.length), 1);
+    const idx = ctx.side.hand.findIndex(c => c.uid === msg?.discardHandUid);
+    if (idx < 0) return '請選擇要棄掉的手牌';
+    ctx.side.discard.push(ctx.side.hand.splice(idx, 1)[0]);
     if (ctx.side.deck.length) ctx.side.hand.push(ctx.side.deck.shift());
     return null;
   },
@@ -9750,6 +9791,28 @@ async function handleMessage(ws, msg) {
         if (ctx.selfDamageIfDefenderKO) attacker.curHp = Math.max(0, attacker.curHp - ctx.selfDamageIfDefenderKO);
       }
       const attackerDied = attackerDied0 || (!ctx.skipMainDamage && attacker.curHp <= 0 && side.active === attacker);
+      // Aerodactyl的「洗回牌庫」效果已經在effect handler內自己呼叫過pocketResolveActiveKO(false)，
+      // 這裡如果已經進入forced_switch/done就不要再往下走
+      if (G.phase === 'forced_switch' || G.phase === 'done') { pocketBroadcastState(pRoom); return; }
+
+      // 2026-08-12修正：needsChoice的檢查要搬到KO判斷「之前」——原本KO分支(mutual/attacker/
+      // defender死亡)各自直接return，如果這次攻擊「傷害本身就KO了對方」同時「效果又需要玩家
+      // 自選」（例如超級阿勃梭魯ex「黑暗之爪」：80傷害可能直接打死對手主戰，但效果還要選1張
+      // 對手手牌的支援者卡棄掉），needsChoice永遠執行不到、效果整個消失（使用者回報「使用
+      // 招式時不會發動他的效果」）。修法：needsChoice優先暫停，KO資訊存進deferredKO，等玩家
+      // 選完（pocket_attack_choice）才真正執行KO，見pocketResolveDeferredKO的完整說明。
+      if (ctx.needsChoice) {
+        G.phase = 'attack_choice';
+        G.pendingChoice = {
+          role, ...ctx.needsChoice,
+          deferredKO: (attackerDied || defenderDied)
+            ? { attackerDied, defenderDied, awardPointForDefender, attackerRole: role, defenderRole: op }
+            : null,
+        };
+        pocketBroadcastState(pRoom);
+        return;
+      }
+
       if (attackerDied && defenderDied) {
         // 雙殺（例如Golem的Double-Edge：反傷打死自己同時擊倒對手；或上面新增的Innards Out/
         // Perish Body反過來把attacker也拖下水）——見pocketResolveMutualKO註解
@@ -9769,18 +9832,6 @@ async function handleMessage(ws, msg) {
         // pocketResolveBenchKOs呼叫處理過，這裡是Final Scream額外造成的，要再檢查一次
         pocketResolveBenchKOs(G, side, op);
         pocketBroadcastState(pRoom); return;
-      }
-      // Aerodactyl的「洗回牌庫」效果已經在effect handler內自己呼叫過pocketResolveActiveKO(false)，
-      // 這裡如果已經進入forced_switch/done就不要再往下走
-      if (G.phase === 'forced_switch' || G.phase === 'done') { pocketBroadcastState(pRoom); return; }
-
-      // 需要玩家自選的招式效果（例如Moltres ex分配能量、Abra Teleport選要換誰上場）：
-      // 先暫停在這裡，不結束回合，等pocket_attack_choice收到玩家的選擇才真正結束回合。
-      if (ctx.needsChoice) {
-        G.phase = 'attack_choice';
-        G.pendingChoice = { role, ...ctx.needsChoice };
-        pocketBroadcastState(pRoom);
-        return;
       }
 
       pocketAdvanceTurn(G);
@@ -9837,8 +9888,12 @@ async function handleMessage(ws, msg) {
           const [card] = oppSide.hand.splice(idx, 1);
           if (pending.action === 'discard') oppSide.discard.push(card);
           else if (pending.action === 'shuffleIntoDeck') { oppSide.deck.push(card); oppSide.deck = pocketShuffle(oppSide.deck); }
+          // 2026-08-12新增：deferredKO——見pocketResolveDeferredKO的說明，這次攻擊的傷害本身
+          // 可能已經把attacker/defender打死，要等這個選擇解析完才真正執行KO
+          const deferredKO = pending.deferredKO;
           G.pendingChoice = null;
           G.phase = 'active';
+          if (pocketResolveDeferredKO(G, pRoom, deferredKO)) return;
           pocketAdvanceTurn(G);
           pocketBroadcastState(pRoom);
           return;
@@ -9992,8 +10047,14 @@ async function handleMessage(ws, msg) {
       } else {
         return;
       }
+      // 2026-08-12新增：deferredKO——見pocketResolveDeferredKO的說明，這批共用收尾涵蓋
+      // energy_distribute/bench_switch/pick_target(一般board目標)/pick_target_multi/
+      // pick_hand_multi等分支，理論上也可能跟「傷害本身就KO」同時發生（例如Vespiquen ex
+      // 那種optional加傷選擇），一併處理，不只oppHand那個分支
+      const deferredKO = pending.deferredKO;
       G.pendingChoice = null;
       G.phase = 'active';
+      if (deferredKO && pocketResolveDeferredKO(G, pRoom, deferredKO)) return;
       // noEndTurn：進化觸發型選擇（Healing Ripples/Search for Friends）解析完不能結束回合，
       // 跟其他攻擊觸發的pending（一定會結束回合）用同一個旗標區分，見EVOLVE_TRIGGER_ABILITIES註解
       if (!pending.noEndTurn) pocketAdvanceTurn(G);

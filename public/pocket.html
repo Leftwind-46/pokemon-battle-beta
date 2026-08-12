@@ -2117,6 +2117,10 @@ const ABILITY_NEEDS_TARGET = {
 // 「要從棄牌堆拿哪一種能量」而不是board上的目標寶可夢——卡面沒寫at random，依專案既有慣例
 // 玩家自選，見openEnergyTypePicker()
 const ABILITY_NEEDS_ENERGY_TYPE = new Set(['Dragon’s Blessing']);
+// 2026-08-12新增：Reckless Shearing棄手牌的「棄哪張」卡面沒寫at random，玩家自選——
+// 跟ABILITY_NEEDS_TARGET/ABILITY_NEEDS_ENERGY_TYPE同一種「送出前先讓玩家選好」概念，
+// 差別是選的是自己的手牌，複用openDiscardTargetPicker(雖然名字叫discard，其實是通用選卡彈窗)
+const ABILITY_NEEDS_HAND_CARD = new Set(['Reckless Shearing']);
 let _energyPickerPokemonUid = null;
 function openEnergyTypePicker(pokemonUid) {
   // 2026-08-08修正：棄牌堆的能量有兩個來源——卡片身上殘留的(discard[].energy)+沒有卡片
@@ -2191,6 +2195,11 @@ document.getElementById('board-overlay').addEventListener('click', e => {
     const targetSide = ABILITY_NEEDS_TARGET[abilityName];
     if (ABILITY_NEEDS_ENERGY_TYPE.has(abilityName)) {
       openEnergyTypePicker(abilityBtn.dataset.abilityUid);
+    } else if (ABILITY_NEEDS_HAND_CARD.has(abilityName)) {
+      const pokemonUid = abilityBtn.dataset.abilityUid;
+      openDiscardTargetPicker('選擇要棄掉的手牌', state.you.hand || [], (uid) => {
+        wsSend({ type: 'pocket_use_ability', pokemonUid, discardHandUid: uid });
+      });
     } else if (targetSide) {
       selectedAction = { mode: 'ability-target', side: targetSide, pokemonUid: abilityBtn.dataset.abilityUid };
       updateActionHint(); renderBoard();
