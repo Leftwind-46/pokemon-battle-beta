@@ -706,7 +706,7 @@
        跟ability-target(選目標寶可夢)同一種「先選好資訊再送出」模式，只是選的是能量屬性不是寶可夢 -->
   <div class="setup-overlay" id="energy-type-picker-overlay" style="display:none">
     <div class="setup-box">
-      <h2>選擇要從棄牌堆拿哪一種能量</h2>
+      <h2 id="energy-type-picker-title">選擇要從棄牌堆拿哪一種能量</h2>
       <div class="setup-hand" id="energy-type-picker-options"></div>
       <button class="btn btn-secondary" onclick="closeEnergyTypePicker()" style="margin-top:0.6rem">取消</button>
     </div>
@@ -789,6 +789,8 @@ const TYPE_ZH = {
   Fighting:'格鬥', Darkness:'惡', Dragon:'龍', Colorless:'無色', Grass:'草',
   Metal:'鋼'
 };
+// 彩虹能量（FM-005）裝備時的屬性選單複用下面deck-builder已經宣告的POCKET_ENERGY_TYPE_LIST
+// （Colorless不在其中，能量區不會生成這個屬性），跟openEnergyTypePicker()的棄牌堆能量清單不同來源
 // 2026-08-11新增：卡牌全面中文化——card.zh_name/attack.name_zh/attack.effect_zh/
 // ability.name_zh/ability.effect_zh是額外附加在pocket-cards.json每筆資料上的翻譯欄位，
 // 純顯示用。原本的.name/.effect（英文）完全不動——server端遊戲邏輯、client端
@@ -2051,6 +2053,10 @@ function pocketCanPayCostClient(pokemon, cost, side) {
     [side.active, ...(side.bench || [])].some(p => p?.abilities?.[0]?.name === 'Jungle Totem');
   const have = {};
   for (const e of (pokemon.energy || [])) have[e] = (have[e] || 0) + (hasJungleTotem && e === 'Grass' ? 2 : 1);
+  // 彩虹能量（FM-005，2026-08-12新增）：跟server端pocketCanPayCost同一套判斷，見那邊的說明
+  if (pokemon.tool?.id === 'FM-005' && pokemon.tool.energyType) {
+    have[pokemon.tool.energyType] = (have[pokemon.tool.energyType] || 0) + 1;
+  }
   for (const t in need) { if ((have[t] || 0) < need[t]) return false; have[t] -= need[t]; }
   const leftover = Object.values(have).reduce((a, b) => a + b, 0);
   return leftover >= colorlessNeed;
@@ -2085,6 +2091,9 @@ const TRAINER_NEEDS_TARGET = new Set([
   // Field Blower(any，雙方場上皆可選)、Psychic(opp，對手板凳)、6張新Tool裝備卡(own)
   'B3-152', 'B3a-073', 'B3b-068', 'B4-152', 'B4-153', 'B3-147', 'B4-150',
   'B3-148', 'B3a-069', 'B3a-070', 'B3b-064', 'B3b-065', 'B4-148', 'B4-149',
+  // 2026-08-12新增：彩虹能量（FM-005，Fan Made）——跟其餘Tool卡一樣選own board目標，
+  // 選完目標後另外多一步能量屬性picker，見board-overlay click handler的effectId==='FM-005'分支
+  'FM-005',
 ]);
 const TRAINER_NEEDS_DISCARD_TARGET = new Set(['A1a-064']); // Pokémon Flute：目標是對手棄牌堆的卡，不是board上的寶可夢
 // 2026-08-08新增：TRAINER_NEEDS_TARGET裡目標池在哪一側，預設'own'（沒列出的都是選自己場上）。
@@ -2128,6 +2137,7 @@ function openEnergyTypePicker(pokemonUid) {
   const types = [...new Set([...(state.you.discard || []).flatMap(c => c.energy || []), ...(state.you.discardEnergy || [])])];
   if (!types.length) { flashActionHint('棄牌堆沒有能量可以拿'); return; }
   _energyPickerPokemonUid = pokemonUid;
+  document.getElementById('energy-type-picker-title').textContent = '選擇要從棄牌堆拿哪一種能量';
   document.getElementById('energy-type-picker-options').innerHTML = types.map(t =>
     `<button class="btn btn-secondary" onclick="chooseEnergyType('${t}')" style="display:flex;align-items:center;gap:0.4rem;justify-content:center">${energyIconHtml(t)}${TYPE_ZH[t] || t}</button>`
   ).join('');
@@ -2137,9 +2147,29 @@ function chooseEnergyType(type) {
   wsSend({ type: 'pocket_use_ability', pokemonUid: _energyPickerPokemonUid, energyType: type });
   closeEnergyTypePicker();
 }
+// 彩虹能量（FM-005，2026-08-12新增）：跟openEnergyTypePicker共用同一個overlay/DOM，只是選項
+// 清單來源（POCKET_ENERGY_TYPE_LIST，不是棄牌堆）跟送出的訊息（pocket_play_item，不是
+// pocket_use_ability）不同——item-target流程先選完目標寶可夢，這裡再補選屬性，兩步缺一不可
+let _rainbowEnergyPending = null;
+function openRainbowEnergyTypePicker(handUid, target, isSupporter) {
+  _rainbowEnergyPending = { handUid, target, isSupporter };
+  document.getElementById('energy-type-picker-title').textContent = '選擇要附加的能量屬性';
+  document.getElementById('energy-type-picker-options').innerHTML = POCKET_ENERGY_TYPE_LIST.map(t =>
+    `<button class="btn btn-secondary" onclick="chooseRainbowEnergyType('${t}')" style="display:flex;align-items:center;gap:0.4rem;justify-content:center">${energyIconHtml(t)}${TYPE_ZH[t] || t}</button>`
+  ).join('');
+  document.getElementById('energy-type-picker-overlay').style.display = 'flex';
+}
+function chooseRainbowEnergyType(type) {
+  if (_rainbowEnergyPending) {
+    const { handUid, target, isSupporter } = _rainbowEnergyPending;
+    wsSend({ type: isSupporter ? 'pocket_play_supporter' : 'pocket_play_item', handUid, target, energyType: type });
+  }
+  closeEnergyTypePicker();
+}
 function closeEnergyTypePicker() {
   document.getElementById('energy-type-picker-overlay').style.display = 'none';
   _energyPickerPokemonUid = null;
+  _rainbowEnergyPending = null;
 }
 // 跟server.js的TRAINER_EFFECTS同一份清單——A1~B2a擴充後訓練師卡從18張暴增到197張，
 // 只有這份清單裡的卡有做效果，其餘先讓玩家看得到卡但打不出去
@@ -2185,6 +2215,8 @@ const TRAINER_EFFECTS_IMPLEMENTED = new Set([
   'B3a-069', 'B3a-070', 'B3a-071', 'B3a-072', 'B3a-073', 'B3a-074',
   'B3b-064', 'B3b-065', 'B3b-066', 'B3b-067', 'B3b-068', 'B3b-069',
   'B4-145', 'B4-148', 'B4-149', 'B4-150', 'B4-151', 'B4-152', 'B4-153', 'B4-154', 'B4-155',
+  // 2026-08-12新增：彩虹能量（FM-005，Fan Made）
+  'FM-005',
 ]);
 
 // event delegation：own board (active/bench) 點擊
@@ -2220,6 +2252,10 @@ document.getElementById('board-overlay').addEventListener('click', e => {
       wsSend({ type: 'pocket_evolve', handUid: selectedAction.handUid, target: uid });
     }
     else if (selectedAction.mode === 'retreat' && slot.closest('#my-bench')) wsSend({ type: 'pocket_retreat', target: uid });
+    else if (selectedAction.mode === 'item-target' && selectedAction.side !== 'opp' && selectedAction.effectId === 'FM-005') {
+      // 彩虹能量：選完裝備目標後還要再選一次能量屬性，兩個選擇缺一不可，先不送出訊息
+      openRainbowEnergyTypePicker(selectedAction.handUid, uid, selectedAction.isSupporter);
+    }
     else if (selectedAction.mode === 'item-target' && selectedAction.side !== 'opp') {
       spawnPlayFlourish(pocketThumbUrl(pocketFindCardByUid(selectedAction.handUid)?.image), slot);
       wsSend({ type: selectedAction.isSupporter ? 'pocket_play_supporter' : 'pocket_play_item', handUid: selectedAction.handUid, target: uid });

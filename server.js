@@ -3353,6 +3353,12 @@ function pocketCanPayCost(pokemon, cost, side) {
     [side.active, ...side.bench].some(p => p?.abilities?.[0]?.name === 'Jungle Totem');
   const have = {};
   for (const e of pokemon.energy) have[e] = (have[e] || 0) + (hasJungleTotem && e === 'Grass' ? 2 : 1);
+  // 彩虹能量（FM-005，2026-08-12新增）：裝備時玩家選定的屬性視為額外多1個該屬性能量，只影響
+  // 付費計算，不是真的塞進pokemon.energy陣列（energy陣列代表「實體卡上附著的能量」，這個是
+  // Tool提供的虛擬加成，道理跟hasJungleTotem的算法位置相同）。
+  if (pokemon.tool?.id === 'FM-005' && pokemon.tool.energyType) {
+    have[pokemon.tool.energyType] = (have[pokemon.tool.energyType] || 0) + 1;
+  }
   for (const t in need) {
     if ((have[t] || 0) < need[t]) return false;
     have[t] -= need[t];
@@ -5826,6 +5832,16 @@ const TRAINER_EFFECTS = {
     if (!target) return '請選擇要裝備的寶可夢';
     if (target.tool) return '這隻寶可夢已經裝備了道具卡';
     target.tool = { id: 'B3-148', name: 'Lucky Egg' };
+    return null;
+  },
+  'FM-005': (ctx, msg) => { // 彩虹能量（Fan Made，2026-08-12新增）：裝備時玩家自選1種屬性，
+    // 裝備者視為額外多1個該屬性能量——只影響付費計算，見pocketCanPayCost的FM-005分支。
+    // 卡面沒寫at random，屬性一定要玩家自選，跟其他needsChoice/energyType選擇同一套慣例。
+    const target = pocketFindOwn(ctx.side, msg.target);
+    if (!target) return '請選擇要裝備的寶可夢';
+    if (target.tool) return '這隻寶可夢已經裝備了道具卡';
+    if (!msg.energyType || !POCKET_ENERGY_TYPE_LIST.includes(msg.energyType)) return '請選擇能量屬性';
+    target.tool = { id: 'FM-005', name: 'Rainbow Energy', energyType: msg.energyType };
     return null;
   },
   ...(() => {
@@ -9315,7 +9331,13 @@ async function handleMessage(ws, msg) {
       // 「Eevee」——原文"can evolve into any Pokémon that evolves from Eevee"，跟一般進化
       // 「手牌卡evolveFrom要精準等於場上這隻的名字」的規則不同，是這張卡專屬的例外
       const veeveeVolve = target.name === 'Eevee ex' && target.abilities?.[0]?.name === "Veevee 'volve";
-      if (handCard.evolveFrom !== (veeveeVolve ? 'Eevee' : target.name)) { send(ws, { type: 'error', message: '進化對象不符' }); return; }
+      // 覺醒（FM-004圓陸鯊，2026-08-12新增）：卡面文字「可以從牌組將一張『烈咬陸鯊』直接疊在這張
+      // 卡上進化」——跳過中間的尖牙陸鯊階，直接讓Basic疊Stage2，不是「evolveFrom要精準等於
+      // 這隻的名字」的一般規則。只認非ex版本的烈咬陸鯊（name==='Garchomp'，跟'Garchomp ex'不同字串，
+      // 卡面沒寫ex就不該含括）。一般的「這回合不能進化」boardTurn門檻不受影響，仍然照常檢查。
+      const gibleAwaken = target.abilities?.[0]?.name === '覺醒';
+      const evolveOk = gibleAwaken ? handCard.name === 'Garchomp' : handCard.evolveFrom === (veeveeVolve ? 'Eevee' : target.name);
+      if (!evolveOk) { send(ws, { type: 'error', message: '進化對象不符' }); return; }
       // Boosted Evolution：卡面限定「in the Active Spot」，持有者在主戰位置時可以在自己第一
       // 回合/剛上場那回合就進化——跳過一般的「這回合不能進化」門檻，板凳上的不生效
       const boostedEvolution = target === side.active && target.abilities?.[0]?.name === 'Boosted Evolution';
