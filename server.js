@@ -334,33 +334,33 @@ const TRAINERS = [
   {id:'poison-strike',    name:'猛毒突襲',   cat:'item', type:'poison',   weight:10, desc:'下次攻擊威力 +40；若對手已中毒額外 +40'},
   {id:'bug-web',          name:'蟲網束縛',   cat:'item', type:'bug',      weight:10, desc:'讓對手損失 6 點能量，自身下次攻擊威力 +20'},
   {id:'bug-swarm',        name:'群聚共鳴',   cat:'item', type:'bug',      weight:10, desc:'立即回復 6 點能量，並抽 1 張手牌'},
-  // ── stadium ──
-  {id:'stadium-training',      name:'訓練場',     cat:'stadium', desc:'場上所有技能威力 +25（雙方）'},
-  {id:'stadium-spring',        name:'地熱溫泉',   cat:'stadium', desc:'每回合結束，雙方上場寶可夢各回復 30 HP'},
-  {id:'stadium-reversal',      name:'逆轉鬥技場', cat:'stadium', desc:'HP 低於 50% 時，攻擊威力 +30'},
-  {id:'stadium-invert',        name:'反轉世界',   cat:'stadium', desc:'場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×1.2）；反轉後仍是克制的攻擊，額外 +25 固定傷害'},
-  {id:'stadium-dragon-valley', name:'龍之谷',     cat:'stadium', type:'dragon', weight:10, desc:'龍屬性寶可夢對妖精、冰系招式不受克制（效果最多×1）；龍屬性攻擊不會被減免或無效，且額外 +35 固定傷害'},
-  {id:'stadium-evil-forest',   name:'邪惡森林',   cat:'stadium', type:'grass', weight:10, desc:'原本克制草屬性的寶可夢（火／冰／飛行／毒／蟲），全部變成弱草屬性（草屬性攻擊 ×1.2）；每回合結束，草屬性上場寶可夢回復 70 HP'},
+  // ── stadium ── 2026-08-13全面重新設計（見battle-logic skill的「場地卡24張全面重新設計」章節）
+  {id:'stadium-training',      name:'訓練場',     cat:'stadium', desc:'場上所有技能威力 +25（雙方）；回合結束時，該回合玩家額外抽取一張支援者卡'},
+  {id:'stadium-spring',        name:'地熱溫泉',   cat:'stadium', desc:'每回合結束，該回合玩家的寶可夢回復 70HP，並且可以抽取一張支援者卡牌'},
+  {id:'stadium-reversal',      name:'逆轉鬥技場', cat:'stadium', desc:'若寶可夢HP 低於 50% 時，攻擊威力 +30，並且回合結束時，回復150HP'},
+  {id:'stadium-invert',        name:'反轉世界',   cat:'stadium', desc:'場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×1.2）；發動時，雙方手牌互換'},
+  {id:'stadium-dragon-valley', name:'龍之谷',     cat:'stadium', type:'dragon', weight:10, desc:'龍屬性寶可夢的弱點消失，攻擊不會被減免或無效，並且招式消耗能量 -5'},
+  {id:'stadium-evil-forest',   name:'邪惡森林',   cat:'stadium', type:'grass', weight:10, desc:'草屬性的寶可夢的招式一律視為剋制對手（效果拉滿 ×1.2）；每回合結束，我方草屬性寶可夢回復 70 HP'},
   {id:'stadium-mega-prism',    name:'Mega 稜鏡塔', cat:'stadium', desc:'雙方每個自己的回合開始時，獲得 16 點 Mega 能量；可 Mega 進化或已經 Mega 進化的寶可夢，受到的攻擊傷害 ×0.6'},
-  {id:'stadium-spikes',        name:'尖峰陷阱',   cat:'stadium', desc:'寶可夢上場時，受到最大HP 25% 的傷害（雙方對等）'},
-  {id:'stadium-toxic-field',   name:'劇毒領域',   cat:'stadium', type:'poison', weight:10, desc:'寶可夢上場時，陷入中毒（雙方對等）；此場地下中毒傷害 ×2；每回合結束，毒屬性上場寶可夢回復 70 HP，並有 50% 機率完全閃避攻擊（不疊加）'},
-  {id:'stadium-colosseum',     name:'羅馬鬥技場', cat:'stadium', type:'fighting', weight:10, desc:'格鬥屬性招式傷害 ×1.2；格鬥屬性攻擊不再被幽靈屬性完全免疫；格鬥屬性攻擊會連續發動兩次，第二次傷害 ×0.5（若第一次就打倒對手，第二次改攻擊新上場的寶可夢）'},
-  {id:'stadium-mystic-space',  name:'魔幻空間',   cat:'stadium', type:'psychic', weight:10, desc:'超能力屬性寶可夢受到的傷害 ×0.75；弱點消失（不受超效傷害影響）'},
-  {id:'stadium-lava',          name:'熔岩火山',   cat:'stadium', type:'fire', weight:10, desc:'火屬性招式傷害 +30；水屬性招式傷害 ×0.65'},
-  {id:'stadium-ocean',         name:'海洋世界',   cat:'stadium', type:'water', weight:10, desc:'水屬性招式消耗能量 ×0.3；電屬性招式傷害 ×1.4；水屬性寶可夢傷害額外 +40'},
-  {id:'stadium-shrine',        name:'莊嚴神社',   cat:'stadium', type:'normal', weight:10, desc:'一般屬性招式一律視為剋制對手（效果拉滿 ×1.2）；一般屬性攻擊方命中後回復傷害量10%的HP；一般屬性寶可夢受到的攻擊傷害 -30'},
+  {id:'stadium-spikes',        name:'尖峰陷阱',   cat:'stadium', desc:'寶可夢上場時，受到100傷害（雙方對等），發動時，對手棄掉2張手牌'},
+  {id:'stadium-toxic-field',   name:'劇毒領域',   cat:'stadium', type:'poison', weight:10, desc:'寶可夢上場時，陷入中毒（雙方對等），此場地下中毒不能被解除，中毒傷害 ×2；毒系寶可夢有 20% 機率完全閃避攻擊（不疊加）'},
+  {id:'stadium-colosseum',     name:'羅馬鬥技場', cat:'stadium', type:'fighting', weight:10, desc:'格鬥屬性攻擊不再被幽靈屬性完全免疫；格鬥屬性的招式會連續發動兩次，第二次傷害 ×0.4（若第一次就打倒對手，第二次改攻擊新上場的寶可夢）'},
+  {id:'stadium-mystic-space',  name:'魔幻空間',   cat:'stadium', type:'psychic', weight:10, desc:'超能力屬性寶可夢受到的傷害 -50；超屬性的招式會連續發動兩次，第二次傷害 ×0.4（若第一次就打倒對手，第二次改攻擊新上場的寶可夢）；發動時或回合結束時，若我方場上寶可夢是超屬性寶可夢，可搶奪對方一張卡牌'},
+  {id:'stadium-lava',          name:'熔岩火山',   cat:'stadium', type:'fire', weight:10, desc:'火屬性的招式傷害 +50；水屬性招式傷害 ×0.3；火屬性的寶可夢造成的攻擊會讓對手燒傷；此場地下燒傷不能被解除，燒傷的寶可夢傷害x0.1'},
+  {id:'stadium-ocean',         name:'海洋世界',   cat:'stadium', type:'water', weight:10, desc:'水屬性招式消耗能量 -2；水屬性寶可夢招式造成的傷害+20；回合結束時回復30HP'},
+  {id:'stadium-shrine',        name:'莊嚴神社',   cat:'stadium', type:'normal', weight:10, desc:'一般屬性招式一律視為剋制對手（效果拉滿 ×1.2）；一般屬性寶可夢受到的攻擊傷害 -50，回合結束時，一般屬性寶可夢回復70hp'},
   // ── stadium：屬性分類新卡 ──
-  {id:'stadium-sandstorm',   name:'沙塵暴',   cat:'stadium', type:'ground', weight:10, desc:'非地面／岩石／鋼屬性寶可夢，每回合結束損失最大HP的12%'},
-  {id:'stadium-rock-field',  name:'岩石地帶', cat:'stadium', type:'rock', weight:10, desc:'岩石／地面／鋼屬性寶可夢，受到的攻擊傷害 -50，且不會再被剋制（弱點消除）'},
+  {id:'stadium-sandstorm',   name:'沙塵暴',   cat:'stadium', type:'ground', weight:10, desc:'非地面／岩石/鋼屬性寶可夢，雙方回合結束損失50HP，開始時損失20HP，地面/岩石屬性寶可夢有70%機率完全閃避攻擊(不疊加）'},
+  {id:'stadium-rock-field',  name:'岩石地帶', cat:'stadium', type:'rock', weight:10, desc:'岩石／地面寶可夢，攻擊造成的傷害 +50，不會受到屬性剋制（弱點消除），並且受到的傷害-20'},
   // ── 競技場牌：8種先前沒有專屬場地的屬性（2026-07-23新增，各自搭配一個獨特玩法，不只是傷害數值）──
-  {id:'stadium-electric-storm', name:'雷雲庇護所', cat:'stadium', type:'electric', weight:10, desc:'電屬性招式傷害 +30；每回合結束，雙方上場寶可夢若無異常狀態，20% 機率陷入麻痺'},
-  {id:'stadium-ice-tundra',     name:'永凍冰原',   cat:'stadium', type:'ice',      weight:10, desc:'冰屬性招式傷害 +30；每回合結束，雙方上場寶可夢若無異常狀態，15% 機率陷入結凍'},
-  {id:'stadium-dark-curse',     name:'暗夜詛咒領域', cat:'stadium', type:'dark',   weight:10, desc:'惡屬性招式傷害 ×1.2；此場地啟用中，雙方的所有恢復效果全部失效'},
-  {id:'stadium-steel-fortress', name:'鋼鐵堡壘',   cat:'stadium', type:'steel',    weight:10, desc:'鋼屬性招式傷害 +30；此場地下，雙方受到的攻擊傷害固定減少 20'},
-  {id:'stadium-flying-wind',    name:'疾風之翼',   cat:'stadium', type:'flying',   weight:10, desc:'飛行屬性招式傷害 ×1.2；飛行屬性寶可夢有 50% 機率完全閃避攻擊（不疊加）'},
-  {id:'stadium-bug-hive',       name:'蟲群巢穴',   cat:'stadium', type:'bug',      weight:10, desc:'蟲屬性招式傷害 +30；此場地下，抽牌／搶奪對方手牌類卡片不受每回合1次限制'},
-  {id:'stadium-ghost-curse',    name:'亡靈墓園',   cat:'stadium', type:'ghost',    weight:10, desc:'幽靈屬性招式傷害 ×1.2；此場地下，異常狀態無法被解除'},
-  {id:'stadium-fairy-ward',     name:'妖精結界原野', cat:'stadium', type:'fairy',  weight:10, desc:'妖精屬性招式傷害 +30；此場地下，雙方招式的異常狀態附加機率降低 10%（下限0%）'},
+  {id:'stadium-electric-storm', name:'雷雲庇護所', cat:'stadium', type:'electric', weight:10, desc:'電屬性招式傷害 +30；電屬性寶可夢招式消耗能量 -2；有麻痺狀態的寶可夢100% 無法攻擊成功'},
+  {id:'stadium-ice-tundra',     name:'永凍冰原',   cat:'stadium', type:'ice',      weight:10, desc:'冰屬性的招式傷害 +30，受到傷害-50；回合結束時，若對手寶可夢為非冰屬性寶可夢則被結凍'},
+  {id:'stadium-dark-curse',     name:'暗夜詛咒領域', cat:'stadium', type:'dark',   weight:10, desc:'惡屬性招式傷害 ×1.2；此場地啟用中，雙方的所有恢復效果全部失效。若場上為惡屬性寶可夢，回合結束時，棄掉對手1張手牌'},
+  {id:'stadium-steel-fortress', name:'鋼鐵堡壘',   cat:'stadium', type:'steel',    weight:10, desc:'鋼屬性的招式傷害 +30；鋼屬性寶可夢受到的傷害-50'},
+  {id:'stadium-flying-wind',    name:'疾風之翼',   cat:'stadium', type:'flying',   weight:10, desc:'飛行屬性招式傷害 ×1.2；飛行屬性寶可夢有 50% 機率完全迴避攻擊（不疊加），若備戰區有飛行屬性寶可夢，場上寶可夢撤退回合不會結束（不能抽支援者卡）'},
+  {id:'stadium-bug-hive',       name:'蟲群巢穴',   cat:'stadium', type:'bug',      weight:10, desc:'蟲屬性的招式傷害 +30；蟲屬性的寶可夢有 50% 機率完全閃避攻擊（不疊加）；此場地下，抽牌／搶奪對方手牌類卡片不受每回合1次限制'},
+  {id:'stadium-ghost-curse',    name:'亡靈墓園',   cat:'stadium', type:'ghost',    weight:10, desc:'幽靈屬性寶可夢的招式消耗能量 -4，幽靈屬性的招式會連續發動兩次，第二次傷害 ×0.4（若第一次就打倒對手，第二次改攻擊新上場的寶可夢）；此場地下，異常狀態無法被解除'},
+  {id:'stadium-fairy-ward',     name:'妖精結界原野', cat:'stadium', type:'fairy',  weight:10, desc:'妖精屬性的寶可夢招式傷害 +30；回合開始與此卡發動時，妖精寶可夢解除負面狀態；回合結束時，對方寶可夢獲得混亂'},
 ];
 
 // 2026-07-22應使用者要求：抽牌／搶奪對方手牌效果太強（隨機應變/換氣追擊/群聚共鳴抽牌，
@@ -551,7 +551,12 @@ function effectiveCostSrv(atk, opponentPoke, G, buff, attackerPoke, opRole) {
   let cost = atk.cost;
   // 2026-07-31應使用者要求：mega進化後攻擊消耗的能量要比不能mega的寶可夢更低，固定8折
   if (attackerPoke?.megaEvolved) cost = Math.floor(cost * 0.8);
-  if (G?.activeStadium?.id === 'stadium-ocean' && atk.type === 'water') cost = Math.floor(cost * 0.3);
+  // 2026-08-13場地卡重新設計：以下4張場地卡的能量折扣統一改成「固定 -N」，取代舊版各自不同的
+  // 倍率折扣寫法（海洋世界原本是×0.3），下限夾在0，避免變成負數消耗
+  if (G?.activeStadium?.id === 'stadium-ocean' && atk.type === 'water') cost = Math.max(0, cost - 2);
+  if (G?.activeStadium?.id === 'stadium-dragon-valley' && atk.type === 'dragon') cost = Math.max(0, cost - 5);
+  if (G?.activeStadium?.id === 'stadium-electric-storm' && atk.type === 'electric') cost = Math.max(0, cost - 2);
+  if (G?.activeStadium?.id === 'stadium-ghost-curse' && atk.type === 'ghost') cost = Math.max(0, cost - 4);
   if (buff?.costHalved) cost = Math.floor(cost / 2);
   // 漩渦威壓（洛奇亞專屬）：只要牠在場上防守，對手攻擊消耗的能量持續 +3（封印特性時視為不存在）
   if (opponentPoke?.ability?.id === 'vortex-pressure' && opRole && !isAbilitySealedSrv(opRole, G)) cost += 3;
@@ -569,7 +574,6 @@ function compressMult(m) {
   return m === 0 ? 0 : Math.round((1 + (m - 1) * 0.2) * 100) / 100;
 }
 
-const GRASS_COUNTER_TYPES = ['fire', 'ice', 'flying', 'poison', 'bug']; // 原本克制草屬性的攻擊方屬性
 function srvEffActive(atkType, defType, defType2, G) {
   const eAtk = atkType;
   let m = srvEff(eAtk, defType, defType2);
@@ -583,21 +587,18 @@ function srvEffActive(atkType, defType, defType2, G) {
     // 龍屬性攻擊不會被減免或無效——不管對面是什麼屬性，效果乘數至少要是1
     if (eAtk === 'dragon' && m < 1) m = 1;
   }
+  // 邪惡森林：2026-08-13重新設計——原本只對5種「原本克制草屬性」的對手生效，新版是「草屬性的
+  // 招式一律視為剋制對手」，跟下面莊嚴神社的一般屬性同一種「無條件強制m=2」寫法，不再限定對手屬性
   if (G?.activeStadium?.id === 'stadium-evil-forest' && eAtk === 'grass') {
-    // 原本克制草屬性的寶可夢（火／冰／飛行／毒／蟲），全部變成弱草屬性
-    // 2026-07-24應使用者要求「場地卡下修」，把m=4（compressMult=1.6）調回m=2（compressMult=1.2）
-    if (GRASS_COUNTER_TYPES.includes(defType) || GRASS_COUNTER_TYPES.includes(defType2)) m = 2;
+    m = 2;
   }
   if (G?.activeStadium?.id === 'stadium-colosseum') {
     if (eAtk === 'fighting' && (defType === 'ghost' || defType2 === 'ghost') && m === 0) m = 1;
   }
-  if (G?.activeStadium?.id === 'stadium-mystic-space') {
-    if ((defType === 'psychic' || defType2 === 'psychic') && m > 1) m = 1;
-  }
-  // 岩石地帶：2026-07-27應使用者要求，除了減傷之外再加碼「弱點消除」——岩石／地面／鋼屬性
-  // 寶可夢不會再被剋制，跟魔幻空間（psychic）同一套pattern
+  // 岩石地帶：2026-08-13重新設計，弱點消除的對象從「岩石／地面／鋼」縮小成「岩石／地面」
+  // （鋼屬性另有自己專屬的鋼鐵堡壘場地卡，不再共用這張）
   if (G?.activeStadium?.id === 'stadium-rock-field') {
-    if ((['rock','ground','steel'].includes(defType) || ['rock','ground','steel'].includes(defType2)) && m > 1) m = 1;
+    if ((['rock','ground'].includes(defType) || ['rock','ground'].includes(defType2)) && m > 1) m = 1;
   }
   // 2026-07-24應使用者要求「場地卡下修」，把m=5（compressMult=1.8）調回m=2（compressMult=1.2）
   if (G?.activeStadium?.id === 'stadium-shrine' && eAtk === 'normal') {
@@ -646,7 +647,7 @@ function findStatusSlot(poke, type) {
 
 // Processes status before an attack. Mutates poke.
 // Returns { skipped, died }
-function handleStatus(poke, log, atkType) {
+function handleStatus(poke, log, atkType, G) {
   // 阻擋型狀態的優先順序：睡眠/結凍是絕對阻擋，麻痺是機率阻擋，混亂是機率打自己——
   // 兩格都可能命中其中之一時，依此順序只解決第一個命中的，不會同時判定兩次
   // 2026-07-30應使用者回報「結凍最後一回合，圖示還在效果卻沒了」修正：睡眠/結凍/混亂原本都是
@@ -678,7 +679,9 @@ function handleStatus(poke, log, atkType) {
 
   const paralysisSlot = findStatusSlot(poke, 'paralysis');
   if (paralysisSlot) {
-    if (Math.random() < 0.50) {
+    // 雷雲庇護所：2026-08-13新增，此場地下麻痺的寶可夢100%無法攻擊成功（原本是50%機率）
+    const paralysisSkipChance = G?.activeStadium?.id === 'stadium-electric-storm' ? 1 : 0.5;
+    if (Math.random() < paralysisSkipChance) {
       log.push({ text: `${poke.name} 因麻痺無法行動！`, cls: 'special' });
       return { skipped: true, died: false };
     }
@@ -808,7 +811,8 @@ function tryHealingRainbowRevive(poke, log) {
 // Executes attack and mutates defender/buffs. Returns { damage, mult }.
 function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult = 1, standbyGuardMult = 1) {
   const atkType   = aBuff.typeOverride || atk.type;
-  const burnMult  = attacker.status?.type === 'burn' ? 0.7 : 1;
+  // 熔岩火山：2026-08-13新增，此場地下燒傷的傷害倍率從一般的×0.7再加重到×0.1
+  const burnMult  = attacker.status?.type === 'burn' ? (G.activeStadium?.id === 'stadium-lava' ? 0.1 : 0.7) : 1;
   // aRole/dRole moved up from further down (identity-comparison only, doesn't depend on anything
   // computed later) so the early-return immunity branches below can also respect 封印特性.
   const aRole = aBuff === G.p1Buff ? 'p1' : 'p2';
@@ -869,35 +873,33 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     // （治療生效之前）自己身上有異常狀態才+40，跟rAbilityDmgBonus同樣用defender代表反彈鏡情境下
     // 「實際出招的一方」，判斷順序在rider真正執行（清除status）之前，所以這裡讀到的還是清除前的狀態
     const rSelfCureBonus = (atk.rider === 'self-cure' && (defender.status || defender.status2)) ? 40 : 0;
-    const rColosseumMult = (G.activeStadium?.id === 'stadium-colosseum' && atkType === 'fighting' && !rAbilityDomainBonusApplies) ? 1.2 : 1;
-    const rMysticSpaceMult = (G.activeStadium?.id === 'stadium-mystic-space' && (attacker.type === 'psychic' || attacker.type2 === 'psychic')) ? 0.75 : 1;
-    const rLavaBonus = (G.activeStadium?.id === 'stadium-lava' && atkType === 'fire' && !rAbilityDomainBonusApplies) ? 30 : 0;
-    const rLavaMult = (G.activeStadium?.id === 'stadium-lava' && atkType === 'water') ? 0.65 : 1;
-    const rOceanMult = (G.activeStadium?.id === 'stadium-ocean' && atkType === 'electric') ? 1.4 : 1;
-    const rOceanPokeBonus = (G.activeStadium?.id === 'stadium-ocean' && (defender.type === 'water' || defender.type2 === 'water') && !rAbilityDomainBonusApplies) ? 40 : 0;
-    const rRockFieldReduction = (G.activeStadium?.id === 'stadium-rock-field' && (['rock','ground','steel'].includes(attacker.type) || ['rock','ground','steel'].includes(attacker.type2))) ? 50 : 0;
-    const rShrineReduction = (G.activeStadium?.id === 'stadium-shrine' && (attacker.type === 'normal' || attacker.type2 === 'normal')) ? 30 : 0;
-    const rDragonValleyBonus = (G.activeStadium?.id === 'stadium-dragon-valley' && atkType === 'dragon' && !rAbilityDomainBonusApplies) ? 35 : 0;
-    const rInvertBonus = (G.activeStadium?.id === 'stadium-invert' && rMult > 1) ? 25 : 0;
+    // 2026-08-13場地卡重新設計，理由跟主公式同一段說明，這裡是反彈鏡情境下的鏡像版本
+    const rMysticSpaceReduction = (G.activeStadium?.id === 'stadium-mystic-space' && (attacker.type === 'psychic' || attacker.type2 === 'psychic')) ? 50 : 0;
+    const rLavaBonus = (G.activeStadium?.id === 'stadium-lava' && atkType === 'fire' && !rAbilityDomainBonusApplies) ? 50 : 0;
+    const rLavaMult = (G.activeStadium?.id === 'stadium-lava' && atkType === 'water') ? 0.3 : 1;
+    const rOceanMoveBonus = (G.activeStadium?.id === 'stadium-ocean' && atkType === 'water' && !rAbilityDomainBonusApplies) ? 20 : 0;
+    const rRockFieldBonus = (G.activeStadium?.id === 'stadium-rock-field' && (atkType === 'rock' || atkType === 'ground') && !rAbilityDomainBonusApplies) ? 50 : 0;
+    const rRockFieldReduction = (G.activeStadium?.id === 'stadium-rock-field' && (attacker.type === 'rock' || attacker.type2 === 'rock' || attacker.type === 'ground' || attacker.type2 === 'ground')) ? 50 : 0;
+    const rShrineReduction = (G.activeStadium?.id === 'stadium-shrine' && (attacker.type === 'normal' || attacker.type2 === 'normal')) ? 50 : 0;
     const rElectricStormBonus = (G.activeStadium?.id === 'stadium-electric-storm' && atkType === 'electric' && !rAbilityDomainBonusApplies) ? 30 : 0;
     const rIceTundraBonus = (G.activeStadium?.id === 'stadium-ice-tundra' && atkType === 'ice' && !rAbilityDomainBonusApplies) ? 30 : 0;
+    const rIceTundraReduction = (G.activeStadium?.id === 'stadium-ice-tundra' && (attacker.type === 'ice' || attacker.type2 === 'ice')) ? 50 : 0;
     const rSteelFortressBonus = (G.activeStadium?.id === 'stadium-steel-fortress' && atkType === 'steel' && !rAbilityDomainBonusApplies) ? 30 : 0;
     const rBugHiveBonus = (G.activeStadium?.id === 'stadium-bug-hive' && atkType === 'bug' && !rAbilityDomainBonusApplies) ? 30 : 0;
     const rFairyWardBonus = (G.activeStadium?.id === 'stadium-fairy-ward' && atkType === 'fairy' && !rAbilityDomainBonusApplies) ? 30 : 0;
     const rDarkCurseMult = (G.activeStadium?.id === 'stadium-dark-curse' && atkType === 'dark' && !rAbilityDomainBonusApplies) ? 1.2 : 1;
     const rFlyingWindMult = (G.activeStadium?.id === 'stadium-flying-wind' && atkType === 'flying' && !rAbilityDomainBonusApplies) ? 1.2 : 1;
-    const rGhostCurseMult = (G.activeStadium?.id === 'stadium-ghost-curse' && atkType === 'ghost' && !rAbilityDomainBonusApplies) ? 1.2 : 1;
-    const rSteelFortressReduction = G.activeStadium?.id === 'stadium-steel-fortress' ? 20 : 0;
+    const rSteelFortressReduction = (G.activeStadium?.id === 'stadium-steel-fortress' && (attacker.type === 'steel' || attacker.type2 === 'steel')) ? 50 : 0;
     const rMegaPrismMult = (G.activeStadium?.id === 'stadium-mega-prism' && (attacker.mega || attacker.megaEvolved)) ? 0.6 : 1;
-    const rStadiumMult = rColosseumMult * rMysticSpaceMult * rLavaMult * rOceanMult * rDarkCurseMult * rFlyingWindMult * rGhostCurseMult * rMegaPrismMult;
-    const rStadiumFlatBonus = rLavaBonus + rDragonValleyBonus + rInvertBonus + rElectricStormBonus + rIceTundraBonus + rSteelFortressBonus + rBugHiveBonus + rFairyWardBonus + rOceanPokeBonus;
+    const rStadiumMult = rLavaMult * rDarkCurseMult * rFlyingWindMult * rMegaPrismMult;
+    const rStadiumFlatBonus = rLavaBonus + rOceanMoveBonus + rRockFieldBonus + rElectricStormBonus + rIceTundraBonus + rSteelFortressBonus + rBugHiveBonus + rFairyWardBonus;
     const rShieldTerm = (dBuff.ignoreShield || atk.ignoreShield || defenderAbility?.id === 'crowned-sword-might') ? 0 : (attackerAbility?.id === 'shield-invert' ? -aBuff.shield : aBuff.shield);
     const rCrownedShieldReduction = attackerAbility?.id === 'crowned-shield-aegis' ? 30 : 0;
-    const rBurnMult = defender.status?.type === 'burn' ? 0.7 : 1;
+    const rBurnMult = defender.status?.type === 'burn' ? (G.activeStadium?.id === 'stadium-lava' ? 0.1 : 0.7) : 1;
     const dmg = (rMult === 0) ? 0 : Math.max(0, Math.max(1, Math.floor(
       (atk.dmg + dBuff.atkBonus + rStadiumFlatBonus + rAbilityDmgBonus + rMegaBoostBonus + rBonusVsTypeBonus + rSelfCureBonus) *
       dBuff.atkMult * rBurnMult * rMult * rStabMult * rAbilityDmgMult * rDefAbilityMult * rStadiumMult
-    )) - rShieldTerm - rRockFieldReduction - rSteelFortressReduction - rShrineReduction - rCrownedShieldReduction);
+    )) - rShieldTerm - rRockFieldReduction - rSteelFortressReduction - rShrineReduction - rCrownedShieldReduction - rMysticSpaceReduction - rIceTundraReduction);
     attacker.cur  = Math.max(0, attacker.cur - dmg);
     log.push({ text: `反彈鏡！攻擊被反彈，${attacker.name} 承受了 ${dmg} 傷害！`, cls: 'special' });
     aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; aBuff.doubleStrike = false; aBuff.typeBoost = null; aBuff.ignoreShield = false; aBuff.guaranteedStatus = false; aBuff.costFreeType = null; aBuff.costHalved = false; aBuff.ignoreReflectNext = false; aBuff.iceHowlFreeze = false; dBuff.shield = 0; dBuff.iceImmune = false;
@@ -953,7 +955,6 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
   // 2026-07-24應使用者要求「場地卡太過強勢」，把傷害倍率壓回~1.2、固定加成>40的下修到30以下
   const stadiumBonus = G?.activeStadium?.id === 'stadium-training' ? 25 : 0;
   const reversalBonus = G?.activeStadium?.id === 'stadium-reversal' && attacker.cur <= attacker.hp * 0.5 ? 30 : 0;
-  // dragonValleyBonus的宣告移到下面abilityDomainBonusApplies算完之後（2026-08-04修正需要用到那個旗標）
   const lowHpSelf = attacker.cur <= attacker.hp / 3;
   const halfHpSelf = attacker.cur <= attacker.hp / 2;
   const tintedLensProc = attackerAbility?.id === 'tinted-lens' && mult > 0 && mult < 1;
@@ -982,7 +983,8 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     (attackerAbility?.id === 'drizzle-ocean' && (atkType === 'water' || atkType === 'ice')) ||
     (attackerAbility?.id === 'drought-lava' && (atkType === 'ground' || atkType === 'fire')) ||
     (DOMAIN_ABILITY_STADIUM[attackerAbility?.id]?.type === atkType);
-  const dragonValleyBonus = (G?.activeStadium?.id === 'stadium-dragon-valley' && atkType === 'dragon' && !abilityDomainBonusApplies) ? 35 : 0;
+  // 龍之谷：2026-08-13重新設計，拿掉原本的+35固定傷害（新spec只剩弱點消除/不減免/能量折扣，
+  // 能量折扣已在effectiveCostSrv實作，這裡不用再加任何傷害項）
   // 強子引擎(密勒頓)/緋紅脈動(故勒頓)：各自專屬id，沿用blaze-boost同樣的「HP<1/3本系傷害×1.1」判定
   const isBlazeBoostFamily = attackerAbility?.id === 'blaze-boost' || attackerAbility?.id === 'hadron-engine' || attackerAbility?.id === 'crimson-pulse';
   const abilityDmgMult = ((isBlazeBoostFamily && lowHpSelf && isOwnType) ? 1.1
@@ -1006,42 +1008,42 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
   // 2026-08-11修正：rider:'self-cure'同上（見rSelfCureBonus的說明），這裡是一般（非反彈）攻擊路徑，
   // attacker就是實際出招的一方，直接讀attacker.status/status2
   const selfCureBonus = (atk.rider === 'self-cure' && (attacker.status || attacker.status2)) ? 40 : 0;
-  // 2026-08-04：以下9張「領域特性→自動切換的場地」補上!abilityDomainBonusApplies，理由見上面宣告處
-  const colosseumMult = (G.activeStadium?.id === 'stadium-colosseum' && atkType === 'fighting' && !abilityDomainBonusApplies) ? 1.2 : 1;
-  const mysticSpaceMult = (G.activeStadium?.id === 'stadium-mystic-space' && (defender.type === 'psychic' || defender.type2 === 'psychic')) ? 0.75 : 1;
-  // Lava Volcano: fire-type moves固定加成；water-type moves ×0.65（削弱維持不變，2026-07-24只下修攻擊向的加成）
-  // drought-lava的abilityDmgBonus涵蓋ground/fire，這裡只有fire會重疊
-  const lavaBonus = (G.activeStadium?.id === 'stadium-lava' && atkType === 'fire' && !abilityDomainBonusApplies) ? 30 : 0;
-  const lavaMult = (G.activeStadium?.id === 'stadium-lava' && atkType === 'water') ? 0.65 : 1;
-  // 2026-07-28應使用者要求從×1.2上修到×1.4
-  const oceanMult = (G.activeStadium?.id === 'stadium-ocean' && atkType === 'electric') ? 1.4 : 1;
-  // Ocean World：水屬性「寶可夢」固定+40傷害（不是招式屬性，是攻擊方自己的種族屬性）。
-  // 2026-08-04修正：跟abilityDmgBonus的drizzle-ocean判定（水/冰招式+40）重疊，改用統一旗標排除。
-  const oceanPokeBonus = (G.activeStadium?.id === 'stadium-ocean' && (attacker.type === 'water' || attacker.type2 === 'water') && !abilityDomainBonusApplies) ? 40 : 0;
-  // 岩石地帶：岩石／地面／鋼屬性寶可夢，受到攻擊固定減傷50（2026-07-27應使用者要求「-150太多了」下修，
-  // 從-150調回-50，並在srvEffActive()額外加碼「弱點消除」讓這張卡不只靠單一個數字撐強度）
+  // 2026-08-13場地卡全面重新設計（見battle-logic skill同名章節）——羅馬鬥技場/亡靈墓園/魔幻空間
+  // 三張的傷害倍率拿掉，改成共用的雙重攻擊機制（見attackWithStadiumDoubleSrv）；
+  // 以下維持「9張領域特性→自動切換的場地」都補上!abilityDomainBonusApplies，理由見上面宣告處
+  const mysticSpaceReduction = (G.activeStadium?.id === 'stadium-mystic-space' && (defender.type === 'psychic' || defender.type2 === 'psychic')) ? 50 : 0;
+  // Lava Volcano: fire-type moves固定加成（+30→+50上修）；water-type moves ×0.65→×0.3下修
+  const lavaBonus = (G.activeStadium?.id === 'stadium-lava' && atkType === 'fire' && !abilityDomainBonusApplies) ? 50 : 0;
+  const lavaMult = (G.activeStadium?.id === 'stadium-lava' && atkType === 'water') ? 0.3 : 1;
+  // Ocean World：電屬性加成整個拿掉，改成水屬性「招式」固定+20傷害（不再是攻擊方種族屬性）
+  const oceanMoveBonus = (G.activeStadium?.id === 'stadium-ocean' && atkType === 'water' && !abilityDomainBonusApplies) ? 20 : 0;
+  // 岩石地帶：弱點消除縮小成岩石／地面（鋼屬性移到專屬的鋼鐵堡壘），受到攻擊固定減傷維持50，
+  // 新增「岩石／地面招式攻擊造成的傷害+50」（招式屬性決定，不是攻擊方種族屬性，跟海洋世界
+  // oceanMoveBonus同一套寫法，一樣要排除rock-domain持有者打岩石招式時的雙重加成）
+  const rockFieldBonus = (G.activeStadium?.id === 'stadium-rock-field' &&
+    (atkType === 'rock' || atkType === 'ground') && !abilityDomainBonusApplies) ? 50 : 0;
   const rockFieldReduction = (G.activeStadium?.id === 'stadium-rock-field' &&
-    (['rock','ground','steel'].includes(defender.type) || ['rock','ground','steel'].includes(defender.type2))) ? 50 : 0;
-  // 莊嚴神社：一般屬性寶可夢受到攻擊固定減傷30，跟rockFieldReduction同一套寫法
+    (defender.type === 'rock' || defender.type2 === 'rock' || defender.type === 'ground' || defender.type2 === 'ground')) ? 50 : 0;
+  // 莊嚴神社：一般屬性寶可夢受到攻擊固定減傷（30→50上修）
   const shrineReduction = (G.activeStadium?.id === 'stadium-shrine' &&
-    (defender.type === 'normal' || defender.type2 === 'normal')) ? 30 : 0;
-  // 反轉世界：反轉後如果仍然是「克制」（mult>1），額外+25固定傷害
-  const invertBonus = (G.activeStadium?.id === 'stadium-invert' && mult > 1) ? 25 : 0;
-  // 2026-07-23新增8張場地卡的傷害加成部分（獨特玩法另外在別處實作）
+    (defender.type === 'normal' || defender.type2 === 'normal')) ? 50 : 0;
   const electricStormBonus = (G.activeStadium?.id === 'stadium-electric-storm' && atkType === 'electric' && !abilityDomainBonusApplies) ? 30 : 0;
+  // 永凍冰原：新增冰屬性寶可夢受到攻擊固定減傷50
   const iceTundraBonus = (G.activeStadium?.id === 'stadium-ice-tundra' && atkType === 'ice' && !abilityDomainBonusApplies) ? 30 : 0;
+  const iceTundraReduction = (G.activeStadium?.id === 'stadium-ice-tundra' && (defender.type === 'ice' || defender.type2 === 'ice')) ? 50 : 0;
   const steelFortressBonus = (G.activeStadium?.id === 'stadium-steel-fortress' && atkType === 'steel' && !abilityDomainBonusApplies) ? 30 : 0;
   const bugHiveBonus = (G.activeStadium?.id === 'stadium-bug-hive' && atkType === 'bug' && !abilityDomainBonusApplies) ? 30 : 0;
   const fairyWardBonus = (G.activeStadium?.id === 'stadium-fairy-ward' && atkType === 'fairy' && !abilityDomainBonusApplies) ? 30 : 0;
   const darkCurseMult = (G.activeStadium?.id === 'stadium-dark-curse' && atkType === 'dark' && !abilityDomainBonusApplies) ? 1.2 : 1;
   const flyingWindMult = (G.activeStadium?.id === 'stadium-flying-wind' && atkType === 'flying' && !abilityDomainBonusApplies) ? 1.2 : 1;
-  const ghostCurseMult = (G.activeStadium?.id === 'stadium-ghost-curse' && atkType === 'ghost' && !abilityDomainBonusApplies) ? 1.2 : 1;
-  const steelFortressReduction = G.activeStadium?.id === 'stadium-steel-fortress' ? 20 : 0;
+  // 鋼鐵堡壘：從「不限屬性、雙方受到攻擊固定-20」改成「鋼屬性寶可夢受到攻擊固定-50」，鋼屬性
+  // 招式傷害+30（steelFortressBonus）不變
+  const steelFortressReduction = (G.activeStadium?.id === 'stadium-steel-fortress' && (defender.type === 'steel' || defender.type2 === 'steel')) ? 50 : 0;
   // Mega稜鏡塔：可Mega進化或已經Mega進化的寶可夢受到攻擊×0.6，跟pokemon_battle.html的doAttack同一套處理
   const megaPrismMult = (G.activeStadium?.id === 'stadium-mega-prism' && (defender.mega || defender.megaEvolved)) ? 0.6 : 1;
-  const stadiumMult = colosseumMult * mysticSpaceMult * lavaMult * oceanMult * darkCurseMult * flyingWindMult * ghostCurseMult * megaPrismMult;
-  const stadiumFlatBonus = stadiumBonus + reversalBonus + lavaBonus + dragonValleyBonus + invertBonus +
-    electricStormBonus + iceTundraBonus + steelFortressBonus + bugHiveBonus + fairyWardBonus + oceanPokeBonus;
+  const stadiumMult = lavaMult * darkCurseMult * flyingWindMult * megaPrismMult;
+  const stadiumFlatBonus = stadiumBonus + reversalBonus + lavaBonus + oceanMoveBonus + rockFieldBonus +
+    electricStormBonus + iceTundraBonus + steelFortressBonus + bugHiveBonus + fairyWardBonus;
   // 龍之波動／順風：只在下次攻擊剛好符合指定屬性時才加成，不論有沒有命中屬性都會被這次攻擊消耗掉
   // typeBoost可以是倍率(mult，≥1.1維持原寫法)或固定加成(bonus，2026-07-22起<1.1的一律改成這種)
   const typeBoostMatch = aBuff.typeBoost && atkType === aBuff.typeBoost.type;
@@ -1068,10 +1070,11 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     // 2026-07-30應使用者回報「傷害計算怪怪的」修正：固定減傷（shieldTerm/rockFieldReduction/
     // steelFortressReduction）疊加起來可能超過乘法鏈算出來的傷害本身，原本扣減後沒有再夾在0以上，
     // 會讓damage變成負數，等同攻擊反而幫defender加血。外層包Math.max(0,...)避免倒扣出負傷害。
-    // 2026-08-04修正：羅馬鬥技場第二段攻擊的×0.5要乘在整條乘法鏈最後面（atk._halfDamage），
-    // 不能只砍atk.dmg這個小加項——megaBoostBonus/abilityDmgBonus等固定加成完全不會被砍到，
-    // 導致第二段幾乎跟第一段一樣高（使用者回報「兩下攻擊都超過300」）。
-    damage = Math.max(0, Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumFlatBonus + legacyDmgBonus + abilityDmgBonus + megaBoostBonus + typeBoostBonus + bonusVsTypeBonus + selfCureBonus) * effectiveAtkMult * burnMult * mult * stabMult * switchGuardMult * standbyGuardMult * abilityDmgMult * defAbilityMult * stadiumMult * typeBoostMult * reflectPierceMult * (atk._halfDamage ? 0.5 : 1))) - shieldTerm - rockFieldReduction - steelFortressReduction - shrineReduction - crownedShieldReduction);
+    // 2026-08-13：雙重攻擊（羅馬鬥技場/亡靈墓園/魔幻空間共用）第二段攻擊的×0.4要乘在整條
+    // 乘法鏈最後面（atk._secondHitMult，2026-08-04原本是colosseum專屬的atk._halfDamage/固定0.5，
+    // 現在改成通用欄位／0.4），不能只砍atk.dmg這個小加項——megaBoostBonus/abilityDmgBonus等
+    // 固定加成完全不會被砍到，導致第二段幾乎跟第一段一樣高（使用者回報「兩下攻擊都超過300」）。
+    damage = Math.max(0, Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumFlatBonus + legacyDmgBonus + abilityDmgBonus + megaBoostBonus + typeBoostBonus + bonusVsTypeBonus + selfCureBonus) * effectiveAtkMult * burnMult * mult * stabMult * switchGuardMult * standbyGuardMult * abilityDmgMult * defAbilityMult * stadiumMult * typeBoostMult * reflectPierceMult * (atk._secondHitMult ?? 1))) - shieldTerm - rockFieldReduction - steelFortressReduction - shrineReduction - crownedShieldReduction - mysticSpaceReduction - iceTundraReduction);
     // 影舞：下一次受到攻擊擲硬幣，正面完全免傷——一次性旗標，這次攻擊到來就消耗掉（不論正反面）。true-damage系特性無視此效果。
     if (!moldBreaker && G[`${dRole}CoinShield`]) {
       G[`${dRole}CoinShield`] = false;
@@ -1085,12 +1088,13 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
       damage = 0;
       log.push({ text: `${defender.name} 的深淵支配發動，完全閃避了攻擊！`, cls: 'special' });
     }
-    // 疾風之翼／劇毒領域：場地生效中，飛行／毒屬性寶可夢有50%機率完全閃避攻擊，跟pokemon_battle.html
-    // 的doAttack同一套「dmg>0才骰、true-damage無視、不疊加其他閃避來源」寫法
-    const stadiumDodgeActive =
-      (G.activeStadium?.id === 'stadium-flying-wind' && (defender.type === 'flying' || defender.type2 === 'flying')) ||
-      (G.activeStadium?.id === 'stadium-toxic-field' && (defender.type === 'poison' || defender.type2 === 'poison'));
-    if (!moldBreaker && damage > 0 && stadiumDodgeActive && Math.random() < 0.5) {
+    // 場地卡閃避（2026-08-13重新設計）：疾風之翼(flying,50%)／劇毒領域(poison,20%，從50%下修)／
+    // 沙塵暴(ground/rock,70%，新增)／蟲群巢穴(bug,50%，新增)——各卡機率不同，查STADIUM_DODGE表，
+    // 跟pokemon_battle.html的doAttack同一套「dmg>0才骰、true-damage無視、不疊加其他閃避來源」寫法
+    const stadiumDodgeCfg = STADIUM_DODGE[G.activeStadium?.id];
+    const stadiumDodgeActive = stadiumDodgeCfg &&
+      (stadiumDodgeCfg.types.includes(defender.type) || stadiumDodgeCfg.types.includes(defender.type2));
+    if (!moldBreaker && damage > 0 && stadiumDodgeActive && Math.random() < stadiumDodgeCfg.chance) {
       damage = 0;
       log.push({ text: `${defender.name} 靠著【${G.activeStadium.name}】完全閃避了攻擊！`, cls: 'special' });
     }
@@ -1137,6 +1141,11 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     if (damage > 0 && atkType === 'fire' && defender.status?.type === 'freeze') {
       defender.status = null;
       log.push({ text: `被火焰融化，${defender.name} 從結凍中解脫！`, cls: 'special' });
+    }
+    // 熔岩火山：2026-08-13新增，火屬性招式命中造成傷害時，必定讓對手燒傷（招式屬性決定，
+    // 不是攻擊方種族屬性，跟pokemon_battle.html的doAttack同一套處理）
+    if (damage > 0 && atkType === 'fire' && G.activeStadium?.id === 'stadium-lava' && inflictStatus(G, defender, 'burn', 999)) {
+      log.push({ text: `${defender.name} 被熔岩的熱氣灼傷了！`, cls: 'special' });
     }
     if (damage > 0 && atk.selfHeal && attacker.cur > 0 && !isHealSealedSrv(aRole, G)) {
       const heal = Math.round((attacker.hp - attacker.cur) * atk.selfHeal);
@@ -1438,7 +1447,8 @@ function executeSupportMoveSrv(attacker, defender, atk, role, op, G, log) {
 function triggerTrapStadiumSrv(poke, role, G, log) {
   if (!poke || poke.cur <= 0) return;
   if (G.activeStadium?.id === 'stadium-spikes') {
-    const dmg = Math.max(1, Math.round(poke.hp * 0.25));
+    // 2026-08-13重新設計：從「最大HP 25%」改成固定100傷害
+    const dmg = Math.min(poke.cur, 100);
     poke.cur = Math.max(0, poke.cur - dmg); // 扣血效果應該能讓寶可夢陣亡，不該保留1HP
     log.push({ text: `${poke.name} 受到了尖峰陷阱的傷害！（-${dmg} HP）`, cls: 'special' });
   }
@@ -1489,6 +1499,21 @@ function applyMegaMoveset(poke) {
     }
   });
 }
+// 2026-08-13重新設計：羅馬鬥技場(fighting)/亡靈墓園(ghost)/魔幻空間(psychic)三張場地卡共用
+// 同一套「雙重攻擊」機制（原本只有羅馬鬥技場一張，第二次傷害從×0.5改成×0.4），attack handler
+// 裡的PendingColosseumHit邏輯改成查這張表，不是寫死colosseum
+const STADIUM_DOUBLE_ATTACK = {
+  'stadium-colosseum':    'fighting',
+  'stadium-ghost-curse':  'ghost',
+  'stadium-mystic-space': 'psychic',
+};
+// 場地卡閃避機率表（2026-08-13重新設計）——doAttack()裡的stadiumDodgeProc查這張表
+const STADIUM_DODGE = {
+  'stadium-flying-wind': { types: ['flying'], chance: 0.5 },
+  'stadium-toxic-field': { types: ['poison'], chance: 0.2 },
+  'stadium-sandstorm':   { types: ['ground', 'rock'], chance: 0.7 },
+  'stadium-bug-hive':    { types: ['bug'], chance: 0.5 },
+};
 // 8種「屬性領域」特性（2026-07-22新增，僅限不能Mega進化的寶可夢），pattern同drizzle-ocean/drought-lava
 const DOMAIN_ABILITY_STADIUM = {
   'dragon-domain':   { stadium: 'stadium-dragon-valley', type: 'dragon' },
@@ -1642,25 +1667,35 @@ function applyTrainer(card, role, G, log, chosenType) {
       }
       break;
     }
-    case 'antidote':
-      if (G.activeStadium?.id === 'stadium-ghost-curse') {
-        log.push({ text: `異常狀態被亡靈墓園封印，無法解除！`, cls: 'system' });
-      } else if (active.status || active.status2) {
-        const cured = [active.status, active.status2].filter(Boolean).map(st => STATUS_ZH[st.type] || st.type);
-        active.status = null;
-        active.status2 = null;
-        log.push({ text: `萬能藥解除了 ${active.name} 的${cured.join('、')}！`, cls: 'system' });
+    case 'antidote': {
+      // 2026-08-13重新設計：從「亡靈墓園全擋」改成用isStatusCureBlockedSrv逐格檢查
+      // （劇毒領域只擋中毒、熔岩火山只擋燒傷、亡靈墓園仍是全擋）
+      const slot1Blocked = active.status && isStatusCureBlockedSrv(G, active.status.type);
+      const slot2Blocked = active.status2 && isStatusCureBlockedSrv(G, active.status2.type);
+      if (!active.status && !active.status2) break;
+      const cured = [];
+      if (active.status && !slot1Blocked) { cured.push(STATUS_ZH[active.status.type] || active.status.type); active.status = null; }
+      if (active.status2 && !slot2Blocked) { cured.push(STATUS_ZH[active.status2.type] || active.status2.type); active.status2 = null; }
+      if (cured.length) {
+        log.push({ text: `萬能藥解除了 ${active.name} 的${cured.join('、')}！${(slot1Blocked || slot2Blocked) ? '（部分異常狀態被場地效果封印，無法解除）' : ''}`, cls: 'system' });
+      } else {
+        log.push({ text: `異常狀態被場地效果封印，無法解除！`, cls: 'system' });
       }
       break;
+    }
     case 'nurse': {
-      const ghostCursed = G.activeStadium?.id === 'stadium-ghost-curse';
+      const slot1Blocked = active.status && isStatusCureBlockedSrv(G, active.status.type);
+      const slot2Blocked = active.status2 && isStatusCureBlockedSrv(G, active.status2.type);
+      const anyBlocked = slot1Blocked || slot2Blocked;
       if (isHealSealedSrv(role, G)) {
-        if (!ghostCursed) { active.status = null; active.status2 = null; }
-        log.push({ text: ghostCursed ? `異常狀態被亡靈墓園封印，恢復效果也被詛咒封印！` : `治療師解除了 ${active.name} 的異常狀態，但恢復效果被詛咒封印中，HP 沒有回復！`, cls: 'system' });
+        if (!slot1Blocked) active.status = null;
+        if (!slot2Blocked) active.status2 = null;
+        log.push({ text: anyBlocked ? `部分異常狀態被場地效果封印，恢復效果也被詛咒封印！` : `治療師解除了 ${active.name} 的異常狀態，但恢復效果被詛咒封印中，HP 沒有回復！`, cls: 'system' });
       } else {
         active.cur = active.hp;
-        if (!ghostCursed) { active.status = null; active.status2 = null; }
-        log.push({ text: `治療師讓 ${active.name} 完全回復${ghostCursed ? 'HP，但異常狀態被亡靈墓園封印，無法解除' : ''}！`, cls: 'system' });
+        if (!slot1Blocked) active.status = null;
+        if (!slot2Blocked) active.status2 = null;
+        log.push({ text: `治療師讓 ${active.name} 完全回復HP${anyBlocked ? '，但部分異常狀態被場地效果封印，無法解除' : ''}！`, cls: 'system' });
       }
       break;
     }
@@ -2336,14 +2371,11 @@ function applyTrainer(card, role, G, log, chosenType) {
     case 'stadium-training':
     case 'stadium-spring':
     case 'stadium-reversal':
-    case 'stadium-invert':
     case 'stadium-dragon-valley':
     case 'stadium-evil-forest':
     case 'stadium-mega-prism':
-    case 'stadium-spikes':
     case 'stadium-toxic-field':
     case 'stadium-colosseum':
-    case 'stadium-mystic-space':
     case 'stadium-lava':
     case 'stadium-ocean':
     case 'stadium-shrine':
@@ -2355,12 +2387,74 @@ function applyTrainer(card, role, G, log, chosenType) {
     case 'stadium-steel-fortress':
     case 'stadium-flying-wind':
     case 'stadium-bug-hive':
-    case 'stadium-ghost-curse':
+    case 'stadium-ghost-curse': {
+      const old = G.activeStadium;
+      G.activeStadium = card;
+      if (old) log.push({ text: `新競技場【${card.name}】取代了【${old.name}】！`, cls: 'special' });
+      else log.push({ text: `【${card.name}】競技場開場！`, cls: 'special' });
+      break;
+    }
+    // 2026-08-13重新設計：以下4張場地卡發動當下還有額外的一次性效果，跟其餘場地卡共用的
+    // 「純粹切換G.activeStadium」case分開處理
+    case 'stadium-invert': {
+      const old = G.activeStadium;
+      G.activeStadium = card;
+      if (old) log.push({ text: `新競技場【${card.name}】取代了【${old.name}】！`, cls: 'special' });
+      else log.push({ text: `【${card.name}】競技場開場！`, cls: 'special' });
+      // 發動時，雙方手牌互換
+      const tmp = G.p1Hand; G.p1Hand = G.p2Hand; G.p2Hand = tmp;
+      log.push({ text: `反轉世界讓雙方的手牌互換了！`, cls: 'special' });
+      G.p1NeedsDiscard = G.p1Hand.length > 7;
+      G.p2NeedsDiscard = G.p2Hand.length > 7;
+      break;
+    }
+    case 'stadium-spikes': {
+      const old = G.activeStadium;
+      G.activeStadium = card;
+      if (old) log.push({ text: `新競技場【${card.name}】取代了【${old.name}】！`, cls: 'special' });
+      else log.push({ text: `【${card.name}】競技場開場！`, cls: 'special' });
+      // 發動時，對手棄掉2張手牌
+      const opHand = G[`${op}Hand`];
+      const discardedNames = [];
+      for (let i = 0; i < 2 && opHand.length; i++) {
+        const idx2 = Math.floor(Math.random() * opHand.length);
+        discardedNames.push(opHand.splice(idx2, 1)[0].name);
+      }
+      if (discardedNames.length) log.push({ text: `尖峰陷阱讓對手棄掉了【${discardedNames.join('】【')}】！`, cls: 'special' });
+      break;
+    }
+    case 'stadium-mystic-space': {
+      const old = G.activeStadium;
+      G.activeStadium = card;
+      if (old) log.push({ text: `新競技場【${card.name}】取代了【${old.name}】！`, cls: 'special' });
+      else log.push({ text: `【${card.name}】競技場開場！`, cls: 'special' });
+      // 發動時，若我方場上寶可夢是超屬性寶可夢，可搶奪對方一張卡牌
+      const opActive = G[`${op}Deck`][G[`${op}Idx`]];
+      if ((active.type === 'psychic' || active.type2 === 'psychic') && opActive.cur > 0) {
+        const opHand = G[`${op}Hand`];
+        if (opHand.length) {
+          const idx2 = Math.floor(Math.random() * opHand.length);
+          const stolen = opHand.splice(idx2, 1)[0];
+          G[`${role}Hand`].push(stolen);
+          log.push({ text: `魔幻空間發動，搶走了對方的【${stolen.name}】！`, cls: 'special' });
+          G[`${role}NeedsDiscard`] = G[`${role}Hand`].length > 7;
+        }
+      }
+      break;
+    }
     case 'stadium-fairy-ward': {
       const old = G.activeStadium;
       G.activeStadium = card;
       if (old) log.push({ text: `新競技場【${card.name}】取代了【${old.name}】！`, cls: 'special' });
       else log.push({ text: `【${card.name}】競技場開場！`, cls: 'special' });
+      // 發動時，妖精寶可夢解除負面狀態
+      const opActive = G[`${op}Deck`][G[`${op}Idx`]];
+      [active, opActive].forEach(poke => {
+        if (poke.cur > 0 && (poke.type === 'fairy' || poke.type2 === 'fairy') && (poke.status || poke.status2)) {
+          poke.status = null; poke.status2 = null;
+          log.push({ text: `妖精結界原野發動，${poke.name} 的負面狀態解除了！`, cls: 'special' });
+        }
+      });
       break;
     }
   }
@@ -2375,39 +2469,55 @@ function drawForRole(G, role) {
   G[`${role}SupporterLocked`] = false;
   G[`${role}UsedItemThisTurn`] = false; // 機械之心系特性的旗標，每回合開始重置
   G[`${role}StadiumTradeCount`] = 0; // 棄1張換競技場卡的每回合上限，這裡是該角色回合真正開始的地方
+  // op提前到這裡宣告（原本在下面宣告一次）——2026-08-13新增的op/role場地卡效果需要在這裡就用到，
+  // op＝這次turn transition剛結束回合的那一方，role＝現在要開始回合的那一方
+  const op = role === 'p1' ? 'p2' : 'p1';
+  // 訓練場：回合結束時，該回合玩家（op）額外抽取一張支援者卡
+  if (G.activeStadium?.id === 'stadium-training' && G[`${op}Deck`][G[`${op}Idx`]].cur > 0) {
+    G[`${op}Hand`].push(pickSupporterAvoidingDupes(G[`${op}Hand`]));
+  }
   if (G.activeStadium?.id === 'stadium-spring') {
-    for (const r of ['p1', 'p2']) {
-      const poke = G[`${r}Deck`][G[`${r}Idx`]];
-      if (poke.cur > 0 && poke.cur < poke.hp && !isHealSealedSrv(r, G)) { // 詛咒：只跳過被封印的那一側
-        poke.cur = Math.min(poke.hp, poke.cur + 30);
+    const opPoke = G[`${op}Deck`][G[`${op}Idx`]];
+    if (opPoke.cur > 0) {
+      if (opPoke.cur < opPoke.hp && !isHealSealedSrv(op, G)) {
+        opPoke.cur = Math.min(opPoke.hp, opPoke.cur + 70);
       }
+      G[`${op}Hand`].push(pickSupporterAvoidingDupes(G[`${op}Hand`]));
     }
   }
+  // 逆轉鬥技場：回合結束時，該回合玩家（op）回復150HP
+  if (G.activeStadium?.id === 'stadium-reversal') {
+    const opPoke = G[`${op}Deck`][G[`${op}Idx`]];
+    if (opPoke.cur > 0 && !isHealSealedSrv(op, G)) {
+      opPoke.cur = Math.min(opPoke.hp, opPoke.cur + 150);
+    }
+  }
+  // 海洋世界：回合結束時，該回合玩家（op）回復30HP
+  if (G.activeStadium?.id === 'stadium-ocean') {
+    const opPoke = G[`${op}Deck`][G[`${op}Idx`]];
+    if (opPoke.cur > 0 && !isHealSealedSrv(op, G)) {
+      opPoke.cur = Math.min(opPoke.hp, opPoke.cur + 30);
+    }
+  }
+  // 沙塵暴：非地面／岩石／鋼屬性寶可夢，該回合結束的一方（op）損失50HP，
+  // 即將開始回合的一方（role）損失20HP——同一次turn transition裡兩邊各觸發各自的量
   if (G.activeStadium?.id === 'stadium-sandstorm') {
-    for (const r of ['p1', 'p2']) {
+    [{ r: op, dmg: 50 }, { r: role, dmg: 20 }].forEach(({ r, dmg }) => {
       const poke = G[`${r}Deck`][G[`${r}Idx`]];
       const immune = ['ground', 'rock', 'steel'].includes(poke.type) || ['ground', 'rock', 'steel'].includes(poke.type2);
       if (poke.cur > 0 && !immune) {
-        const dmg = Math.max(1, Math.round(poke.hp * 0.12));
-        poke.cur = Math.max(0, poke.cur - dmg);
+        poke.cur = Math.max(0, poke.cur - Math.min(poke.cur, dmg));
       }
-    }
+    });
   }
-  // 雷雲庇護所／永凍冰原：每回合結束，雙方若無異常狀態，一定機率陷入麻痺／結凍
-  // 2026-08-08修正：跟single-player同一個bug，desc寫「若無異常狀態」但原本沒真的檢查
-  if (G.activeStadium?.id === 'stadium-electric-storm') {
-    for (const r of ['p1', 'p2']) {
-      const poke = G[`${r}Deck`][G[`${r}Idx`]];
-      if (poke.cur > 0 && !poke.status && !poke.status2 && Math.random() < 0.2) inflictStatus(G, poke, 'paralysis', 999);
-    }
-  }
+  // 永凍冰原：回合結束時，即將開始回合的一方（role，也就是op的對手）若為非冰屬性則被結凍
   if (G.activeStadium?.id === 'stadium-ice-tundra') {
-    for (const r of ['p1', 'p2']) {
-      const poke = G[`${r}Deck`][G[`${r}Idx`]];
-      if (poke.cur > 0 && !poke.status && !poke.status2 && Math.random() < 0.15) inflictStatus(G, poke, 'freeze', 2);
+    const rolePoke = G[`${role}Deck`][G[`${role}Idx`]];
+    if (rolePoke.cur > 0 && rolePoke.type !== 'ice' && rolePoke.type2 !== 'ice') {
+      inflictStatus(G, rolePoke, 'freeze', 2);
     }
   }
-  // 邪惡森林：每回合結束，草屬性上場寶可夢回復70HP，跟stadium-spring同一套寫法
+  // 邪惡森林：每回合結束，草屬性上場寶可夢回復70HP，跟stadium-spring同一套寫法（雙方對稱）
   if (G.activeStadium?.id === 'stadium-evil-forest') {
     for (const r of ['p1', 'p2']) {
       const poke = G[`${r}Deck`][G[`${r}Idx`]];
@@ -2416,13 +2526,52 @@ function drawForRole(G, role) {
       }
     }
   }
-  // 劇毒領域：每回合結束，毒屬性上場寶可夢回復70HP，跟stadium-evil-forest同一套寫法
-  if (G.activeStadium?.id === 'stadium-toxic-field') {
+  // 莊嚴神社：每回合結束，一般屬性上場寶可夢回復70HP，跟stadium-evil-forest同一套寫法（雙方對稱）
+  if (G.activeStadium?.id === 'stadium-shrine') {
     for (const r of ['p1', 'p2']) {
       const poke = G[`${r}Deck`][G[`${r}Idx`]];
-      if (poke.cur > 0 && poke.cur < poke.hp && (poke.type === 'poison' || poke.type2 === 'poison') && !isHealSealedSrv(r, G)) {
+      if (poke.cur > 0 && poke.cur < poke.hp && (poke.type === 'normal' || poke.type2 === 'normal') && !isHealSealedSrv(r, G)) {
         poke.cur = Math.min(poke.hp, poke.cur + 70);
       }
+    }
+  }
+  // 暗夜詛咒領域：若場上（任一方）為惡屬性寶可夢，回合結束時，該側的對手棄掉1張手牌
+  if (G.activeStadium?.id === 'stadium-dark-curse') {
+    for (const r of ['p1', 'p2']) {
+      const poke = G[`${r}Deck`][G[`${r}Idx`]];
+      if (poke.cur <= 0 || !(poke.type === 'dark' || poke.type2 === 'dark')) continue;
+      const opOfR = r === 'p1' ? 'p2' : 'p1';
+      const opHand = G[`${opOfR}Hand`];
+      if (opHand.length) {
+        const idx = Math.floor(Math.random() * opHand.length);
+        opHand.splice(idx, 1);
+      }
+    }
+  }
+  // 魔幻空間：回合結束時，若我方（任一方）場上寶可夢是超屬性寶可夢，可搶奪對方一張卡牌
+  if (G.activeStadium?.id === 'stadium-mystic-space') {
+    for (const r of ['p1', 'p2']) {
+      const poke = G[`${r}Deck`][G[`${r}Idx`]];
+      if (poke.cur <= 0 || !(poke.type === 'psychic' || poke.type2 === 'psychic')) continue;
+      const opOfR = r === 'p1' ? 'p2' : 'p1';
+      const opHand = G[`${opOfR}Hand`];
+      if (opHand.length) {
+        const idx = Math.floor(Math.random() * opHand.length);
+        const stolen = opHand.splice(idx, 1)[0];
+        G[`${r}Hand`].push(stolen);
+        G[`${r}NeedsDiscard`] = G[`${r}Hand`].length > 7;
+      }
+    }
+  }
+  // 妖精結界原野：回合開始時，即將開始回合的一方（role）若為妖精屬性，解除負面狀態；
+  // 回合結束時，即將開始回合的一方（role，也就是op的對手）獲得混亂
+  if (G.activeStadium?.id === 'stadium-fairy-ward') {
+    const rolePoke = G[`${role}Deck`][G[`${role}Idx`]];
+    if (rolePoke.cur > 0) {
+      if ((rolePoke.type === 'fairy' || rolePoke.type2 === 'fairy') && (rolePoke.status || rolePoke.status2)) {
+        rolePoke.status = null; rolePoke.status2 = null;
+      }
+      inflictStatus(G, rolePoke, 'confusion', Math.floor(Math.random() * 3) + 2);
     }
   }
   // 全力出擊：上回合使用時「下回合無法回復能量」的代價，這裡直接跳過能量回復並清掉旗標
@@ -2444,7 +2593,20 @@ function drawForRole(G, role) {
   if (G.activeStadium?.id === 'stadium-mega-prism' && !G[`${role}MegaUsed`]) {
     G[`${role}MegaEnergy`] = Math.min(20, (G[`${role}MegaEnergy`] || 0) + 16);
   }
-  const op = role === 'p1' ? 'p2' : 'p1';
+  // op已在函式開頭宣告過，這裡不用再宣告一次
+  // 2026-08-13新增：雙人對戰限定的逆風補償規則——回合開始時，若我方只剩1隻寶可夢、對方還有
+  // 2隻以上，直接回滿血並多抽1張支援者卡。使用者原文沒有「整場限一次」的字眼，所以每次符合
+  // 條件的回合開始都會觸發，不是一次性的。只在PvP做（single-player沒有這條規則，見使用者
+  // 原文「雙人對戰額外規則」的明確限定範圍）。
+  const roleAliveCount = G[`${role}Deck`].filter(p => p.cur > 0).length;
+  const opAliveCount = G[`${op}Deck`].filter(p => p.cur > 0).length;
+  if (roleAliveCount === 1 && opAliveCount >= 2) {
+    const comebackPoke = G[`${role}Deck`][G[`${role}Idx`]];
+    if (comebackPoke.cur > 0) {
+      comebackPoke.cur = comebackPoke.hp;
+      G[`${role}Hand`].push(pickSupporterAvoidingDupes(G[`${role}Hand`]));
+    }
+  }
   // 亡靈詛咒／暗影封鎖／封印特性／詛咒／妖精結界：2026-07-30應使用者回報「最後一回合效果應該
   // 還在，結果圖示還在效果卻沒了」修正——這幾個「N回合」倒數原本放在role自己回合開始時扣，
   // 會在role自己的最後一個有效回合就先扣成0，導致該回合的判定（isAbilitySealedSrv等）提前
@@ -2574,7 +2736,11 @@ function makePocketInstance(cardId) {
     curHp: base.hp ?? null,
     energy: [],
     boardTurn: null, // 進場/最近一次進化的回合數，用來擋「這回合不能進化」
-    status: null, // null | 'asleep' | 'poisoned' | 'paralyzed'
+    status: null, // null | 'asleep' | 'paralyzed' | 'confused' —— 這三種互斥，同時間只會有其中一種
+    // 2026-08-13新增：中毒／灼傷改成獨立布林欄位，可以跟上面的status同時存在（也可以彼此同時
+    // 存在），符合真實TCG規則——中毒/灼傷不屬於「三選一」那組，只有睡眠/麻痺/混亂互斥
+    poisoned: false,
+    burned: false,
     cantAttackUntilTurn: 0, // === G.turnNumber 時這回合不能攻擊（用turnNumber比對，過了自然失效不用額外清）
     cantRetreatUntilTurn: 0,
     dmgDebuffUntilTurn: 0,
@@ -2597,6 +2763,23 @@ const POCKET_FOSSIL_IDS = new Set(['A1-216', 'A1-217', 'A1-218', 'A1a-063', 'A2-
 // Paradox寶可夢才算——2026-08-09補上，之前漏掉導致Professor Turo選密勒頓ex時判斷失敗
 const ANCIENT_POKEMON_NAMES = new Set(['Great Tusk', 'Scream Tail', 'Brute Bonnet', 'Flutter Mane', 'Slither Wing', 'Sandy Shocks', 'Roaring Moon', 'Walking Wake', 'Gouging Fire', 'Raging Bolt', 'Koraidon', 'Koraidon ex']);
 const FUTURE_POKEMON_NAMES = new Set(['Iron Treads', 'Iron Bundle', 'Iron Hands', 'Iron Jugulis', 'Iron Moth', 'Iron Thorns', 'Iron Valiant', 'Iron Leaves', 'Iron Boulder', 'Iron Crown', 'Miraidon', 'Miraidon ex']);
+// 2026-08-13新增：4張Tool卡帶「條件式固定+HP」——原本只在裝備當下手動target.hp+=N一次性套用
+// （見pocket-tcg專案記憶的Tool系統設計說明，這個設計本身沒問題），但進化時target.hp會被
+// Object.assign(structuredClone(POCKET_CARDS_BY_ID[...]))整個換成新物種的印刷HP，蓋掉這個
+// 一次性加成，卻沒有依進化後的新條件重新判斷要不要補回來——玩家回報「裝了Leaf Cape的三蜜蜂，
+// 進化成蜂女王後+30血量不見了」（蜂女王同樣是草屬性，理應繼續有加成，卻整個消失了）。
+// 抽成表格＋共用函式，pocket_evolve handler呼叫這個算出「進化前/後各自的加成」再做差值調整，
+// 4個裝備handler本身也一併改用同一份判斷邏輯，避免條件寫兩次以後兩邊各自維護不同步。
+const TOOL_HP_BONUS = {
+  'A2-147': { amount: 20, condition: () => true }, // Giant Cape：無條件
+  'A3-147': { amount: 30, condition: (p) => (p.types || []).includes('Grass') }, // Leaf Cape
+  'B3a-069': { amount: 40, condition: (p) => ANCIENT_POKEMON_NAMES.has(p.name) }, // Ancient Booster Energy Capsule
+  'B3b-065': { amount: 30, condition: (p) => p.stage === 'Stage1' }, // Elegant Cape
+};
+function pocketToolHpBonusAmount(poke) {
+  const cfg = poke.tool && TOOL_HP_BONUS[poke.tool.id];
+  return (cfg && cfg.condition(poke)) ? cfg.amount : 0;
+}
 function makePocketFossilInstance(cardId) {
   const base = POCKET_CARDS_BY_ID[cardId];
   return {
@@ -2761,7 +2944,14 @@ function pocketRunCheckup(G) {
   const endingSide = G[endingRole];
   const otherRoleForCheckup = endingRole === 'p1' ? 'p2' : 'p1';
   const otherSideForCheckup = G[otherRoleForCheckup];
-  if (endingSide.active && endingSide.active.status === 'poisoned') {
+  // Flower Shield/Soothing Wind：每次checkup當一層防呆保底（見pocketApplySoothingCure定義處
+  // 的說明），跑在中毒/灼傷扣血之前，這樣萬一漏抓某個「新符合資格」的時機點，至少不會多扣這次的傷害
+  pocketApplySoothingCure(endingSide);
+  pocketApplySoothingCure(otherSideForCheckup);
+  // 2026-08-13修正：中毒/灼傷改成獨立布林欄位（可以彼此同時存在，也可以跟status欄位的睡眠/
+  // 麻痺/混亂同時存在），這裡改成各自獨立的if（不是互斥的.status===比對），兩個都成立時兩段
+  // 傷害都會結算——真實TCG規則本來就允許同時中毒+灼傷各自扣血
+  if (endingSide.active && endingSide.active.poisoned) {
     // More Poison：對手（otherSideForCheckup，中毒debuff的施加方）主戰持有時，中毒傷害10→20
     const poisonBonus = otherSideForCheckup.active?.abilities?.[0]?.name === 'More Poison' ? 10 : 0;
     // Toxicroak（2026-08-08新增）：卡面明講「instead of the usual amount」——這次中毒的傷害
@@ -2776,7 +2966,7 @@ function pocketRunCheckup(G) {
   // 2026-08-06新增：灼傷（Burned）——跟中毒同樣在該側回合結束時扣血，但傷害是20（中毒10）
   // 且扣完血額外擲一次硬幣，正面直接治癒灼傷（這點中毒沒有，中毒要等到被其他效果解除才會消失，
   // 灼傷則是真實規則裡本來就會「自己有機會好」的限時debuff，跟中毒設計成兩種不同持續時間的異常）。
-  if (endingSide.active && endingSide.active.status === 'burned') {
+  if (endingSide.active && endingSide.active.burned) {
     endingSide.active.curHp = Math.max(0, endingSide.active.curHp - 20);
     if (endingSide.active.curHp <= 0) {
       pocketResolveActiveKO(G, endingRole);
@@ -2787,7 +2977,7 @@ function pocketRunCheckup(G) {
       // 只有一側），不會有兩顆硬幣搶著設同一個G.lastEvent的疑慮
       const cured = pocketFlipCoin({ G, role: endingRole });
       G.lastEvent = { seq: ++G.eventSeq, kind: 'checkup', coinFlips: [cured] };
-      if (cured) endingSide.active.status = null;
+      if (cured) endingSide.active.burned = false;
     }
   }
   // 麻痺（跟睡眠/中毒不同）在真實規則裡是限時debuff：只擋這一整個回合的攻擊/撤退，
@@ -2833,8 +3023,10 @@ function pocketRunCheckup(G) {
     endingSide.active.curHp = Math.min(endingSide.active.hp, endingSide.active.curHp + 10);
   }
   [endingSide.active, ...endingSide.bench].filter(Boolean).forEach(p => {
-    if (p.tool?.id === 'A2-149' && p.status != null) { // Lum Berry：解除異常狀態後棄置自己
+    if (p.tool?.id === 'A2-149' && (p.status != null || p.poisoned || p.burned)) { // Lum Berry：解除異常狀態後棄置自己
       p.status = null;
+      p.poisoned = false;
+      p.burned = false;
       p.tool = null;
     }
     if (p.tool?.id === 'B1-218' && p.curHp > 0 && p.curHp <= p.hp / 2) { // Sitrus Berry：HP過半才觸發，回復後棄置自己
@@ -3472,7 +3664,7 @@ const ATTACK_EFFECTS = {
     ctx.rawDamage = ctx.rawDamage; // 這張卡本身沒有base damage欄位以外的變化，維持原樣
     if (!ctx.oppSide.active) return;
     const excludedUid = ctx.oppSide.active.uid; // 見Sabrina(A1-225)同一處excludeUid說明
-    ctx.oppSide.active.status = null;
+    ctx.oppSide.active.status = null; ctx.oppSide.active.poisoned = false; ctx.oppSide.active.burned = false;
     ctx.oppSide.bench.push(ctx.oppSide.active);
     ctx.oppSide.active = null;
     pocketEnterForcedSwitch(ctx.G, ctx.op, 'noEndTurn', excludedUid);
@@ -3540,7 +3732,7 @@ const ATTACK_EFFECTS = {
     ctx.rawDamage = 0;
     if (!ctx.defender) return;
     const p = ctx.defender;
-    p.curHp = p.hp; p.energy = []; p.status = null; p.boardTurn = null; p.tool = null;
+    p.curHp = p.hp; p.energy = []; p.status = null; p.poisoned = false; p.burned = false; p.boardTurn = null; p.tool = null;
     p.cantAttackUntilTurn = 0; p.cantRetreatUntilTurn = 0; p.dmgDebuffUntilTurn = 0; p.dmgDebuffAmount = 0;
     ctx.oppSide.hand.push(p);
     pocketResolveActiveKO(ctx.G, ctx.op, false);
@@ -3548,7 +3740,7 @@ const ATTACK_EFFECTS = {
   },
   "During your opponent's next turn, attacks used by the Defending Pokémon do −30 damage.": ctx => { if (ctx.defender) { ctx.defender.dmgDebuffUntilTurn = ctx.G.turnNumber + 1; ctx.defender.dmgDebuffAmount = 30; } },
   "During your next turn, this Pokémon's Rolling Spin attack does +60 damage.": ctx => { ctx.attacker.moveBuffUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.moveBuffName = 'Rolling Spin'; ctx.attacker.moveBuffAmount = 60; },
-  "Your opponent's Active Pokémon is now Poisoned. Do 20 damage to this Pokémon instead of the usual amount for this Special Condition.": ctx => { if (ctx.defender) { ctx.defender.status = 'poisoned'; ctx.defender.poisonDamageOverride = 20; } },
+  "Your opponent's Active Pokémon is now Poisoned. Do 20 damage to this Pokémon instead of the usual amount for this Special Condition.": ctx => { if (ctx.defender) { ctx.defender.poisoned = true; ctx.defender.poisonDamageOverride = 20; } },
   "If your opponent's Active Pokémon is a {M} Pokémon, this attack does 30 more damage.": ctx => { if ((ctx.defender?.types || []).includes('Metal')) ctx.rawDamage += 30; },
   "Discard 2 random Energy from this Pokémon.": ctx => { for (let i = 0; i < 2 && ctx.attacker.energy.length; i++) { const [t] = ctx.attacker.energy.splice(Math.floor(Math.random() * ctx.attacker.energy.length), 1); ctx.side.discardEnergy.push(t); } },
   "If your opponent's Active Pokémon is a Pokémon ex, this attack does 30 more damage.": ctx => { if (ctx.defender?.ex) ctx.rawDamage += 30; },
@@ -3578,7 +3770,9 @@ const ATTACK_EFFECTS = {
   "Flip a coin. If heads, your opponent's Active Pokémon is now Confused.": ctx => { if (pocketFlipCoin(ctx) && ctx.defender) ctx.defender.status = 'confused'; },
   "During your next turn, this Pokémon's Overacceleration attack does +20 damage.": ctx => { ctx.attacker.moveBuffUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.moveBuffName = 'Overacceleration'; ctx.attacker.moveBuffAmount = 20; },
   "If this Pokémon moved from your Bench to the Active Spot this turn, this attack does 60 more damage.": ctx => { if (ctx.attacker.enteredActiveThisTurn === ctx.G.turnNumber) ctx.rawDamage += 60; },
-  "Your opponent's Active Pokémon is now Poisoned and Burned.": ctx => { if (ctx.defender) ctx.defender.status = 'poisoned'; },
+  // 2026-08-13修正：卡面文字明講「Poisoned and Burned」，原本只設了poisoned一半，燒傷被吃掉——
+  // 中毒/灼傷改成獨立欄位後可以同時成立，這裡兩個都要設
+  "Your opponent's Active Pokémon is now Poisoned and Burned.": ctx => { if (ctx.defender) { ctx.defender.poisoned = true; ctx.defender.burned = true; } },
   "During your opponent's next turn, if this Pokémon is damaged by an attack, do 40 damage to the Attacking Pokémon.": ctx => { ctx.defender && (ctx.defender.retaliateUntilTurn = ctx.G.turnNumber + 1, ctx.defender.retaliateAmount = 40); },
   "Put 1 random Wishiwashi or Wishiwashi ex from your deck onto your Bench.": ctx => {
     if (ctx.side.bench.length >= 3) return;
@@ -3600,7 +3794,7 @@ const ATTACK_EFFECTS = {
   "During your opponent's next turn, this Pokémon takes −50 damage from attacks.": ctx => { ctx.attacker.selfShieldUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.selfShieldAmount = 50; ctx.attacker.selfShieldCondition = null; },
   "If your opponent's Active Pokémon has more remaining HP than this Pokémon, this attack does 50 more damage.": ctx => { if (ctx.defender && ctx.defender.curHp > ctx.attacker.curHp) ctx.rawDamage += 50; },
   "Discard a random Item card from your opponent's hand.": ctx => { const items = ctx.oppSide.hand.map((c, i) => c.category === 'Trainer' && c.trainerType === 'Item' ? i : -1).filter(i => i >= 0); if (items.length) ctx.oppSide.hand.splice(items[Math.floor(Math.random() * items.length)], 1); },
-  "If your opponent's Active Pokémon is affected by a Special Condition, this attack does 60 more damage.": ctx => { if (ctx.defender?.status != null) ctx.rawDamage += 60; },
+  "If your opponent's Active Pokémon is affected by a Special Condition, this attack does 60 more damage.": ctx => { if (ctx.defender?.status != null || ctx.defender?.poisoned || ctx.defender?.burned) ctx.rawDamage += 60; },
   "During your opponent's next turn, this Pokémon takes +30 damage from attacks.": ctx => { if (ctx.defender) { ctx.defender.selfVulnUntilTurn = ctx.G.turnNumber + 1; ctx.defender.selfVulnAmount = 30; } },
   "Take a {C} Energy from your Energy Zone and attach it to 1 of your Benched Pokémon.": ctx => { if (ctx.side.bench.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownBench', eligibleUids: ctx.side.bench.map(p => p.uid), action: 'attachEnergy', energyType: 'Colorless', count: 1 }; },
   "If your opponent's Active Pokémon is a {D} Pokémon, this attack does 30 more damage.": ctx => { if ((ctx.defender?.types || []).includes('Darkness')) ctx.rawDamage += 30; },
@@ -3647,7 +3841,7 @@ const ATTACK_EFFECTS = {
     }
   },
   "Flip a coin. If tails, discard 2 random Energy from this Pokémon.": ctx => { if (!pocketFlipCoin(ctx)) { for (let i = 0; i < 2 && ctx.attacker.energy.length; i++) { const [t] = ctx.attacker.energy.splice(Math.floor(Math.random() * ctx.attacker.energy.length), 1); ctx.side.discardEnergy.push(t); } } },
-  "If your opponent's Active Pokémon is Burned, this attack does 60 more damage.": ctx => { if (ctx.defender?.status === 'burned') ctx.rawDamage += 60; },
+  "If your opponent's Active Pokémon is Burned, this attack does 60 more damage.": ctx => { if (ctx.defender?.burned) ctx.rawDamage += 60; },
   "Move all Energy from this Pokémon to 1 of your Benched Pokémon.": ctx => { // Swanna：把自己全部能量移給板凳自選1隻
     if (!ctx.attacker.energy.length || !ctx.side.bench.length) return;
     ctx.needsChoice = { kind: 'pick_target', pool: 'ownBench', eligibleUids: ctx.side.bench.map(p => p.uid), action: 'moveAllEnergyFromAttacker' };
@@ -3715,7 +3909,7 @@ const ATTACK_EFFECTS = {
     if (ctx.attacker.stackBuffName !== 'Rolling Frenzy') { ctx.attacker.stackBuffName = 'Rolling Frenzy'; ctx.attacker.stackBuffAmount = 0; }
     ctx.attacker.stackBuffAmount += 30;
   },
-  "Flip a coin. If heads, your opponent's Active Pokémon is now Burned.": ctx => { if (pocketFlipCoin(ctx) && ctx.defender) ctx.defender.status = 'burned'; },
+  "Flip a coin. If heads, your opponent's Active Pokémon is now Burned.": ctx => { if (pocketFlipCoin(ctx) && ctx.defender) ctx.defender.burned = true; },
   "Heal 30 damage from each of your Benched Basic Pokémon.": ctx => { for (const p of ctx.side.bench) { if (p.stage === 'Basic') p.curHp = Math.min(p.hp, p.curHp + 30); } },
   "Flip 2 coins. This attack does 30 more damage for each heads.": ctx => { ctx.rawDamage += pocketFlipCoins(2, ctx) * 30; },
   "During your opponent's next turn, if this Pokémon is damaged by an attack, do 20 damage to the Attacking Pokémon.": ctx => { ctx.defender && (ctx.defender.retaliateUntilTurn = ctx.G.turnNumber + 1, ctx.defender.retaliateAmount = 20); },
@@ -3751,7 +3945,7 @@ const ATTACK_EFFECTS = {
     if (eligible.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppHand', eligibleUids: eligible.map(c => c.uid), action: 'discard' };
   },
   "During your next turn, this Pokémon's Overdrive Smash attack does +30 damage.": ctx => { ctx.attacker.moveBuffUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.moveBuffName = 'Overdrive Smash'; ctx.attacker.moveBuffAmount = 30; },
-  "If your opponent's Active Pokémon is Poisoned, this attack does 70 more damage.": ctx => { if (ctx.defender?.status === 'poisoned') ctx.rawDamage += 70; },
+  "If your opponent's Active Pokémon is Poisoned, this attack does 70 more damage.": ctx => { if (ctx.defender?.poisoned) ctx.rawDamage += 70; },
   "This attack's damage isn't affected by any effects on your opponent's Active Pokémon.": ctx => { ctx.ignoreDefenderEffects = true; },
   "If Durant is on your Bench, this attack does 40 more damage.": ctx => { if (ctx.side.bench.some(p => p.name === 'Durant')) ctx.rawDamage += 40; },
   "Discard 2 {M} Energy from this Pokémon. During your opponent's next turn, this Pokémon takes −50 damage from attacks.": ctx => { // Corviknight：棄2鋼能量+下回合-50
@@ -3804,7 +3998,7 @@ const ATTACK_EFFECTS = {
     if (ctx.oppSide.hand.length) { const idx = Math.floor(Math.random() * ctx.oppSide.hand.length); const [card] = ctx.oppSide.hand.splice(idx, 1); ctx.oppSide.deck.push(card); ctx.oppSide.deck = pocketShuffle(ctx.oppSide.deck); }
     ctx.rawDamage = 0;
     const p = ctx.attacker;
-    p.curHp = p.hp; p.energy = []; p.status = null; p.boardTurn = null; p.tool = null;
+    p.curHp = p.hp; p.energy = []; p.status = null; p.poisoned = false; p.burned = false; p.boardTurn = null; p.tool = null;
     p.cantAttackUntilTurn = 0; p.cantRetreatUntilTurn = 0; p.dmgDebuffUntilTurn = 0; p.dmgDebuffAmount = 0;
     ctx.side.deck.push(p);
     ctx.side.deck = pocketShuffle(ctx.side.deck);
@@ -3966,7 +4160,7 @@ const ATTACK_EFFECTS = {
       // 塞回deck，之後抽到重新上場時會帶著舊的殘血/能量/中毒狀態，跟真實規則不符
       // （洗進牌庫視為重新變成一張未使用過的卡）。
       const p = ctx.defender;
-      p.curHp = p.hp; p.energy = []; p.status = null; p.boardTurn = null;
+      p.curHp = p.hp; p.energy = []; p.status = null; p.poisoned = false; p.burned = false; p.boardTurn = null;
       p.cantAttackUntilTurn = 0; p.cantRetreatUntilTurn = 0; p.dmgDebuffUntilTurn = 0; p.dmgDebuffAmount = 0;
       ctx.oppSide.deck.push(p);
       ctx.oppSide.deck = pocketShuffle(ctx.oppSide.deck);
@@ -3987,7 +4181,7 @@ const ATTACK_EFFECTS = {
     const need = (ctx.atk.cost || []).filter(t => t === 'Water').length;
     if (have - need >= 2) ctx.rawDamage += 60;
   },
-  "If your opponent's Active Pokémon is Poisoned, this attack does 50 more damage.": ctx => { if (ctx.defender?.status === 'poisoned') ctx.rawDamage += 50; },
+  "If your opponent's Active Pokémon is Poisoned, this attack does 50 more damage.": ctx => { if (ctx.defender?.poisoned) ctx.rawDamage += 50; },
   // 2026-08-06修正：原本隨機選一隻板凳換上場，查證卡面文字（沒有"at random"字樣）後
   // 改成玩家自選要換誰上場——暫停進pendingChoice，實際交換動作延到pocket_attack_choice
   // handler收到玩家選擇後才執行。
@@ -4025,7 +4219,7 @@ const ATTACK_EFFECTS = {
   },
   "Your opponent reveals their hand.": ctx => { ctx.peekOpponentHand = true; },
   "Your opponent's Active Pokémon is now Asleep.": ctx => { if (ctx.defender) ctx.defender.status = 'asleep'; },
-  "Your opponent's Active Pokémon is now Poisoned.": ctx => { if (ctx.defender) ctx.defender.status = 'poisoned'; },
+  "Your opponent's Active Pokémon is now Poisoned.": ctx => { if (ctx.defender) ctx.defender.poisoned = true; },
 
   /* ── 2026-08-06新增：A1~B2a全系列擴充後補上的高頻招式效果（依出現次數排序挑選，
      完整133種待實作效果清單記在scratchpad，這裡先做最常見的一批；沒做到的效果文字在
@@ -4042,7 +4236,7 @@ const ATTACK_EFFECTS = {
   "This Pokémon also does 70 damage to itself.": ctx => { ctx.selfDamage = (ctx.selfDamage || 0) + 70; },
   "Flip a coin. If tails, this Pokémon also does 30 damage to itself.": ctx => { if (!pocketFlipCoin(ctx)) ctx.selfDamage = (ctx.selfDamage || 0) + 30; },
   "Your opponent's Active Pokémon is now Confused.": ctx => { if (ctx.defender) ctx.defender.status = 'confused'; },
-  "Your opponent's Active Pokémon is now Burned.": ctx => { if (ctx.defender) ctx.defender.status = 'burned'; },
+  "Your opponent's Active Pokémon is now Burned.": ctx => { if (ctx.defender) ctx.defender.burned = true; },
   "This Pokémon is now Asleep.": ctx => { ctx.attacker.status = 'asleep'; },
   "This Pokémon is now Confused.": ctx => { ctx.attacker.status = 'confused'; },
   "Flip a coin. If heads, your opponent's Active Pokémon is now Paralyzed. If tails, your opponent's Active Pokémon is now Confused.": ctx => {
@@ -4052,8 +4246,8 @@ const ATTACK_EFFECTS = {
   // 5種異常狀態隨機選1種套用——文字本身就是「隨機」，不是玩家可選，跟其他random-target效果同一套寫法
   "1 Special Condition from among Asleep, Burned, Confused, Paralyzed, and Poisoned is chosen at random, and your opponent's Active Pokémon is now affected by that Special Condition. Any Special Conditions already affecting that Pokémon will not be chosen.": ctx => {
     if (!ctx.defender) return;
-    const conditions = ['asleep', 'burned', 'confused', 'paralyzed', 'poisoned'].filter(s => s !== ctx.defender.status);
-    ctx.defender.status = conditions[Math.floor(Math.random() * conditions.length)];
+    const conditions = ['asleep', 'burned', 'confused', 'paralyzed', 'poisoned'].filter(s => !pocketHasCondition(ctx.defender, s));
+    pocketSetCondition(ctx.defender, conditions[Math.floor(Math.random() * conditions.length)]);
   },
   // 自身防禦盾——沿用既有dmgDebuffUntilTurn/dmgDebuffAmount欄位機制，但蓋在自己(attacker)身上
   // 而不是對手身上：doAttack主傷害計算本來就是看「這次被打的那隻」有沒有這個欄位命中當前回合數，
@@ -4249,7 +4443,7 @@ const ATTACK_EFFECTS = {
   "If your opponent's Active Pokémon has damage on it, this attack does 60 more damage.": ctx => {
     if (ctx.defender && (ctx.defender.curHp ?? ctx.defender.hp) < ctx.defender.hp) ctx.rawDamage += 60;
   },
-  "If your opponent's Active Pokémon is Poisoned, this attack does 60 more damage.": ctx => { if (ctx.defender?.status === 'poisoned') ctx.rawDamage += 60; },
+  "If your opponent's Active Pokémon is Poisoned, this attack does 60 more damage.": ctx => { if (ctx.defender?.poisoned) ctx.rawDamage += 60; },
   "If this Pokémon evolved during this turn, this attack does 20 more damage.": ctx => {
     if (ctx.attacker.boardTurn === ctx.G.turnNumber) ctx.rawDamage += 20;
   },
@@ -4372,7 +4566,7 @@ const ATTACK_EFFECTS = {
   },
   "Discard Fire{R} Energy from this Pokémon. Your opponent's Active Pokémon is now Burned.": ctx => {
     pocketDiscardEnergy(ctx.side, ctx.attacker, 'Fire', 1);
-    if (ctx.defender) ctx.defender.status = 'burned';
+    if (ctx.defender) ctx.defender.burned = true;
   },
   "If the amount of Energy attached to both Active Pokémon is 5 or more, this attack does 60 more damage.": ctx => {
     if (ctx.attacker.energy.length + (ctx.defender?.energy.length || 0) >= 5) ctx.rawDamage += 60;
@@ -4441,7 +4635,7 @@ const ATTACK_EFFECTS = {
     const need = (ctx.atk.cost || []).filter(t => t === 'Lightning').length;
     if (have - need >= 2) ctx.rawDamage += 80;
   },
-  "If your opponent's Active Pokémon is Poisoned, this attack does 40 more damage.": ctx => { if (ctx.defender?.status === 'poisoned') ctx.rawDamage += 40; },
+  "If your opponent's Active Pokémon is Poisoned, this attack does 40 more damage.": ctx => { if (ctx.defender?.poisoned) ctx.rawDamage += 40; },
   "Heal 20 damage from each of your Pokémon.": ctx => {
     for (const p of [ctx.side.active, ...ctx.side.bench].filter(Boolean)) p.curHp = Math.min(p.hp, p.curHp + 20);
   },
@@ -4472,7 +4666,7 @@ const ATTACK_EFFECTS = {
   "Flip 2 coins. This attack does 70 damage for each heads. If at least 1 of them is heads, your opponent's Active Pokémon is now Burned.": ctx => {
     const heads = pocketFlipCoins(2, ctx);
     ctx.rawDamage = heads * 70;
-    if (heads >= 1 && ctx.defender) ctx.defender.status = 'burned';
+    if (heads >= 1 && ctx.defender) ctx.defender.burned = true;
   },
   "Take a {W} Energy from your Energy Zone and attach it to this Pokémon.": ctx => { ctx.attacker.energy.push('Water'); },
   // type-filtered bench_switch：跟既有「Switch this Pokémon with 1 of your Benched Pokémon」
@@ -4525,17 +4719,19 @@ const ATTACK_EFFECTS = {
   },
 
   // 異常狀態組合：卡面沒寫"at random"的都是必定觸發（跟其他單一狀態效果一致，不用骰）
-  "Your opponent's Active Pokémon is now Poisoned and Asleep.": ctx => { if (ctx.defender) ctx.defender.status = 'poisoned'; },
-  "Flip a coin. If heads, your opponent's Active Pokémon is now Poisoned and Paralyzed.": ctx => { if (pocketFlipCoin(ctx) && ctx.defender) ctx.defender.status = 'poisoned'; },
+  // 2026-08-13修正：這兩張都是雙重狀態組合（中毒+另一種），原本只設了poisoned一半，另一半
+  // （睡眠／麻痺）被吃掉——中毒獨立出來後可以跟status欄位的睡眠/麻痺同時成立，兩個都要設
+  "Your opponent's Active Pokémon is now Poisoned and Asleep.": ctx => { if (ctx.defender) { ctx.defender.poisoned = true; ctx.defender.status = 'asleep'; } },
+  "Flip a coin. If heads, your opponent's Active Pokémon is now Poisoned and Paralyzed.": ctx => { if (pocketFlipCoin(ctx) && ctx.defender) { ctx.defender.poisoned = true; ctx.defender.status = 'paralyzed'; } },
   "Your opponent's Active Pokémon is now Poisoned. During your opponent's next turn, that Pokémon can't retreat.": ctx => {
     if (!ctx.defender) return;
-    ctx.defender.status = 'poisoned';
+    ctx.defender.poisoned = true;
     ctx.defender.cantRetreatUntilTurn = ctx.G.turnNumber + 1;
   },
   "Flip 4 coins. This attack does 40 damage for each heads. If at least 2 of them are heads, your opponent's Active Pokémon is now Poisoned.": ctx => {
     const heads = pocketFlipCoins(4, ctx);
     ctx.rawDamage = heads * 40;
-    if (heads >= 2 && ctx.defender) ctx.defender.status = 'poisoned';
+    if (heads >= 2 && ctx.defender) ctx.defender.poisoned = true;
   },
 
   // 自身狀態/場面條件觸發的加傷——都是查ctx上已有的資料，不需要新的追蹤欄位
@@ -4807,7 +5003,7 @@ const ATTACK_EFFECTS = {
   "Discard a {W} and a {L} Energy from this Pokémon.": ctx => { pocketDiscardEnergy(ctx.side, ctx.attacker, 'Water', 1); pocketDiscardEnergy(ctx.side, ctx.attacker, 'Lightning', 1); },
   "This attack does 20 more damage for each Benched Pokémon (both yours and your opponent's).": ctx => { ctx.rawDamage += 20 * (ctx.side.bench.length + ctx.oppSide.bench.length); },
   "If you have any Stage 2 Pokémon on your Bench, this attack does 50 more damage.": ctx => { if (ctx.side.bench.some(p => p.stage === 'Stage2')) ctx.rawDamage += 50; },
-  "Discard a {G} Energy from this Pokémon. Your opponent's Active Pokémon is now Poisoned.": ctx => { pocketDiscardEnergy(ctx.side, ctx.attacker, 'Grass', 1); if (ctx.defender) ctx.defender.status = 'poisoned'; },
+  "Discard a {G} Energy from this Pokémon. Your opponent's Active Pokémon is now Poisoned.": ctx => { pocketDiscardEnergy(ctx.side, ctx.attacker, 'Grass', 1); if (ctx.defender) ctx.defender.poisoned = true; },
   "Discard a {R} Energy from your opponent's Active Pokémon.": ctx => { if (ctx.defender) pocketDiscardEnergy(ctx.oppSide, ctx.defender, 'Fire', 1); },
   "If your opponent's Active Pokémon is Asleep, this attack does 60 more damage.": ctx => { if (ctx.defender?.status === 'asleep') ctx.rawDamage += 60; },
   // 「失去全部特性，直到離開主戰位置」——用_realAbilities同一套快取機制強制清空，離開主戰時
@@ -4839,7 +5035,7 @@ const ATTACK_EFFECTS = {
     const pool = [ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean);
     if (pool.length) { const t = pool[Math.floor(Math.random() * pool.length)]; t.curHp = Math.max(0, t.curHp - 160); }
   },
-  "If a Stadium is in play, your opponent's Active Pokémon is now Burned.": ctx => { if (ctx.G.activeStadium && ctx.defender) ctx.defender.status = 'burned'; },
+  "If a Stadium is in play, your opponent's Active Pokémon is now Burned.": ctx => { if (ctx.G.activeStadium && ctx.defender) ctx.defender.burned = true; },
   "Flip a coin. If heads, take 2 {R} Energy from your Energy Zone and attach it to this Pokémon.": ctx => { if (pocketFlipCoin(ctx) && ctx.side.energyTypes.includes('Fire')) ctx.attacker.energy.push('Fire', 'Fire'); },
   "Flip a coin for each {R} Energy attached to this Pokémon. This attack does 30 more damage for each heads.": ctx => {
     const n = ctx.attacker.energy.filter(e => e === 'Fire').length;
@@ -5014,7 +5210,7 @@ const ATTACK_EFFECTS = {
     }
   },
   "Your opponent's Active Pokémon is now Poisoned. Do 40 damage to this Pokémon instead of the usual amount for this Special Condition.": ctx => {
-    if (ctx.defender) { ctx.defender.status = 'poisoned'; ctx.defender.poisonDamageOverride = 40; }
+    if (ctx.defender) { ctx.defender.poisoned = true; ctx.defender.poisonDamageOverride = 40; }
   },
   "This attack does 20 more damage for each Pokémon in your discard pile.": ctx => {
     ctx.rawDamage += ctx.side.discard.filter(c => c.category === 'Pokemon').length * 20;
@@ -5045,14 +5241,14 @@ const ATTACK_EFFECTS = {
     if (eligible.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownBench', eligibleUids: eligible.map(p => p.uid), action: 'discardForBoost', boostAmount: 70, optional: true };
   },
   "Your opponent's Active Pokémon is now Poisoned and Paralyzed. Shuffle this Pokémon and all attached cards into your deck.": ctx => {
-    if (ctx.defender) { ctx.defender.status = 'poisoned'; }
-    // Paralyzed跟Poisoned不能共存於這個引擎單一status欄位——卡面文字寫兩個狀態同時附加，
-    // 簡化成優先套用中毒（傷害持續性較高），麻痺效果省略（已知簡化）
+    // 2026-08-13修正：中毒/麻痺改成獨立欄位（麻痺仍在status，中毒獨立出來）之後不再互斥，
+    // 卡面文字寫的兩個狀態現在可以真的同時套用，不用再省略麻痺那一半
+    if (ctx.defender) { ctx.defender.poisoned = true; ctx.defender.status = 'paralyzed'; }
     // 2026-08-11修正：原本用structuredClone(POCKET_CARDS_BY_ID[...])塞回牌庫，這份資料完全
     // 沒有uid/curHp/energy等instance欄位——之後被抽到手牌會因為uid缺失完全點不到（跟Professor
     // Turo同一類bug，見makePocketInstance才是正確建立「一張全新卡片實例」的方式）
     ctx.side.discardEnergy.push(...ctx.attacker.energy); // 洗回牌庫前，身上的能量照真實規則進棄牌堆，不是憑空消失
-    ctx.attacker.energy = []; ctx.attacker.tool = null; ctx.attacker.status = null;
+    ctx.attacker.energy = []; ctx.attacker.tool = null; ctx.attacker.status = null; ctx.attacker.poisoned = false; ctx.attacker.burned = false;
     ctx.side.deck = pocketShuffle([...ctx.side.deck, makePocketInstance(ctx.attacker.id)]);
     ctx.side.active = null;
     ctx.rawDamage = 0; ctx.skipMainDamage = true;
@@ -5063,7 +5259,7 @@ const ATTACK_EFFECTS = {
   "Flip a coin. If heads, your opponent's Active Pokémon is now Confused. If tails, this Pokémon is now Confused.": ctx => {
     if (pocketFlipCoin(ctx)) { if (ctx.defender) ctx.defender.status = 'confused'; } else { ctx.attacker.status = 'confused'; }
   },
-  "This Pokémon recovers from all Special Conditions.": ctx => { ctx.attacker.status = null; },
+  "This Pokémon recovers from all Special Conditions.": ctx => { ctx.attacker.status = null; ctx.attacker.poisoned = false; ctx.attacker.burned = false; },
   "If your opponent's Active Pokémon is a {F} Pokémon, this attack does 70 more damage.": ctx => { if ((ctx.defender?.types || []).includes('Fighting')) ctx.rawDamage += 70; },
   "Discard 3 {W} Energy from this Pokémon, and this attack does 50 damage to each of your opponent's Pokémon.": ctx => {
     pocketDiscardEnergy(ctx.side, ctx.attacker, 'Water', 3);
@@ -5209,7 +5405,7 @@ function pocketFinalizeRetreat(G, role, benchUid) {
   if (idx < 0) return;
   // 真實規則：異常狀態（中毒等）只作用在主戰位置，撤退到板凳時要清除——不然中毒的寶可夢
   // 撤退後status還留著，之後又換回主戰時會被誤判成「重新中毒」，繼續扣血。
-  active.status = null;
+  active.status = null; active.poisoned = false; active.burned = false;
   active.stackBuffName = null; active.stackBuffAmount = 0; // Miltank/Mega Mawile ex
   active._abilitiesLockedOff = false; // Prickly Powder：離開主戰位置時解除特性封鎖
   const target = side.bench[idx];
@@ -5291,7 +5487,7 @@ const TRAINER_EFFECTS = {
     // 不該讓對手選回同一隻（那樣等於這張卡沒發生任何事）。真的沒有其他板凳選項時，
     // pocket_choose_active handler會放行選回同一隻，不會卡死在forced_switch選不到目標。
     const excludedUid = ctx.oppSide.active.uid;
-    ctx.oppSide.active.status = null; // 異常狀態只作用在主戰位置，離開主戰要清除（同撤退那邊的理由）
+    ctx.oppSide.active.status = null; ctx.oppSide.active.poisoned = false; ctx.oppSide.active.burned = false; // 異常狀態只作用在主戰位置，離開主戰要清除（同撤退那邊的理由）
     ctx.oppSide.bench.push(ctx.oppSide.active);
     ctx.oppSide.active = null;
     pocketEnterForcedSwitch(ctx.G, ctx.op, 'noEndTurn', excludedUid); // 支援者卡不會結束回合，換完人回合還是你的
@@ -5349,7 +5545,7 @@ const TRAINER_EFFECTS = {
     const idx = ctx.oppSide.discard.findIndex(c => c.uid === msg.target && c.category === 'Pokemon' && c.stage === 'Basic');
     if (idx < 0) return '目標必須是對手棄牌堆裡的基礎寶可夢';
     const p = ctx.oppSide.discard.splice(idx, 1)[0];
-    p.curHp = p.hp; p.energy = []; p.status = null; p.boardTurn = ctx.G.turnNumber;
+    p.curHp = p.hp; p.energy = []; p.status = null; p.poisoned = false; p.burned = false; p.boardTurn = ctx.G.turnNumber;
     ctx.oppSide.bench.push(p);
     return null;
   },
@@ -5373,11 +5569,13 @@ const TRAINER_EFFECTS = {
     ctx.side.active.energy.push(type);
     return null;
   },
-  'A3-142': (ctx) => { // Big Malasada：主戰回10血+清除異常狀態
+  'A3-142': (ctx) => { // Big Malasada：主戰回10血+隨機解除1個異常狀態——2026-08-13修正：卡面
+    // 原文是「remove A RANDOM Special Condition」，原本錯當成「解除全部」且只認status這一格，
+    // 中毒/灼傷獨立成欄位後改用pocketRemoveRandomCondition（跟Happiness Supplement共用同一套邏輯）
     if (!ctx.side.active) return '沒有主戰寶可夢';
     const before = ctx.side.active.curHp;
     ctx.side.active.curHp = Math.min(ctx.side.active.hp, ctx.side.active.curHp + 10);
-    ctx.side.active.status = null;
+    pocketRemoveRandomCondition(ctx.side.active);
     ctx.healUid = ctx.side.active.uid; ctx.healAmount = ctx.side.active.curHp - before;
     return null;
   },
@@ -5396,7 +5594,7 @@ const TRAINER_EFFECTS = {
     if (ctx.oppSide.active.stage !== 'Basic') return '對手主戰不是基礎寶可夢，無法使用';
     if (!ctx.oppSide.bench.length) return '對手沒有板凳寶可夢可以換上';
     const excludedUid = ctx.oppSide.active.uid; // 見Sabrina(A1-225)同一處excludeUid說明
-    ctx.oppSide.active.status = null;
+    ctx.oppSide.active.status = null; ctx.oppSide.active.poisoned = false; ctx.oppSide.active.burned = false;
     ctx.oppSide.bench.push(ctx.oppSide.active);
     ctx.oppSide.active = null;
     pocketEnterForcedSwitch(ctx.G, ctx.op, 'noEndTurn', excludedUid);
@@ -5585,7 +5783,7 @@ const TRAINER_EFFECTS = {
     } else {
       ctx.side.bench = ctx.side.bench.filter(p => p.uid !== target.uid);
     }
-    target.curHp = target.hp; target.energy = []; target.status = null;
+    target.curHp = target.hp; target.energy = []; target.status = null; target.poisoned = false; target.burned = false;
     ctx.side.hand.push(target);
     return null;
   },
@@ -5595,7 +5793,7 @@ const TRAINER_EFFECTS = {
     if (idx < 0) return '請選擇板凳上的目標';
     const bench = ctx.side.bench[idx];
     const oldActive = ctx.side.active;
-    oldActive.status = null;
+    oldActive.status = null; oldActive.poisoned = false; oldActive.burned = false;
     ctx.side.bench[idx] = oldActive;
     ctx.side.active = bench;
     return null;
@@ -5676,7 +5874,7 @@ const TRAINER_EFFECTS = {
     const idx = ctx.oppSide.bench.findIndex(p => p.uid === msg.target && p.curHp < p.hp);
     if (idx < 0) return '請選擇對手身上有傷的板凳寶可夢';
     const chosen = ctx.oppSide.bench.splice(idx, 1)[0];
-    if (ctx.oppSide.active) { ctx.oppSide.active.status = null; ctx.oppSide.bench.push(ctx.oppSide.active); }
+    if (ctx.oppSide.active) { ctx.oppSide.active.status = null; ctx.oppSide.active.poisoned = false; ctx.oppSide.active.burned = false; ctx.oppSide.bench.push(ctx.oppSide.active); }
     ctx.oppSide.active = chosen;
     return null;
   },
@@ -5711,6 +5909,7 @@ const TRAINER_EFFECTS = {
     const preservedUid = target.uid;
     Object.assign(target, structuredClone(POCKET_CARDS_BY_ID[handCard.id]));
     target.uid = preservedUid; target.energy = preservedEnergy;
+    target.hp += pocketToolHpBonusAmount(target); // Object.assign後hp已是純base值(不含Tool加成)，直接加回新加成即可，不能算delta
     target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
     target.boardTurn = ctx.G.turnNumber;
     target._realAbilities = undefined; // 2026-08-08修正：進化後身分變了，清掉舊快取讓特性正確重抓
@@ -5738,7 +5937,7 @@ const TRAINER_EFFECTS = {
     const idx = ctx.oppSide.bench.findIndex(p => p.uid === msg.target);
     if (idx < 0) return '請選擇對手板凳上的目標';
     const chosen = ctx.oppSide.bench.splice(idx, 1)[0];
-    if (ctx.oppSide.active) { ctx.oppSide.active.status = null; ctx.oppSide.bench.push(ctx.oppSide.active); }
+    if (ctx.oppSide.active) { ctx.oppSide.active.status = null; ctx.oppSide.active.poisoned = false; ctx.oppSide.active.burned = false; ctx.oppSide.bench.push(ctx.oppSide.active); }
     ctx.oppSide.active = chosen;
     return null;
   },
@@ -5762,6 +5961,7 @@ const TRAINER_EFFECTS = {
     const preservedUid = target.uid;
     Object.assign(target, structuredClone(POCKET_CARDS_BY_ID[pick.c.id]));
     target.uid = preservedUid; target.energy = preservedEnergy;
+    target.hp += pocketToolHpBonusAmount(target); // Object.assign後hp已是純base值(不含Tool加成)，直接加回新加成即可，不能算delta
     target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
     target.boardTurn = ctx.G.turnNumber;
     target._realAbilities = undefined; // 2026-08-08修正：進化後身分變了，清掉舊快取讓特性正確重抓
@@ -5810,7 +6010,8 @@ const TRAINER_EFFECTS = {
     if (!target) return '請選擇要裝備的寶可夢';
     if (target.tool) return '這隻寶可夢已經裝備了道具卡';
     target.tool = { id: 'A2-147', name: 'Giant Cape' };
-    target.hp += 20; target.curHp += 20;
+    const bonus = pocketToolHpBonusAmount(target);
+    target.hp += bonus; target.curHp += bonus;
     return null;
   },
   'A3-147': (ctx, msg) => { // Leaf Cape：草屬性裝備者+30最大HP，非草屬性一樣能裝但沒有加成效果
@@ -5818,7 +6019,8 @@ const TRAINER_EFFECTS = {
     if (!target) return '請選擇要裝備的寶可夢';
     if (target.tool) return '這隻寶可夢已經裝備了道具卡';
     target.tool = { id: 'A3-147', name: 'Leaf Cape' };
-    if ((target.types || []).includes('Grass')) { target.hp += 30; target.curHp += 30; }
+    const bonus = pocketToolHpBonusAmount(target);
+    target.hp += bonus; target.curHp += bonus;
     return null;
   },
   'B3a-069': (ctx, msg) => { // Ancient Booster Energy Capsule：準古神獸(Ancient)裝備者+40最大HP
@@ -5826,7 +6028,8 @@ const TRAINER_EFFECTS = {
     if (!target) return '請選擇要裝備的寶可夢';
     if (target.tool) return '這隻寶可夢已經裝備了道具卡';
     target.tool = { id: 'B3a-069', name: 'Ancient Booster Energy Capsule' };
-    if (ANCIENT_POKEMON_NAMES.has(target.name)) { target.hp += 40; target.curHp += 40; }
+    const bonus = pocketToolHpBonusAmount(target);
+    target.hp += bonus; target.curHp += bonus;
     return null;
   },
   'B3a-070': (ctx, msg) => { // Future Booster Energy Capsule：近未來(Future)裝備者攻擊+20傷害，效果在pocketToolDamageBonus
@@ -5848,7 +6051,8 @@ const TRAINER_EFFECTS = {
     if (!target) return '請選擇要裝備的寶可夢';
     if (target.tool) return '這隻寶可夢已經裝備了道具卡';
     target.tool = { id: 'B3b-065', name: 'Elegant Cape' };
-    if (target.stage === 'Stage1') { target.hp += 30; target.curHp += 30; }
+    const bonus = pocketToolHpBonusAmount(target);
+    target.hp += bonus; target.curHp += bonus;
     return null;
   },
   'B4-148': (ctx, msg) => { // Deceptive Needle：惡屬性裝備者在主戰位置時，回合結束對對手主戰造成10傷害，效果在checkup
@@ -6070,14 +6274,14 @@ const TRAINER_EFFECTS = {
     }
     return null;
   },
-  'B2b-066': (ctx) => { // Maintenance：手牌洗2張回牌庫，抽1張
-    if (ctx.side.hand.length < 2) return '手牌不足2張，無法使用';
-    for (let i = 0; i < 2; i++) {
-      const idx = Math.floor(Math.random() * ctx.side.hand.length);
-      ctx.side.deck.push(ctx.side.hand.splice(idx, 1)[0]);
-    }
-    ctx.side.deck = pocketShuffle(ctx.side.deck);
-    if (ctx.side.deck.length) ctx.side.hand.push(ctx.side.deck.shift());
+  'B2b-066': (ctx, msg) => { // Maintenance：手牌選2張洗回牌庫，抽1張——2026-08-13應使用者要求改成
+    // 玩家自選要洗掉哪2張，不能用Math.random()（pocket-tcg skill的鐵律，已經被糾正過好幾次）。
+    // 跟May（B1-223）同一套pick_hand_multi convention。用msg.handUid排除掉這張卡自己——
+    // 這個handler執行的當下，Maintenance這張卡本身還在ctx.side.hand裡（pocket_play_supporter
+    // 是等handler跑完才把打出的卡從手牌splice掉），不排除的話玩家可能選到還沒真正離手的自己。
+    const eligible = ctx.side.hand.filter(c => c.uid !== msg.handUid).map(c => c.uid);
+    if (eligible.length < 2) return '手牌不足2張，無法使用';
+    ctx.needsChoice = { kind: 'pick_hand_multi', pool: 'ownHand', eligibleUids: eligible, remaining: 2, noEndTurn: true, drawAfter: 1 };
     return null;
   },
   // Iris：本回合設一個旗標，KO判定那邊（見pocket_attack的Haxorus KO區塊）檢查這個旗標決定要不要多給1分
@@ -6202,6 +6406,7 @@ const TRAINER_EFFECTS = {
     const preservedEnergy = target.energy; const preservedUid = target.uid;
     Object.assign(target, structuredClone(POCKET_CARDS_BY_ID[pick.c.id]));
     target.uid = preservedUid; target.energy = preservedEnergy;
+    target.hp += pocketToolHpBonusAmount(target); // Object.assign後hp已是純base值(不含Tool加成)，直接加回新加成即可，不能算delta
     target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
     target.boardTurn = ctx.G.turnNumber;
     target._realAbilities = undefined;
@@ -6236,7 +6441,7 @@ const TRAINER_EFFECTS = {
     const idx = ctx.side.bench.findIndex(p => p.uid === msg.target);
     if (idx < 0) return '請選擇板凳上要換上場的寶可夢';
     const chosen = ctx.side.bench.splice(idx, 1)[0];
-    ctx.side.active.status = null;
+    ctx.side.active.status = null; ctx.side.active.poisoned = false; ctx.side.active.burned = false;
     ctx.side.bench.push(ctx.side.active);
     ctx.side.active = chosen;
     return null;
@@ -6315,6 +6520,45 @@ function pocketBenchDamageImmune(poke, isOnBench) {
 //    判斷風險高也難維護——改成在三個表「各自唯一的呼叫點」前後各包一層快照比對：呼叫前
 //    記錄雙方在場寶可夢的status，呼叫後如果變了且新狀態的目標剛好免疫，直接復原成呼叫前
 //    的值。這樣完全不用碰任何一個既有/未來新增的handler內部邏輯。
+// 2026-08-13新增：中毒/燒傷改成獨立布林欄位，睡眠/麻痺/混亂仍留在.status——凡是「用字串代表
+// 隨機選其中一種異常狀態」的效果（例如下面兩處"1 Special Condition from among..."的隨機選卡文字）
+// 都要透過這兩個小helper讀寫，不要直接手寫if/else判斷5種字串該對應到哪個欄位
+function pocketSetCondition(poke, effect) {
+  if (effect === 'poisoned') poke.poisoned = true;
+  else if (effect === 'burned') poke.burned = true;
+  else poke.status = effect; // asleep/paralyzed/confused
+}
+function pocketHasCondition(poke, effect) {
+  if (!poke) return false;
+  if (effect === 'poisoned') return !!poke.poisoned;
+  if (effect === 'burned') return !!poke.burned;
+  return poke.status === effect;
+}
+// "remove A RANDOM Special Condition"卡面文字專用（Big Malasada/Happiness Supplement共用）——
+// 列出這隻寶可夢目前實際存在的每一種狀態（最多3種：status欄位1種+中毒+灼傷），真的隨機選1個解除，
+// 沒有任何狀態時回傳false（呼叫端可以據此決定要不要顯示「沒有異常狀態」的錯誤訊息）
+function pocketRemoveRandomCondition(poke) {
+  if (!poke) return false;
+  const present = [];
+  if (poke.status) present.push(poke.status);
+  if (poke.poisoned) present.push('poisoned');
+  if (poke.burned) present.push('burned');
+  if (!present.length) return false;
+  const pick = present[Math.floor(Math.random() * present.length)];
+  if (pick === 'poisoned') poke.poisoned = false;
+  else if (pick === 'burned') poke.burned = false;
+  else poke.status = null;
+  return true;
+}
+// Flower Shield/Soothing Wind的「隊伍型免疫」判定資格，抽成獨立函式——pocketIsStatusImmune
+// (擋新狀態)跟下面新增的pocketApplySoothingCure(主動治癒既有狀態)都要用同一套「side上任一隻
+// 持有這個特性」+「這隻自己身上有符合條件的能量」判斷，避免兩處各自維護一份容易漂移
+function pocketQualifiesForTeamCureShield(poke, side) {
+  const teamAbilities = [side.active, ...side.bench].filter(Boolean).map(p => p.abilities?.[0]?.name);
+  if (teamAbilities.includes('Flower Shield') && (poke.energy || []).includes('Psychic')) return true;
+  if (teamAbilities.includes('Soothing Wind') && (poke.energy || []).length > 0) return true;
+  return false;
+}
 function pocketIsStatusImmune(poke, side, effect) {
   const ownAbility = poke.abilities?.[0]?.name;
   if (ownAbility === 'Fabled Luster') return true;
@@ -6322,19 +6566,33 @@ function pocketIsStatusImmune(poke, side, effect) {
   if (poke.tool?.id === 'A4-153' && (poke.types || []).includes('Metal')) return true; // Steel Apron
   // Flower Shield/Soothing Wind：隊伍型被動——不是「這隻自己有沒有這個特性」，是「side上
   // 任一隻持有這個特性」+「這隻自己身上有符合條件的能量」，持有者自己也算在保護範圍內
-  const teamAbilities = [side.active, ...side.bench].filter(Boolean).map(p => p.abilities?.[0]?.name);
-  if (teamAbilities.includes('Flower Shield') && (poke.energy || []).includes('Psychic')) return true;
-  if (teamAbilities.includes('Soothing Wind') && (poke.energy || []).length > 0) return true;
+  if (pocketQualifiesForTeamCureShield(poke, side)) return true;
   return false;
 }
+// 2026-08-13新增：Flower Shield/Soothing Wind卡面文字其實有兩段——「不會受到任何特殊狀態影響」
+// （免疫，上面pocketIsStatusImmune已經擋了）跟「從所有特殊狀態中恢復」（主動治癒），原本只做了
+// 免疫那一半，治癒那一半完全沒實作，玩家回報「特性沒有成功發動」正是這個治癒部分。掛在「新符合
+// 資格」最可能發生的兩個時機：附加能量給某隻寶可夢後（pocket_attach_energy）、進化完成後
+// （pocket_evolve，可能剛好進化成這隻持有者），外加每次checkup當一層防呆保底。
+function pocketApplySoothingCure(side) {
+  [side.active, ...side.bench].filter(Boolean).forEach(p => {
+    if ((p.status != null || p.poisoned || p.burned) && pocketQualifiesForTeamCureShield(p, side)) {
+      p.status = null; p.poisoned = false; p.burned = false;
+    }
+  });
+}
 function pocketSnapshotStatus(side) {
-  return new Map([side.active, ...side.bench].filter(Boolean).map(p => [p.uid, p.status]));
+  return new Map([side.active, ...side.bench].filter(Boolean).map(p => [p.uid, { status: p.status, poisoned: !!p.poisoned, burned: !!p.burned }]));
 }
 function pocketEnforceStatusImmunity(side, snapshot) {
   [side.active, ...side.bench].filter(Boolean).forEach(p => {
-    if (snapshot.has(p.uid) && p.status !== snapshot.get(p.uid) && p.status != null && pocketIsStatusImmune(p, side, p.status)) {
-      p.status = snapshot.get(p.uid) ?? null;
+    const prev = snapshot.get(p.uid);
+    if (!prev) return;
+    if (p.status !== prev.status && p.status != null && pocketIsStatusImmune(p, side, p.status)) {
+      p.status = prev.status ?? null;
     }
+    if (p.poisoned && !prev.poisoned && pocketIsStatusImmune(p, side, 'poisoned')) p.poisoned = false;
+    if (p.burned && !prev.burned && pocketIsStatusImmune(p, side, 'burned')) p.burned = false;
   });
 }
 // Protective Poncho（2026-08-07新增Tool）：裝備者在板凳上時，完全不受「對手」招式/特性造成
@@ -6428,7 +6686,7 @@ const ABILITY_EFFECTS = {
   },
   'Gas Leak': (ctx, poke) => { // Weezing：只有在主戰位置時，每回合1次讓對方主戰中毒
     if (ctx.side.active?.uid !== poke.uid) return 'Weezing必須在主戰位置才能使用特性';
-    if (ctx.oppSide.active) ctx.oppSide.active.status = 'poisoned';
+    if (ctx.oppSide.active) ctx.oppSide.active.poisoned = true;
     return null;
   },
 
@@ -6490,7 +6748,7 @@ const ABILITY_EFFECTS = {
   'Drive Off': (ctx) => { // 把對手主戰換到板凳，對手選新主戰（跟Sabrina同一套）
     if (!ctx.oppSide.active) return '對手沒有主戰寶可夢';
     const excludedUid = ctx.oppSide.active.uid; // 見Sabrina(A1-225)同一處excludeUid說明
-    ctx.oppSide.active.status = null;
+    ctx.oppSide.active.status = null; ctx.oppSide.active.poisoned = false; ctx.oppSide.active.burned = false;
     ctx.oppSide.bench.push(ctx.oppSide.active);
     ctx.oppSide.active = null;
     pocketEnterForcedSwitch(ctx.G, ctx.op, 'noEndTurn', excludedUid);
@@ -6501,14 +6759,14 @@ const ABILITY_EFFECTS = {
     if (ctx.oppSide.active.stage !== 'Basic') return '對手主戰不是基礎寶可夢';
     if (!ctx.oppSide.bench.length) return '對手沒有板凳寶可夢可以換上';
     const excludedUid = ctx.oppSide.active.uid; // 見Sabrina(A1-225)同一處excludeUid說明
-    ctx.oppSide.active.status = null;
+    ctx.oppSide.active.status = null; ctx.oppSide.active.poisoned = false; ctx.oppSide.active.burned = false;
     ctx.oppSide.bench.push(ctx.oppSide.active);
     ctx.oppSide.active = null;
     pocketEnterForcedSwitch(ctx.G, ctx.op, 'noEndTurn', excludedUid);
     return null;
   },
   'Data Scan': (ctx) => { if (ctx.side.deck.length) ctx.peekDeck = [ctx.side.deck[0]]; return null; },
-  'Poison Coating': (ctx) => { if (ctx.oppSide.active && pocketFlipCoin(ctx)) ctx.oppSide.active.status = 'poisoned'; return null; },
+  'Poison Coating': (ctx) => { if (ctx.oppSide.active && pocketFlipCoin(ctx)) ctx.oppSide.active.poisoned = true; return null; },
   'Energy Plunder': (ctx, poke) => { // 把己方全部場上寶可夢身上的惡屬性能量集中給自己
     for (const p of [ctx.side.active, ...ctx.side.bench].filter(Boolean)) {
       if (p.uid === poke.uid) continue;
@@ -6524,7 +6782,7 @@ const ABILITY_EFFECTS = {
     if (idx < 0) return '請選擇對手板凳上的目標';
     if (!pocketFlipCoin(ctx)) return null;
     const chosen = ctx.oppSide.bench.splice(idx, 1)[0];
-    if (ctx.oppSide.active) { ctx.oppSide.active.status = null; ctx.oppSide.bench.push(ctx.oppSide.active); }
+    if (ctx.oppSide.active) { ctx.oppSide.active.status = null; ctx.oppSide.active.poisoned = false; ctx.oppSide.active.burned = false; ctx.oppSide.bench.push(ctx.oppSide.active); }
     ctx.oppSide.active = chosen;
     return null;
   },
@@ -6533,7 +6791,7 @@ const ABILITY_EFFECTS = {
     const idx = ctx.oppSide.bench.findIndex(p => p.uid === msg.target && p.curHp < p.hp);
     if (idx < 0) return '請選擇對手身上有傷的板凳寶可夢';
     const chosen = ctx.oppSide.bench.splice(idx, 1)[0];
-    if (ctx.oppSide.active) { ctx.oppSide.active.status = null; ctx.oppSide.bench.push(ctx.oppSide.active); }
+    if (ctx.oppSide.active) { ctx.oppSide.active.status = null; ctx.oppSide.active.poisoned = false; ctx.oppSide.active.burned = false; ctx.oppSide.bench.push(ctx.oppSide.active); }
     ctx.oppSide.active = chosen;
     return null;
   },
@@ -6561,7 +6819,7 @@ const ABILITY_EFFECTS = {
     if (idxs.length) { const i = idxs[Math.floor(Math.random() * idxs.length)]; ctx.side.hand.push(ctx.side.deck.splice(i, 1)[0]); }
     return null;
   },
-  'Fire Breath': (ctx) => { if (ctx.oppSide.active) ctx.oppSide.active.status = 'burned'; return null; },
+  'Fire Breath': (ctx) => { if (ctx.oppSide.active) ctx.oppSide.active.burned = true; return null; },
   // 2026-08-06修正：治療對象改成玩家自選（哪隻ex寶可夢），丟棄的能量本身卡面文字是
   // "a random Energy"，這部分維持隨機
   'Extra Heal': (ctx, poke, msg) => {
@@ -6596,7 +6854,7 @@ const ABILITY_EFFECTS = {
     const idx = ctx.side.bench.findIndex(p => p.uid === poke.uid);
     if (idx < 0) return null;
     const oldActive = ctx.side.active;
-    oldActive.status = null;
+    oldActive.status = null; oldActive.poisoned = false; oldActive.burned = false;
     ctx.side.bench[idx] = oldActive;
     ctx.side.active = poke;
     return null;
@@ -6627,7 +6885,7 @@ const ABILITY_EFFECTS = {
     const idx = ctx.oppSide.bench.findIndex(p => p.uid === msg.target && p.stage === 'Basic');
     if (idx < 0) return '請選擇對手板凳上的基礎寶可夢';
     const chosen = ctx.oppSide.bench.splice(idx, 1)[0];
-    if (ctx.oppSide.active) { ctx.oppSide.active.status = null; ctx.oppSide.bench.push(ctx.oppSide.active); }
+    if (ctx.oppSide.active) { ctx.oppSide.active.status = null; ctx.oppSide.active.poisoned = false; ctx.oppSide.active.burned = false; ctx.oppSide.bench.push(ctx.oppSide.active); }
     ctx.oppSide.active = chosen;
     return null;
   },
@@ -6642,7 +6900,7 @@ const ABILITY_EFFECTS = {
     if (idx < 0) return '請選擇板凳上的究極異獸';
     const bench = ctx.side.bench[idx];
     const oldActive = ctx.side.active;
-    oldActive.status = null;
+    oldActive.status = null; oldActive.poisoned = false; oldActive.burned = false;
     ctx.side.bench[idx] = oldActive;
     ctx.side.active = bench;
     return null;
@@ -6658,7 +6916,7 @@ const ABILITY_EFFECTS = {
     if (idx < 0) return '請選擇板凳上的目標';
     const bench = ctx.side.bench[idx];
     const oldActive = ctx.side.active;
-    oldActive.status = null;
+    oldActive.status = null; oldActive.poisoned = false; oldActive.burned = false;
     ctx.side.bench[idx] = oldActive;
     ctx.side.active = bench;
     return null;
@@ -6757,7 +7015,7 @@ const ABILITY_EFFECTS = {
     if (ctx.side.active?.uid !== poke.uid) return '必須在主戰位置才能使用特性';
     if (!ctx.oppSide.active) return '對手沒有主戰寶可夢';
     const excludedUid = ctx.oppSide.active.uid; // 見Sabrina(A1-225)同一處excludeUid說明
-    ctx.oppSide.active.status = null;
+    ctx.oppSide.active.status = null; ctx.oppSide.active.poisoned = false; ctx.oppSide.active.burned = false;
     ctx.oppSide.bench.push(ctx.oppSide.active);
     ctx.oppSide.active = null;
     pocketEnterForcedSwitch(ctx.G, ctx.op, 'noEndTurn', excludedUid);
@@ -6777,9 +7035,9 @@ const ABILITY_EFFECTS = {
     poke.curHp = Math.max(0, poke.curHp - move);
     return null;
   },
-  'Happiness Supplement': (ctx) => { // 移除自己主戰身上一個隨機異常狀態
-    if (!ctx.side.active?.status) return '主戰目前沒有異常狀態';
-    ctx.side.active.status = null;
+  'Happiness Supplement': (ctx) => { // 移除自己主戰身上一個隨機異常狀態——2026-08-13改用
+    // pocketRemoveRandomCondition（跟Big Malasada共用同一套邏輯，見定義處說明）
+    if (!pocketRemoveRandomCondition(ctx.side.active)) return '主戰目前沒有異常狀態';
     return null;
   },
   'Aqua Charge': (ctx, poke) => { // 從能量區拿1水能量附給自己
@@ -6791,9 +7049,9 @@ const ABILITY_EFFECTS = {
   // 這張本來就該用Math.random——見feedback memory「Pocket效果「1 of your X」預設玩家自選不是隨機」
   'Variety Powder': (ctx) => {
     if (!ctx.oppSide.active) return '對手沒有主戰寶可夢';
-    const pool = ['burned', 'confused', 'poisoned'].filter(s => ctx.oppSide.active.status !== s);
+    const pool = ['burned', 'confused', 'poisoned'].filter(s => !pocketHasCondition(ctx.oppSide.active, s));
     if (!pool.length) return '對手主戰已經受到這些異常狀態影響';
-    ctx.oppSide.active.status = pool[Math.floor(Math.random() * pool.length)];
+    pocketSetCondition(ctx.oppSide.active, pool[Math.floor(Math.random() * pool.length)]);
     return null;
   },
   // 2026-08-08修正：原本誤把{N}(龍屬性)當成「能量本身要是龍屬性」，實際卡面「take AN
@@ -6815,7 +7073,7 @@ const ABILITY_EFFECTS = {
     const idx = ctx.side.bench.findIndex(p => p.uid === msg.target);
     if (idx < 0) return '請選擇板凳上要換上場的寶可夢';
     const chosen = ctx.side.bench.splice(idx, 1)[0];
-    ctx.side.active.status = null;
+    ctx.side.active.status = null; ctx.side.active.poisoned = false; ctx.side.active.burned = false;
     ctx.side.bench.push(ctx.side.active);
     ctx.side.active = chosen;
     return null;
@@ -6849,7 +7107,7 @@ const ABILITY_EFFECTS = {
     const idx = ctx.side.bench.findIndex(p => p.uid === poke.uid);
     if (idx < 0) return '這隻寶可夢不在板凳上';
     ctx.side.bench.splice(idx, 1);
-    oldActive.status = null;
+    oldActive.status = null; oldActive.poisoned = false; oldActive.burned = false;
     ctx.side.bench.push(oldActive);
     ctx.side.active = poke;
     for (const p of ctx.side.bench) { poke.energy.push(...p.energy); p.energy = []; }
@@ -6859,7 +7117,7 @@ const ABILITY_EFFECTS = {
     if (poke.boardTurn !== ctx.G.turnNumber) return '這個特性只能在上場的那個回合使用';
     if (!ctx.oppSide.active) return '對手沒有主戰寶可夢';
     const excludedUid = ctx.oppSide.active.uid; // 見Sabrina(A1-225)同一處excludeUid說明
-    ctx.oppSide.active.status = null;
+    ctx.oppSide.active.status = null; ctx.oppSide.active.poisoned = false; ctx.oppSide.active.burned = false;
     ctx.oppSide.bench.push(ctx.oppSide.active);
     ctx.oppSide.active = null;
     pocketEnterForcedSwitch(ctx.G, ctx.op, 'noEndTurn', excludedUid);
@@ -7055,6 +7313,15 @@ function isHealSealedSrv(role, G) {
   const oppActive = G[`${op}Deck`]?.[G[`${op}Idx`]];
   if (oppActive?.ability?.id === 'dark-abyss-lockdown') return true;
   return (G[`${role}HealSealedTurns`] || 0) > 0;
+}
+// 2026-08-13新增：異常狀態解除封鎖，跟isHealSealedSrv同一種「掛在既有call site」寫法，但是
+// 針對「特定一種異常狀態能不能被解除」而不是HP回復——亡靈墓園擋全部、劇毒領域只擋中毒、
+// 熔岩火山只擋燒傷。effectType是status物件的.type欄位（'poison'/'burn'/...）
+function isStatusCureBlockedSrv(G, effectType) {
+  if (G.activeStadium?.id === 'stadium-ghost-curse') return true;
+  if (G.activeStadium?.id === 'stadium-toxic-field' && effectType === 'poison') return true;
+  if (G.activeStadium?.id === 'stadium-lava' && effectType === 'burn') return true;
+  return false;
 }
 
 // 2026-07-29新增：每回合開始「額外抽到指定卡片」的特性——強子引擎(密勒頓)/緋紅脈動(故勒頓)
@@ -9166,6 +9433,9 @@ async function handleMessage(ws, msg) {
       target.energy.push(attachedType);
       side.pendingEnergy = null;
       side.energyAttachedThisTurn = true;
+      // Flower Shield/Soothing Wind：剛附加能量後，target可能剛好新符合「附有能量」的資格，
+      // 立刻檢查要不要治癒既有的異常狀態（見pocketApplySoothingCure定義處的說明）
+      pocketApplySoothingCure(side);
       // 附加能量觸發型特性（2026-08-07新增，跟按鈕觸發/進化觸發/上場觸發都不同的第五種類型）：
       // Lunar Plumage(治療自己20)/Nightmare Aura(打對方主戰20)只在附加的能量剛好符合屬性時
       // 才觸發；Comatose/Snoozing Habit是「只要在主戰位置附加任何能量就陷入睡眠」；
@@ -9218,8 +9488,9 @@ async function handleMessage(ws, msg) {
           const preservedDamage = (target.hp || 0) - (target.curHp ?? target.hp ?? 0);
           const preservedEnergy = target.energy;
           const preservedUid = target.uid;
-          Object.assign(target, structuredClone(POCKET_CARDS_BY_ID[pick.c.id]));
+                Object.assign(target, structuredClone(POCKET_CARDS_BY_ID[pick.c.id]));
           target.uid = preservedUid; target.energy = preservedEnergy;
+          target.hp += pocketToolHpBonusAmount(target); // Object.assign後hp已是純base值(不含Tool加成)，直接加回新加成即可，不能算delta
           target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
           target.boardTurn = G.turnNumber;
           target._realAbilities = undefined; // 2026-08-08修正：進化後身分變了，清掉舊快取讓特性正確重抓
@@ -9425,9 +9696,13 @@ async function handleMessage(ws, msg) {
       const preservedDamage = (target.hp || 0) - (target.curHp ?? target.hp ?? 0);
       const preservedEnergy = target.energy;
       const preservedUid = target.uid;
+      // 2026-08-13修正：裝備Leaf Cape的Combee進化成Vespiquen後+30HP消失——Object.assign會把
+      // target.hp整個換成新物種的印刷HP，蓋掉Tool卡先前套用的一次性加成，卻沒有依進化後的新
+      // 條件（屬性/階段）重新判斷要不要補回來。見TOOL_HP_BONUS定義處的完整說明。
       Object.assign(target, structuredClone(POCKET_CARDS_BY_ID[handCard.id]));
       target.uid = preservedUid;
       target.energy = preservedEnergy;
+      target.hp += pocketToolHpBonusAmount(target); // Object.assign後hp已是純base值(不含Tool加成)，直接加回新加成即可，不能算delta
       target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
       target.boardTurn = G.turnNumber;
       // 2026-08-08修正：進化後身分變了（例如忍蛙/三首惡龍這類「前一階沒有特性，進化後才有」的
@@ -9744,7 +10019,10 @@ async function handleMessage(ws, msg) {
           if (oppSide.active?.uid === defender.uid) oppSide.tookDamageLastOppTurn = true;
           const onHit = pocketPassiveOnHit(defender, oppSide);
           if (onHit.counterDamage) { attacker.curHp = Math.max(0, attacker.curHp - onHit.counterDamage); pocketEmitCardActivation(G, op, defender, `特性觸發：${defender.abilities?.[0]?.name || ''}`); }
-          if (onHit.poisonAttacker && attacker.status == null) { attacker.status = 'poisoned'; pocketEmitCardActivation(G, op, defender, `特性觸發：${defender.abilities?.[0]?.name || ''}`); }
+          // 2026-08-13修正：guard原本檢查status==null（等於「完全沒有任何異常狀態才中毒」），
+          // 中毒獨立成欄位後改成只檢查「還沒中毒」，不會因為已經睡眠/麻痺/混亂就擋掉中毒——
+          // Poison Point類特性的卡面沒有「無異常狀態」這個前提，這裡只是避免重複觸發
+          if (onHit.poisonAttacker && !attacker.poisoned) { attacker.poisoned = true; pocketEmitCardActivation(G, op, defender, `特性觸發：${defender.abilities?.[0]?.name || ''}`); }
           // Bouncy Body原文明確是「拿一個{W}水屬性能量」，不是「拿當前能量區不管什麼顏色」——
           // 能量區這回合剛好不是水屬性就沒有水能量可拿，不觸發（跟pocket_attach_energy用掉
           // pendingEnergy後要清空是同一個規則，避免同一份能量被用兩次）
@@ -9757,7 +10035,7 @@ async function handleMessage(ws, msg) {
           // 隨機公開1張手牌並洗回牌庫——跟被動特性onHit同一個時機，兩套系統的效果直接疊加
           const toolOnHit = pocketToolOnHit(defender);
           if (toolOnHit.counterDamage) { attacker.curHp = Math.max(0, attacker.curHp - toolOnHit.counterDamage); pocketEmitToolActivation(G, op, defender.tool, '裝備效果觸發'); }
-          if (toolOnHit.poisonAttacker && attacker.status == null) { attacker.status = 'poisoned'; pocketEmitToolActivation(G, op, defender.tool, '裝備效果觸發'); }
+          if (toolOnHit.poisonAttacker && !attacker.poisoned) { attacker.poisoned = true; pocketEmitToolActivation(G, op, defender.tool, '裝備效果觸發'); }
           if (toolOnHit.revealShuffleOpp && side.hand.length) {
             const idx = Math.floor(Math.random() * side.hand.length);
             const [card] = side.hand.splice(idx, 1);
@@ -9947,7 +10225,7 @@ async function handleMessage(ws, msg) {
         if (idx < 0) return;
         const bench = side.bench[idx];
         const attacker = side.active;
-        attacker.status = null; // 中毒可以照樣攻擊，這招會把自己換下場，離開主戰要清除異常狀態
+        attacker.status = null; attacker.poisoned = false; attacker.burned = false; // 離開主戰要清除全部異常狀態（含中毒/灼傷）
         attacker.stackBuffName = null; attacker.stackBuffAmount = 0; // Miltank/Mega Mawile ex
         bench.enteredActiveThisTurn = G.turnNumber; // Golisopod/Scizor/Basculin
         side.bench[idx] = attacker;
@@ -10044,7 +10322,7 @@ async function handleMessage(ws, msg) {
           const idx = oppSide.bench.findIndex(p => p.uid === target.uid);
           if (idx >= 0) {
             oppSide.bench.splice(idx, 1);
-            if (oppSide.active) { oppSide.active.status = null; oppSide.bench.push(oppSide.active); }
+            if (oppSide.active) { oppSide.active.status = null; oppSide.active.poisoned = false; oppSide.active.burned = false; oppSide.bench.push(oppSide.active); }
             oppSide.active = target;
           }
           target.curHp = Math.max(0, target.curHp - pending.amount);
@@ -10145,6 +10423,11 @@ async function handleMessage(ws, msg) {
         pending.remaining--;
         if (pending.remaining > 0 && pending.eligibleUids.length > 0) { pocketBroadcastState(pRoom); return; }
         side.deck = pocketShuffle(side.deck);
+        // Maintenance（2026-08-13新增）：洗完立刻抽N張——通用的opt-in欄位，May沒設這個欄位
+        // 所以行為不變，只有明確要求「洗完再抽」的效果才會用到
+        if (pending.drawAfter) {
+          for (let i = 0; i < pending.drawAfter && side.deck.length; i++) side.hand.push(side.deck.shift());
+        }
       } else if (pending.kind === 'pick_target_multi_optional') {
         // Gyarados「Wild Swing」（2026-08-12新增）：跟pick_target_multi不同，這裡的「棄幾隻」
         // 由玩家自己決定（0~全部候選），不是固定N——一次把整批選好的uid送過來(msg.uids)，
@@ -10645,7 +10928,7 @@ async function handleMessage(ws, msg) {
       if ((G[`${role}Energy`] || 0) < atkCost) { send(ws, { type:'error', message:'能量不足，無法使用這個招式' }); return; }
 
       const log = [];
-      const sResult = handleStatus(attacker, log, atk.type);
+      const sResult = handleStatus(attacker, log, atk.type, G);
 
       if (sResult.died) {
         // Attacker KO'd by own status (confusion self-hit — poison/burn no longer resolve here).
@@ -10729,13 +11012,14 @@ async function handleMessage(ws, msg) {
       } else {
         if (atk.bonusEnergy) G[`${role}BonusEnergyNextTurn`] = (G[`${role}BonusEnergyNextTurn`] || 0) + atk.bonusEnergy;
         doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult, standbyGuardMult);
-        // 羅馬鬥技場：鬥屬性攻擊額外發動第二次（傷害減半）。防禦方沒被第一下打倒的話這裡直接
-        // 補打，讓後面既有的attackerDied/defenderDied判斷自然吃到兩下打完的最終狀態；如果第一下
+        // 2026-08-13重新設計：羅馬鬥技場/亡靈墓園/魔幻空間三張場地卡共用同一套「雙重攻擊」——
+        // 對應屬性的招式額外發動第二次（傷害×0.4）。防禦方沒被第一下打倒的話這裡直接補打，
+        // 讓後面既有的attackerDied/defenderDied判斷自然吃到兩下打完的最終狀態；如果第一下
         // 就把防禦方打倒了，改記錄在G[op+PendingColosseumHit]，等對方選完KO替補（ko_switch handler）
-        // 才真正對新上場的寶可夢補打第二下，跟pokemon_battle.html的attackWithColosseumDouble同一套邏輯
-        const atkTypeForColosseum = aBuff.typeOverride || atk.type;
-        if (G.activeStadium?.id === 'stadium-colosseum' && atkTypeForColosseum === 'fighting' && attacker.cur > 0) {
-          const secondAtk = { ...atk, _halfDamage: true }; // 見doAttack內_halfDamage的說明，不能只砍atk.dmg
+        // 才真正對新上場的寶可夢補打第二下，跟pokemon_battle.html的attackWithStadiumDouble同一套邏輯
+        const atkTypeForDouble = aBuff.typeOverride || atk.type;
+        if (STADIUM_DOUBLE_ATTACK[G.activeStadium?.id] === atkTypeForDouble && attacker.cur > 0) {
+          const secondAtk = { ...atk, _secondHitMult: 0.4 }; // 見doAttack內_secondHitMult的說明，不能只砍atk.dmg
           if (defender.cur > 0) {
             doAttack(attacker, defender, secondAtk, aBuff, dBuff, log, G, 1, 1);
           } else {
@@ -10885,6 +11169,10 @@ async function handleMessage(ws, msg) {
       if (newIdx === curIdx || !deck[newIdx] || deck[newIdx].cur <= 0) return;
 
       const usedFreeSwitch = G[`${role}FreeSwitch`]; // 撤退背心：免費換場，不結束回合
+      // 疾風之翼：2026-08-13新增，若備戰區（換人前，不含目前主戰）有飛行屬性寶可夢，撤退同樣
+      // 不會結束回合——但卡面明講「不能抽支援者卡」，跟撤退背心的usedFreeSwitch分開判斷
+      const benchHasFlying = deck.some((p, i) => i !== curIdx && p.cur > 0 && (p.type === 'flying' || p.type2 === 'flying'));
+      const usedFlyingWindFree = !usedFreeSwitch && G.activeStadium?.id === 'stadium-flying-wind' && benchHasFlying;
       const outPoke = deck[curIdx];
       // 2026-08-08修正：混亂可能落在status或status2任一格，原本只清status
       if (outPoke.status?.type === 'confusion') outPoke.status = null;
@@ -10900,13 +11188,16 @@ async function handleMessage(ws, msg) {
       G[`${role}FreeSwitch`] = false;
       G[`${role}SwitchedThisTurn`] = true;
 
-      // 2026-07-23應使用者要求：換寶可夢也能抽到1張支援者卡，提升換人的強度
-      const drawnCard = pickSupporterAvoidingDupes(G[`${role}Hand`]);
-      G[`${role}Hand`].push(drawnCard);
+      // 2026-07-23應使用者要求：換寶可夢也能抽到1張支援者卡，提升換人的強度——2026-08-13新增
+      // 例外：疾風之翼給的免費換場明講不能抽支援者卡
+      const drawnCard = usedFlyingWindFree ? null : pickSupporterAvoidingDupes(G[`${role}Hand`]);
+      if (drawnCard) G[`${role}Hand`].push(drawnCard);
       G[`${role}NeedsDiscard`] = G[`${role}Hand`].length > 7;
+      const drawSuffix = drawnCard ? `抽到了【${drawnCard.name}】！` : '';
 
-      if (usedFreeSwitch) {
-        const log = [{ text: `換上了 ${deck[newIdx].name}！（撤退背心：不消耗回合）本回合傷害減免中…抽到了【${drawnCard.name}】！`, cls: 'player' }];
+      if (usedFreeSwitch || usedFlyingWindFree) {
+        const sourceLabel = usedFreeSwitch ? '撤退背心' : '疾風之翼';
+        const log = [{ text: `換上了 ${deck[newIdx].name}！（${sourceLabel}：不消耗回合）本回合傷害減免中…${drawSuffix}`, cls: 'player' }];
         if (outHealMsg) log.push({ text: outHealMsg, cls: 'special' });
         triggerOnLeaveSrv(outPoke, role, G, log);
         triggerOnEnterSrv(deck[newIdx], role, G, log);
@@ -10920,7 +11211,7 @@ async function handleMessage(ws, msg) {
       G.round++;
       G[`${op}Buff`].reflect = false; G[`${op}Braced`] = false; G[`${op}CoinShield`] = false; G[`${op}Buff`].debuffReflect = false; G[`${op}StandbyGuard`] = false; // all expire if opponent never attacked (switched instead)
       drawForRole(G, op);
-      const log = [{ text: `換上了 ${deck[newIdx].name}！本回合傷害減免中…抽到了【${drawnCard.name}】！`, cls: 'player' }];
+      const log = [{ text: `換上了 ${deck[newIdx].name}！本回合傷害減免中…${drawSuffix}`, cls: 'player' }];
       if (outHealMsg) log.push({ text: outHealMsg, cls: 'special' });
       triggerOnLeaveSrv(outPoke, role, G, log);
       triggerOnEnterSrv(deck[newIdx], role, G, log);
@@ -11005,16 +11296,20 @@ async function handleMessage(ws, msg) {
       }
       if (cardType === 'cure') {
         const active = G[`${role}Deck`][G[`${role}Idx`]];
+        const slot1Blocked = active.status && isStatusCureBlockedSrv(G, active.status.type);
+        const slot2Blocked = active.status2 && isStatusCureBlockedSrv(G, active.status2.type);
         let log;
-        if (G.activeStadium?.id === 'stadium-ghost-curse') {
-          log = [{ text: `亡靈墓園場地啟用中，異常狀態無法被解除！`, cls: 'system' }];
-        } else if (active.status || active.status2) {
-          const cured = [active.status, active.status2].filter(Boolean).map(st => STATUS_ZH[st.type] || st.type);
-          active.status = null;
-          active.status2 = null;
-          log = [{ text: `棄牌解除了${active.name}的${cured.join('、')}！`, cls: 'system' }];
-        } else {
+        if (!active.status && !active.status2) {
           log = [{ text: `${active.name}目前沒有異常狀態。`, cls: 'system' }];
+        } else {
+          const cured = [];
+          if (active.status && !slot1Blocked) { cured.push(STATUS_ZH[active.status.type] || active.status.type); active.status = null; }
+          if (active.status2 && !slot2Blocked) { cured.push(STATUS_ZH[active.status2.type] || active.status2.type); active.status2 = null; }
+          if (cured.length) {
+            log = [{ text: `棄牌解除了${active.name}的${cured.join('、')}！${(slot1Blocked || slot2Blocked) ? '（部分異常狀態被場地效果封印，無法解除）' : ''}`, cls: 'system' }];
+          } else {
+            log = [{ text: `異常狀態被場地效果封印，無法解除！`, cls: 'system' }];
+          }
         }
         broadcast(room, { type: 'update', state: G, log, actor: role }); return;
       }

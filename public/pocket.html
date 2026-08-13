@@ -1651,7 +1651,11 @@ function renderPokeSlot(p, { pickable = false, dataset = {}, own = false } = {})
   const energyIcons = (p.energy || []).map(e => energyIconHtml(e, true)).join('');
   const attrs = Object.entries(dataset).map(([k, v]) => `data-${k}="${v}"`).join(' ');
   const badges = [];
+  // 2026-08-13修正：異常狀態改成可疊加（中毒/灼傷是獨立欄位，可以跟status欄位裡的睡眠/麻痺/
+  // 混亂同時存在），畫面上也要能同時顯示最多3個徽章，不能只認p.status這一格
   if (p.status) badges.push(`<span class="status-chip status-${p.status}">${STATUS_LABEL[p.status] || p.status}</span>`);
+  if (p.poisoned) badges.push(`<span class="status-chip status-poisoned">${STATUS_LABEL.poisoned}</span>`);
+  if (p.burned) badges.push(`<span class="status-chip status-burned">${STATUS_LABEL.burned}</span>`);
   const tn = state?.turnNumber ?? 0;
   if (p.cantAttackUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合不能攻擊">🚫⚔</span>`);
   if (p.cantRetreatUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合不能撤退">🚫🔄</span>`);

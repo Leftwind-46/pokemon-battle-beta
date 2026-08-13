@@ -2300,7 +2300,6 @@ function compressMult(m) {
   return m === 0 ? 0 : Math.round((1 + (m - 1) * 0.2) * 100) / 100;
 }
 
-const GRASS_COUNTER_TYPES = ['fire', 'ice', 'flying', 'poison', 'bug']; // 原本克制草屬性的攻擊方屬性
 function effActive(atkType, defType, defType2) {
   const eAtk = atkType;
   let m = eff(eAtk, defType, defType2);
@@ -2314,23 +2313,19 @@ function effActive(atkType, defType, defType2) {
         (eAtk === 'fairy' || eAtk === 'ice') && m > 1) m = 1;
     if (eAtk === 'dragon' && m < 1) m = 1;
   }
-  // Evil Forest: 原本克制草屬性的寶可夢（火／冰／飛行／毒／蟲），全部變成弱草屬性
-  // 2026-07-24應使用者要求「場地卡下修」，把m=4（compressMult=1.6）調回m=2（compressMult=1.2）
+  // 邪惡森林：2026-08-13重新設計——原本只對5種「原本克制草屬性」的對手生效，新版是「草屬性的
+  // 招式一律視為剋制對手」，跟下面莊嚴神社的一般屬性同一種「無條件強制m=2」寫法，不再限定對手屬性
   if (G.activeStadium?.id === 'stadium-evil-forest' && eAtk === 'grass') {
-    if (GRASS_COUNTER_TYPES.includes(defType) || GRASS_COUNTER_TYPES.includes(defType2)) m = 2;
+    m = 2;
   }
   // Roman Colosseum: fighting-type attacks are no longer immune against ghost-type (treated as neutral)
   if (G.activeStadium?.id === 'stadium-colosseum') {
     if (eAtk === 'fighting' && (defType === 'ghost' || defType2 === 'ghost') && m === 0) m = 1;
   }
-  // Mystic Space: psychic-type Pokémon lose their weaknesses (super-effective hits become neutral)
-  if (G.activeStadium?.id === 'stadium-mystic-space') {
-    if ((defType === 'psychic' || defType2 === 'psychic') && m > 1) m = 1;
-  }
-  // 岩石地帶：2026-07-27應使用者要求，除了減傷之外再加碼「弱點消除」——岩石／地面／鋼屬性
-  // 寶可夢不會再被剋制，跟魔幻空間（psychic）同一套pattern
+  // 岩石地帶：2026-08-13重新設計，弱點消除的對象從「岩石／地面／鋼」縮小成「岩石／地面」
+  // （鋼屬性另有自己專屬的鋼鐵堡壘場地卡，不再共用這張）
   if (G.activeStadium?.id === 'stadium-rock-field') {
-    if ((['rock','ground','steel'].includes(defType) || ['rock','ground','steel'].includes(defType2)) && m > 1) m = 1;
+    if ((['rock','ground'].includes(defType) || ['rock','ground'].includes(defType2)) && m > 1) m = 1;
   }
   // Solemn Shrine: normal-type moves are always treated as super-effective against the target
   // 2026-07-24應使用者要求「場地卡下修」，把m=5（compressMult=1.8）調回m=2（compressMult=1.2）
@@ -2459,33 +2454,33 @@ const TRAINERS = [
   {id:'poison-strike',    name:'猛毒突襲',   cat:'item', type:'poison',   weight:10, desc:'下次攻擊威力 +40；若對手已中毒額外 +40'},
   {id:'bug-web',          name:'蟲網束縛',   cat:'item', type:'bug',      weight:10, desc:'讓對手損失 6 點能量，自身下次攻擊威力 +20'},
   {id:'bug-swarm',        name:'群聚共鳴',   cat:'item', type:'bug',      weight:10, desc:'立即回復 6 點能量，並抽 1 張手牌'},
-  // ── 競技場牌 ──
-  {id:'stadium-training',      name:'訓練場',     cat:'stadium', desc:'場上所有技能威力 +25（雙方）'},
-  {id:'stadium-spring',        name:'地熱溫泉',   cat:'stadium', desc:'每回合結束，雙方上場寶可夢各回復 30 HP'},
-  {id:'stadium-reversal',      name:'逆轉鬥技場', cat:'stadium', desc:'HP 低於 50% 時，攻擊威力 +30'},
-  {id:'stadium-invert',        name:'反轉世界',   cat:'stadium', desc:'場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×1.2）；反轉後仍是克制的攻擊，額外 +25 固定傷害'},
-  {id:'stadium-dragon-valley', name:'龍之谷',     cat:'stadium', type:'dragon', weight:10, desc:'龍屬性寶可夢對妖精、冰系招式不受克制（效果最多×1）；龍屬性攻擊不會被減免或無效，且額外 +35 固定傷害'},
-  {id:'stadium-evil-forest',   name:'邪惡森林',   cat:'stadium', type:'grass', weight:10, desc:'原本克制草屬性的寶可夢（火／冰／飛行／毒／蟲），全部變成弱草屬性（草屬性攻擊 ×1.2）；每回合結束，草屬性上場寶可夢回復 70 HP'},
+  // ── 競技場牌 ── 2026-08-13全面重新設計（見battle-logic skill的「場地卡24張全面重新設計」章節）
+  {id:'stadium-training',      name:'訓練場',     cat:'stadium', desc:'場上所有技能威力 +25（雙方）；回合結束時，該回合玩家額外抽取一張支援者卡'},
+  {id:'stadium-spring',        name:'地熱溫泉',   cat:'stadium', desc:'每回合結束，該回合玩家的寶可夢回復 70HP，並且可以抽取一張支援者卡牌'},
+  {id:'stadium-reversal',      name:'逆轉鬥技場', cat:'stadium', desc:'若寶可夢HP 低於 50% 時，攻擊威力 +30，並且回合結束時，回復150HP'},
+  {id:'stadium-invert',        name:'反轉世界',   cat:'stadium', desc:'場上屬性相剋完全反轉（克制↔抵抗，免疫→克制×1.2）；發動時，雙方手牌互換'},
+  {id:'stadium-dragon-valley', name:'龍之谷',     cat:'stadium', type:'dragon', weight:10, desc:'龍屬性寶可夢的弱點消失，攻擊不會被減免或無效，並且招式消耗能量 -5'},
+  {id:'stadium-evil-forest',   name:'邪惡森林',   cat:'stadium', type:'grass', weight:10, desc:'草屬性的寶可夢的招式一律視為剋制對手（效果拉滿 ×1.2）；每回合結束，我方草屬性寶可夢回復 70 HP'},
   {id:'stadium-mega-prism',    name:'Mega 稜鏡塔', cat:'stadium', desc:'雙方每個自己的回合開始時，獲得 16 點 Mega 能量；可 Mega 進化或已經 Mega 進化的寶可夢，受到的攻擊傷害 ×0.6'},
-  {id:'stadium-spikes',        name:'尖峰陷阱',   cat:'stadium', desc:'寶可夢上場時，受到最大HP 25% 的傷害（雙方對等）'},
-  {id:'stadium-toxic-field',   name:'劇毒領域',   cat:'stadium', type:'poison', weight:10, desc:'寶可夢上場時，陷入中毒（雙方對等）；此場地下中毒傷害 ×2；每回合結束，毒屬性上場寶可夢回復 70 HP，並有 50% 機率完全閃避攻擊（不疊加）'},
-  {id:'stadium-colosseum',     name:'羅馬鬥技場', cat:'stadium', type:'fighting', weight:10, desc:'格鬥屬性招式傷害 ×1.2；格鬥屬性攻擊不再被幽靈屬性完全免疫；格鬥屬性攻擊會連續發動兩次，第二次傷害 ×0.5（若第一次就打倒對手，第二次改攻擊新上場的寶可夢）'},
-  {id:'stadium-mystic-space',  name:'魔幻空間',   cat:'stadium', type:'psychic', weight:10, desc:'超能力屬性寶可夢受到的傷害 ×0.75；弱點消失（不受超效傷害影響）'},
-  {id:'stadium-lava',          name:'熔岩火山',   cat:'stadium', type:'fire', weight:10, desc:'火屬性招式傷害 +30；水屬性招式傷害 ×0.65'},
-  {id:'stadium-ocean',         name:'海洋世界',   cat:'stadium', type:'water', weight:10, desc:'水屬性招式消耗能量 ×0.3；電屬性招式傷害 ×1.4；水屬性寶可夢傷害額外 +40'},
-  {id:'stadium-shrine',        name:'莊嚴神社',   cat:'stadium', type:'normal', weight:10, desc:'一般屬性招式一律視為剋制對手（效果拉滿 ×1.2）；一般屬性攻擊方命中後回復傷害量10%的HP；一般屬性寶可夢受到的攻擊傷害 -30'},
+  {id:'stadium-spikes',        name:'尖峰陷阱',   cat:'stadium', desc:'寶可夢上場時，受到100傷害（雙方對等），發動時，對手棄掉2張手牌'},
+  {id:'stadium-toxic-field',   name:'劇毒領域',   cat:'stadium', type:'poison', weight:10, desc:'寶可夢上場時，陷入中毒（雙方對等），此場地下中毒不能被解除，中毒傷害 ×2；毒系寶可夢有 20% 機率完全閃避攻擊（不疊加）'},
+  {id:'stadium-colosseum',     name:'羅馬鬥技場', cat:'stadium', type:'fighting', weight:10, desc:'格鬥屬性攻擊不再被幽靈屬性完全免疫；格鬥屬性的招式會連續發動兩次，第二次傷害 ×0.4（若第一次就打倒對手，第二次改攻擊新上場的寶可夢）'},
+  {id:'stadium-mystic-space',  name:'魔幻空間',   cat:'stadium', type:'psychic', weight:10, desc:'超能力屬性寶可夢受到的傷害 -50；超屬性的招式會連續發動兩次，第二次傷害 ×0.4（若第一次就打倒對手，第二次改攻擊新上場的寶可夢）；發動時或回合結束時，若我方場上寶可夢是超屬性寶可夢，可搶奪對方一張卡牌'},
+  {id:'stadium-lava',          name:'熔岩火山',   cat:'stadium', type:'fire', weight:10, desc:'火屬性的招式傷害 +50；水屬性招式傷害 ×0.3；火屬性的寶可夢造成的攻擊會讓對手燒傷；此場地下燒傷不能被解除，燒傷的寶可夢傷害x0.1'},
+  {id:'stadium-ocean',         name:'海洋世界',   cat:'stadium', type:'water', weight:10, desc:'水屬性招式消耗能量 -2；水屬性寶可夢招式造成的傷害+20；回合結束時回復30HP'},
+  {id:'stadium-shrine',        name:'莊嚴神社',   cat:'stadium', type:'normal', weight:10, desc:'一般屬性招式一律視為剋制對手（效果拉滿 ×1.2）；一般屬性寶可夢受到的攻擊傷害 -50，回合結束時，一般屬性寶可夢回復70hp'},
   // ── 競技場牌：屬性分類新卡 ──
-  {id:'stadium-sandstorm',   name:'沙塵暴',   cat:'stadium', type:'ground', weight:10, desc:'非地面／岩石／鋼屬性寶可夢，每回合結束損失最大HP的12%'},
-  {id:'stadium-rock-field',  name:'岩石地帶', cat:'stadium', type:'rock', weight:10, desc:'岩石／地面／鋼屬性寶可夢，受到的攻擊傷害 -50，且不會再被剋制（弱點消除）'},
+  {id:'stadium-sandstorm',   name:'沙塵暴',   cat:'stadium', type:'ground', weight:10, desc:'非地面／岩石/鋼屬性寶可夢，雙方回合結束損失50HP，開始時損失20HP，地面/岩石屬性寶可夢有70%機率完全閃避攻擊(不疊加）'},
+  {id:'stadium-rock-field',  name:'岩石地帶', cat:'stadium', type:'rock', weight:10, desc:'岩石／地面寶可夢，攻擊造成的傷害 +50，不會受到屬性剋制（弱點消除），並且受到的傷害-20'},
   // ── 競技場牌：8種先前沒有專屬場地的屬性（2026-07-23新增，各自搭配一個獨特玩法，不只是傷害數值）──
-  {id:'stadium-electric-storm', name:'雷雲庇護所', cat:'stadium', type:'electric', weight:10, desc:'電屬性招式傷害 +30；每回合結束，雙方上場寶可夢若無異常狀態，20% 機率陷入麻痺'},
-  {id:'stadium-ice-tundra',     name:'永凍冰原',   cat:'stadium', type:'ice',      weight:10, desc:'冰屬性招式傷害 +30；每回合結束，雙方上場寶可夢若無異常狀態，15% 機率陷入結凍'},
-  {id:'stadium-dark-curse',     name:'暗夜詛咒領域', cat:'stadium', type:'dark',   weight:10, desc:'惡屬性招式傷害 ×1.2；此場地啟用中，雙方的所有恢復效果全部失效'},
-  {id:'stadium-steel-fortress', name:'鋼鐵堡壘',   cat:'stadium', type:'steel',    weight:10, desc:'鋼屬性招式傷害 +30；此場地下，雙方受到的攻擊傷害固定減少 20'},
-  {id:'stadium-flying-wind',    name:'疾風之翼',   cat:'stadium', type:'flying',   weight:10, desc:'飛行屬性招式傷害 ×1.2；飛行屬性寶可夢有 50% 機率完全閃避攻擊（不疊加）'},
-  {id:'stadium-bug-hive',       name:'蟲群巢穴',   cat:'stadium', type:'bug',      weight:10, desc:'蟲屬性招式傷害 +30；此場地下，抽牌／搶奪對方手牌類卡片不受每回合1次限制'},
-  {id:'stadium-ghost-curse',    name:'亡靈墓園',   cat:'stadium', type:'ghost',    weight:10, desc:'幽靈屬性招式傷害 ×1.2；此場地下，異常狀態無法被解除'},
-  {id:'stadium-fairy-ward',     name:'妖精結界原野', cat:'stadium', type:'fairy',  weight:10, desc:'妖精屬性招式傷害 +30；此場地下，雙方招式的異常狀態附加機率降低 10%（下限0%）'},
+  {id:'stadium-electric-storm', name:'雷雲庇護所', cat:'stadium', type:'electric', weight:10, desc:'電屬性招式傷害 +30；電屬性寶可夢招式消耗能量 -2；有麻痺狀態的寶可夢100% 無法攻擊成功'},
+  {id:'stadium-ice-tundra',     name:'永凍冰原',   cat:'stadium', type:'ice',      weight:10, desc:'冰屬性的招式傷害 +30，受到傷害-50；回合結束時，若對手寶可夢為非冰屬性寶可夢則被結凍'},
+  {id:'stadium-dark-curse',     name:'暗夜詛咒領域', cat:'stadium', type:'dark',   weight:10, desc:'惡屬性招式傷害 ×1.2；此場地啟用中，雙方的所有恢復效果全部失效。若場上為惡屬性寶可夢，回合結束時，棄掉對手1張手牌'},
+  {id:'stadium-steel-fortress', name:'鋼鐵堡壘',   cat:'stadium', type:'steel',    weight:10, desc:'鋼屬性的招式傷害 +30；鋼屬性寶可夢受到的傷害-50'},
+  {id:'stadium-flying-wind',    name:'疾風之翼',   cat:'stadium', type:'flying',   weight:10, desc:'飛行屬性招式傷害 ×1.2；飛行屬性寶可夢有 50% 機率完全迴避攻擊（不疊加），若備戰區有飛行屬性寶可夢，場上寶可夢撤退回合不會結束（不能抽支援者卡）'},
+  {id:'stadium-bug-hive',       name:'蟲群巢穴',   cat:'stadium', type:'bug',      weight:10, desc:'蟲屬性的招式傷害 +30；蟲屬性的寶可夢有 50% 機率完全閃避攻擊（不疊加）；此場地下，抽牌／搶奪對方手牌類卡片不受每回合1次限制'},
+  {id:'stadium-ghost-curse',    name:'亡靈墓園',   cat:'stadium', type:'ghost',    weight:10, desc:'幽靈屬性寶可夢的招式消耗能量 -4，幽靈屬性的招式會連續發動兩次，第二次傷害 ×0.4（若第一次就打倒對手，第二次改攻擊新上場的寶可夢）；此場地下，異常狀態無法被解除'},
+  {id:'stadium-fairy-ward',     name:'妖精結界原野', cat:'stadium', type:'fairy',  weight:10, desc:'妖精屬性的寶可夢招式傷害 +30；回合開始與此卡發動時，妖精寶可夢解除負面狀態；回合結束時，對方寶可夢獲得混亂'},
 ];
 
 /* 手牌卡片圖示：有type欄位的卡（絕大多數）直接借用HIT_EMOJI的屬性圖示；沒有type的通用卡/場地卡
@@ -3836,32 +3831,40 @@ function applyTrainer(card, side, chosenType) {
       break;
     }
     case 'nurse': {
-      // 亡靈墓園場地啟用時，異常狀態無法被解除——HP回復（若沒被詛咒封印）照樣生效，只有解除異常狀態這半部分被擋
-      const ghostCursed = G.activeStadium?.id === 'stadium-ghost-curse';
+      // 2026-08-13重新設計：異常狀態封鎖從「亡靈墓園全擋」改成用isStatusCureBlocked逐格檢查
+      // （劇毒領域只擋中毒、熔岩火山只擋燒傷、亡靈墓園仍是全擋）——HP回復（若沒被詛咒封印）
+      // 照樣生效，只有解除異常狀態這半部分依各格個別判斷
+      const slot1Blocked = active.status && isStatusCureBlocked(active.status.type);
+      const slot2Blocked = active.status2 && isStatusCureBlocked(active.status2.type);
+      const anyBlocked = slot1Blocked || slot2Blocked;
       if (isHealSealed(side)) {
-        if (!ghostCursed) { active.status = null; active.status2 = null; }
-        log(`${pron}使用了【${card.name}】，${ghostCursed ? '但異常狀態被亡靈墓園封印，恢復效果也被詛咒封印' : '解除了異常狀態，但恢復效果被詛咒封印中，HP 沒有回復'}！`, tag);
+        if (!slot1Blocked) active.status = null;
+        if (!slot2Blocked) active.status2 = null;
+        log(`${pron}使用了【${card.name}】，${anyBlocked ? '部分異常狀態被場地效果封印，' : '解除了異常狀態，'}恢復效果被詛咒封印中，HP 沒有回復！`, tag);
       } else {
         active.cur = active.hp;
-        if (!ghostCursed) { active.status = null; active.status2 = null; }
-        log(`${pron}使用了【${card.name}】，${active.name} 完全回復${ghostCursed ? 'HP，但異常狀態被亡靈墓園封印，無法解除' : ''}！（HP ${active.hp}/${active.hp}）`, tag);
+        if (!slot1Blocked) active.status = null;
+        if (!slot2Blocked) active.status2 = null;
+        log(`${pron}使用了【${card.name}】，${active.name} 完全回復HP${anyBlocked ? '，但部分異常狀態被場地效果封印，無法解除' : ''}！（HP ${active.hp}/${active.hp}）`, tag);
         playSfx('heal');
         updateHp(side, active);
       }
       break;
     }
     case 'antidote': {
-      if (G.activeStadium?.id === 'stadium-ghost-curse') {
-        log(`${pron}使用了【${card.name}】，但異常狀態被亡靈墓園封印，無法解除！`, 'system');
+      const slot1Blocked = active.status && isStatusCureBlocked(active.status.type);
+      const slot2Blocked = active.status2 && isStatusCureBlocked(active.status2.type);
+      if (!active.status && !active.status2) {
+        log(`${pron}使用了【${card.name}】，但 ${active.name} 沒有異常狀態。`, 'system');
         break;
       }
-      if (active.status || active.status2) {
-        const cured = [active.status, active.status2].filter(Boolean).map(st => STATUS_EFFECT_ZH[st.type] || st.type);
-        active.status = null;
-        active.status2 = null;
-        log(`${pron}使用了【${card.name}】，${active.name} 的${cured.join('、')}解除了！`, tag);
+      const cured = [];
+      if (active.status && !slot1Blocked) { cured.push(STATUS_EFFECT_ZH[active.status.type] || active.status.type); active.status = null; }
+      if (active.status2 && !slot2Blocked) { cured.push(STATUS_EFFECT_ZH[active.status2.type] || active.status2.type); active.status2 = null; }
+      if (cured.length) {
+        log(`${pron}使用了【${card.name}】，${active.name} 的${cured.join('、')}解除了！${(slot1Blocked || slot2Blocked) ? '（部分異常狀態被場地效果封印，無法解除）' : ''}`, tag);
       } else {
-        log(`${pron}使用了【${card.name}】，但 ${active.name} 沒有異常狀態。`, 'system');
+        log(`${pron}使用了【${card.name}】，但異常狀態被場地效果封印，無法解除！`, 'system');
       }
       break;
     }
@@ -4582,14 +4585,11 @@ function applyTrainer(card, side, chosenType) {
     case 'stadium-training':
     case 'stadium-spring':
     case 'stadium-reversal':
-    case 'stadium-invert':
     case 'stadium-dragon-valley':
     case 'stadium-evil-forest':
     case 'stadium-mega-prism':
-    case 'stadium-spikes':
     case 'stadium-toxic-field':
     case 'stadium-colosseum':
-    case 'stadium-mystic-space':
     case 'stadium-lava':
     case 'stadium-ocean':
     case 'stadium-shrine':
@@ -4601,12 +4601,76 @@ function applyTrainer(card, side, chosenType) {
     case 'stadium-steel-fortress':
     case 'stadium-flying-wind':
     case 'stadium-bug-hive':
-    case 'stadium-ghost-curse':
+    case 'stadium-ghost-curse': {
+      const oldStadium = G.activeStadium;
+      G.activeStadium = card;
+      if (oldStadium) log(`🏟 新競技場【${card.name}】取代了【${oldStadium.name}】！`, 'special');
+      else log(`🏟 競技場【${card.name}】開場！${card.desc}`, 'special');
+      renderBattle();
+      break;
+    }
+    // 2026-08-13重新設計：以下4張場地卡發動當下還有額外的一次性效果，跟其餘場地卡共用的
+    // 「純粹切換G.activeStadium」case分開處理，各自在切換完之後再加碼
+    case 'stadium-invert': {
+      const oldStadium = G.activeStadium;
+      G.activeStadium = card;
+      if (oldStadium) log(`🏟 新競技場【${card.name}】取代了【${oldStadium.name}】！`, 'special');
+      else log(`🏟 競技場【${card.name}】開場！${card.desc}`, 'special');
+      // 發動時，雙方手牌互換
+      [G.playerHand, G.cpuHand] = [G.cpuHand, G.playerHand];
+      log(`🌀 反轉世界讓雙方的手牌互換了！`, 'special');
+      if (G.playerHand.length > 7) showDiscardModal(() => {});
+      renderBattle();
+      break;
+    }
+    case 'stadium-spikes': {
+      const oldStadium = G.activeStadium;
+      G.activeStadium = card;
+      if (oldStadium) log(`🏟 新競技場【${card.name}】取代了【${oldStadium.name}】！`, 'special');
+      else log(`🏟 競技場【${card.name}】開場！${card.desc}`, 'special');
+      // 發動時，對手棄掉2張手牌
+      const opHand = opSide === 'player' ? G.playerHand : G.cpuHand;
+      const discardedNames = [];
+      for (let i = 0; i < 2 && opHand.length; i++) {
+        const idx2 = Math.floor(Math.random() * opHand.length);
+        discardedNames.push(opHand.splice(idx2, 1)[0].name);
+      }
+      if (discardedNames.length) log(`🔺 尖峰陷阱讓${opSide === 'player' ? '你' : '對手'}棄掉了【${discardedNames.join('】【')}】！`, 'special');
+      renderBattle();
+      break;
+    }
+    case 'stadium-mystic-space': {
+      const oldStadium = G.activeStadium;
+      G.activeStadium = card;
+      if (oldStadium) log(`🏟 新競技場【${card.name}】取代了【${oldStadium.name}】！`, 'special');
+      else log(`🏟 競技場【${card.name}】開場！${card.desc}`, 'special');
+      // 發動時，若我方場上寶可夢是超屬性寶可夢，可搶奪對方一張卡牌
+      if ((active.type === 'psychic' || active.type2 === 'psychic') && opActive.cur > 0) {
+        const myHand = side === 'player' ? G.playerHand : G.cpuHand;
+        const opHand = opSide === 'player' ? G.playerHand : G.cpuHand;
+        if (opHand.length) {
+          const idx2 = Math.floor(Math.random() * opHand.length);
+          const stolen = opHand.splice(idx2, 1)[0];
+          myHand.push(stolen);
+          log(`🔮 魔幻空間發動，${pron}搶走了${opSide === 'player' ? '你' : '對手'}的【${stolen.name}】！`, 'special');
+          if (side === 'player' && G.playerHand.length > 7) showDiscardModal(() => {});
+        }
+      }
+      renderBattle();
+      break;
+    }
     case 'stadium-fairy-ward': {
       const oldStadium = G.activeStadium;
       G.activeStadium = card;
       if (oldStadium) log(`🏟 新競技場【${card.name}】取代了【${oldStadium.name}】！`, 'special');
       else log(`🏟 競技場【${card.name}】開場！${card.desc}`, 'special');
+      // 發動時，妖精寶可夢解除負面狀態（跟回合開始時的判定共用同一種效果，這裡是額外的立即觸發）
+      [{ poke: active }, { poke: opActive }].forEach(({ poke }) => {
+        if (poke.cur > 0 && (poke.type === 'fairy' || poke.type2 === 'fairy') && (poke.status || poke.status2)) {
+          poke.status = null; poke.status2 = null;
+          log(`✨ 妖精結界原野發動，${poke.name} 的負面狀態解除了！`, 'special');
+        }
+      });
       renderBattle();
       break;
     }
@@ -4909,7 +4973,7 @@ function playerAttack(atkIdx) {
         executeSupportMove(P(), CP(), atk, 'player', 'cpu', afterPlayerTurn);
       } else {
         if (atk.bonusEnergy) G.playerBonusEnergyNextTurn = (G.playerBonusEnergyNextTurn || 0) + atk.bonusEnergy;
-        attackWithColosseumDouble(P(), CP(), atk, 'player', 'cpu', afterPlayerTurn);
+        attackWithStadiumDouble(P(), CP(), atk, 'player', 'cpu', afterPlayerTurn);
       }
     },
     () => { G.cpuBuff.reflect = false; G.cpuBraced = false; G.cpuCoinShield = false; G.cpuBuff.debuffReflect = false; G.playerBuff.ignoreReflectNext = false; tickAndHandoff(); }, // reflect/撐住/影舞 all expire — player never attacked (status skip); still ticks poison/burn before handoff. 盧恩啟示：無視反彈鏡buff沒打出去就失效（搏命免疫改成回合戳記到期制，見rune-revelation case）
@@ -4946,6 +5010,11 @@ function confirmPlayerSwitch() {
 function executeSwitch(deckIdx) {
   playSfx('click');
   const usedFreeSwitch = G.freeSwitch; // 撤退背心：免費換場，不結束回合
+  // 疾風之翼：2026-08-13新增，若備戰區（換人前，不含目前主戰）有飛行屬性寶可夢，撤退同樣
+  // 不會結束回合——但卡面明講「不能抽支援者卡」，跟撤退背心的usedFreeSwitch分開判斷，
+  // 這樣log訊息才能正確顯示是哪個來源，且只有這個來源要跳過下面的抽卡
+  const benchHasFlying = G.playerDeck.some((p, i) => i !== G.playerIdx && p.cur > 0 && (p.type === 'flying' || p.type2 === 'flying'));
+  const usedFlyingWindFree = !usedFreeSwitch && G.activeStadium?.id === 'stadium-flying-wind' && benchHasFlying;
   G.freeSwitch = false;
   G.switchedThisTurn = true;
   G.playerBuff = freshBuff(); G.playerBraced = false; G.playerCoinShield = false; G.playerStandbyGuard = false; // 換人時整組攻擊buff（含屬性寶珠override）都不該留給新上場的寶可夢
@@ -4977,12 +5046,14 @@ function executeSwitch(deckIdx) {
   triggerOnEnter(P(), 'player');
 
   // 2026-07-23應使用者要求：換寶可夢也能抽到1張支援者卡，提升換人的強度（跟待機共用同一套
-  // 避免重複的抽卡邏輯）
-  const drawnCard = pickSupporterAvoidingDupes(G.playerHand);
-  G.playerHand.push(drawnCard);
+  // 避免重複的抽卡邏輯）——2026-08-13新增例外：疾風之翼給的免費換場明講不能抽支援者卡
+  const drawnCard = usedFlyingWindFree ? null : pickSupporterAvoidingDupes(G.playerHand);
+  if (drawnCard) G.playerHand.push(drawnCard);
+  const drawSuffix = drawnCard ? `抽到了【${drawnCard.name}】！` : '';
 
-  if (usedFreeSwitch) {
-    log(`你將 ${outName} 換回，派出了 ${P().name}！（撤退背心：不消耗回合）本回合傷害減免中…抽到了【${drawnCard.name}】！`, 'player');
+  if (usedFreeSwitch || usedFlyingWindFree) {
+    const sourceLabel = usedFreeSwitch ? '撤退背心' : '疾風之翼';
+    log(`你將 ${outName} 換回，派出了 ${P().name}！（${sourceLabel}：不消耗回合）本回合傷害減免中…${drawSuffix}`, 'player');
     renderBattle();
     hideBenchPopup();
     const nc = document.getElementById('player-bcard');
@@ -4995,7 +5066,7 @@ function executeSwitch(deckIdx) {
   G.busy = true;
   G.round++;
   G.cpuBuff.reflect = false; G.cpuBraced = false; G.cpuCoinShield = false; G.cpuBuff.debuffReflect = false; // all expire if opponent never attacked (switched instead)
-  log(`你將 ${outName} 換回，派出了 ${P().name}！本回合傷害減免中…抽到了【${drawnCard.name}】！`, 'player');
+  log(`你將 ${outName} 換回，派出了 ${P().name}！本回合傷害減免中…${drawSuffix}`, 'player');
 
   renderBattle();
   hideBenchPopup();
@@ -5111,6 +5182,117 @@ function cpuUseTrainers() {
 function cpuAttack() {
   // CPU draws at start of its own turn
   G.cpuUsedItemThisTurn = false; // 機械之心系特性的旗標，每回合開始重置
+  // 2026-08-13場地卡全面重新設計，對稱於drawAfterTurn開頭的寫法——這裡cpuAttack()＝CPU回合
+  // 即將開始＝玩家回合剛結束，所以op（回合剛結束的那一方）＝player，role（現在要開始回合
+  // 的那一方）＝cpu。詳細理由見drawAfterTurn開頭同一段註解。
+  (function stadiumTurnTransitionForCpu() {
+    const stadiumOp = { poke: P(), side: 'player' };
+    const stadiumRole = { poke: CP(), side: 'cpu' };
+    if (G.activeStadium?.id === 'stadium-training' && stadiumOp.poke.cur > 0) {
+      const drawn = pickSupporterAvoidingDupes(G.playerHand);
+      G.playerHand.push(drawn);
+      log(`【訓練場】你額外抽了一張支援者卡！`, 'special');
+    }
+    if (G.activeStadium?.id === 'stadium-spring' && stadiumOp.poke.cur > 0) {
+      if (stadiumOp.poke.cur < stadiumOp.poke.hp && !isHealSealed('player')) {
+        const heal = Math.min(70, stadiumOp.poke.hp - stadiumOp.poke.cur);
+        stadiumOp.poke.cur += heal;
+        log(`【地熱溫泉】${stadiumOp.poke.name} 回復了 ${heal} HP！`, 'special');
+        updateHp('player', stadiumOp.poke);
+      }
+      const drawn = pickSupporterAvoidingDupes(G.playerHand);
+      G.playerHand.push(drawn);
+      log(`【地熱溫泉】你額外抽了一張支援者卡！`, 'special');
+    }
+    if (G.activeStadium?.id === 'stadium-reversal' && stadiumOp.poke.cur > 0 && !isHealSealed('player')) {
+      const heal = Math.min(150, stadiumOp.poke.hp - stadiumOp.poke.cur);
+      if (heal > 0) {
+        stadiumOp.poke.cur += heal;
+        log(`【逆轉鬥技場】${stadiumOp.poke.name} 回復了 ${heal} HP！`, 'special');
+        updateHp('player', stadiumOp.poke);
+      }
+    }
+    if (G.activeStadium?.id === 'stadium-ocean' && stadiumOp.poke.cur > 0 && !isHealSealed('player')) {
+      const heal = Math.min(30, stadiumOp.poke.hp - stadiumOp.poke.cur);
+      if (heal > 0) {
+        stadiumOp.poke.cur += heal;
+        log(`【海洋世界】${stadiumOp.poke.name} 回復了 ${heal} HP！`, 'special');
+        updateHp('player', stadiumOp.poke);
+      }
+    }
+    if (G.activeStadium?.id === 'stadium-sandstorm') {
+      [{ ...stadiumOp, dmg: 50 }, { ...stadiumRole, dmg: 20 }].forEach(({ poke, side, dmg }) => {
+        const immune = ['ground','rock','steel'].includes(poke.type) || ['ground','rock','steel'].includes(poke.type2);
+        if (poke.cur > 0 && !immune) {
+          const actual = Math.min(poke.cur, dmg);
+          poke.cur -= actual;
+          log(`【沙塵暴】${poke.name} 受到了傷害！（-${actual} HP）`, 'special');
+          updateHp(side, poke);
+        }
+      });
+    }
+    if (G.activeStadium?.id === 'stadium-ice-tundra' && stadiumRole.poke.cur > 0 &&
+        stadiumRole.poke.type !== 'ice' && stadiumRole.poke.type2 !== 'ice' &&
+        inflictStatus(stadiumRole.poke, 'freeze', 2)) {
+      log(`【永凍冰原】${stadiumRole.poke.name} 被凍住了！`, 'special');
+    }
+    if (G.activeStadium?.id === 'stadium-evil-forest') {
+      [stadiumOp, stadiumRole].forEach(({poke, side}) => {
+        if (poke.cur > 0 && poke.cur < poke.hp && (poke.type === 'grass' || poke.type2 === 'grass') && !isHealSealed(side)) {
+          const heal = Math.min(70, poke.hp - poke.cur);
+          poke.cur += heal;
+          log(`【邪惡森林】${poke.name} 回復了 ${heal} HP！`, 'special');
+          updateHp(side, poke);
+        }
+      });
+    }
+    if (G.activeStadium?.id === 'stadium-shrine') {
+      [stadiumOp, stadiumRole].forEach(({poke, side}) => {
+        if (poke.cur > 0 && poke.cur < poke.hp && (poke.type === 'normal' || poke.type2 === 'normal') && !isHealSealed(side)) {
+          const heal = Math.min(70, poke.hp - poke.cur);
+          poke.cur += heal;
+          log(`【莊嚴神社】${poke.name} 回復了 ${heal} HP！`, 'special');
+          updateHp(side, poke);
+        }
+      });
+    }
+    if (G.activeStadium?.id === 'stadium-dark-curse') {
+      [stadiumOp, stadiumRole].forEach(({poke, side}) => {
+        if (poke.cur <= 0 || !(poke.type === 'dark' || poke.type2 === 'dark')) return;
+        const opSide = side === 'player' ? 'cpu' : 'player';
+        const opHand = opSide === 'player' ? G.playerHand : G.cpuHand;
+        if (opHand.length) {
+          const idx = Math.floor(Math.random() * opHand.length);
+          const discarded = opHand.splice(idx, 1)[0];
+          log(`【暗夜詛咒領域】${poke.name} 的惡屬性氣息讓${opSide === 'player' ? '你' : '對手'}棄掉了【${discarded.name}】！`, 'special');
+        }
+      });
+    }
+    if (G.activeStadium?.id === 'stadium-mystic-space') {
+      [stadiumOp, stadiumRole].forEach(({poke, side}) => {
+        if (poke.cur <= 0 || !(poke.type === 'psychic' || poke.type2 === 'psychic')) return;
+        const opSide2 = side === 'player' ? 'cpu' : 'player';
+        const myHand = side === 'player' ? G.playerHand : G.cpuHand;
+        const opHand = opSide2 === 'player' ? G.playerHand : G.cpuHand;
+        if (opHand.length) {
+          const idx = Math.floor(Math.random() * opHand.length);
+          const stolen = opHand.splice(idx, 1)[0];
+          myHand.push(stolen);
+          log(`【魔幻空間】${poke.name} 讓${side === 'player' ? '你' : '對手'}搶走了${opSide2 === 'player' ? '你' : '對手'}的【${stolen.name}】！`, 'special');
+          if (side === 'player' && G.playerHand.length > 7) showDiscardModal(() => {});
+        }
+      });
+    }
+    if (G.activeStadium?.id === 'stadium-fairy-ward' && stadiumRole.poke.cur > 0) {
+      if ((stadiumRole.poke.type === 'fairy' || stadiumRole.poke.type2 === 'fairy') && (stadiumRole.poke.status || stadiumRole.poke.status2)) {
+        stadiumRole.poke.status = null; stadiumRole.poke.status2 = null;
+        log(`【妖精結界原野】${stadiumRole.poke.name} 的負面狀態解除了！`, 'special');
+      }
+      if (inflictStatus(stadiumRole.poke, 'confusion', Math.floor(Math.random() * 3) + 2)) {
+        log(`【妖精結界原野】${stadiumRole.poke.name} 陷入了混亂！`, 'special');
+      }
+    }
+  })();
   // 強子引擎／緋紅脈動／漩渦威壓／惡作劇之心：每回合開始的額外抽卡特性
   rollTurnStartAbilityDraw(CP(), 'cpu');
   const itemsOnly = getDrawPool(CP().type, CP().type2);
@@ -5206,7 +5388,7 @@ function cpuAttack() {
         G.cpuEnergy = Math.min(20, G.cpuEnergy + refund);
       }
       if (atk.bonusEnergy) G.cpuBonusEnergyNextTurn = (G.cpuBonusEnergyNextTurn || 0) + atk.bonusEnergy;
-      attackWithColosseumDouble(CP(), P(), atk, 'cpu', 'player', () => {
+      attackWithStadiumDouble(CP(), P(), atk, 'cpu', 'player', () => {
         if (P().cur <= 0) {
           handleKO('player', tickAndEndTurn);
         } else {
@@ -5270,7 +5452,9 @@ function handleAttackerStatus(poke, side, onProceed, onSkip, onKO, atkType) {
 
   const paralysisSlot = findStatusSlot(poke, 'paralysis');
   if (paralysisSlot) {
-    if (Math.random() < 0.50) {
+    // 雷雲庇護所：2026-08-13新增，此場地下麻痺的寶可夢100%無法攻擊成功（原本是50%機率）
+    const paralysisSkipChance = G.activeStadium?.id === 'stadium-electric-storm' ? 1 : 0.5;
+    if (Math.random() < paralysisSkipChance) {
       log(`${label}${poke.name} 因麻痺無法行動！`, 'special');
       renderBattle();
       setTimeout(onSkip, 400);
@@ -5392,8 +5576,12 @@ function effectiveCost(atk, opponentPoke, side) {
   // 2026-07-31應使用者要求：mega進化後攻擊消耗的能量要比不能mega的寶可夢更低，固定8折
   // （跟下面Ocean World的水系折扣一樣用Math.floor疊乘，可以互相疊加）
   if (attackerPoke?.megaEvolved) cost = Math.floor(cost * 0.8);
-  // Ocean World: water-type moves cost ×0.3（2026-07-22場地卡全面加強，從減半再放大折扣）
-  if (G.activeStadium?.id === 'stadium-ocean' && atk.type === 'water') cost = Math.floor(cost * 0.3);
+  // 2026-08-13場地卡重新設計：以下4張場地卡的能量折扣統一改成「固定 -N」，取代舊版各自不同的
+  // 倍率折扣寫法（海洋世界原本是×0.3），下限夾在0，避免變成負數消耗
+  if (G.activeStadium?.id === 'stadium-ocean' && atk.type === 'water') cost = Math.max(0, cost - 2);
+  if (G.activeStadium?.id === 'stadium-dragon-valley' && atk.type === 'dragon') cost = Math.max(0, cost - 5);
+  if (G.activeStadium?.id === 'stadium-electric-storm' && atk.type === 'electric') cost = Math.max(0, cost - 2);
+  if (G.activeStadium?.id === 'stadium-ghost-curse' && atk.type === 'ghost') cost = Math.max(0, cost - 4);
   // 深海之力：下次攻擊消耗能量減半（跟海洋世界的水屬性減半疊加計算，各自算各自的一半）
   if (buff?.costHalved) cost = Math.floor(cost / 2);
   // 漩渦威壓（洛奇亞專屬）：只要牠在場上防守，對手攻擊消耗的能量持續 +3（封印特性時視為不存在）
@@ -5522,7 +5710,8 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   const attackerAbility = isAbilitySealed(aSide) ? null : attacker.ability;
   const defenderAbility = isAbilitySealed(dSide) ? null : defender.ability;
   const atkType  = aBuff.typeOverride || atk.type;
-  const burnMult = attacker.status?.type === 'burn' ? 0.7 : 1;
+  // 熔岩火山：2026-08-13新增，此場地下燒傷的傷害倍率從一般的×0.7再加重到×0.1
+  const burnMult = attacker.status?.type === 'burn' ? (G.activeStadium?.id === 'stadium-lava' ? 0.1 : 0.7) : 1;
   const aLabel   = aSide === 'player' ? '你的' : '對手的';
   const dLabel   = dSide === 'player' ? '你的' : '對手的';
   const atkTypeName = TYPE_ZH[atkType] || atkType;
@@ -5554,8 +5743,8 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
     // 加成項改了，記得同步改這裡；沒有自動化機制檢查兩者一致，只能人工同步。
     // 刻意不包含：legacyDmgBonus/typeBoostBonus/typeBoostMult（消耗性的「下次攻擊」buff，B不是主動出手攻擊，
     // 不應該被反彈這個被動事件消耗掉）、switchGuardMult/standbyGuardMult（這兩個在函式最前面已經針對
-    // 原本的defender=B消耗過一次，語意上不適合再套用到反彈方向）、reflectPierceMult/atk._halfDamage（跟反彈鏡/
-    // 羅馬鬥技場雙重攻擊這兩個機制本身有關，反彈情境下不適用）。
+    // 原本的defender=B消耗過一次，語意上不適合再套用到反彈方向）、reflectPierceMult/atk._secondHitMult（跟反彈鏡/
+    // 雙重攻擊這兩個機制本身有關，反彈情境下不適用）。
     const rMoldBreaker = defenderAbility?.id === 'mold-breaker' || defenderAbility?.id === 'true-damage';
     let rMult = effActive(atkType, attacker.type, attacker.type2);
     if (!rMoldBreaker && attackerAbility?.id === 'no-weakness-dodge') rMult = Math.min(rMult, 1);
@@ -5591,35 +5780,33 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
     // （治療生效之前）自己身上有異常狀態才+40，跟rAbilityDmgBonus同樣用defender代表反彈鏡情境下
     // 「實際出招的一方」，判斷順序在rider真正執行（清除status）之前，所以這裡讀到的還是清除前的狀態
     const rSelfCureBonus = (atk.rider === 'self-cure' && (defender.status || defender.status2)) ? 40 : 0;
-    const rColosseumMult = (G.activeStadium?.id === 'stadium-colosseum' && atkType === 'fighting' && !rAbilityDomainBonusApplies) ? 1.2 : 1;
-    const rMysticSpaceMult = (G.activeStadium?.id === 'stadium-mystic-space' && (attacker.type === 'psychic' || attacker.type2 === 'psychic')) ? 0.75 : 1;
-    const rLavaBonus = (G.activeStadium?.id === 'stadium-lava' && atkType === 'fire' && !rAbilityDomainBonusApplies) ? 30 : 0;
-    const rLavaMult = (G.activeStadium?.id === 'stadium-lava' && atkType === 'water') ? 0.65 : 1;
-    const rOceanMult = (G.activeStadium?.id === 'stadium-ocean' && atkType === 'electric') ? 1.4 : 1;
-    const rOceanPokeBonus = (G.activeStadium?.id === 'stadium-ocean' && (defender.type === 'water' || defender.type2 === 'water') && !rAbilityDomainBonusApplies) ? 40 : 0;
-    const rRockFieldReduction = (G.activeStadium?.id === 'stadium-rock-field' && (['rock','ground','steel'].includes(attacker.type) || ['rock','ground','steel'].includes(attacker.type2))) ? 50 : 0;
-    const rShrineReduction = (G.activeStadium?.id === 'stadium-shrine' && (attacker.type === 'normal' || attacker.type2 === 'normal')) ? 30 : 0;
-    const rDragonValleyBonus = (G.activeStadium?.id === 'stadium-dragon-valley' && atkType === 'dragon' && !rAbilityDomainBonusApplies) ? 35 : 0;
-    const rInvertBonus = (G.activeStadium?.id === 'stadium-invert' && rMult > 1) ? 25 : 0;
+    // 2026-08-13場地卡重新設計，理由跟主公式同一段說明，這裡是反彈鏡情境下的鏡像版本
+    const rMysticSpaceReduction = (G.activeStadium?.id === 'stadium-mystic-space' && (attacker.type === 'psychic' || attacker.type2 === 'psychic')) ? 50 : 0;
+    const rLavaBonus = (G.activeStadium?.id === 'stadium-lava' && atkType === 'fire' && !rAbilityDomainBonusApplies) ? 50 : 0;
+    const rLavaMult = (G.activeStadium?.id === 'stadium-lava' && atkType === 'water') ? 0.3 : 1;
+    const rOceanMoveBonus = (G.activeStadium?.id === 'stadium-ocean' && atkType === 'water' && !rAbilityDomainBonusApplies) ? 20 : 0;
+    const rRockFieldBonus = (G.activeStadium?.id === 'stadium-rock-field' && (atkType === 'rock' || atkType === 'ground') && !rAbilityDomainBonusApplies) ? 50 : 0;
+    const rRockFieldReduction = (G.activeStadium?.id === 'stadium-rock-field' && (attacker.type === 'rock' || attacker.type2 === 'rock' || attacker.type === 'ground' || attacker.type2 === 'ground')) ? 50 : 0;
+    const rShrineReduction = (G.activeStadium?.id === 'stadium-shrine' && (attacker.type === 'normal' || attacker.type2 === 'normal')) ? 50 : 0;
     const rElectricStormBonus = (G.activeStadium?.id === 'stadium-electric-storm' && atkType === 'electric' && !rAbilityDomainBonusApplies) ? 30 : 0;
     const rIceTundraBonus = (G.activeStadium?.id === 'stadium-ice-tundra' && atkType === 'ice' && !rAbilityDomainBonusApplies) ? 30 : 0;
+    const rIceTundraReduction = (G.activeStadium?.id === 'stadium-ice-tundra' && (attacker.type === 'ice' || attacker.type2 === 'ice')) ? 50 : 0;
     const rSteelFortressBonus = (G.activeStadium?.id === 'stadium-steel-fortress' && atkType === 'steel' && !rAbilityDomainBonusApplies) ? 30 : 0;
     const rBugHiveBonus = (G.activeStadium?.id === 'stadium-bug-hive' && atkType === 'bug' && !rAbilityDomainBonusApplies) ? 30 : 0;
     const rFairyWardBonus = (G.activeStadium?.id === 'stadium-fairy-ward' && atkType === 'fairy' && !rAbilityDomainBonusApplies) ? 30 : 0;
     const rDarkCurseMult = (G.activeStadium?.id === 'stadium-dark-curse' && atkType === 'dark' && !rAbilityDomainBonusApplies) ? 1.2 : 1;
     const rFlyingWindMult = (G.activeStadium?.id === 'stadium-flying-wind' && atkType === 'flying' && !rAbilityDomainBonusApplies) ? 1.2 : 1;
-    const rGhostCurseMult = (G.activeStadium?.id === 'stadium-ghost-curse' && atkType === 'ghost' && !rAbilityDomainBonusApplies) ? 1.2 : 1;
-    const rSteelFortressReduction = G.activeStadium?.id === 'stadium-steel-fortress' ? 20 : 0;
+    const rSteelFortressReduction = (G.activeStadium?.id === 'stadium-steel-fortress' && (attacker.type === 'steel' || attacker.type2 === 'steel')) ? 50 : 0;
     const rMegaPrismMult = (G.activeStadium?.id === 'stadium-mega-prism' && (attacker.mega || attacker.megaEvolved)) ? 0.6 : 1;
-    const rStadiumMult = rColosseumMult * rMysticSpaceMult * rLavaMult * rOceanMult * rDarkCurseMult * rFlyingWindMult * rGhostCurseMult * rMegaPrismMult;
-    const rStadiumFlatBonus = rLavaBonus + rDragonValleyBonus + rInvertBonus + rElectricStormBonus + rIceTundraBonus + rSteelFortressBonus + rBugHiveBonus + rFairyWardBonus + rOceanPokeBonus;
+    const rStadiumMult = rLavaMult * rDarkCurseMult * rFlyingWindMult * rMegaPrismMult;
+    const rStadiumFlatBonus = rLavaBonus + rOceanMoveBonus + rRockFieldBonus + rElectricStormBonus + rIceTundraBonus + rSteelFortressBonus + rBugHiveBonus + rFairyWardBonus;
     const rShieldTerm = (dBuff.ignoreShield || atk.ignoreShield || defenderAbility?.id === 'crowned-sword-might') ? 0 : (attackerAbility?.id === 'shield-invert' ? -aBuff.shield : aBuff.shield);
     const rCrownedShieldReduction = attackerAbility?.id === 'crowned-shield-aegis' ? 30 : 0;
-    const rBurnMult = defender.status?.type === 'burn' ? 0.7 : 1;
+    const rBurnMult = defender.status?.type === 'burn' ? (G.activeStadium?.id === 'stadium-lava' ? 0.1 : 0.7) : 1;
     const dmg = (rMult === 0) ? 0 : Math.max(0, Math.max(1, Math.floor(
       (atk.dmg + dBuff.atkBonus + rStadiumFlatBonus + rAbilityDmgBonus + rMegaBoostBonus + rBonusVsTypeBonus + rSelfCureBonus) *
       dBuff.atkMult * rBurnMult * rMult * rStabMult * rAbilityDmgMult * rDefAbilityMult * rStadiumMult
-    )) - rShieldTerm - rRockFieldReduction - rSteelFortressReduction - rShrineReduction - rCrownedShieldReduction);
+    )) - rShieldTerm - rRockFieldReduction - rSteelFortressReduction - rShrineReduction - rCrownedShieldReduction - rMysticSpaceReduction - rIceTundraReduction);
     aBuff.atkBonus = 0; aBuff.atkMult = 1; aBuff.typeOverride = null; aBuff.doubleStrike = false; aBuff.typeBoost = null; aBuff.ignoreShield = false; aBuff.guaranteedStatus = false; aBuff.costFreeType = null; aBuff.costHalved = false; aBuff.ignoreReflectNext = false; aBuff.iceHowlFreeze = false; dBuff.shield = 0; dBuff.iceImmune = false;
     log(`${dLabel}${defender.name} 的反彈鏡將攻擊反射回去！`, 'special');
     const aCard = document.getElementById(`${aSide}-bcard`);
@@ -5695,7 +5882,6 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   // 2026-07-24應使用者要求「場地卡太過強勢」，把傷害倍率壓回~1.2、固定加成>40的下修到30以下
   const stadiumBonus = G.activeStadium?.id === 'stadium-training' ? 25 : 0;
   const reversalBonus = G.activeStadium?.id === 'stadium-reversal' && attacker.cur <= attacker.hp * 0.5 ? 30 : 0;
-  // dragonValleyBonus的宣告移到下面abilityDomainBonusApplies算完之後（2026-08-04修正需要用到那個旗標）
   const lowHpSelf = attacker.cur <= attacker.hp / 3;
   const halfHpSelf = attacker.cur <= attacker.hp / 2;
   const tintedLensProc = attackerAbility?.id === 'tinted-lens' && mult > 0 && mult < 1;
@@ -5729,7 +5915,8 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
     (attackerAbility?.id === 'drizzle-ocean' && (atkType === 'water' || atkType === 'ice')) ||
     (attackerAbility?.id === 'drought-lava' && (atkType === 'ground' || atkType === 'fire')) ||
     (DOMAIN_ABILITY_STADIUM[attackerAbility?.id]?.type === atkType);
-  const dragonValleyBonus = (G.activeStadium?.id === 'stadium-dragon-valley' && atkType === 'dragon' && !abilityDomainBonusApplies) ? 35 : 0;
+  // 龍之谷：2026-08-13重新設計，拿掉原本的+35固定傷害（新spec只剩弱點消除/不減免/能量折扣，
+  // 能量折扣已在effectiveCost實作，這裡不用再加任何傷害項）
   // 強子引擎(密勒頓)/緋紅脈動(故勒頓)：各自專屬id，沿用blaze-boost同樣的「HP<1/3本系傷害×1.1」判定
   const isBlazeBoostFamily = attackerAbility?.id === 'blaze-boost' || attackerAbility?.id === 'hadron-engine' || attackerAbility?.id === 'crimson-pulse';
   const abilityDmgMult = ((isBlazeBoostFamily && lowHpSelf && isOwnType) ? 1.1
@@ -5753,51 +5940,47 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   // 2026-08-11修正：rider:'self-cure'同上（見rSelfCureBonus的說明），這裡是一般（非反彈）攻擊路徑，
   // attacker就是實際出招的一方，直接讀attacker.status/status2
   const selfCureBonus = (atk.rider === 'self-cure' && (attacker.status || attacker.status2)) ? 40 : 0;
-  // 2026-08-04：以下9張「領域特性→自動切換的場地」都補上!abilityDomainBonusApplies，理由見上面
-  // abilityDomainBonusApplies宣告處的說明——羅馬鬥技場只有這一個是mult不是flat bonus，其餘8張見下方。
-  const colosseumMult = (G.activeStadium?.id === 'stadium-colosseum' && atkType === 'fighting' && !abilityDomainBonusApplies) ? 1.2 : 1;
-  // Mystic Space: psychic-type defenders additionally take reduced damage (on top of the weakness removal in effActive)
-  const mysticSpaceMult = (G.activeStadium?.id === 'stadium-mystic-space' && (defender.type === 'psychic' || defender.type2 === 'psychic')) ? 0.75 : 1;
-  // Lava Volcano: fire-type moves固定加成；water-type moves ×0.65（削弱維持不變，2026-07-24只下修攻擊向的加成）
-  // 2026-08-04：drought-lava的abilityDmgBonus涵蓋ground/fire，這裡只有fire會重疊，一樣補上排除
-  const lavaBonus = (G.activeStadium?.id === 'stadium-lava' && atkType === 'fire' && !abilityDomainBonusApplies) ? 30 : 0;
-  const lavaMult = (G.activeStadium?.id === 'stadium-lava' && atkType === 'water') ? 0.65 : 1;
-  // Ocean World: electric-type moves ×1.4（2026-07-28應使用者要求從×1.2上修）
-  // (water-type move cost reduction handled in effectiveCost)
-  const oceanMult = (G.activeStadium?.id === 'stadium-ocean' && atkType === 'electric') ? 1.4 : 1;
-  // Ocean World：水屬性「寶可夢」固定+40傷害（不是招式屬性，是攻擊方自己的種族屬性）。
-  // 2026-08-04修正：跟abilityDmgBonus的drizzle-ocean判定（水/冰招式+40）重疊——海洋支配
-  // (拉普拉斯/蓋歐卡/毒刺水母/水伊布)本身就是水屬性寶可夢，且牠上場就會自動切到這個場地，
-  // 導致牠打水招式時兩個+40疊加、變相多算一次，改用統一的abilityDomainBonusApplies排除。
-  const oceanPokeBonus = (G.activeStadium?.id === 'stadium-ocean' && (attacker.type === 'water' || attacker.type2 === 'water') && !abilityDomainBonusApplies) ? 40 : 0;
-  // 岩石地帶：岩石／地面／鋼屬性寶可夢，受到攻擊固定減傷50（2026-07-27應使用者要求「-150太多了」下修，
-  // 從-150調回-50，並在effActive()額外加碼「弱點消除」讓這張卡不只靠單一個數字撐強度）
+  // 2026-08-13場地卡全面重新設計（見battle-logic skill同名章節）——羅馬鬥技場/亡靈墓園/魔幻空間
+  // 三張的傷害倍率拿掉，改成共用的雙重攻擊機制（見attackWithStadiumDouble）；
+  // 以下維持「9張領域特性→自動切換的場地」都補上!abilityDomainBonusApplies，理由見上面
+  // abilityDomainBonusApplies宣告處的說明。
+  // Mystic Space: psychic-type defenders take -50固定減傷（從×0.75乘數改成固定值，弱點消除
+  // 部分拿掉，改成搶奪對方手牌卡另外實作，見useTrainer的競技場啟用/回合結束區塊）
+  const mysticSpaceReduction = (G.activeStadium?.id === 'stadium-mystic-space' && (defender.type === 'psychic' || defender.type2 === 'psychic')) ? 50 : 0;
+  // Lava Volcano: fire-type moves固定加成（+30→+50上修）；water-type moves ×0.65→×0.3下修
+  const lavaBonus = (G.activeStadium?.id === 'stadium-lava' && atkType === 'fire' && !abilityDomainBonusApplies) ? 50 : 0;
+  const lavaMult = (G.activeStadium?.id === 'stadium-lava' && atkType === 'water') ? 0.3 : 1;
+  // Ocean World：電屬性加成整個拿掉，改成水屬性「招式」固定+20傷害（不再是攻擊方種族屬性）
+  const oceanMoveBonus = (G.activeStadium?.id === 'stadium-ocean' && atkType === 'water' && !abilityDomainBonusApplies) ? 20 : 0;
+  // 岩石地帶：弱點消除縮小成岩石／地面（鋼屬性移到專屬的鋼鐵堡壘），受到攻擊固定減傷維持50，
+  // 新增「岩石／地面寶可夢攻擊造成的傷害+50」——跟海洋世界oceanMoveBonus同一套「招式屬性決定」
+  // 寫法（不是攻擊方種族屬性），這是本專案對「X屬性寶可夢，招式造成的傷害+N」這種措辭的既有
+  // 統一慣例（見battle-logic skill熔岩火山那段的說明，不論中文寫「寶可夢」或「招式」都讀成招式屬性，
+  // 避免每張卡各自解讀出不一致的行為），一樣要排除rock-domain持有者打岩石招式時的雙重加成
+  const rockFieldBonus = (G.activeStadium?.id === 'stadium-rock-field' &&
+    (atkType === 'rock' || atkType === 'ground') && !abilityDomainBonusApplies) ? 50 : 0;
   const rockFieldReduction = (G.activeStadium?.id === 'stadium-rock-field' &&
-    (['rock','ground','steel'].includes(defender.type) || ['rock','ground','steel'].includes(defender.type2))) ? 50 : 0;
-  // 莊嚴神社：一般屬性寶可夢受到攻擊固定減傷30，跟rockFieldReduction同一套寫法
+    (defender.type === 'rock' || defender.type2 === 'rock' || defender.type === 'ground' || defender.type2 === 'ground')) ? 50 : 0;
+  // 莊嚴神社：一般屬性寶可夢受到攻擊固定減傷（30→50上修）
   const shrineReduction = (G.activeStadium?.id === 'stadium-shrine' &&
-    (defender.type === 'normal' || defender.type2 === 'normal')) ? 30 : 0;
-  // 反轉世界：反轉後如果仍然是「克制」（mult>1），額外+25固定傷害，讓這張場地卡的強度不只停留在「換算」而已
-  const invertBonus = (G.activeStadium?.id === 'stadium-invert' && mult > 1) ? 25 : 0;
-  // 2026-07-23新增8張場地卡的傷害加成部分（獨特玩法另外在別處實作，見isHealSealed/executeSwitch/
-  // HAND_MANIPULATION_CARDS/tryInflictStatus/antidote等call site）
-  // 2026-08-04：以下同樣補上!abilityDomainBonusApplies，理由見abilityDomainBonusApplies宣告處
+    (defender.type === 'normal' || defender.type2 === 'normal')) ? 50 : 0;
   const electricStormBonus = (G.activeStadium?.id === 'stadium-electric-storm' && atkType === 'electric' && !abilityDomainBonusApplies) ? 30 : 0;
+  // 永凍冰原：新增冰屬性寶可夢受到攻擊固定減傷50
   const iceTundraBonus = (G.activeStadium?.id === 'stadium-ice-tundra' && atkType === 'ice' && !abilityDomainBonusApplies) ? 30 : 0;
+  const iceTundraReduction = (G.activeStadium?.id === 'stadium-ice-tundra' && (defender.type === 'ice' || defender.type2 === 'ice')) ? 50 : 0;
   const steelFortressBonus = (G.activeStadium?.id === 'stadium-steel-fortress' && atkType === 'steel' && !abilityDomainBonusApplies) ? 30 : 0;
   const bugHiveBonus = (G.activeStadium?.id === 'stadium-bug-hive' && atkType === 'bug' && !abilityDomainBonusApplies) ? 30 : 0;
   const fairyWardBonus = (G.activeStadium?.id === 'stadium-fairy-ward' && atkType === 'fairy' && !abilityDomainBonusApplies) ? 30 : 0;
   const darkCurseMult = (G.activeStadium?.id === 'stadium-dark-curse' && atkType === 'dark' && !abilityDomainBonusApplies) ? 1.2 : 1;
   const flyingWindMult = (G.activeStadium?.id === 'stadium-flying-wind' && atkType === 'flying' && !abilityDomainBonusApplies) ? 1.2 : 1;
-  const ghostCurseMult = (G.activeStadium?.id === 'stadium-ghost-curse' && atkType === 'ghost' && !abilityDomainBonusApplies) ? 1.2 : 1;
-  // 鋼鐵堡壘：不限屬性，雙方受到的攻擊傷害固定減少20（全域防禦力場，跟rockFieldReduction一樣在最後減）
-  const steelFortressReduction = G.activeStadium?.id === 'stadium-steel-fortress' ? 20 : 0;
-  // Mega稜鏡塔：可Mega進化（poke.mega存在）或已經Mega進化的寶可夢，受到攻擊×0.6，跟mysticSpaceMult
-  // 同一套「defender自身屬性/身分決定的減傷倍率」寫法
+  // 鋼鐵堡壘：從「不限屬性、雙方受到攻擊固定-20」改成「鋼屬性寶可夢受到攻擊固定-50」，鋼屬性
+  // 招式傷害+30（steelFortressBonus）不變
+  const steelFortressReduction = (G.activeStadium?.id === 'stadium-steel-fortress' && (defender.type === 'steel' || defender.type2 === 'steel')) ? 50 : 0;
+  // Mega稜鏡塔：可Mega進化（poke.mega存在）或已經Mega進化的寶可夢，受到攻擊×0.6
   const megaPrismMult = (G.activeStadium?.id === 'stadium-mega-prism' && (defender.mega || defender.megaEvolved)) ? 0.6 : 1;
-  const stadiumMult = colosseumMult * mysticSpaceMult * lavaMult * oceanMult * darkCurseMult * flyingWindMult * ghostCurseMult * megaPrismMult;
-  const stadiumFlatBonus = stadiumBonus + reversalBonus + lavaBonus + dragonValleyBonus + invertBonus +
-    electricStormBonus + iceTundraBonus + steelFortressBonus + bugHiveBonus + fairyWardBonus + oceanPokeBonus;
+  const stadiumMult = lavaMult * darkCurseMult * flyingWindMult * megaPrismMult;
+  const stadiumFlatBonus = stadiumBonus + reversalBonus + lavaBonus + oceanMoveBonus + rockFieldBonus +
+    electricStormBonus + iceTundraBonus + steelFortressBonus + bugHiveBonus + fairyWardBonus;
   // 龍之波動／順風：只在下次攻擊剛好符合指定屬性時才加成，不論有沒有命中屬性都會被這次攻擊消耗掉
   // typeBoost可以是倍率(mult，≥1.1的維持原本寫法，例如龍之波動×1.12)或固定加成(bonus，2026-07-22起
   // <1.1的一律改成這種，例如順風原本×1.04太弱，改成命中對應屬性時+40固定傷害)
@@ -5822,13 +6005,12 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   // 原本只有內層Math.max(1,...)保底、扣減後沒有再夾在0以上，會讓dmg變成負數——defender.cur -= dmg
   // 對負數dmg來說等於「攻擊」反而幫對方加血，且沒有上限封頂。外層再包一層Math.max(0,...)確保
   // 固定減傷最多只能把傷害打到0（完全格擋），不會倒扣出負傷害。
-  // 羅馬鬥技場第二段攻擊的×0.5，是「這次攻擊的最終傷害減半」，不是「招式基礎威力減半」——
-  // 2026-08-04修正：原本attackWithColosseumDouble()是直接把atk.dmg砍半再丟回doAttack，
-  // 但megaBoostBonus(mega進化+100)/abilityDmgBonus等固定加成完全沒被砍到，導致兩段傷害幾乎一樣高
-  // （使用者回報「兩下攻擊都超過300」）。改成atk._halfDamage旗標，乘在整條乘法鏈的最後面，
-  // 確保「最終傷害減半」是真的減半整個結果，而不是只減半其中一個很小的加項。
+  // 雙重攻擊（羅馬鬥技場/亡靈墓園/魔幻空間共用，見attackWithStadiumDouble）第二段攻擊的×0.4，
+  // 是「這次攻擊的最終傷害乘0.4」，不是「招式基礎威力乘0.4」——atk._secondHitMult乘在整條乘法鏈
+  // 的最後面，確保「最終傷害打折」是真的對整個結果打折，而不是只打折其中一個很小的加項
+  // （2026-08-13從專屬colosseum的atk._halfDamage/固定0.5改成通用的_secondHitMult/0.4，見同一個修正）
   let dmg = (mult === 0 || frostArmorProc) ? 0
-    : Math.max(0, Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumFlatBonus + legacyDmgBonus + abilityDmgBonus + megaBoostBonus + typeBoostBonus + bonusVsTypeBonus + selfCureBonus) * effectiveAtkMult * burnMult * mult * stabMult * switchGuardMult * standbyGuardMult * abilityDmgMult * defAbilityMult * stadiumMult * typeBoostMult * reflectPierceMult * (atk._halfDamage ? 0.5 : 1))) - shieldTerm - rockFieldReduction - steelFortressReduction - shrineReduction - crownedShieldReduction);
+    : Math.max(0, Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumFlatBonus + legacyDmgBonus + abilityDmgBonus + megaBoostBonus + typeBoostBonus + bonusVsTypeBonus + selfCureBonus) * effectiveAtkMult * burnMult * mult * stabMult * switchGuardMult * standbyGuardMult * abilityDmgMult * defAbilityMult * stadiumMult * typeBoostMult * reflectPierceMult * (atk._secondHitMult ?? 1))) - shieldTerm - rockFieldReduction - steelFortressReduction - shrineReduction - crownedShieldReduction - mysticSpaceReduction - iceTundraReduction);
   const wasDoubleStrike = aBuff.doubleStrike; // captured before reset — 連擊 rolls the move's own status chance a second time
   const guaranteedStatusThisHit = aBuff.guaranteedStatus; // 心靈感應：captured before reset，同樣道理
   // 冰霜咆哮：captured before reset，同樣道理——只有這次攻擊剛好是冰屬性才會真的觸發額外結凍判定
@@ -5845,14 +6027,16 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   if (!moldBreaker && dmg > 0 && isAbyssDodgeFamily) {
     if (Math.random() < 0.1) { abyssDodgeProc = true; dmg = 0; }
   }
-  // 疾風之翼／劇毒領域：場地生效中，飛行／毒屬性寶可夢有50%機率完全閃避攻擊（一次性骰，不跟其他
-  // 閃避來源疊加判定——沿用深淵支配同一套「dmg>0才骰、true-damage無視」寫法，不是額外相乘機率）
+  // 場地卡閃避（2026-08-13重新設計）：疾風之翼(flying,50%)／劇毒領域(poison,20%，從50%下修)／
+  // 沙塵暴(ground/rock,70%，新增)／蟲群巢穴(bug,50%，新增)——各卡機率不同，改用表查找而不是
+  // 硬寫死單一50%（一次性骰，不跟其他閃避來源疊加判定——沿用深淵支配同一套「dmg>0才骰、
+  // true-damage無視」寫法，不是額外相乘機率）
   let stadiumDodgeProc = false;
-  const stadiumDodgeActive =
-    (G.activeStadium?.id === 'stadium-flying-wind' && (defender.type === 'flying' || defender.type2 === 'flying')) ||
-    (G.activeStadium?.id === 'stadium-toxic-field' && (defender.type === 'poison' || defender.type2 === 'poison'));
+  const stadiumDodgeCfg = STADIUM_DODGE[G.activeStadium?.id];
+  const stadiumDodgeActive = stadiumDodgeCfg &&
+    (stadiumDodgeCfg.types.includes(defender.type) || stadiumDodgeCfg.types.includes(defender.type2));
   if (!moldBreaker && dmg > 0 && stadiumDodgeActive) {
-    if (Math.random() < 0.5) { stadiumDodgeProc = true; dmg = 0; }
+    if (Math.random() < stadiumDodgeCfg.chance) { stadiumDodgeProc = true; dmg = 0; }
   }
 
   const defTypeStr = defender.type2 ? `${TYPE_ZH[defender.type]||defender.type}／${TYPE_ZH[defender.type2]||defender.type2}` : (TYPE_ZH[defender.type]||defender.type);
@@ -5937,6 +6121,12 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
     if (dmg > 0 && atkType === 'fire' && defender.status?.type === 'freeze') {
       defender.status = null;
       log(`${dLabel}${defender.name} 被火焰融化，從結凍中解脫！`, 'special');
+      renderBattle();
+    }
+    // 熔岩火山：2026-08-13新增，火屬性招式命中造成傷害時，必定讓對手燒傷（跟移動型別一致，
+    // 沿用「招式屬性決定」慣例，不是攻擊方種族屬性）
+    if (dmg > 0 && atkType === 'fire' && G.activeStadium?.id === 'stadium-lava' && inflictStatus(defender, 'burn', 999)) {
+      log(`${dLabel}${defender.name} 被熔岩的熱氣灼傷了！`, 'special');
       renderBattle();
     }
     // 2026-08-01應使用者要求「命中且造成傷害才會骰」改成跟傷害無關——異常狀態判定不再要求
@@ -6074,23 +6264,39 @@ function doAttack(attacker, defender, atk, aSide, dSide, onDone) {
   }, 380);
 }
 
-/* 羅馬鬥技場：鬥屬性攻擊會連續發動兩次，第二次傷害減半——如果第一次命中就打倒對手，第二次
-   改成攻擊新換上場的寶可夢（等對方選完替補之後才真正打出去）。用一層wrapper包住doAttack，
+// 2026-08-13重新設計：羅馬鬥技場(fighting)/亡靈墓園(ghost)/魔幻空間(psychic)三張場地卡共用
+// 同一套「雙重攻擊」機制（原本只有羅馬鬥技場一張，第二次傷害從×0.5改成×0.4），改成表驅動
+// 而不是各卡各自寫一份if判斷
+const STADIUM_DOUBLE_ATTACK = {
+  'stadium-colosseum':    'fighting',
+  'stadium-ghost-curse':  'ghost',
+  'stadium-mystic-space': 'psychic',
+};
+// 場地卡閃避機率表（2026-08-13重新設計）——doAttack()裡的stadiumDodgeProc查這張表
+const STADIUM_DODGE = {
+  'stadium-flying-wind': { types: ['flying'], chance: 0.5 },
+  'stadium-toxic-field': { types: ['poison'], chance: 0.2 },
+  'stadium-sandstorm':   { types: ['ground', 'rock'], chance: 0.7 },
+  'stadium-bug-hive':    { types: ['bug'], chance: 0.5 },
+};
+/* 特定場地卡啟用時，對應屬性的攻擊會連續發動兩次，第二次傷害×0.4——如果第一次命中就打倒對手，
+   第二次改成攻擊新換上場的寶可夢（等對方選完替補之後才真正打出去）。用一層wrapper包住doAttack，
    而不是塞進doAttack本體內部，因為「等KO替補選完再打第二下」這種跨越handleKO非同步流程
    的邏輯，跟doAttack原本「打一下就結束、由呼叫者自己判斷KO」的單次呼叫模型不相容。
    playerAttack/cpuAttack呼叫這個取代直接呼叫doAttack，內部沒符合條件就單純轉呼叫doAttack。 */
-function attackWithColosseumDouble(attacker, defender, atk, aSide, dSide, onDone) {
+function attackWithStadiumDouble(attacker, defender, atk, aSide, dSide, onDone) {
   const aBuff = aSide === 'player' ? G.playerBuff : G.cpuBuff;
-  const atkTypeForColosseum = aBuff.typeOverride || atk.type;
-  if (!(G.activeStadium?.id === 'stadium-colosseum' && atkTypeForColosseum === 'fighting')) {
+  const atkTypeForDouble = aBuff.typeOverride || atk.type;
+  const requiredType = STADIUM_DOUBLE_ATTACK[G.activeStadium?.id];
+  if (requiredType !== atkTypeForDouble) {
     doAttack(attacker, defender, atk, aSide, dSide, onDone);
     return;
   }
   doAttack(attacker, defender, atk, aSide, dSide, () => {
     if (attacker.cur <= 0) { onDone(); return; } // 攻擊方在第一下就陣亡（反彈鏡／反傷特性），沒有第二下可打
-    // _halfDamage：在doAttack最終傷害算完後才乘0.5，而不是在這裡先砍base dmg——
+    // _secondHitMult：在doAttack最終傷害算完後才乘0.4，而不是在這裡先砍base dmg——
     // 否則megaBoostBonus/abilityDmgBonus等固定加成不會被砍到，見doAttack內的說明
-    const secondAtk = { ...atk, _halfDamage: true };
+    const secondAtk = { ...atk, _secondHitMult: 0.4 };
     const fireSecond = () => {
       const curDefender = dSide === 'player' ? P() : CP();
       doAttack(attacker, curDefender, secondAtk, aSide, dSide, onDone);
@@ -6203,7 +6409,8 @@ function triggerTrapStadium(poke, side) {
   if (!poke || poke.cur <= 0) return;
   const label = side === 'player' ? '你的' : '對手的';
   if (G.activeStadium?.id === 'stadium-spikes') {
-    const dmg = Math.max(1, Math.round(poke.hp * 0.25));
+    // 2026-08-13重新設計：從「最大HP 25%」改成固定100傷害
+    const dmg = Math.min(poke.cur, 100);
     poke.cur = Math.max(0, poke.cur - dmg); // 扣血效果應該能讓寶可夢陣亡，不該保留1HP
     log(`${label}${poke.name} 受到了尖峰陷阱的傷害！（-${dmg} HP，剩 ${poke.cur}/${poke.hp}）`, 'special');
     updateHp(side, poke);
@@ -6246,6 +6453,15 @@ function isHealSealed(side) {
   const opp = side === 'player' ? CP() : P();
   if (opp?.ability?.id === 'dark-abyss-lockdown') return true;
   return (side === 'player' ? G.playerHealSealedTurns : G.cpuHealSealedTurns) > 0;
+}
+// 2026-08-13新增：異常狀態解除封鎖，跟isHealSealed同一種「掛在既有call site」寫法，但是
+// 針對「特定一種異常狀態能不能被解除」而不是HP回復——亡靈墓園擋全部、劇毒領域只擋中毒、
+// 熔岩火山只擋燒傷。effectType是status物件的.type欄位（'poison'/'burn'/...）
+function isStatusCureBlocked(effectType) {
+  if (G.activeStadium?.id === 'stadium-ghost-curse') return true;
+  if (G.activeStadium?.id === 'stadium-toxic-field' && effectType === 'poison') return true;
+  if (G.activeStadium?.id === 'stadium-lava' && effectType === 'burn') return true;
+  return false;
 }
 // 2026-07-29新增：每回合開始「額外抽到指定卡片」的特性——強子引擎(密勒頓)/緋紅脈動(故勒頓)
 // 必定抽；漩渦威壓(洛奇亞)/惡作劇之心(龍捲雲)50%機率抽，惡作劇之心沒抽到改成下次攻擊+20。
@@ -6798,50 +7014,69 @@ function drawAfterTurn(onDone) {
   G.playerSupporterLockedThisTurn = G.playerSupporterLocked;
   G.playerSupporterLocked = false;
   G.playerUsedItemThisTurn = false; // 機械之心系特性的旗標，每回合開始重置
-  // Hot Springs stadium: both active heal 15 HP each turn
-  if (G.activeStadium?.id === 'stadium-spring') {
-    [{ poke:P(), side:'player' }, { poke:CP(), side:'cpu' }].forEach(({poke, side}) => {
-      if (poke.cur > 0 && poke.cur < poke.hp && !isHealSealed(side)) { // 詛咒：只跳過被封印的那一側，不整段短路掉
-        const heal = Math.min(30, poke.hp - poke.cur);
-        poke.cur += heal;
-        log(`【地熱溫泉】${poke.name} 回復了 ${heal} HP！`, 'special');
-        updateHp(side, poke);
-      }
-    });
+  // 2026-08-13場地卡全面重新設計：以下這批「op/role」是這次呼叫代表的turn transition——
+  // drawAfterTurn()＝玩家回合即將開始＝CPU回合剛結束，所以op（回合剛結束的那一方）＝cpu，
+  // role（現在要開始回合的那一方）＝player。cpuAttack()開頭有對稱的鏡像寫法（op=player,role=cpu）。
+  const stadiumOp = { poke: CP(), side: 'cpu' };
+  const stadiumRole = { poke: P(), side: 'player' };
+  // 訓練場：回合結束時，該回合玩家（op）額外抽取一張支援者卡
+  if (G.activeStadium?.id === 'stadium-training' && stadiumOp.poke.cur > 0) {
+    const drawn = pickSupporterAvoidingDupes(G.cpuHand);
+    G.cpuHand.push(drawn);
+    log(`【訓練場】對手額外抽了一張支援者卡！`, 'special');
   }
-  // Sandstorm stadium: non-ground/rock/steel actives lose 6% max HP each turn
+  // 地熱溫泉：回合結束時，該回合玩家（op）回復70HP，並抽取一張支援者卡
+  if (G.activeStadium?.id === 'stadium-spring' && stadiumOp.poke.cur > 0) {
+    if (stadiumOp.poke.cur < stadiumOp.poke.hp && !isHealSealed('cpu')) {
+      const heal = Math.min(70, stadiumOp.poke.hp - stadiumOp.poke.cur);
+      stadiumOp.poke.cur += heal;
+      log(`【地熱溫泉】${stadiumOp.poke.name} 回復了 ${heal} HP！`, 'special');
+      updateHp('cpu', stadiumOp.poke);
+    }
+    const drawn = pickSupporterAvoidingDupes(G.cpuHand);
+    G.cpuHand.push(drawn);
+    log(`【地熱溫泉】對手額外抽了一張支援者卡！`, 'special');
+  }
+  // 逆轉鬥技場：回合結束時，該回合玩家（op）回復150HP
+  if (G.activeStadium?.id === 'stadium-reversal' && stadiumOp.poke.cur > 0 && !isHealSealed('cpu')) {
+    const heal = Math.min(150, stadiumOp.poke.hp - stadiumOp.poke.cur);
+    if (heal > 0) {
+      stadiumOp.poke.cur += heal;
+      log(`【逆轉鬥技場】${stadiumOp.poke.name} 回復了 ${heal} HP！`, 'special');
+      updateHp('cpu', stadiumOp.poke);
+    }
+  }
+  // 海洋世界：回合結束時，該回合玩家（op）回復30HP
+  if (G.activeStadium?.id === 'stadium-ocean' && stadiumOp.poke.cur > 0 && !isHealSealed('cpu')) {
+    const heal = Math.min(30, stadiumOp.poke.hp - stadiumOp.poke.cur);
+    if (heal > 0) {
+      stadiumOp.poke.cur += heal;
+      log(`【海洋世界】${stadiumOp.poke.name} 回復了 ${heal} HP！`, 'special');
+      updateHp('cpu', stadiumOp.poke);
+    }
+  }
+  // 沙塵暴：非地面／岩石／鋼屬性寶可夢，該回合結束的一方（op）損失50HP，
+  // 即將開始回合的一方（role）損失20HP——同一次turn transition裡兩邊各觸發各自的量
   if (G.activeStadium?.id === 'stadium-sandstorm') {
-    [{ poke:P(), side:'player' }, { poke:CP(), side:'cpu' }].forEach(({poke, side}) => {
+    [{ ...stadiumOp, dmg: 50 }, { ...stadiumRole, dmg: 20 }].forEach(({ poke, side, dmg }) => {
       const immune = ['ground','rock','steel'].includes(poke.type) || ['ground','rock','steel'].includes(poke.type2);
       if (poke.cur > 0 && !immune) {
-        const dmg = Math.max(1, Math.round(poke.hp * 0.12));
-        poke.cur = Math.max(0, poke.cur - dmg);
-        log(`【沙塵暴】${poke.name} 受到了傷害！（-${dmg} HP）`, 'special');
+        const actual = Math.min(poke.cur, dmg);
+        poke.cur -= actual;
+        log(`【沙塵暴】${poke.name} 受到了傷害！（-${actual} HP）`, 'special');
         updateHp(side, poke);
       }
     });
   }
-  // 雷雲庇護所：每回合結束，雙方若無異常狀態，20%機率陷入麻痺
-  // 2026-08-08修正：desc/註解都寫「若無異常狀態」，但原本沒有真的檢查poke.status/status2，
-  // inflictStatus()本身只防止同一種狀態重複疊加，不會擋「已經有別種狀態時還能再加一種」
-  if (G.activeStadium?.id === 'stadium-electric-storm') {
-    [{ poke:P(), side:'player' }, { poke:CP(), side:'cpu' }].forEach(({poke, side}) => {
-      if (poke.cur > 0 && !poke.status && !poke.status2 && Math.random() < 0.2 && inflictStatus(poke, 'paralysis', 999)) {
-        log(`【雷雲庇護所】${poke.name} 被閃電擊中，陷入了麻痺！`, 'special');
-      }
-    });
+  // 永凍冰原：回合結束時，即將開始回合的一方（role，也就是op的對手）若為非冰屬性則被結凍
+  if (G.activeStadium?.id === 'stadium-ice-tundra' && stadiumRole.poke.cur > 0 &&
+      stadiumRole.poke.type !== 'ice' && stadiumRole.poke.type2 !== 'ice' &&
+      inflictStatus(stadiumRole.poke, 'freeze', 2)) {
+    log(`【永凍冰原】${stadiumRole.poke.name} 被凍住了！`, 'special');
   }
-  // 永凍冰原：每回合結束，雙方若無異常狀態，15%機率陷入結凍
-  if (G.activeStadium?.id === 'stadium-ice-tundra') {
-    [{ poke:P(), side:'player' }, { poke:CP(), side:'cpu' }].forEach(({poke, side}) => {
-      if (poke.cur > 0 && !poke.status && !poke.status2 && Math.random() < 0.15 && inflictStatus(poke, 'freeze', 2)) {
-        log(`【永凍冰原】${poke.name} 被凍住了！`, 'special');
-      }
-    });
-  }
-  // 邪惡森林：每回合結束，草屬性上場寶可夢回復70HP，跟stadium-spring同一套寫法
+  // 邪惡森林：每回合結束，草屬性上場寶可夢回復70HP，跟stadium-spring同一套寫法（雙方對稱）
   if (G.activeStadium?.id === 'stadium-evil-forest') {
-    [{ poke:P(), side:'player' }, { poke:CP(), side:'cpu' }].forEach(({poke, side}) => {
+    [stadiumOp, stadiumRole].forEach(({poke, side}) => {
       if (poke.cur > 0 && poke.cur < poke.hp && (poke.type === 'grass' || poke.type2 === 'grass') && !isHealSealed(side)) {
         const heal = Math.min(70, poke.hp - poke.cur);
         poke.cur += heal;
@@ -6850,16 +7085,57 @@ function drawAfterTurn(onDone) {
       }
     });
   }
-  // 劇毒領域：每回合結束，毒屬性上場寶可夢回復70HP，跟stadium-evil-forest同一套寫法
-  if (G.activeStadium?.id === 'stadium-toxic-field') {
-    [{ poke:P(), side:'player' }, { poke:CP(), side:'cpu' }].forEach(({poke, side}) => {
-      if (poke.cur > 0 && poke.cur < poke.hp && (poke.type === 'poison' || poke.type2 === 'poison') && !isHealSealed(side)) {
+  // 莊嚴神社：每回合結束，一般屬性上場寶可夢回復70HP，跟stadium-evil-forest同一套寫法（雙方對稱）
+  if (G.activeStadium?.id === 'stadium-shrine') {
+    [stadiumOp, stadiumRole].forEach(({poke, side}) => {
+      if (poke.cur > 0 && poke.cur < poke.hp && (poke.type === 'normal' || poke.type2 === 'normal') && !isHealSealed(side)) {
         const heal = Math.min(70, poke.hp - poke.cur);
         poke.cur += heal;
-        log(`【劇毒領域】${poke.name} 回復了 ${heal} HP！`, 'special');
+        log(`【莊嚴神社】${poke.name} 回復了 ${heal} HP！`, 'special');
         updateHp(side, poke);
       }
     });
+  }
+  // 暗夜詛咒領域：若場上（任一方）為惡屬性寶可夢，回合結束時，該側的對手棄掉1張手牌
+  if (G.activeStadium?.id === 'stadium-dark-curse') {
+    [stadiumOp, stadiumRole].forEach(({poke, side}) => {
+      if (poke.cur <= 0 || !(poke.type === 'dark' || poke.type2 === 'dark')) return;
+      const opSide = side === 'player' ? 'cpu' : 'player';
+      const opHand = opSide === 'player' ? G.playerHand : G.cpuHand;
+      if (opHand.length) {
+        const idx = Math.floor(Math.random() * opHand.length);
+        const discarded = opHand.splice(idx, 1)[0];
+        log(`【暗夜詛咒領域】${poke.name} 的惡屬性氣息讓${opSide === 'player' ? '你' : '對手'}棄掉了【${discarded.name}】！`, 'special');
+      }
+    });
+  }
+  // 魔幻空間：回合結束時，若我方（任一方）場上寶可夢是超屬性寶可夢，可搶奪對方一張卡牌——
+  // 跟activation時同一種效果，這裡是每回合結束都重複觸發的版本（雙方都檢查，不限定原本發動的一方）
+  if (G.activeStadium?.id === 'stadium-mystic-space') {
+    [stadiumOp, stadiumRole].forEach(({poke, side}) => {
+      if (poke.cur <= 0 || !(poke.type === 'psychic' || poke.type2 === 'psychic')) return;
+      const opSide2 = side === 'player' ? 'cpu' : 'player';
+      const myHand = side === 'player' ? G.playerHand : G.cpuHand;
+      const opHand = opSide2 === 'player' ? G.playerHand : G.cpuHand;
+      if (opHand.length) {
+        const idx = Math.floor(Math.random() * opHand.length);
+        const stolen = opHand.splice(idx, 1)[0];
+        myHand.push(stolen);
+        log(`【魔幻空間】${poke.name} 讓${side === 'player' ? '你' : '對手'}搶走了${opSide2 === 'player' ? '你' : '對手'}的【${stolen.name}】！`, 'special');
+        if (side === 'player' && G.playerHand.length > 7) showDiscardModal(() => {});
+      }
+    });
+  }
+  // 妖精結界原野：回合開始時，即將開始回合的一方（role）若為妖精屬性，解除負面狀態；
+  // 回合結束時，即將開始回合的一方（role，也就是op的對手）獲得混亂
+  if (G.activeStadium?.id === 'stadium-fairy-ward' && stadiumRole.poke.cur > 0) {
+    if ((stadiumRole.poke.type === 'fairy' || stadiumRole.poke.type2 === 'fairy') && (stadiumRole.poke.status || stadiumRole.poke.status2)) {
+      stadiumRole.poke.status = null; stadiumRole.poke.status2 = null;
+      log(`【妖精結界原野】${stadiumRole.poke.name} 的負面狀態解除了！`, 'special');
+    }
+    if (inflictStatus(stadiumRole.poke, 'confusion', Math.floor(Math.random() * 3) + 2)) {
+      log(`【妖精結界原野】${stadiumRole.poke.name} 陷入了混亂！`, 'special');
+    }
   }
   // Player gains energy at start of their own turn
   // 全力出擊：上回合使用時「下回合無法回復能量」的代價，這裡直接跳過能量回復並清掉旗標
@@ -7057,15 +7333,19 @@ function chooseTrade(type) {
   }
   if (type === 'cure') {
     const active = P();
-    if (G.activeStadium?.id === 'stadium-ghost-curse') {
-      log(`亡靈墓園場地啟用中，異常狀態無法被解除！`, 'system');
-    } else if (active.status || active.status2) {
-      const cured = [active.status, active.status2].filter(Boolean).map(st => STATUS_EFFECT_ZH[st.type] || st.type);
-      active.status = null;
-      active.status2 = null;
-      log(`棄牌解除了${active.name}的${cured.join('、')}！`, 'system');
-    } else {
+    const slot1Blocked = active.status && isStatusCureBlocked(active.status.type);
+    const slot2Blocked = active.status2 && isStatusCureBlocked(active.status2.type);
+    if (!active.status && !active.status2) {
       log(`${active.name}目前沒有異常狀態。`, 'system');
+    } else {
+      const cured = [];
+      if (active.status && !slot1Blocked) { cured.push(STATUS_EFFECT_ZH[active.status.type] || active.status.type); active.status = null; }
+      if (active.status2 && !slot2Blocked) { cured.push(STATUS_EFFECT_ZH[active.status2.type] || active.status2.type); active.status2 = null; }
+      if (cured.length) {
+        log(`棄牌解除了${active.name}的${cured.join('、')}！${(slot1Blocked || slot2Blocked) ? '（部分異常狀態被場地效果封印，無法解除）' : ''}`, 'system');
+      } else {
+        log(`異常狀態被場地效果封印，無法解除！`, 'system');
+      }
     }
     renderBattle();
     return;
