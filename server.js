@@ -3190,6 +3190,24 @@ function pocketToolHpBonusAmount(poke) {
   const cfg = poke.tool && TOOL_HP_BONUS[poke.tool.id];
   return (cfg && cfg.condition(poke)) ? cfg.amount : 0;
 }
+// 棄置一隻寶可夢身上裝備的Tool，正確收回HP加成——修正原本3處各自手刻的棄置邏輯：只認
+// A2-147/A3-147兩張（B3a-069/B3b-065漏掉，移除完全沒收回加成）、且用Math.min(curHp,hp)
+// 「夾住」而不是真的扣除，等於只讓curHp不超過新的hp上限，血量剛好卡在加成邊緣的寶可夢
+// 移除加成後應該倒下卻沒有倒下（使用者回報「道具被棄置時，血量歸零應該倒下卻沒倒下」）。
+// 這裡只負責調整數字，不負責判定KO——curHp<=0之後的倒下/棄置/加分/forced_switch，攻擊路徑
+// （"Before doing damage..."）交給pocket_attack handler本來就有的攻擊後curHp<=0檢查；
+// 非攻擊的Trainer卡路徑（A3-151/B3-147）則交給pocketBroadcastState裡的pocketResolveAmbientKOs
+// 統一收尾（endsTurn=false，不是攻擊/中毒造成的KO，不該連帶結束回合）。
+function pocketDiscardTool(p) {
+  if (!p.tool) return 0;
+  const bonus = pocketToolHpBonusAmount(p);
+  if (bonus > 0) {
+    p.hp = Math.max(10, p.hp - bonus);
+    p.curHp = Math.max(0, p.curHp - bonus);
+  }
+  p.tool = null;
+  return bonus;
+}
 function makePocketFossilInstance(cardId) {
   const base = POCKET_CARDS_BY_ID[cardId];
   return {
@@ -3634,7 +3652,7 @@ function pocketKoPoints(dead) {
   if (dead.ex && (dead.name || '').startsWith('Mega ')) return 3;
   return dead.ex ? 2 : 1;
 }
-function pocketResolveActiveKO(G, koRole, awardPoint = true) {
+function pocketResolveActiveKO(G, koRole, awardPoint = true, endsTurn = true) {
   const koSide = G[koRole];
   const otherRole = koRole === 'p1' ? 'p2' : 'p1';
   const otherSide = G[otherRole];
@@ -3674,7 +3692,9 @@ function pocketResolveActiveKO(G, koRole, awardPoint = true) {
   koSide.active = null;
   if (awardPoint && otherSide.points >= 3) { G.winner = otherRole; G.phase = 'done'; return; }
   if (koSide.bench.length) {
-    pocketEnterForcedSwitch(G, koRole, 'endTurn', null, true); // 攻擊/中毒造成的換人＝這回合的行動已經用掉，換完人回合換對方；isKO=true給client顯示「倒下了」
+    // endsTurn=false用於特性直接擊倒（pocket_use_ability）——卡面文字沒說「用特性會結束回合」，
+    // 只有攻擊/中毒/場地等既有情境才算「這回合的行動已經用掉」，換完人回合還是原本那個人的
+    pocketEnterForcedSwitch(G, koRole, endsTurn ? 'endTurn' : 'noEndTurn', null, true); // isKO=true給client顯示「倒下了」
   } else {
     G.winner = otherRole; G.phase = 'done';
   }
@@ -5119,9 +5139,7 @@ const ATTACK_EFFECTS = {
   "Before doing damage, discard all Pokémon Tools from your opponent's Active Pokémon.": ctx => {
     const p = ctx.defender;
     if (!p?.tool) return;
-    if (p.tool.id === 'A2-147') { p.hp = Math.max(10, p.hp - 20); p.curHp = Math.min(p.curHp, p.hp); }
-    if (p.tool.id === 'A3-147' && (p.types || []).includes('Grass')) { p.hp = Math.max(10, p.hp - 30); p.curHp = Math.min(p.curHp, p.hp); }
-    p.tool = null;
+    pocketDiscardTool(p); // KO判定交給pocket_attack handler本來就有的攻擊後curHp<=0檢查，這裡不用自己判斷
   },
   "Discard a random Pokémon Tool card from your opponent's hand.": ctx => {
     const idxs = ctx.oppSide.hand.map((c, i) => (c.category === 'Trainer' && c.trainerType === 'Tool') ? i : -1).filter(i => i >= 0);
@@ -6333,13 +6351,8 @@ const TRAINER_EFFECTS = {
     ctx.side.hand = ctx.side.hand.filter(c => c.uid !== handCard.uid);
     return null;
   },
-  'A3-151': (ctx) => { // Guzma：棄置對手全部寶可夢身上裝備的Tool——Giant Cape/Leaf Cape的HP加成要一併收回
-    [ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean).forEach(p => {
-      if (!p.tool) return;
-      if (p.tool.id === 'A2-147') { p.hp = Math.max(10, p.hp - 20); p.curHp = Math.min(p.curHp, p.hp); }
-      if (p.tool.id === 'A3-147' && (p.types || []).includes('Grass')) { p.hp = Math.max(10, p.hp - 30); p.curHp = Math.min(p.curHp, p.hp); }
-      p.tool = null;
-    });
+  'A3-151': (ctx) => { // Guzma：棄置對手全部寶可夢身上裝備的Tool——HP加成要一併收回，KO判定交給pocketBroadcastState裡的pocketResolveAmbientKOs統一處理
+    [ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean).forEach(p => pocketDiscardTool(p));
     return null;
   },
   'A3-152': (ctx, msg) => { // Lana：需要己方場上有Araquanid，換上對手任一板凳寶可夢當主戰(不限身上有傷)
@@ -6712,7 +6725,7 @@ const TRAINER_EFFECTS = {
     const target = pool.find(p => p.uid === msg.target);
     if (!target) return '請選擇要棄掉道具卡的寶可夢，或選擇棄掉場地卡';
     if (!target.tool) return '這隻寶可夢沒有裝備道具卡';
-    target.tool = null;
+    pocketDiscardTool(target); // HP加成收回＋KO判定交給pocketResolveAmbientKOs（見pocketDiscardTool的說明）
     return null;
   },
   'B3-149': (ctx) => { ctx.side.typeBoostThisTurn = { type: 'Fighting', amount: 30, exOnly: true }; return null; }, // Korrina
@@ -7685,6 +7698,26 @@ function pocketSyncHpBonuses(G) {
     }
   }
 }
+// 2026-08-14新增：HP加成來源（場地/特性，見pocketSyncHpBonuses）被移除時，上面那個函式已經
+// 正確把curHp扣到0了，但「倒下」這件事（棄置/加分/進forced_switch）從來沒有人真的觸發——
+// 這個函式補上這一步。只在G.phase==='active'才跑：'attack_choice'/'forced_switch'代表當下
+// 正卡在別的流程中間（例如攻擊傷害本身就是KO但還要等玩家selectchoice——見
+// pocketResolveDeferredKO的deferredKO機制），這時候curHp<=0是暫時性的、KO判定會由那個
+// 流程自己收尾，這裡不能搶著判，不然deferredKO的效果會被跳過。endsTurn=false：不是攻擊/
+// 中毒造成的KO，跟特性直接擊倒對手同一個道理（見pocket_use_ability handler），不該連帶
+// 結束回合。
+function pocketResolveAmbientKOs(G) {
+  if (G.phase !== 'active') return;
+  for (const role of ['p1', 'p2']) {
+    const side = G[role];
+    if (!side) continue;
+    const op = role === 'p1' ? 'p2' : 'p1';
+    pocketResolveBenchKOs(G, side, op);
+    if (G.phase === 'active' && side.active && side.active.curHp <= 0) {
+      pocketResolveActiveKO(G, role, true, false);
+    }
+  }
+}
 // Memory Light（2026-08-08新增）：把pocketEffectiveMoves算好的清單放進`effectiveAttacks`，
 // client端渲染攻擊按鈕時改讀這個欄位（沒裝備的寶可夢這個欄位就跟attacks完全一樣）
 function pocketSyncEffectiveAttacks(G) {
@@ -7699,6 +7732,7 @@ function pocketBroadcastState(pRoom) {
   const G = pRoom.G;
   pocketSyncAbilitySuppression(G);
   pocketSyncHpBonuses(G);
+  pocketResolveAmbientKOs(G);
   pocketSyncEffectiveAttacks(G);
   send(pRoom.p1, { type: 'pocket_turn_state', ...pocketViewFor(G, 'p1') });
   send(pRoom.p2, { type: 'pocket_turn_state', ...pocketViewFor(G, 'p2') });
@@ -10085,6 +10119,8 @@ async function handleMessage(ws, msg) {
       const side = G[role];
       if (side.active?.uid === msg.target && side.active.isFossil) {
         side.discard.push(side.active); side.active = null;
+        // 棄掉的是主戰，場上不能空著沒人——跟Parasol Lady/Professor Turo同一套強制換人流程
+        pocketEnterForcedSwitch(G, role, 'noEndTurn');
       } else {
         const idx = side.bench.findIndex(p => p.uid === msg.target && p.isFossil);
         if (idx < 0) return;
@@ -10198,6 +10234,16 @@ async function handleMessage(ws, msg) {
       pocketEnforceStatusImmunity(side, statusSnapA); pocketEnforceStatusImmunity(oppSide, statusSnapB);
       pocketEnforceBenchImmunity(oppSide, benchSnap);
       pocketEnforceHealBlock(G, healSnap);
+      // 特性直接打死板凳/主戰（Roar in Unison自傷、Water Shuriken打對手、Combust自傷等）原本完全
+      // 沒有KO判定——主戰打到0血會卡成殭屍卡，一直到下次攻擊/中毒checkup才會被別的地方順便處理掉。
+      // 這裡補上跟pocket_attack_choice那幾個「延遲生效，自己重跑KO判定」分支同一套邏輯，但
+      // endsTurn=false——用特性擊倒對手，卡面沒說「回合會結束」，只是需要選補位，選完應該還是
+      // 原本這個人的回合，能接著攻擊或按結束回合鈕（使用者回報「特性擊倒不算回合結束」）。
+      pocketResolveBenchKOs(G, side, op);
+      pocketResolveBenchKOs(G, oppSide, role);
+      if (G.phase === 'active' && side.active && side.active.curHp <= 0) pocketResolveActiveKO(G, role, true, false);
+      if (G.phase === 'active' && oppSide.active && oppSide.active.curHp <= 0) pocketResolveActiveKO(G, op, true, false);
+      if (pocketCheckWin(G)) { pocketBroadcastState(pRoom); return; }
       if (!unlimitedUse) side.abilitiesUsedThisTurn.push(poke.uid);
       pocketEmitCardActivation(G, role, poke, `使用特性：${ability.name}`);
       if (abilityCtx.coinFlips?.length || abilityCtx.healUid) {
