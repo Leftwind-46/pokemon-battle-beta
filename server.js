@@ -1691,42 +1691,36 @@ function triggerOnEnterSrv(poke, role, G, log, isFieldEntry = true, suppressAbil
   // 持有者——「對手不能發動競技場（包含對手特性也不行）」，跟pokemon_battle.html同步
   // 2026-08-14新增：電氣場地（shock-stadium-dodge，從motor-drive分家）上場時場地切換為雷雲庇護所；
   // 20%完全閃避的部分已經在doAttack的閃避段落處理，這裡只處理onEnter場地切換
-  // 2026-08-14再修正：手動打出的競技場卡優先權要高於特性自動切換，跟pokemon_battle.html的
-  // stadiumCardPriority()同一套規則——見該函式的完整說明
-  if (poke.ability.id === 'shock-stadium-dodge' && !spaceCutBlocksSrv(G, role) && !stadiumCardPrioritySrv(G)) {
+  // （曾短暫加過「手動卡片優先於特性自動切換」的規則，同日被使用者收回——正確規則是
+  // 單純「後發生的蓋掉先發生的」，不分卡片或特性）
+  if (poke.ability.id === 'shock-stadium-dodge' && !spaceCutBlocksSrv(G, role)) {
     const stormCard = TRAINERS.find(c => c.id === 'stadium-electric-storm');
     if (stormCard) {
       G.activeStadium = { ...stormCard };
-      G.activeStadiumSource = 'ability';
       log.push({ text: `${poke.name} 的電氣場地發動，場地切換成了雷雲庇護所！`, cls: 'special' });
     }
   }
   // 揚沙（sandstorm-stadium-dodge，2026-08-14新增）：跟電氣場地同一套onEnter場地切換寫法，改成沙塵暴
-  if (poke.ability.id === 'sandstorm-stadium-dodge' && !spaceCutBlocksSrv(G, role) && !stadiumCardPrioritySrv(G)) {
+  if (poke.ability.id === 'sandstorm-stadium-dodge' && !spaceCutBlocksSrv(G, role)) {
     const sandCard = TRAINERS.find(c => c.id === 'stadium-sandstorm');
     if (sandCard) {
       G.activeStadium = { ...sandCard };
-      G.activeStadiumSource = 'ability';
       log.push({ text: `${poke.name} 的揚沙發動，場地切換成了沙塵暴！`, cls: 'special' });
     }
   }
   // 反轉世界（reverse-world-dodge，2026-08-14新增，騎拉帝納專屬）：同一套onEnter場地切換寫法，改成反轉世界
-  if (poke.ability.id === 'reverse-world-dodge' && !spaceCutBlocksSrv(G, role) && !stadiumCardPrioritySrv(G)) {
+  if (poke.ability.id === 'reverse-world-dodge' && !spaceCutBlocksSrv(G, role)) {
     const invertCard = TRAINERS.find(c => c.id === 'stadium-invert');
     if (invertCard) {
       G.activeStadium = { ...invertCard };
-      G.activeStadiumSource = 'ability';
       log.push({ text: `${poke.name} 的反轉世界發動，場地切換成了反轉世界！`, cls: 'special' });
     }
   }
   // 空間切割（space-cut，2026-08-14修正：「受到攻擊時可棄場地卡換-50」改成「上場時清除競技場效果」）：
-  // 帕路奇亞上場時清空G.activeStadium——2026-08-14再修正：跟其餘6個自動切換特性不同，這裡
-  // 是「清除」不是「換成指定場地」，使用者確認space-cut的清除要能連手動打出的競技場卡也
-  // 一併清掉，故意不加!stadiumCardPrioritySrv(G)判斷，跟pokemon_battle.html同步
+  // 帕路奇亞上場時，不論當前競技場卡是誰發動的，直接清空G.activeStadium
   if (poke.ability.id === 'space-cut' && G.activeStadium) {
     const clearedName = G.activeStadium.name;
     G.activeStadium = null;
-    G.activeStadiumSource = null;
     log.push({ text: `${poke.name} 的空間切割發動，清除了【${clearedName}】的競技場效果！`, cls: 'special' });
   }
   // 2026-08-14新增：毒療（poison-heal）上場時自動陷入中毒——跳過機率/免疫判定，之後每回合
@@ -1736,27 +1730,24 @@ function triggerOnEnterSrv(poke, role, G, log, isFieldEntry = true, suppressAbil
       log.push({ text: `${poke.name} 的毒療發動，自動陷入了中毒！`, cls: 'special' });
     }
   }
-  if (poke.ability.id === 'drizzle-ocean' && !spaceCutBlocksSrv(G, role) && !stadiumCardPrioritySrv(G)) {
+  if (poke.ability.id === 'drizzle-ocean' && !spaceCutBlocksSrv(G, role)) {
     const oceanCard = TRAINERS.find(c => c.id === 'stadium-ocean');
     if (oceanCard) {
       G.activeStadium = { ...oceanCard };
-      G.activeStadiumSource = 'ability';
       log.push({ text: `${poke.name} 的海洋支配發動，場地切換成了海洋世界！`, cls: 'special' });
     }
   }
-  if (poke.ability.id === 'drought-lava' && !spaceCutBlocksSrv(G, role) && !stadiumCardPrioritySrv(G)) {
+  if (poke.ability.id === 'drought-lava' && !spaceCutBlocksSrv(G, role)) {
     const lavaCard = TRAINERS.find(c => c.id === 'stadium-lava');
     if (lavaCard) {
       G.activeStadium = { ...lavaCard };
-      G.activeStadiumSource = 'ability';
       log.push({ text: `${poke.name} 的熔岩大地發動，場地切換成了熔岩火山！`, cls: 'special' });
     }
   }
-  if (DOMAIN_ABILITY_STADIUM[poke.ability.id] && !spaceCutBlocksSrv(G, role) && !stadiumCardPrioritySrv(G)) {
+  if (DOMAIN_ABILITY_STADIUM[poke.ability.id] && !spaceCutBlocksSrv(G, role)) {
     const domainCard = TRAINERS.find(c => c.id === DOMAIN_ABILITY_STADIUM[poke.ability.id].stadium);
     if (domainCard) {
       G.activeStadium = { ...domainCard };
-      G.activeStadiumSource = 'ability';
       log.push({ text: `${poke.name} 的${poke.ability.name}發動，場地切換成了${domainCard.name}！`, cls: 'special' });
     }
   }
@@ -2570,7 +2561,6 @@ function applyTrainer(card, role, G, log, chosenType) {
     case 'stadium-ghost-curse': {
       const old = G.activeStadium;
       G.activeStadium = card;
-      G.activeStadiumSource = 'card'; // 2026-08-14新增：手動打出的競技場卡優先權高於特性自動切換，跟pokemon_battle.html同步
       if (old) log.push({ text: `新競技場【${card.name}】取代了【${old.name}】！`, cls: 'special' });
       else log.push({ text: `【${card.name}】競技場開場！`, cls: 'special' });
       break;
@@ -2580,7 +2570,6 @@ function applyTrainer(card, role, G, log, chosenType) {
     case 'stadium-invert': {
       const old = G.activeStadium;
       G.activeStadium = card;
-      G.activeStadiumSource = 'card'; // 2026-08-14新增：手動打出的競技場卡優先權高於特性自動切換，跟pokemon_battle.html同步
       if (old) log.push({ text: `新競技場【${card.name}】取代了【${old.name}】！`, cls: 'special' });
       else log.push({ text: `【${card.name}】競技場開場！`, cls: 'special' });
       // 發動時，雙方手牌互換
@@ -2593,7 +2582,6 @@ function applyTrainer(card, role, G, log, chosenType) {
     case 'stadium-spikes': {
       const old = G.activeStadium;
       G.activeStadium = card;
-      G.activeStadiumSource = 'card'; // 2026-08-14新增：手動打出的競技場卡優先權高於特性自動切換，跟pokemon_battle.html同步
       if (old) log.push({ text: `新競技場【${card.name}】取代了【${old.name}】！`, cls: 'special' });
       else log.push({ text: `【${card.name}】競技場開場！`, cls: 'special' });
       // 發動時，對手棄掉2張手牌
@@ -2609,7 +2597,6 @@ function applyTrainer(card, role, G, log, chosenType) {
     case 'stadium-mystic-space': {
       const old = G.activeStadium;
       G.activeStadium = card;
-      G.activeStadiumSource = 'card'; // 2026-08-14新增：手動打出的競技場卡優先權高於特性自動切換，跟pokemon_battle.html同步
       if (old) log.push({ text: `新競技場【${card.name}】取代了【${old.name}】！`, cls: 'special' });
       else log.push({ text: `【${card.name}】競技場開場！`, cls: 'special' });
       // 發動時，若我方場上寶可夢是超屬性寶可夢，可搶奪對方一張卡牌
@@ -2629,7 +2616,6 @@ function applyTrainer(card, role, G, log, chosenType) {
     case 'stadium-fairy-ward': {
       const old = G.activeStadium;
       G.activeStadium = card;
-      G.activeStadiumSource = 'card'; // 2026-08-14新增：手動打出的競技場卡優先權高於特性自動切換，跟pokemon_battle.html同步
       if (old) log.push({ text: `新競技場【${card.name}】取代了【${old.name}】！`, cls: 'special' });
       else log.push({ text: `【${card.name}】競技場開場！`, cls: 'special' });
       // 發動時，妖精寶可夢解除負面狀態
@@ -7535,11 +7521,6 @@ function spaceCutBlocksSrv(G, actingRole) {
   if (isAbilitySealedSrv(opRole, G)) return false;
   const opPoke = G[`${opRole}Deck`]?.[G[`${opRole}Idx`]];
   return !!opPoke && opPoke.cur > 0 && opPoke.ability?.id === 'space-cut';
-}
-// 2026-08-14新增：手動打出的競技場卡優先權高於特性自動切換，跟pokemon_battle.html的
-// stadiumCardPriority()同一套邏輯——見該函式的完整說明
-function stadiumCardPrioritySrv(G) {
-  return !!G.activeStadium && G.activeStadiumSource === 'card';
 }
 // 2026-08-13新增：異常狀態解除封鎖，跟isHealSealedSrv同一種「掛在既有call site」寫法，但是
 // 針對「特定一種異常狀態能不能被解除」而不是HP回復——亡靈墓園擋全部、劇毒領域只擋中毒、
