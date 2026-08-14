@@ -4019,7 +4019,11 @@ function pocketViewFor(G, role) {
       retreatDiscountThisTurn: G[role].retreatDiscountThisTurn || 0,
       stadiumUsedThisTurn: G[role].stadiumUsedThisTurn || false, // Mesagoza
     },
-    opponent: { ...pub(G[op]), handCount: G[op].hand.length },
+    // 2026-08-15新增：對手當前能量區（pendingEnergy，這回合可以拿去裝的那顆能量）是公開資訊，
+    // 跟牌庫/棄牌堆一樣雙方都看得到——真實遊戲畫面上對手的能量區本來就是可見的。previewEnergy
+    // （下回合才會產生的能量）刻意不送給對手——只有本人自己看得到自己的下一顆能量預覽，這是
+    // 既有設計（見you.previewEnergy旁的說明），不是這次要補的缺口。
+    opponent: { ...pub(G[op]), handCount: G[op].hand.length, pendingEnergy: G[op].pendingEnergy },
   };
 }
 /* ── 找own場上（主戰+板凳）某隻寶可夢，供訓練師卡/特性指定目標用 ── */

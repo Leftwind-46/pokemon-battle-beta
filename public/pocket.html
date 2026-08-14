@@ -586,6 +586,10 @@
           <div class="pile-stack discard-pile" id="opp-discard-pile" title="點擊查看對手棄牌堆"><div class="pile-card"></div><div class="pile-card">🗑️</div><div class="pile-count" id="opp-discard-count">0</div></div>
           <div class="pile-label">棄牌堆</div>
         </div>
+        <div class="pile-wrap">
+          <div class="energy-zone" id="opp-energy-zone-chip" title="對手的能量區"></div>
+          <div class="pile-label">能量區</div>
+        </div>
       </div>
       <div class="zone-battlefield">
         <div class="field-row">
@@ -1804,6 +1808,22 @@ function renderBoard() {
     chip.draggable = false;
     chip.onclick = null;
     chip.style.background = 'transparent';
+  }
+  // 對手能量區（2026-08-15新增）：跟自己的energy-zone-chip同一份渲染邏輯，但純顯示，不可點擊/
+  // 拖曳——server端pocketViewFor已經把opponent.pendingEnergy當公開資訊送過來了（真實遊戲畫面上
+  // 對手的能量區本來就看得到），這裡只是把它畫出來，沒有能量時顯示「—」跟自己那顆的空態一致。
+  const oppChip = document.getElementById('opp-energy-zone-chip');
+  if (opponent.pendingEnergy) {
+    oppChip.className = 'energy-zone has-energy';
+    const oppPendColor = TYPE_COLOR[opponent.pendingEnergy] || '#888';
+    oppChip.style.background = `radial-gradient(circle at 34% 30%, rgba(255,255,255,0.6), ${oppPendColor} 68%)`;
+    oppChip.innerHTML = `<svg viewBox="0 0 24 24" fill="#fff"><path d="${TYPE_SVG[opponent.pendingEnergy] || TYPE_SVG.Colorless}"/></svg>`;
+    oppChip.title = `對手的能量區：${TYPE_ZH[opponent.pendingEnergy] || opponent.pendingEnergy}`;
+  } else {
+    oppChip.className = 'energy-zone';
+    oppChip.textContent = '—';
+    oppChip.style.background = 'transparent';
+    oppChip.title = '對手的能量區';
   }
   // 下回合能量預覽（2026-08-08新增）：server端previewEnergy是「下次輪到你時會產生的能量」，
   // 固定值不會每次render重roll，讓玩家能提前規劃（跟真實Pocket TCG能量區可以看到下一顆的設計一致）
