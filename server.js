@@ -1720,9 +1720,10 @@ function triggerOnEnterSrv(poke, role, G, log, isFieldEntry = true, suppressAbil
     }
   }
   // 空間切割（space-cut，2026-08-14修正：「受到攻擊時可棄場地卡換-50」改成「上場時清除競技場效果」）：
-  // 帕路奇亞上場時清空G.activeStadium，但不能清掉手動打出的競技場卡（stadiumCardPrioritySrv），
-  // 跟pokemon_battle.html同步
-  if (poke.ability.id === 'space-cut' && G.activeStadium && !stadiumCardPrioritySrv(G)) {
+  // 帕路奇亞上場時清空G.activeStadium——2026-08-14再修正：跟其餘6個自動切換特性不同，這裡
+  // 是「清除」不是「換成指定場地」，使用者確認space-cut的清除要能連手動打出的競技場卡也
+  // 一併清掉，故意不加!stadiumCardPrioritySrv(G)判斷，跟pokemon_battle.html同步
+  if (poke.ability.id === 'space-cut' && G.activeStadium) {
     const clearedName = G.activeStadium.name;
     G.activeStadium = null;
     G.activeStadiumSource = null;
