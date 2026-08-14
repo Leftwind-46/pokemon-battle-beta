@@ -89,8 +89,9 @@ const POKEMON = [
   { id:378, name:'雷吉艾斯',   type:'ice',      hp:370, tier:3, ability:{id:'thick-fat-pure', name:'厚脂肪', trigger:'onDefend', desc:'受到的傷害-50，HP 低於 1/3 時，招式傷害額外 ×1.2'}, attacks:[{name:'暴風雪',dmg:108,cost:8,type:'ice',status:{effect:'freeze', chance:0.4},megaBoost:true,bonusEnergy:8,bonusVsType:'grass'},{name:'閃光炮',dmg:81,cost:6,type:'steel',rider:'self-cure',status:{effect:'paralysis', chance:0.4}},{name:'未來雷霆',dmg:100,cost:8,type:'psychic',status:{effect:'confusion', chance:0.4},bonusVsType:'fighting'},{name:'電磁砲',dmg:107,cost:8,type:'electric',rider:'mega-charge',status:{effect:'burn', chance:0.4},status2:{effect:'freeze',chance:0.4}}]},
   /* ── Tier 3 新 ── */
   { id:717, name:'伊裴爾塔爾', type:'dark',     type2:'flying',  hp:265, tier:3, ability:{id:'dark-abyss-lockdown', name:'深淵支配', trigger:'passive', desc:'對方無法使用 Mega 進化；這隻寶可夢在場上時，對方的寶可夢無法回復 HP'}, attacks:[{name:'幽靈球',dmg:53,cost:2,type:'ghost',ignoreReflect:true},{name:'空氣斬',dmg:77,cost:6,type:'flying',rider:'mega-charge',status:{effect:'freeze', chance:0.4},status2:{effect:'paralysis',chance:0.4}},{name:'大地虹吸',dmg:84,cost:6,type:'ground',rider:'life-drain'},{name:'惡意波動',dmg:103,cost:8,type:'dark',selfHeal:0.25,bonusVsType:'ghost'}]},
-  { id:483, name:'帝牙盧卡',   type:'steel',    type2:'dragon',  hp:360, tier:3, ability:{id:'dragon-domain', name:'龍域降臨', trigger:'onEnter', desc:'上場時場地切換為龍之谷；龍屬性攻擊傷害額外 +40'}, attacks:[{name:'閃光炮',dmg:105,cost:8,type:'steel',ignoreReflect:true,megaBoost:true,bonusEnergy:7,bonusVsType:'fairy',ignoreShield:true},{name:'龍之脈動',dmg:101,cost:8,type:'dragon',selfHeal:0.19,bonusVsType:'dragon'},{name:'雷霆',dmg:73,cost:6,type:'electric',rider:'mega-charge',selfHeal:0.21},{name:'幽靈之爪',dmg:104,cost:8,type:'ghost',selfHeal:0.2}]},
-  { id:484, name:'帕路奇亞',   type:'water',    type2:'dragon',  hp:200, tier:3, ability:{id:'dragon-domain', name:'龍域降臨', trigger:'onEnter', desc:'上場時場地切換為龍之谷；龍屬性攻擊傷害額外 +40'}, attacks:[{name:'鐵翼',dmg:40,cost:1,type:'steel',rider:'mega-charge',megaBoost:true,bonusEnergy:7},{name:'龍之脈動',dmg:47,cost:1,type:'dragon',status:{effect:'paralysis', chance:0.4}},{name:'空間扭曲',dmg:71,cost:5,type:'psychic',ignoreReflect:true,selfHeal:0.25,bonusVsType:'fighting',ignoreShield:true},{name:'衝浪',dmg:101,cost:7,type:'water',selfHeal:0.15,bonusVsType:'ice'}]},
+  { id:483, name:'帝牙盧卡',   type:'steel',    type2:'dragon',  hp:360, tier:3, ability:{id:'time-roar', name:'時間咆哮', trigger:'onAttack', desc:'回合開始時，獲得對手上回合使用過的所有道具卡。並且遊戲中有一次機會100%迴避致命傷害（當受到的傷害超過當前的HP時，100%迴避）'}, attacks:[{name:'閃光炮',dmg:105,cost:8,type:'steel',ignoreReflect:true,megaBoost:true,bonusEnergy:7,bonusVsType:'fairy',ignoreShield:true},{name:'龍之脈動',dmg:101,cost:8,type:'dragon',selfHeal:0.19,bonusVsType:'dragon'},{name:'雷霆',dmg:73,cost:6,type:'electric',rider:'mega-charge',selfHeal:0.21},{name:'幽靈之爪',dmg:104,cost:8,type:'ghost',selfHeal:0.2}]},
+  { id:484, name:'帕路奇亞',   type:'water',    type2:'dragon',  hp:200, tier:3, ability:{id:'space-cut', name:'空間切割', trigger:'passive', desc:'對手不能發動競技場（包含對手特性也不行，僅限這隻寶可夢在場上時持續）。受到攻擊時，可以棄掉當前的競技場卡，受到的傷害-50'}, attacks:[{name:'鐵翼',dmg:40,cost:1,type:'steel',rider:'mega-charge',megaBoost:true,bonusEnergy:7},{name:'龍之脈動',dmg:47,cost:1,type:'dragon',status:{effect:'paralysis', chance:0.4}},{name:'空間扭曲',dmg:71,cost:5,type:'psychic',ignoreReflect:true,selfHeal:0.25,bonusVsType:'fighting',ignoreShield:true},{name:'衝浪',dmg:101,cost:7,type:'water',selfHeal:0.15,bonusVsType:'ice'}]},
+  { id:487, name:'騎拉帝納',   type:'ghost',    type2:'dragon',  hp:350, tier:3, ability:{id:'reverse-world-dodge', name:'反轉世界', trigger:'onEnter', desc:'上場時場地切換為反轉世界，並且有10%機率完全閃避攻擊'}, attacks:[{name:'影子偷襲',dmg:43,cost:1,type:'ghost',rider:'energy-steal'},{name:'龍息',dmg:65,cost:3,type:'dragon',megaBoost:true,bonusEnergy:5,status:{effect:'confusion', chance:0.4}},{name:'影子球',dmg:92,cost:6,type:'ghost',selfHeal:0.2,bonusVsType:'psychic'},{name:'暗影猛擊',dmg:110,cost:8,type:'ghost',ignoreReflect:true,ignoreShield:true,bonusVsType:'fighting'}]},
   { id:727, name:'熾焰咆哮虎', type:'fire',     type2:'dark',    hp:300, tier:2, ability:{id:'dark-domain', name:'暗夜支配', trigger:'onEnter', desc:'上場時場地切換為暗夜詛咒領域；惡屬性攻擊傷害額外 +40'}, attacks:[{name:'超強衝擊',dmg:56,cost:3,type:'fighting',ignoreReflect:true,status:{effect:'burn', chance:0.4},megaBoost:true,bonusEnergy:6,status2:{effect:'sleep',chance:0.4}},{name:'暗黑強打',dmg:86,cost:6,type:'dark',megaBoost:true,bonusEnergy:7},{name:'火焰噴射',dmg:105,cost:8,type:'fire',status:{effect:'paralysis', chance:0.4},bonusVsType:'dark',ignoreReflect:true},{name:'劇毒威壓擊',dmg:101,cost:8,type:'poison',selfHeal:0.2,bonusVsType:'fairy'}]},
   /* ── 新增：補足各屬性 ── */
   /* 一般 */
@@ -113,7 +114,7 @@ const POKEMON = [
   { mega:{spriteId:10046, type:'bug', type2:'steel', ability:{id:'technician', name:'技術高手', trigger:'onAttack', desc:'威力 60 以下的招式，傷害 ×1.1'}}, id:212, name:'巨鉗螳螂',     type:'bug',      type2:'steel',   hp:260, tier:2, ability:{id:'blaze-boost', name:'蟲之預感', trigger:'onAttack', desc:'HP 低於 1/3 時，本系招式傷害 ×1.1'}, attacks:[{name:'疾風吸血擊',dmg:55,cost:2,type:'flying',ignoreReflect:true,rider:'life-drain'},{name:'破魂吸血擊',dmg:74,cost:6,type:'fighting',megaBoost:true,bonusEnergy:6},{name:'蟲刃剪',dmg:81,cost:6,type:'bug',megaBoost:true,bonusEnergy:5},{name:'子彈拳',dmg:101,cost:8,type:'steel',selfHeal:0.23,bonusVsType:'rock',ignoreReflect:true,ignoreShield:true}]},
   { id:469, name:'遠古巨蜓',     type:'bug',      type2:'flying',  hp:230, tier:1, ability:{id:'true-damage', name:'不動如山', trigger:'onAttack', desc:'攻擊傷害不會被對方的防禦特性、閃避或撐住效果影響'}, attacks:[{name:'實力全開',dmg:61,cost:4,type:'normal',rider:'mega-charge',status:{effect:'confusion', chance:0.4},megaBoost:true,bonusEnergy:7,status2:{effect:'freeze',chance:0.4}},{name:'雷光威壓擊',dmg:68,cost:4,type:'electric',rider:'weaken'},{name:'蟲鳴',dmg:88,cost:7,type:'bug',megaBoost:true,bonusEnergy:7},{name:'空氣斬',dmg:107,cost:8,type:'flying',selfHeal:0.25,ignoreReflect:true,ignoreShield:true}]},
   /* 岩石 */
-  { mega:{spriteId:10049, type:'rock', type2:'dark', ability:{id:'solid-rock', name:'揚沙', trigger:'onDefend', desc:'受到剋制（×1.2以上）的攻擊傷害再減少 5%'}}, id:248, name:'班基拉斯',     type:'rock',     type2:'dark',    hp:300, tier:2, ability:{id:'solid-rock', name:'揚沙', trigger:'onDefend', desc:'受到剋制（×1.2以上）的攻擊傷害再減少 5%'}, attacks:[{name:'碎岩',dmg:101,cost:8,type:'rock',rider:'move-reflect',status:{effect:'paralysis', chance:0.4},megaBoost:true,bonusEnergy:8},{name:'咬碎',dmg:85,cost:6,type:'dark',ignoreReflect:true,status:{effect:'confusion', chance:0.4},megaBoost:true,bonusEnergy:7,status2:{effect:'sleep',chance:0.4}},{name:'地震',dmg:53,cost:2,type:'ground',selfHeal:0.21},{name:'踢腿',dmg:100,cost:8,type:'fighting',status:{effect:'sleep', chance:0.4},bonusVsType:'dark',ignoreReflect:true}]},
+  { mega:{spriteId:10049, type:'rock', type2:'dark', ability:{id:'sandstorm-stadium-dodge', name:'揚沙', trigger:'onEnter', desc:'上場時場地切換為沙塵暴，並且有20%機率完全閃避攻擊'}}, id:248, name:'班基拉斯',     type:'rock',     type2:'dark',    hp:300, tier:2, ability:{id:'sandstorm-stadium-dodge', name:'揚沙', trigger:'onEnter', desc:'上場時場地切換為沙塵暴，並且有20%機率完全閃避攻擊'}, attacks:[{name:'碎岩',dmg:101,cost:8,type:'rock',rider:'move-reflect',status:{effect:'paralysis', chance:0.4},megaBoost:true,bonusEnergy:8},{name:'咬碎',dmg:85,cost:6,type:'dark',ignoreReflect:true,status:{effect:'confusion', chance:0.4},megaBoost:true,bonusEnergy:7,status2:{effect:'sleep',chance:0.4}},{name:'地震',dmg:53,cost:2,type:'ground',selfHeal:0.21},{name:'踢腿',dmg:100,cost:8,type:'fighting',status:{effect:'sleep', chance:0.4},bonusVsType:'dark',ignoreReflect:true}]},
   { mega:{spriteId:10042, type:'rock', type2:'flying', ability:{id:'tough-claws', name:'硬爪', trigger:'onAttack', desc:'攻擊傷害 +40'}}, id:142, name:'化石翼龍',     type:'rock',     type2:'flying',  hp:260, tier:2, ability:{id:'no-weakness-dodge', name:'深淵支配', trigger:'onDefend', desc:'不會受到超效傷害；10% 機率完全閃避攻擊'}, attacks:[{name:'咬碎',dmg:58,cost:2,type:'dark',ignoreReflect:true,status:{effect:'confusion', chance:0.4},megaBoost:true,bonusEnergy:7,status2:{effect:'paralysis',chance:0.4}},{name:'翼擊',dmg:82,cost:6,type:'flying',megaBoost:true,bonusEnergy:6},{name:'精神吸能擊',dmg:78,cost:6,type:'psychic',rider:'type-draw'},{name:'岩石炮',dmg:108,cost:8,type:'rock',selfHeal:0.2,bonusVsType:'ice',ignoreReflect:true}]},
   { id:526, name:'龐岩怪',       type:'rock',                      hp:280, tier:2, ability:{id:'rock-domain', name:'磐岩支配', trigger:'onEnter', desc:'上場時場地切換為岩石地帶；岩石屬性攻擊傷害額外 +40'}, attacks:[{name:'閃光炮',dmg:47,cost:1,type:'steel',rider:'type-draw',megaBoost:true,bonusEnergy:5},{name:'逆鱗護甲擊',dmg:71,cost:5,type:'dragon',rider:'energy-steal'},{name:'岩石炮',dmg:101,cost:7,type:'rock',status:{effect:'freeze', chance:0.4},bonusVsType:'rock'},{name:'地震',dmg:97,cost:7,type:'ground',status:{effect:'poison', chance:0.4},bonusVsType:'ice',ignoreReflect:true}]},
   /* 幽靈 */
@@ -831,6 +832,10 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
   // computed later) so the early-return immunity branches below can also respect 封印特性.
   const aRole = aBuff === G.p1Buff ? 'p1' : 'p2';
   const dRole = dBuff === G.p1Buff ? 'p1' : 'p2';
+  // 空間切割（帕路奇亞，2026-08-14新增）：由space_cut_choice handler在呼叫doAttack之前算好、
+  // 存進這個一次性旗標的傷害減免，跟pokemon_battle.html的doAttack同一套「讀出來立刻清空」寫法
+  const spaceCutReduction = G[`${dRole}SpaceCutBonus`] || 0;
+  G[`${dRole}SpaceCutBonus`] = 0;
   // 封印特性卡生效中的那一側，特性視為不存在——後面整個function一律讀attackerAbility/defenderAbility
   // 這兩個local變數，不要直接讀attacker.ability/defender.ability（那樣會繞過封印判定）
   const attackerAbility = isAbilitySealedSrv(aRole, G) ? null : attacker.ability;
@@ -1127,7 +1132,7 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     // 乘法鏈最後面（atk._secondHitMult，2026-08-04原本是colosseum專屬的atk._halfDamage/固定0.5，
     // 現在改成通用欄位／0.4），不能只砍atk.dmg這個小加項——megaBoostBonus/abilityDmgBonus等
     // 固定加成完全不會被砍到，導致第二段幾乎跟第一段一樣高（使用者回報「兩下攻擊都超過300」）。
-    damage = Math.max(0, Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumFlatBonus + legacyDmgBonus + abilityDmgBonus + megaBoostBonus + typeBoostBonus + bonusVsTypeBonus + selfCureBonus) * effectiveAtkMult * burnMult * mult * stabMult * switchGuardMult * standbyGuardMult * abilityDmgMult * defAbilityMult * stadiumMult * typeBoostMult * reflectPierceMult * (atk._secondHitMult ?? 1))) - shieldTerm - rockFieldReduction - steelFortressReduction - shrineReduction - crownedShieldReduction - mysticSpaceReduction - iceTundraReduction - thickFatPureReduction - solidRockFlatReduction);
+    damage = Math.max(0, Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumFlatBonus + legacyDmgBonus + abilityDmgBonus + megaBoostBonus + typeBoostBonus + bonusVsTypeBonus + selfCureBonus) * effectiveAtkMult * burnMult * mult * stabMult * switchGuardMult * standbyGuardMult * abilityDmgMult * defAbilityMult * stadiumMult * typeBoostMult * reflectPierceMult * (atk._secondHitMult ?? 1))) - shieldTerm - rockFieldReduction - steelFortressReduction - shrineReduction - crownedShieldReduction - mysticSpaceReduction - iceTundraReduction - thickFatPureReduction - solidRockFlatReduction - spaceCutReduction);
     // 影舞：下一次受到攻擊擲硬幣，正面完全免傷——一次性旗標，這次攻擊到來就消耗掉（不論正反面）。true-damage系特性無視此效果。
     if (!moldBreaker && G[`${dRole}CoinShield`]) {
       G[`${dRole}CoinShield`] = false;
@@ -1156,6 +1161,23 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     if (!moldBreaker && damage > 0 && defenderAbility?.id === 'shock-stadium-dodge' && Math.random() < 0.2) {
       damage = 0;
       log.push({ text: `${defender.name} 的${defenderAbility.name}發動，完全閃避了攻擊！`, cls: 'special' });
+    }
+    // 揚沙（sandstorm-stadium-dodge，2026-08-14新增）：跟電氣場地同一套「自身特性、20%完全閃避」寫法
+    if (!moldBreaker && damage > 0 && defenderAbility?.id === 'sandstorm-stadium-dodge' && Math.random() < 0.2) {
+      damage = 0;
+      log.push({ text: `${defender.name} 的${defenderAbility.name}發動，完全閃避了攻擊！`, cls: 'special' });
+    }
+    // 反轉世界（reverse-world-dodge，2026-08-14新增，騎拉帝納專屬）：同一套寫法，機率降到10%
+    if (!moldBreaker && damage > 0 && defenderAbility?.id === 'reverse-world-dodge' && Math.random() < 0.1) {
+      damage = 0;
+      log.push({ text: `${defender.name} 的${defenderAbility.name}發動，完全閃避了攻擊！`, cls: 'special' });
+    }
+    // 時間咆哮（time-roar，2026-08-14新增，帝牙盧卡專屬）：遊戲中限一次，受到的傷害達到致命
+    // （會讓HP歸零）時100%完全迴避，跟pokemon_battle.html同一套「整場戰鬥限一次」旗標寫法
+    if (!moldBreaker && damage > 0 && defenderAbility?.id === 'time-roar' && !defender._timeRoarDodgeUsed && damage >= defender.cur) {
+      defender._timeRoarDodgeUsed = true;
+      damage = 0;
+      log.push({ text: `${defender.name} 的時間咆哮發動，完全迴避了致命傷害！（整場戰鬥限一次）`, cls: 'special' });
     }
     defender.cur = Math.max(0, defender.cur - damage);
     if (!moldBreaker && defenderAbility?.id === 'sturdy' && wasFullHp && defender.cur <= 0) {
@@ -1669,13 +1691,31 @@ function triggerOnEnterSrv(poke, role, G, log, isFieldEntry = true, suppressAbil
       log.push({ text: `${poke.name} 的靜電發動，讓${opPoke.name} 陷入了麻痺！`, cls: 'special' });
     }
   }
+  // 2026-08-14新增：以下所有特性驅動的自動場地切換，都要先檢查對面是不是空間切割（帕路奇亞）
+  // 持有者——「對手不能發動競技場（包含對手特性也不行）」，跟pokemon_battle.html同步
   // 2026-08-14新增：電氣場地（shock-stadium-dodge，從motor-drive分家）上場時場地切換為雷雲庇護所；
   // 20%完全閃避的部分已經在doAttack的閃避段落處理，這裡只處理onEnter場地切換
-  if (poke.ability.id === 'shock-stadium-dodge') {
+  if (poke.ability.id === 'shock-stadium-dodge' && !spaceCutBlocksSrv(G, role)) {
     const stormCard = TRAINERS.find(c => c.id === 'stadium-electric-storm');
     if (stormCard) {
       G.activeStadium = { ...stormCard };
       log.push({ text: `${poke.name} 的電氣場地發動，場地切換成了雷雲庇護所！`, cls: 'special' });
+    }
+  }
+  // 揚沙（sandstorm-stadium-dodge，2026-08-14新增）：跟電氣場地同一套onEnter場地切換寫法，改成沙塵暴
+  if (poke.ability.id === 'sandstorm-stadium-dodge' && !spaceCutBlocksSrv(G, role)) {
+    const sandCard = TRAINERS.find(c => c.id === 'stadium-sandstorm');
+    if (sandCard) {
+      G.activeStadium = { ...sandCard };
+      log.push({ text: `${poke.name} 的揚沙發動，場地切換成了沙塵暴！`, cls: 'special' });
+    }
+  }
+  // 反轉世界（reverse-world-dodge，2026-08-14新增，騎拉帝納專屬）：同一套onEnter場地切換寫法，改成反轉世界
+  if (poke.ability.id === 'reverse-world-dodge' && !spaceCutBlocksSrv(G, role)) {
+    const invertCard = TRAINERS.find(c => c.id === 'stadium-invert');
+    if (invertCard) {
+      G.activeStadium = { ...invertCard };
+      log.push({ text: `${poke.name} 的反轉世界發動，場地切換成了反轉世界！`, cls: 'special' });
     }
   }
   // 2026-08-14新增：毒療（poison-heal）上場時自動陷入中毒——跳過機率/免疫判定，之後每回合
@@ -1685,21 +1725,21 @@ function triggerOnEnterSrv(poke, role, G, log, isFieldEntry = true, suppressAbil
       log.push({ text: `${poke.name} 的毒療發動，自動陷入了中毒！`, cls: 'special' });
     }
   }
-  if (poke.ability.id === 'drizzle-ocean') {
+  if (poke.ability.id === 'drizzle-ocean' && !spaceCutBlocksSrv(G, role)) {
     const oceanCard = TRAINERS.find(c => c.id === 'stadium-ocean');
     if (oceanCard) {
       G.activeStadium = { ...oceanCard };
       log.push({ text: `${poke.name} 的海洋支配發動，場地切換成了海洋世界！`, cls: 'special' });
     }
   }
-  if (poke.ability.id === 'drought-lava') {
+  if (poke.ability.id === 'drought-lava' && !spaceCutBlocksSrv(G, role)) {
     const lavaCard = TRAINERS.find(c => c.id === 'stadium-lava');
     if (lavaCard) {
       G.activeStadium = { ...lavaCard };
       log.push({ text: `${poke.name} 的熔岩大地發動，場地切換成了熔岩火山！`, cls: 'special' });
     }
   }
-  if (DOMAIN_ABILITY_STADIUM[poke.ability.id]) {
+  if (DOMAIN_ABILITY_STADIUM[poke.ability.id] && !spaceCutBlocksSrv(G, role)) {
     const domainCard = TRAINERS.find(c => c.id === DOMAIN_ABILITY_STADIUM[poke.ability.id].stadium);
     if (domainCard) {
       G.activeStadium = { ...domainCard };
@@ -2594,6 +2634,7 @@ function drawForRole(G, role) {
   G[`${role}SupporterLockedThisTurn`] = G[`${role}SupporterLocked`];
   G[`${role}SupporterLocked`] = false;
   G[`${role}UsedItemThisTurn`] = false; // 機械之心系特性的旗標，每回合開始重置
+  G[`${role}ItemsPlayedThisTurn`] = []; // 時間咆哮（time-roar）用的累積清單，每回合開始重置（讀取見下方）
   G[`${role}StadiumTradeCount`] = 0; // 棄1張換競技場卡的每回合上限，這裡是該角色回合真正開始的地方
   // op提前到這裡宣告（原本在下面宣告一次）——2026-08-13新增的op/role場地卡效果需要在這裡就用到，
   // op＝這次turn transition剛結束回合的那一方，role＝現在要開始回合的那一方
@@ -2709,6 +2750,18 @@ function drawForRole(G, role) {
     G[`${role}EnergyBlockedNextTurn`] = false;
   } else {
     G[`${role}Energy`] = Math.min(20, (G[`${role}Energy`] || 0) + Math.max(0, 3 - rolePressureDrainCut));
+  }
+  // 時間咆哮（time-roar，2026-08-14新增，帝牙盧卡專屬）：自己回合開始時，獲得對手上回合使用過
+  // 的所有道具卡——讀G[op+'ItemsPlayedThisTurn']（op上一次自己回合結束時累積的內容，這時候還
+  // 沒被op自己的回合開始重置），跟pokemon_battle.html同一套邏輯，同樣是靜默state mutation
+  {
+    const roleActive = G[`${role}Deck`][G[`${role}Idx`]];
+    const opItemsPlayed = G[`${op}ItemsPlayedThisTurn`];
+    if (roleActive.cur > 0 && !isAbilitySealedSrv(role, G) && roleActive.ability?.id === 'time-roar' && opItemsPlayed?.length) {
+      G[`${op}ItemsPlayedThisTurn`] = [];
+      G[`${role}Hand`].push(...opItemsPlayed);
+      G[`${role}NeedsDiscard`] = G[`${role}Hand`].length > 7;
+    }
   }
   // 堅韌（guts-cure-burst，2026-08-14新增）：自己回合開始時，若帶有異常狀態，解除並讓下次攻擊+20
   // （drawForRole沒有log參數——這裡跟同函式其餘場地效果一樣是靜默的state mutation，不推送log訊息）
@@ -7453,6 +7506,15 @@ function isHealSealedSrv(role, G) {
   if (oppActive?.ability?.id === 'dark-abyss-lockdown') return true;
   return (G[`${role}HealSealedTurns`] || 0) > 0;
 }
+// 帕路奇亞「空間切割」（space-cut，2026-08-14新增）：對手不能發動競技場（卡片+特性自動切換都算），
+// 僅限帕路奇亞還在場上時持續生效——跟pokemon_battle.html的spaceCutBlocks()同一套邏輯，
+// 檢查actingRole的對面是不是space-cut持有者，用來擋actingRole自己想切換場地的動作
+function spaceCutBlocksSrv(G, actingRole) {
+  const opRole = actingRole === 'p1' ? 'p2' : 'p1';
+  if (isAbilitySealedSrv(opRole, G)) return false;
+  const opPoke = G[`${opRole}Deck`]?.[G[`${opRole}Idx`]];
+  return !!opPoke && opPoke.cur > 0 && opPoke.ability?.id === 'space-cut';
+}
 // 2026-08-13新增：異常狀態解除封鎖，跟isHealSealedSrv同一種「掛在既有call site」寫法，但是
 // 針對「特定一種異常狀態能不能被解除」而不是HP回復——亡靈墓園擋全部、劇毒領域只擋中毒、
 // 熔岩火山只擋燒傷。effectType是status物件的.type欄位（'poison'/'burn'/...）
@@ -9414,6 +9476,133 @@ async function getRosterForConnection(ws) {
   return randomRoster();
 }
 
+// 2026-08-14新增：從type==='attack'原本的內文抽出來的「真正執行這次攻擊交換」邏輯——
+// 抽成獨立函式是因為空間切割（帕路奇亞）的反應式選擇需要在「算完atkCost/aBuff/dBuff之後、
+// 真正呼叫doAttack之前」暫停等WS訊息，讓type==='attack'跟space_cut_choice兩個handler
+// 都能在各自算好attacker/defender/atk/atkCost/aBuff/dBuff/log之後呼叫同一份邏輯，
+// 不用維護兩份幾乎一樣的攻擊結算代碼。room/G/role/op跟原本inline時完全同名同義，
+// 只是從閉包變成參數傳入。
+function resolveAttackExchangeSrv(room, G, role, op, attacker, defender, atk, atkCost, aBuff, dBuff, log) {
+  const switchGuardMult = G[`${op}SwitchGuard`] ? 0.9 : 1;
+  G[`${op}SwitchGuard`] = false; // consumed by this incoming attack
+  // 格擋（原待機）：下一次受到的攻擊傷害×0.6，跟switchGuard同一套「不論有沒有真的扣血都消耗」寫法
+  const standbyGuardMult = G[`${op}StandbyGuard`] ? 0.6 : 1;
+  G[`${op}StandbyGuard`] = false; // consumed by this incoming attack
+  G[`${role}Energy`] -= atkCost;
+  // 米立龍系特性「指揮」：上一隻我方寶可夢離場留下的能量折扣，只在真正的攻擊招式上生效（輔助技能不算）
+  if (!atk.support && G[`${role}LegacyBuff`]) {
+    const refund = Math.round(atkCost * (1 - G[`${role}LegacyBuff`].energyMult));
+    G[`${role}Energy`] = Math.min(20, G[`${role}Energy`] + refund);
+  }
+  if (atk.support) {
+    executeSupportMoveSrv(attacker, defender, atk, role, op, G, log);
+  } else {
+    if (atk.bonusEnergy) G[`${role}BonusEnergyNextTurn`] = (G[`${role}BonusEnergyNextTurn`] || 0) + atk.bonusEnergy;
+    doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult, standbyGuardMult);
+    // 2026-08-13重新設計：羅馬鬥技場/亡靈墓園/魔幻空間三張場地卡共用同一套「雙重攻擊」——
+    // 對應屬性的招式額外發動第二次（傷害×0.4）。防禦方沒被第一下打倒的話這裡直接補打，
+    // 讓後面既有的attackerDied/defenderDied判斷自然吃到兩下打完的最終狀態；如果第一下
+    // 就把防禦方打倒了，改記錄在G[op+PendingColosseumHit]，等對方選完KO替補（ko_switch handler）
+    // 才真正對新上場的寶可夢補打第二下，跟pokemon_battle.html的attackWithStadiumDouble同一套邏輯
+    const atkTypeForDouble = aBuff.typeOverride || atk.type;
+    // 連續攻擊／親子羈絆（multi-strike，2026-08-14新增）：不限場地、不限招式屬性，任何招式
+    // 攻擊完後都會再以×0.2傷害追打一次，跟場地卡雙重攻擊共用同一套「KO補位後才打第二下」
+    // 邏輯，只是倍率不同（0.2而非0.4），跟pokemon_battle.html的attackWithStadiumDouble同步
+    const attackerAbilityForDouble = isAbilitySealedSrv(role, G) ? null : attacker.ability;
+    const isMultiStrike = attackerAbilityForDouble?.id === 'multi-strike';
+    if ((STADIUM_DOUBLE_ATTACK[G.activeStadium?.id] === atkTypeForDouble || isMultiStrike) && attacker.cur > 0) {
+      const secondHitMult = isMultiStrike ? 0.2 : 0.4;
+      const secondAtk = { ...atk, _secondHitMult: secondHitMult }; // 見doAttack內_secondHitMult的說明，不能只砍atk.dmg
+      if (defender.cur > 0) {
+        doAttack(attacker, defender, secondAtk, aBuff, dBuff, log, G, 1, 1);
+      } else {
+        G[`${op}PendingColosseumHit`] = { attackerRole: role, atk: secondAtk };
+      }
+    }
+  }
+  G[`${role}SuppUsed`]  = false;
+  G[`${role}HandCardUsed`] = false;
+  G[`${role}FreeSwitch`] = false;
+  G[`${role}SwitchedThisTurn`] = false;
+
+  // Attacker's own end-of-turn poison/burn tick, applied now that its attack has resolved —
+  // but only if the attack exchange itself didn't already kill it (nothing to tick on a
+  // fainted Pokémon). Applying it before computing attackerDied means the existing
+  // both-died/attacker-only/defender-only/neither branching below automatically handles a
+  // "survived the hit but then died to poison" case the same way it already handles recoil.
+  if (attacker.cur > 0) applyEndOfTurnStatusSrv(attacker, log, G, role);
+  // Defender's own lingering poison/burn is checked here too (Pokémon Checkup timing checks
+  // BOTH actives at every turn-end, not just role's) — 2026-08-07 fix. A no-op if the attack
+  // itself already KO'd the defender (applyEndOfTurnStatusSrv returns immediately once
+  // poke.cur <= 0), so this only matters when the defender survived the hit.
+  if (defender.cur > 0) applyEndOfTurnStatusSrv(defender, log, G, op);
+
+  // 治癒彩虹：這次交鋒真的把誰打到0血了，先讓牠原地復活一次，再判定是否真的算倒下
+  tryHealingRainbowRevive(attacker, log);
+  tryHealingRainbowRevive(defender, log);
+
+  const attackerDied = attacker.cur <= 0; // reflect bounce, defender-ability recoil (粗糙皮膚), or the poison/burn tick just above
+  const defenderDied = defender.cur <= 0;
+
+  if (attackerDied && defenderDied) {
+    // Simultaneous KO — defender-ability recoil can kill the attacker in the same hit that kills
+    // the defender. Must check both teams' alive counts together; checking attacker alone (and
+    // returning) would silently drop a defender death that happened in the same exchange.
+    const roleAlive = G[`${role}Deck`].filter(p => p.cur > 0).length;
+    const opAlive    = G[`${op}Deck`].filter(p => p.cur > 0).length;
+    if (roleAlive === 0 && opAlive === 0) {
+      endGame(room, 'draw', log); return;
+    }
+    if (roleAlive === 0) {
+      endGame(room, op, log); return;
+    }
+    if (opAlive === 0) {
+      endGame(room, role, log, { atkType: atk.type }); return;
+    }
+    // Both sides have reserves — both must pick a replacement, attacker's side first.
+    // Attacker's turn concludes (their attack landed successfully) — turn passes to op,
+    // matching the ordinary single-KO case below, so op gets their draw once both are resolved.
+    G.pendingKOSwitch = role;
+    G.pendingKOSwitchQueue = [op];
+    G.turn = op;
+    broadcast(room, { type: 'update', state: G, log, actor: role, atkType: atk.type }); return;
+  }
+
+  if (attackerDied) {
+    // Reflected damage (or defender-ability recoil) killed the attacker's own Pokémon —
+    // the attack still landed, so the turn passes to the opponent same as any other
+    // successful attack; the attacker separately needs to pick a replacement via
+    // pendingKOSwitch, but that's independent of whose turn it now is. Previously G.turn
+    // was left unchanged here (still the attacker's), so after picking a replacement the
+    // attacker could immediately act again — reported by the user as "反彈致死後應該換
+    //對方回合".
+    const alive = G[`${role}Deck`].filter(p => p.cur > 0).length;
+    if (alive === 0) {
+      endGame(room, op, log); return;
+    }
+    G.pendingKOSwitch = role;
+    G.turn = op;
+    G.round++;
+    drawForRole(G, op);
+    broadcast(room, { type: 'update', state: G, log, actor: role }); return;
+  }
+
+  if (defenderDied) {
+    const opAlive = G[`${op}Deck`].filter(p => p.cur > 0).length;
+    if (opAlive === 0) {
+      endGame(room, role, log, { atkType: atk.type }); return;
+    }
+    G.pendingKOSwitch = op;
+    G.turn = op;
+    // Don't draw for op yet — draw after they ko_switch (start of their turn)
+  } else {
+    G.turn = op;
+    G.round++;
+    drawForRole(G, op);
+  }
+  broadcast(room, { type: 'update', state: G, log, actor: role, atkType: atk.type }); return;
+}
+
 async function handleMessage(ws, msg) {
     const { type } = msg;
 
@@ -10879,7 +11068,7 @@ async function handleMessage(ws, msg) {
     // Trainer card
     if (type === 'use_trainer') {
       if (G.turn !== role) return;
-      if (G.pendingKOSwitch) return;
+      if (G.pendingKOSwitch || G.pendingSpaceCutChoice) return;
       if (G[`${role}NeedsDiscard`]) return;
       const hand = G[`${role}Hand`];
       const card = hand[msg.handIdx];
@@ -10887,6 +11076,9 @@ async function handleMessage(ws, msg) {
       if (card.cat === 'supporter' && G[`${role}SuppUsed`]) return;
       if (card.cat === 'supporter' && G[`${role}SupporterLockedThisTurn`]) {
         send(ws, { type: 'error', message: '通訊封印中，這回合無法使用支援者卡！' }); return;
+      }
+      if (card.cat === 'stadium' && spaceCutBlocksSrv(G, role)) {
+        send(ws, { type: 'error', message: '對手的空間切割發動中，無法發動競技場卡！' }); return;
       }
       if (HAND_MANIPULATION_CARDS.includes(card.id) && G[`${role}HandCardUsed`] && G.activeStadium?.id !== 'stadium-bug-hive') {
         send(ws, { type: 'error', message: '這回合已經用過抽牌／搶牌類的卡了！' }); return;
@@ -10976,6 +11168,9 @@ async function handleMessage(ws, msg) {
       // 2026-08-14新增：複製（trace）改成「獲得對手上回合使用過的道具卡」，需要記錄每一側
       // 最近一次打出的道具卡——跟pokemon_battle.html的useTrainer()/cpuUseTrainers()同步
       if (card.cat === 'item') G[`${role}LastItemPlayed`] = { ...card };
+      // 時間咆哮（time-roar，2026-08-14新增）：累積「這回合打出過的所有道具卡」，給帝牙盧卡
+      // 「獲得對手上回合所有道具卡」用，跟LastItemPlayed的單張不同
+      if (card.cat === 'item') (G[`${role}ItemsPlayedThisTurn`] = G[`${role}ItemsPlayedThisTurn`] || []).push({ ...card });
       if (card.energyCost) G[`${role}Energy`] -= card.energyCost;
 
       // 搏命：雙方場上寶可夢同歸於盡——除非對方（op）持有盧恩啟示的搏命免疫（G[op+'RuneShield']），
@@ -11033,7 +11228,7 @@ async function handleMessage(ws, msg) {
 
     // Mega 進化：免費行動，不結束回合；雙方共用一條 Mega 能量槽，整場只能用一次
     if (type === 'mega_evolve') {
-      if (G.turn !== role || G.pendingKOSwitch) return;
+      if (G.turn !== role || G.pendingKOSwitch || G.pendingSpaceCutChoice) return;
       const attacker = G[`${role}Deck`][G[`${role}Idx`]];
       if (!attacker.mega || attacker.megaEvolved || G[`${role}MegaUsed`] || G[`${role}MegaEnergy`] < 20) return;
       if (G[`${role}MegaSealedTurns`] > 0) { send(ws, { type: 'error', message: `Mega進化被封印中，還剩 ${G[`${role}MegaSealedTurns`]} 回合` }); return; }
@@ -11058,7 +11253,7 @@ async function handleMessage(ws, msg) {
 
     // Attack
     if (type === 'attack') {
-      if (G.turn !== role || G.pendingKOSwitch) return;
+      if (G.turn !== role || G.pendingKOSwitch || G.pendingSpaceCutChoice) return;
       if (G[`${role}NeedsDiscard`] || G[`${op}NeedsDiscard`]) return;
       const attacker = G[`${role}Deck`][G[`${role}Idx`]];
       const defender = G[`${op}Deck`][G[`${op}Idx`]];
@@ -11138,129 +11333,45 @@ async function handleMessage(ws, msg) {
         broadcast(room, { type: 'update', state: G, log, actor: role }); return;
       }
 
-      const switchGuardMult = G[`${op}SwitchGuard`] ? 0.9 : 1;
-      G[`${op}SwitchGuard`] = false; // consumed by this incoming attack
-      // 格擋（原待機）：下一次受到的攻擊傷害×0.6，跟switchGuard同一套「不論有沒有真的扣血都消耗」寫法
-      const standbyGuardMult = G[`${op}StandbyGuard`] ? 0.6 : 1;
-      G[`${op}StandbyGuard`] = false; // consumed by this incoming attack
-      G[`${role}Energy`] -= atkCost;
-      // 米立龍系特性「指揮」：上一隻我方寶可夢離場留下的能量折扣，只在真正的攻擊招式上生效（輔助技能不算）
-      if (!atk.support && G[`${role}LegacyBuff`]) {
-        const refund = Math.round(atkCost * (1 - G[`${role}LegacyBuff`].energyMult));
-        G[`${role}Energy`] = Math.min(20, G[`${role}Energy`] + refund);
-      }
-      if (atk.support) {
-        executeSupportMoveSrv(attacker, defender, atk, role, op, G, log);
-      } else {
-        if (atk.bonusEnergy) G[`${role}BonusEnergyNextTurn`] = (G[`${role}BonusEnergyNextTurn`] || 0) + atk.bonusEnergy;
-        doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult, standbyGuardMult);
-        // 2026-08-13重新設計：羅馬鬥技場/亡靈墓園/魔幻空間三張場地卡共用同一套「雙重攻擊」——
-        // 對應屬性的招式額外發動第二次（傷害×0.4）。防禦方沒被第一下打倒的話這裡直接補打，
-        // 讓後面既有的attackerDied/defenderDied判斷自然吃到兩下打完的最終狀態；如果第一下
-        // 就把防禦方打倒了，改記錄在G[op+PendingColosseumHit]，等對方選完KO替補（ko_switch handler）
-        // 才真正對新上場的寶可夢補打第二下，跟pokemon_battle.html的attackWithStadiumDouble同一套邏輯
-        const atkTypeForDouble = aBuff.typeOverride || atk.type;
-        // 連續攻擊／親子羈絆（multi-strike，2026-08-14新增）：不限場地、不限招式屬性，任何招式
-        // 攻擊完後都會再以×0.2傷害追打一次，跟場地卡雙重攻擊共用同一套「KO補位後才打第二下」
-        // 邏輯，只是倍率不同（0.2而非0.4），跟pokemon_battle.html的attackWithStadiumDouble同步
-        const attackerAbilityForDouble = isAbilitySealedSrv(role, G) ? null : attacker.ability;
-        const isMultiStrike = attackerAbilityForDouble?.id === 'multi-strike';
-        if ((STADIUM_DOUBLE_ATTACK[G.activeStadium?.id] === atkTypeForDouble || isMultiStrike) && attacker.cur > 0) {
-          const secondHitMult = isMultiStrike ? 0.2 : 0.4;
-          const secondAtk = { ...atk, _secondHitMult: secondHitMult }; // 見doAttack內_secondHitMult的說明，不能只砍atk.dmg
-          if (defender.cur > 0) {
-            doAttack(attacker, defender, secondAtk, aBuff, dBuff, log, G, 1, 1);
-          } else {
-            G[`${op}PendingColosseumHit`] = { attackerRole: role, atk: secondAtk };
-          }
-        }
-      }
-      G[`${role}SuppUsed`]  = false;
-      G[`${role}HandCardUsed`] = false;
-      G[`${role}FreeSwitch`] = false;
-      G[`${role}SwitchedThisTurn`] = false;
-
-      // Attacker's own end-of-turn poison/burn tick, applied now that its attack has resolved —
-      // but only if the attack exchange itself didn't already kill it (nothing to tick on a
-      // fainted Pokémon). Applying it before computing attackerDied means the existing
-      // both-died/attacker-only/defender-only/neither branching below automatically handles a
-      // "survived the hit but then died to poison" case the same way it already handles recoil.
-      if (attacker.cur > 0) applyEndOfTurnStatusSrv(attacker, log, G, role);
-      // Defender's own lingering poison/burn is checked here too (Pokémon Checkup timing checks
-      // BOTH actives at every turn-end, not just role's) — 2026-08-07 fix. A no-op if the attack
-      // itself already KO'd the defender (applyEndOfTurnStatusSrv returns immediately once
-      // poke.cur <= 0), so this only matters when the defender survived the hit.
-      if (defender.cur > 0) applyEndOfTurnStatusSrv(defender, log, G, op);
-
-      // 治癒彩虹：這次交鋒真的把誰打到0血了，先讓牠原地復活一次，再判定是否真的算倒下
-      tryHealingRainbowRevive(attacker, log);
-      tryHealingRainbowRevive(defender, log);
-
-      const attackerDied = attacker.cur <= 0; // reflect bounce, defender-ability recoil (粗糙皮膚), or the poison/burn tick just above
-      const defenderDied = defender.cur <= 0;
-
-      if (attackerDied && defenderDied) {
-        // Simultaneous KO — defender-ability recoil can kill the attacker in the same hit that kills
-        // the defender. Must check both teams' alive counts together; checking attacker alone (and
-        // returning) would silently drop a defender death that happened in the same exchange.
-        const roleAlive = G[`${role}Deck`].filter(p => p.cur > 0).length;
-        const opAlive    = G[`${op}Deck`].filter(p => p.cur > 0).length;
-        if (roleAlive === 0 && opAlive === 0) {
-          endGame(room, 'draw', log); return;
-        }
-        if (roleAlive === 0) {
-          endGame(room, op, log); return;
-        }
-        if (opAlive === 0) {
-          endGame(room, role, log, { atkType: atk.type }); return;
-        }
-        // Both sides have reserves — both must pick a replacement, attacker's side first.
-        // Attacker's turn concludes (their attack landed successfully) — turn passes to op,
-        // matching the ordinary single-KO case below, so op gets their draw once both are resolved.
-        G.pendingKOSwitch = role;
-        G.pendingKOSwitchQueue = [op];
-        G.turn = op;
-        broadcast(room, { type: 'update', state: G, log, actor: role, atkType: atk.type }); return;
-      }
-
-      if (attackerDied) {
-        // Reflected damage (or defender-ability recoil) killed the attacker's own Pokémon —
-        // the attack still landed, so the turn passes to the opponent same as any other
-        // successful attack; the attacker separately needs to pick a replacement via
-        // pendingKOSwitch, but that's independent of whose turn it now is. Previously G.turn
-        // was left unchanged here (still the attacker's), so after picking a replacement the
-        // attacker could immediately act again — reported by the user as "反彈致死後應該換
-        //對方回合".
-        const alive = G[`${role}Deck`].filter(p => p.cur > 0).length;
-        if (alive === 0) {
-          endGame(room, op, log); return;
-        }
-        G.pendingKOSwitch = role;
-        G.turn = op;
-        G.round++;
-        drawForRole(G, op);
+      // 空間切割（帕路奇亞，2026-08-14新增）：defender持有時，攻擊命中前要先讓defender所在的
+      // 玩家做出「棄場地卡換-50減傷」的真人選擇——PvP兩邊都是真人，沒有CPU可以自動決定，所以
+      // 不論攻擊/防守是哪一方，都要真的暫停等WS回應，跟pendingKOSwitch同一種「掛起等待特定
+      // 後續訊息」的既有模式（見下面的space_cut_choice handler）。這裡只存resume所需的最小
+      // 狀態（role/op/atkIdx/atkCost），不存物件參照，恢復時重新從G[role+'Deck'][...]查出來。
+      if (!isAbilitySealedSrv(op, G) && defender.ability?.id === 'space-cut' && G.activeStadium) {
+        G.pendingSpaceCutChoice = { role, op, atkIdx: msg.idx, atkCost };
         broadcast(room, { type: 'update', state: G, log, actor: role }); return;
       }
+      resolveAttackExchangeSrv(room, G, role, op, attacker, defender, atk, atkCost, aBuff, dBuff, log);
+      return;
+    }
 
-      if (defenderDied) {
-        const opAlive = G[`${op}Deck`].filter(p => p.cur > 0).length;
-        if (opAlive === 0) {
-          endGame(room, role, log, { atkType: atk.type }); return;
-        }
-        G.pendingKOSwitch = op;
-        G.turn = op;
-        // Don't draw for op yet — draw after they ko_switch (start of their turn)
-      } else {
-        G.turn = op;
-        G.round++;
-        drawForRole(G, op);
+    // 空間切割（帕路奇亞）反應式選擇：defender所在玩家對pendingSpaceCutChoice的回應——
+    // 棄卡的話清空G.activeStadium並設定一次性的SpaceCutBonus（doAttack讀完即清），然後
+    // 恢復被暫停的攻擊，呼叫跟type==='attack'原本doAttack之後同一套resolveAttackExchangeSrv。
+    if (type === 'space_cut_choice') {
+      const pending = G.pendingSpaceCutChoice;
+      if (!pending || role !== pending.op) return;
+      G.pendingSpaceCutChoice = null;
+      const pAttacker = G[`${pending.role}Deck`][G[`${pending.role}Idx`]];
+      const pDefender = G[`${pending.op}Deck`][G[`${pending.op}Idx`]];
+      const pAtk = pAttacker.attacks[pending.atkIdx];
+      const pABuff = G[`${pending.role}Buff`];
+      const pDBuff = G[`${pending.op}Buff`];
+      const pLog = [];
+      if (msg.discard && G.activeStadium) {
+        const stadiumName = G.activeStadium.name;
+        G.activeStadium = null;
+        G[`${pending.op}SpaceCutBonus`] = 50;
+        pLog.push({ text: `${pDefender.name} 的空間切割發動，棄掉了【${stadiumName}】，這次受到的傷害 -50！`, cls: 'special' });
       }
-      broadcast(room, { type: 'update', state: G, log, actor: role, atkType: atk.type }); return;
+      resolveAttackExchangeSrv(room, G, pending.role, pending.op, pAttacker, pDefender, pAtk, pending.atkCost, pABuff, pDBuff, pLog);
+      return;
     }
 
     // Standby (skip attack, draw 1 supporter card)
     if (type === 'standby') {
-      if (G.turn !== role || G.pendingKOSwitch) return;
+      if (G.turn !== role || G.pendingKOSwitch || G.pendingSpaceCutChoice) return;
       if (G[`${role}NeedsDiscard`]) return;
       const active = G[`${role}Deck`][G[`${role}Idx`]];
       const log = [];
@@ -11308,7 +11419,7 @@ async function handleMessage(ws, msg) {
 
     // Switch (ends the turn, unless 撤退背心 granted a free switch); switched-in Pokémon takes ×0.9 damage this turn; switched-out Pokémon heals 100 HP
     if (type === 'switch') {
-      if (G.turn !== role || G.pendingKOSwitch) return;
+      if (G.turn !== role || G.pendingKOSwitch || G.pendingSpaceCutChoice) return;
       if (G[`${role}NeedsDiscard`]) return;
       if (G[`${role}SwitchedThisTurn`]) return; // only one switch per turn, free or not
       const deck   = G[`${role}Deck`];
@@ -11415,7 +11526,7 @@ async function handleMessage(ws, msg) {
     }
 
     if (type === 'discard_trade') {
-      if (G.turn !== role || G.pendingKOSwitch) return;
+      if (G.turn !== role || G.pendingKOSwitch || G.pendingSpaceCutChoice) return;
       const hand = G[`${role}Hand`];
       const indices = msg.indices;
       // 2026-07-22應使用者要求重新設計：棄1張→競技場卡或+5能量；棄2張→道具卡或解除異常狀態
