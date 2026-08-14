@@ -619,10 +619,6 @@
     .ko-switch-inner { background:#0f1228; border:1px solid rgba(239,83,80,0.4); border-radius:20px; padding:1.5rem 1.25rem; max-width:580px; width:100%; text-align:center; }
     .ko-switch-title { font-size:1.05rem; font-weight:800; color:#ef5350; margin-bottom:1.1rem; }
 
-    /* ── 空間切割（帕路奇亞）反應式選擇 Modal，2026-08-14新增 ── */
-    #space-cut-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
-    #space-cut-modal.open { display:flex; }
-
     /* ── Discard Modal ── */
     #discard-modal { position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:90; display:none; align-items:center; justify-content:center; padding:1rem; }
     #discard-modal.open { display:flex; }
@@ -1060,18 +1056,6 @@
   <div class="ko-switch-inner">
     <div class="ko-switch-title">你的寶可夢倒下了！選擇下一隻出場</div>
     <div id="ko-switch-cards" class="sel-cards-row"></div>
-  </div>
-</div>
-
-<!-- ── 空間切割（帕路奇亞）反應式選擇 Modal，2026-08-14新增 ── -->
-<div id="space-cut-modal">
-  <div class="discard-inner">
-    <div class="discard-title">空間切割發動！</div>
-    <div class="discard-sub" id="space-cut-sub"></div>
-    <div style="display:flex;gap:0.6rem;justify-content:center;margin-top:0.5rem">
-      <button class="btn-modal-ok" onclick="sendSpaceCutChoice(true)">棄卡，傷害 -50</button>
-      <button class="btn-modal-cancel" onclick="sendSpaceCutChoice(false)">保留競技場卡</button>
-    </div>
   </div>
 </div>
 
@@ -1550,8 +1534,8 @@ const POKEMON = [
   { id:378, name:'雷吉艾斯',   type:'ice',      hp:370, tier:3, ability:{id:'thick-fat-pure', name:'厚脂肪', trigger:'onDefend', desc:'受到的傷害-50，HP 低於 1/3 時，招式傷害額外 ×1.2'}, attacks:[{name:'暴風雪',dmg:108,cost:8,type:'ice',status:{effect:'freeze', chance:0.4},megaBoost:true,bonusEnergy:8,bonusVsType:'grass'},{name:'閃光炮',dmg:81,cost:6,type:'steel',rider:'self-cure',status:{effect:'paralysis', chance:0.4}},{name:'未來雷霆',dmg:100,cost:8,type:'psychic',status:{effect:'confusion', chance:0.4},bonusVsType:'fighting'},{name:'電磁砲',dmg:107,cost:8,type:'electric',rider:'mega-charge',status:{effect:'burn', chance:0.4},status2:{effect:'freeze',chance:0.4}}]},
   /* ── Tier 3 新 ── */
   { id:717, name:'伊裴爾塔爾', type:'dark',     type2:'flying',  hp:265, tier:3, ability:{id:'dark-abyss-lockdown', name:'深淵支配', trigger:'passive', desc:'對方無法使用 Mega 進化；這隻寶可夢在場上時，對方的寶可夢無法回復 HP'}, attacks:[{name:'幽靈球',dmg:53,cost:2,type:'ghost',ignoreReflect:true},{name:'空氣斬',dmg:77,cost:6,type:'flying',rider:'mega-charge',status:{effect:'freeze', chance:0.4},status2:{effect:'paralysis',chance:0.4}},{name:'大地虹吸',dmg:84,cost:6,type:'ground',rider:'life-drain'},{name:'惡意波動',dmg:103,cost:8,type:'dark',selfHeal:0.25,bonusVsType:'ghost'}]},
-  { id:483, name:'帝牙盧卡',   type:'steel',    type2:'dragon',  hp:360, tier:3, ability:{id:'time-roar', name:'時間咆哮', trigger:'onAttack', desc:'回合開始時，獲得對手上回合使用過的所有道具卡。並且遊戲中有一次機會100%迴避致命傷害（當受到的傷害超過當前的HP時，100%迴避）'}, attacks:[{name:'閃光炮',dmg:105,cost:8,type:'steel',ignoreReflect:true,megaBoost:true,bonusEnergy:7,bonusVsType:'fairy',ignoreShield:true},{name:'龍之脈動',dmg:101,cost:8,type:'dragon',selfHeal:0.19,bonusVsType:'dragon'},{name:'雷霆',dmg:73,cost:6,type:'electric',rider:'mega-charge',selfHeal:0.21},{name:'幽靈之爪',dmg:104,cost:8,type:'ghost',selfHeal:0.2}]},
-  { id:484, name:'帕路奇亞',   type:'water',    type2:'dragon',  hp:200, tier:3, ability:{id:'space-cut', name:'空間切割', trigger:'passive', desc:'對手不能發動競技場（包含對手特性也不行，僅限這隻寶可夢在場上時持續）。受到攻擊時，可以棄掉當前的競技場卡，受到的傷害-50'}, attacks:[{name:'鐵翼',dmg:40,cost:1,type:'steel',rider:'mega-charge',megaBoost:true,bonusEnergy:7},{name:'龍之脈動',dmg:47,cost:1,type:'dragon',status:{effect:'paralysis', chance:0.4}},{name:'空間扭曲',dmg:71,cost:5,type:'psychic',ignoreReflect:true,selfHeal:0.25,bonusVsType:'fighting',ignoreShield:true},{name:'衝浪',dmg:101,cost:7,type:'water',selfHeal:0.15,bonusVsType:'ice'}]},
+  { id:483, name:'帝牙盧卡',   type:'steel',    type2:'dragon',  hp:360, tier:3, ability:{id:'time-roar', name:'時間咆哮', trigger:'onAttack', desc:'回合開始時，獲得對手上回合使用過的隨機一半道具卡。並且遊戲中有一次機會100%迴避致命傷害（當受到的傷害超過當前的HP時，100%迴避）'}, attacks:[{name:'閃光炮',dmg:105,cost:8,type:'steel',ignoreReflect:true,megaBoost:true,bonusEnergy:7,bonusVsType:'fairy',ignoreShield:true},{name:'龍之脈動',dmg:101,cost:8,type:'dragon',selfHeal:0.19,bonusVsType:'dragon'},{name:'雷霆',dmg:73,cost:6,type:'electric',rider:'mega-charge',selfHeal:0.21},{name:'幽靈之爪',dmg:104,cost:8,type:'ghost',selfHeal:0.2}]},
+  { id:484, name:'帕路奇亞',   type:'water',    type2:'dragon',  hp:200, tier:3, ability:{id:'space-cut', name:'空間切割', trigger:'passive', desc:'對手不能發動競技場（包含對手特性也不行，僅限這隻寶可夢在場上時持續）。上場時，清除當前的競技場效果'}, attacks:[{name:'鐵翼',dmg:40,cost:1,type:'steel',rider:'mega-charge',megaBoost:true,bonusEnergy:7},{name:'龍之脈動',dmg:47,cost:1,type:'dragon',status:{effect:'paralysis', chance:0.4}},{name:'空間扭曲',dmg:71,cost:5,type:'psychic',ignoreReflect:true,selfHeal:0.25,bonusVsType:'fighting',ignoreShield:true},{name:'衝浪',dmg:101,cost:7,type:'water',selfHeal:0.15,bonusVsType:'ice'}]},
   { id:487, name:'騎拉帝納',   type:'ghost',    type2:'dragon',  hp:350, tier:3, ability:{id:'reverse-world-dodge', name:'反轉世界', trigger:'onEnter', desc:'上場時場地切換為反轉世界，並且有10%機率完全閃避攻擊'}, attacks:[{name:'影子偷襲',dmg:43,cost:1,type:'ghost',rider:'energy-steal'},{name:'龍息',dmg:65,cost:3,type:'dragon',megaBoost:true,bonusEnergy:5,status:{effect:'confusion', chance:0.4}},{name:'影子球',dmg:92,cost:6,type:'ghost',selfHeal:0.2,bonusVsType:'psychic'},{name:'暗影猛擊',dmg:110,cost:8,type:'ghost',ignoreReflect:true,ignoreShield:true,bonusVsType:'fighting'}]},
   { id:727, name:'熾焰咆哮虎', type:'fire',     type2:'dark',    hp:300, tier:2, ability:{id:'dark-domain', name:'暗夜支配', trigger:'onEnter', desc:'上場時場地切換為暗夜詛咒領域；惡屬性攻擊傷害額外 +40'}, attacks:[{name:'超強衝擊',dmg:56,cost:3,type:'fighting',ignoreReflect:true,status:{effect:'burn', chance:0.4},megaBoost:true,bonusEnergy:6,status2:{effect:'sleep',chance:0.4}},{name:'暗黑強打',dmg:86,cost:6,type:'dark',megaBoost:true,bonusEnergy:7},{name:'火焰噴射',dmg:105,cost:8,type:'fire',status:{effect:'paralysis', chance:0.4},bonusVsType:'dark',ignoreReflect:true},{name:'劇毒威壓擊',dmg:101,cost:8,type:'poison',selfHeal:0.2,bonusVsType:'fairy'}]},
   /* ── 新增：補足各屬性 ── */
@@ -2283,13 +2267,6 @@ function handleMsg(msg) {
       }
       // KO switch check（觀戰者不用選替補，這個彈窗只給正在玩的那一方看）
       if (!isSpectator && msg.state.pendingKOSwitch === myRole) showKOSwitch();
-      // 空間切割（帕路奇亞，2026-08-14新增）：只有真正被攻擊的那一方（pendingSpaceCutChoice.op）
-      // 需要看到選擇彈窗；state裡沒有pending時要記得關掉（例如對手選完後這次update state已清空）
-      if (!isSpectator && msg.state.pendingSpaceCutChoice?.op === myRole) {
-        showSpaceCutChoiceModal(msg.state.activeStadium?.name || '');
-      } else {
-        closeSpaceCutChoiceModal();
-      }
       // Discard check
       const needsDiscard = !isSpectator && (myRole === 'p1' ? msg.state.p1NeedsDiscard : msg.state.p2NeedsDiscard);
       if (needsDiscard) showDiscardModal();
@@ -2387,9 +2364,7 @@ function applyServerState(sG) {
   G.cpuStatusImmuneTurns     = sG[`${op}StatusImmuneTurns`] || 0;
   // busy if: it's not my turn OR opponent needs KO switch (awaiting their input)
   const opKO = sG.pendingKOSwitch && sG.pendingKOSwitch !== me;
-  // 空間切割（帕路奇亞，2026-08-14新增）：選擇待定中，雙方都視為busy——防守方透過
-  // #space-cut-modal互動（不是一般戰鬥按鈕），攻擊方單純等待，跟pendingKOSwitch同樣邏輯
-  G.busy = opKO || (sG.turn !== me && sG.pendingKOSwitch !== me) || !!sG.pendingSpaceCutChoice;
+  G.busy = opKO || (sG.turn !== me && sG.pendingKOSwitch !== me);
   // freeSwitch tracking
   G.freeSwitch = sG[`${me}FreeSwitch`];
 }
@@ -3070,26 +3045,6 @@ function confirmMadScientist(targetSide, targetIdx) {
   closeMadScientistModal();
   if (handIdx === null || ownIdx === null) return;
   send({ type: 'use_trainer', handIdx, targetOwnIdx: ownIdx, targetSide, targetIdx });
-}
-
-/* ─────────────────────────────────────────
-   空間切割（帕路奇亞）反應式選擇 Modal，2026-08-14新增
-───────────────────────────────────────── */
-let _spaceCutShown = false; // 避免同一個pendingSpaceCutChoice狀態因為其他欄位變動重複觸發broadcast時，modal被重複開啟/閃爍
-function showSpaceCutChoiceModal(stadiumName) {
-  if (_spaceCutShown) return;
-  _spaceCutShown = true;
-  document.getElementById('space-cut-sub').textContent =
-    `你即將受到攻擊。要棄掉當前的競技場卡【${stadiumName}】，讓這次傷害 -50 嗎？`;
-  document.getElementById('space-cut-modal').classList.add('open');
-}
-function closeSpaceCutChoiceModal() {
-  _spaceCutShown = false;
-  document.getElementById('space-cut-modal').classList.remove('open');
-}
-function sendSpaceCutChoice(discard) {
-  closeSpaceCutChoiceModal();
-  send({ type: 'space_cut_choice', discard });
 }
 
 /* ─────────────────────────────────────────

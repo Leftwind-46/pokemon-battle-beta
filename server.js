@@ -89,8 +89,8 @@ const POKEMON = [
   { id:378, name:'雷吉艾斯',   type:'ice',      hp:370, tier:3, ability:{id:'thick-fat-pure', name:'厚脂肪', trigger:'onDefend', desc:'受到的傷害-50，HP 低於 1/3 時，招式傷害額外 ×1.2'}, attacks:[{name:'暴風雪',dmg:108,cost:8,type:'ice',status:{effect:'freeze', chance:0.4},megaBoost:true,bonusEnergy:8,bonusVsType:'grass'},{name:'閃光炮',dmg:81,cost:6,type:'steel',rider:'self-cure',status:{effect:'paralysis', chance:0.4}},{name:'未來雷霆',dmg:100,cost:8,type:'psychic',status:{effect:'confusion', chance:0.4},bonusVsType:'fighting'},{name:'電磁砲',dmg:107,cost:8,type:'electric',rider:'mega-charge',status:{effect:'burn', chance:0.4},status2:{effect:'freeze',chance:0.4}}]},
   /* ── Tier 3 新 ── */
   { id:717, name:'伊裴爾塔爾', type:'dark',     type2:'flying',  hp:265, tier:3, ability:{id:'dark-abyss-lockdown', name:'深淵支配', trigger:'passive', desc:'對方無法使用 Mega 進化；這隻寶可夢在場上時，對方的寶可夢無法回復 HP'}, attacks:[{name:'幽靈球',dmg:53,cost:2,type:'ghost',ignoreReflect:true},{name:'空氣斬',dmg:77,cost:6,type:'flying',rider:'mega-charge',status:{effect:'freeze', chance:0.4},status2:{effect:'paralysis',chance:0.4}},{name:'大地虹吸',dmg:84,cost:6,type:'ground',rider:'life-drain'},{name:'惡意波動',dmg:103,cost:8,type:'dark',selfHeal:0.25,bonusVsType:'ghost'}]},
-  { id:483, name:'帝牙盧卡',   type:'steel',    type2:'dragon',  hp:360, tier:3, ability:{id:'time-roar', name:'時間咆哮', trigger:'onAttack', desc:'回合開始時，獲得對手上回合使用過的所有道具卡。並且遊戲中有一次機會100%迴避致命傷害（當受到的傷害超過當前的HP時，100%迴避）'}, attacks:[{name:'閃光炮',dmg:105,cost:8,type:'steel',ignoreReflect:true,megaBoost:true,bonusEnergy:7,bonusVsType:'fairy',ignoreShield:true},{name:'龍之脈動',dmg:101,cost:8,type:'dragon',selfHeal:0.19,bonusVsType:'dragon'},{name:'雷霆',dmg:73,cost:6,type:'electric',rider:'mega-charge',selfHeal:0.21},{name:'幽靈之爪',dmg:104,cost:8,type:'ghost',selfHeal:0.2}]},
-  { id:484, name:'帕路奇亞',   type:'water',    type2:'dragon',  hp:200, tier:3, ability:{id:'space-cut', name:'空間切割', trigger:'passive', desc:'對手不能發動競技場（包含對手特性也不行，僅限這隻寶可夢在場上時持續）。受到攻擊時，可以棄掉當前的競技場卡，受到的傷害-50'}, attacks:[{name:'鐵翼',dmg:40,cost:1,type:'steel',rider:'mega-charge',megaBoost:true,bonusEnergy:7},{name:'龍之脈動',dmg:47,cost:1,type:'dragon',status:{effect:'paralysis', chance:0.4}},{name:'空間扭曲',dmg:71,cost:5,type:'psychic',ignoreReflect:true,selfHeal:0.25,bonusVsType:'fighting',ignoreShield:true},{name:'衝浪',dmg:101,cost:7,type:'water',selfHeal:0.15,bonusVsType:'ice'}]},
+  { id:483, name:'帝牙盧卡',   type:'steel',    type2:'dragon',  hp:360, tier:3, ability:{id:'time-roar', name:'時間咆哮', trigger:'onAttack', desc:'回合開始時，獲得對手上回合使用過的隨機一半道具卡。並且遊戲中有一次機會100%迴避致命傷害（當受到的傷害超過當前的HP時，100%迴避）'}, attacks:[{name:'閃光炮',dmg:105,cost:8,type:'steel',ignoreReflect:true,megaBoost:true,bonusEnergy:7,bonusVsType:'fairy',ignoreShield:true},{name:'龍之脈動',dmg:101,cost:8,type:'dragon',selfHeal:0.19,bonusVsType:'dragon'},{name:'雷霆',dmg:73,cost:6,type:'electric',rider:'mega-charge',selfHeal:0.21},{name:'幽靈之爪',dmg:104,cost:8,type:'ghost',selfHeal:0.2}]},
+  { id:484, name:'帕路奇亞',   type:'water',    type2:'dragon',  hp:200, tier:3, ability:{id:'space-cut', name:'空間切割', trigger:'passive', desc:'對手不能發動競技場（包含對手特性也不行，僅限這隻寶可夢在場上時持續）。上場時，清除當前的競技場效果'}, attacks:[{name:'鐵翼',dmg:40,cost:1,type:'steel',rider:'mega-charge',megaBoost:true,bonusEnergy:7},{name:'龍之脈動',dmg:47,cost:1,type:'dragon',status:{effect:'paralysis', chance:0.4}},{name:'空間扭曲',dmg:71,cost:5,type:'psychic',ignoreReflect:true,selfHeal:0.25,bonusVsType:'fighting',ignoreShield:true},{name:'衝浪',dmg:101,cost:7,type:'water',selfHeal:0.15,bonusVsType:'ice'}]},
   { id:487, name:'騎拉帝納',   type:'ghost',    type2:'dragon',  hp:350, tier:3, ability:{id:'reverse-world-dodge', name:'反轉世界', trigger:'onEnter', desc:'上場時場地切換為反轉世界，並且有10%機率完全閃避攻擊'}, attacks:[{name:'影子偷襲',dmg:43,cost:1,type:'ghost',rider:'energy-steal'},{name:'龍息',dmg:65,cost:3,type:'dragon',megaBoost:true,bonusEnergy:5,status:{effect:'confusion', chance:0.4}},{name:'影子球',dmg:92,cost:6,type:'ghost',selfHeal:0.2,bonusVsType:'psychic'},{name:'暗影猛擊',dmg:110,cost:8,type:'ghost',ignoreReflect:true,ignoreShield:true,bonusVsType:'fighting'}]},
   { id:727, name:'熾焰咆哮虎', type:'fire',     type2:'dark',    hp:300, tier:2, ability:{id:'dark-domain', name:'暗夜支配', trigger:'onEnter', desc:'上場時場地切換為暗夜詛咒領域；惡屬性攻擊傷害額外 +40'}, attacks:[{name:'超強衝擊',dmg:56,cost:3,type:'fighting',ignoreReflect:true,status:{effect:'burn', chance:0.4},megaBoost:true,bonusEnergy:6,status2:{effect:'sleep',chance:0.4}},{name:'暗黑強打',dmg:86,cost:6,type:'dark',megaBoost:true,bonusEnergy:7},{name:'火焰噴射',dmg:105,cost:8,type:'fire',status:{effect:'paralysis', chance:0.4},bonusVsType:'dark',ignoreReflect:true},{name:'劇毒威壓擊',dmg:101,cost:8,type:'poison',selfHeal:0.2,bonusVsType:'fairy'}]},
   /* ── 新增：補足各屬性 ── */
@@ -832,10 +832,6 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
   // computed later) so the early-return immunity branches below can also respect 封印特性.
   const aRole = aBuff === G.p1Buff ? 'p1' : 'p2';
   const dRole = dBuff === G.p1Buff ? 'p1' : 'p2';
-  // 空間切割（帕路奇亞，2026-08-14新增）：由space_cut_choice handler在呼叫doAttack之前算好、
-  // 存進這個一次性旗標的傷害減免，跟pokemon_battle.html的doAttack同一套「讀出來立刻清空」寫法
-  const spaceCutReduction = G[`${dRole}SpaceCutBonus`] || 0;
-  G[`${dRole}SpaceCutBonus`] = 0;
   // 封印特性卡生效中的那一側，特性視為不存在——後面整個function一律讀attackerAbility/defenderAbility
   // 這兩個local變數，不要直接讀attacker.ability/defender.ability（那樣會繞過封印判定）
   const attackerAbility = isAbilitySealedSrv(aRole, G) ? null : attacker.ability;
@@ -1132,7 +1128,7 @@ function doAttack(attacker, defender, atk, aBuff, dBuff, log, G, switchGuardMult
     // 乘法鏈最後面（atk._secondHitMult，2026-08-04原本是colosseum專屬的atk._halfDamage/固定0.5，
     // 現在改成通用欄位／0.4），不能只砍atk.dmg這個小加項——megaBoostBonus/abilityDmgBonus等
     // 固定加成完全不會被砍到，導致第二段幾乎跟第一段一樣高（使用者回報「兩下攻擊都超過300」）。
-    damage = Math.max(0, Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumFlatBonus + legacyDmgBonus + abilityDmgBonus + megaBoostBonus + typeBoostBonus + bonusVsTypeBonus + selfCureBonus) * effectiveAtkMult * burnMult * mult * stabMult * switchGuardMult * standbyGuardMult * abilityDmgMult * defAbilityMult * stadiumMult * typeBoostMult * reflectPierceMult * (atk._secondHitMult ?? 1))) - shieldTerm - rockFieldReduction - steelFortressReduction - shrineReduction - crownedShieldReduction - mysticSpaceReduction - iceTundraReduction - thickFatPureReduction - solidRockFlatReduction - spaceCutReduction);
+    damage = Math.max(0, Math.max(1, Math.floor((atk.dmg + aBuff.atkBonus + stadiumFlatBonus + legacyDmgBonus + abilityDmgBonus + megaBoostBonus + typeBoostBonus + bonusVsTypeBonus + selfCureBonus) * effectiveAtkMult * burnMult * mult * stabMult * switchGuardMult * standbyGuardMult * abilityDmgMult * defAbilityMult * stadiumMult * typeBoostMult * reflectPierceMult * (atk._secondHitMult ?? 1))) - shieldTerm - rockFieldReduction - steelFortressReduction - shrineReduction - crownedShieldReduction - mysticSpaceReduction - iceTundraReduction - thickFatPureReduction - solidRockFlatReduction);
     // 影舞：下一次受到攻擊擲硬幣，正面完全免傷——一次性旗標，這次攻擊到來就消耗掉（不論正反面）。true-damage系特性無視此效果。
     if (!moldBreaker && G[`${dRole}CoinShield`]) {
       G[`${dRole}CoinShield`] = false;
@@ -1717,6 +1713,14 @@ function triggerOnEnterSrv(poke, role, G, log, isFieldEntry = true, suppressAbil
       G.activeStadium = { ...invertCard };
       log.push({ text: `${poke.name} 的反轉世界發動，場地切換成了反轉世界！`, cls: 'special' });
     }
+  }
+  // 空間切割（space-cut，2026-08-14修正：「受到攻擊時可棄場地卡換-50」改成「上場時清除競技場效果」）：
+  // 帕路奇亞上場時直接清空G.activeStadium，不需要spaceCutBlocksSrv檢查（清除不算「發動競技場」），
+  // 跟pokemon_battle.html同步
+  if (poke.ability.id === 'space-cut' && G.activeStadium) {
+    const clearedName = G.activeStadium.name;
+    G.activeStadium = null;
+    log.push({ text: `${poke.name} 的空間切割發動，清除了【${clearedName}】的競技場效果！`, cls: 'special' });
   }
   // 2026-08-14新增：毒療（poison-heal）上場時自動陷入中毒——跳過機率/免疫判定，之後每回合
   // 回復量在applyEndOfTurnStatusSrv那邊改成固定70，跟pokemon_battle.html同步
@@ -2751,15 +2755,17 @@ function drawForRole(G, role) {
   } else {
     G[`${role}Energy`] = Math.min(20, (G[`${role}Energy`] || 0) + Math.max(0, 3 - rolePressureDrainCut));
   }
-  // 時間咆哮（time-roar，2026-08-14新增，帝牙盧卡專屬）：自己回合開始時，獲得對手上回合使用過
-  // 的所有道具卡——讀G[op+'ItemsPlayedThisTurn']（op上一次自己回合結束時累積的內容，這時候還
-  // 沒被op自己的回合開始重置），跟pokemon_battle.html同一套邏輯，同樣是靜默state mutation
+  // 時間咆哮（time-roar，2026-08-14修正：從「全部」改成「隨機一半」）：自己回合開始時，獲得
+  // 對手上回合使用過的道具卡中隨機一半（無條件進位）——讀G[op+'ItemsPlayedThisTurn']（op上
+  // 一次自己回合結束時累積的內容，這時候還沒被op自己的回合開始重置），跟pokemon_battle.html同步
   {
     const roleActive = G[`${role}Deck`][G[`${role}Idx`]];
     const opItemsPlayed = G[`${op}ItemsPlayedThisTurn`];
     if (roleActive.cur > 0 && !isAbilitySealedSrv(role, G) && roleActive.ability?.id === 'time-roar' && opItemsPlayed?.length) {
+      const shuffled = [...opItemsPlayed].sort(() => Math.random() - 0.5);
+      const stolen = shuffled.slice(0, Math.ceil(shuffled.length / 2));
       G[`${op}ItemsPlayedThisTurn`] = [];
-      G[`${role}Hand`].push(...opItemsPlayed);
+      G[`${role}Hand`].push(...stolen);
       G[`${role}NeedsDiscard`] = G[`${role}Hand`].length > 7;
     }
   }
@@ -7577,8 +7583,13 @@ function buildG(room, startLog) {
     activeStadium: null,
     winner: null,
   };
-  triggerOnEnterSrv(G.p1Deck[0], 'p1', G, startLog);
-  triggerOnEnterSrv(G.p2Deck[0], 'p2', G, startLog);
+  // 2026-08-14修正：先後攻onEnter特性發動順序錯誤——不論擲硬幣結果是誰先攻(firstTurn)，
+  // 這裡原本永遠是「p1先、p2後」寫死的固定順序。特性發動順序在某些情境下有意義（例如兩邊
+  // 都是onEnter切換場地的特性，最後一個發動的才是真正生效的場地），應該要「先攻的玩家先發動」，
+  // 不是「p1永遠先發動」——改成依firstTurn動態決定順序。
+  const secondTurn = firstTurn === 'p1' ? 'p2' : 'p1';
+  triggerOnEnterSrv(G[`${firstTurn}Deck`][0], firstTurn, G, startLog);
+  triggerOnEnterSrv(G[`${secondTurn}Deck`][0], secondTurn, G, startLog);
   return G;
 }
 
@@ -9476,12 +9487,11 @@ async function getRosterForConnection(ws) {
   return randomRoster();
 }
 
-// 2026-08-14新增：從type==='attack'原本的內文抽出來的「真正執行這次攻擊交換」邏輯——
-// 抽成獨立函式是因為空間切割（帕路奇亞）的反應式選擇需要在「算完atkCost/aBuff/dBuff之後、
-// 真正呼叫doAttack之前」暫停等WS訊息，讓type==='attack'跟space_cut_choice兩個handler
-// 都能在各自算好attacker/defender/atk/atkCost/aBuff/dBuff/log之後呼叫同一份邏輯，
-// 不用維護兩份幾乎一樣的攻擊結算代碼。room/G/role/op跟原本inline時完全同名同義，
-// 只是從閉包變成參數傳入。
+// 2026-08-14新增：從type==='attack'原本的內文抽出來的「真正執行這次攻擊交換」邏輯，
+// 讓很長的attack handler讀起來更清楚。room/G/role/op跟原本inline時完全同名同義，
+// 只是從閉包變成參數傳入。（原本這個抽出也是為了配合帕路奇亞「空間切割」的攻擊前反應式
+// 選擇暫停機制，該機制已於同日改版拿掉——見battle-logic skill同日的後續修正說明——
+// 但抽成獨立函式本身仍然合理，故保留。）
 function resolveAttackExchangeSrv(room, G, role, op, attacker, defender, atk, atkCost, aBuff, dBuff, log) {
   const switchGuardMult = G[`${op}SwitchGuard`] ? 0.9 : 1;
   G[`${op}SwitchGuard`] = false; // consumed by this incoming attack
@@ -11068,7 +11078,7 @@ async function handleMessage(ws, msg) {
     // Trainer card
     if (type === 'use_trainer') {
       if (G.turn !== role) return;
-      if (G.pendingKOSwitch || G.pendingSpaceCutChoice) return;
+      if (G.pendingKOSwitch) return;
       if (G[`${role}NeedsDiscard`]) return;
       const hand = G[`${role}Hand`];
       const card = hand[msg.handIdx];
@@ -11228,7 +11238,7 @@ async function handleMessage(ws, msg) {
 
     // Mega 進化：免費行動，不結束回合；雙方共用一條 Mega 能量槽，整場只能用一次
     if (type === 'mega_evolve') {
-      if (G.turn !== role || G.pendingKOSwitch || G.pendingSpaceCutChoice) return;
+      if (G.turn !== role || G.pendingKOSwitch) return;
       const attacker = G[`${role}Deck`][G[`${role}Idx`]];
       if (!attacker.mega || attacker.megaEvolved || G[`${role}MegaUsed`] || G[`${role}MegaEnergy`] < 20) return;
       if (G[`${role}MegaSealedTurns`] > 0) { send(ws, { type: 'error', message: `Mega進化被封印中，還剩 ${G[`${role}MegaSealedTurns`]} 回合` }); return; }
@@ -11253,7 +11263,7 @@ async function handleMessage(ws, msg) {
 
     // Attack
     if (type === 'attack') {
-      if (G.turn !== role || G.pendingKOSwitch || G.pendingSpaceCutChoice) return;
+      if (G.turn !== role || G.pendingKOSwitch) return;
       if (G[`${role}NeedsDiscard`] || G[`${op}NeedsDiscard`]) return;
       const attacker = G[`${role}Deck`][G[`${role}Idx`]];
       const defender = G[`${op}Deck`][G[`${op}Idx`]];
@@ -11333,45 +11343,13 @@ async function handleMessage(ws, msg) {
         broadcast(room, { type: 'update', state: G, log, actor: role }); return;
       }
 
-      // 空間切割（帕路奇亞，2026-08-14新增）：defender持有時，攻擊命中前要先讓defender所在的
-      // 玩家做出「棄場地卡換-50減傷」的真人選擇——PvP兩邊都是真人，沒有CPU可以自動決定，所以
-      // 不論攻擊/防守是哪一方，都要真的暫停等WS回應，跟pendingKOSwitch同一種「掛起等待特定
-      // 後續訊息」的既有模式（見下面的space_cut_choice handler）。這裡只存resume所需的最小
-      // 狀態（role/op/atkIdx/atkCost），不存物件參照，恢復時重新從G[role+'Deck'][...]查出來。
-      if (!isAbilitySealedSrv(op, G) && defender.ability?.id === 'space-cut' && G.activeStadium) {
-        G.pendingSpaceCutChoice = { role, op, atkIdx: msg.idx, atkCost };
-        broadcast(room, { type: 'update', state: G, log, actor: role }); return;
-      }
       resolveAttackExchangeSrv(room, G, role, op, attacker, defender, atk, atkCost, aBuff, dBuff, log);
-      return;
-    }
-
-    // 空間切割（帕路奇亞）反應式選擇：defender所在玩家對pendingSpaceCutChoice的回應——
-    // 棄卡的話清空G.activeStadium並設定一次性的SpaceCutBonus（doAttack讀完即清），然後
-    // 恢復被暫停的攻擊，呼叫跟type==='attack'原本doAttack之後同一套resolveAttackExchangeSrv。
-    if (type === 'space_cut_choice') {
-      const pending = G.pendingSpaceCutChoice;
-      if (!pending || role !== pending.op) return;
-      G.pendingSpaceCutChoice = null;
-      const pAttacker = G[`${pending.role}Deck`][G[`${pending.role}Idx`]];
-      const pDefender = G[`${pending.op}Deck`][G[`${pending.op}Idx`]];
-      const pAtk = pAttacker.attacks[pending.atkIdx];
-      const pABuff = G[`${pending.role}Buff`];
-      const pDBuff = G[`${pending.op}Buff`];
-      const pLog = [];
-      if (msg.discard && G.activeStadium) {
-        const stadiumName = G.activeStadium.name;
-        G.activeStadium = null;
-        G[`${pending.op}SpaceCutBonus`] = 50;
-        pLog.push({ text: `${pDefender.name} 的空間切割發動，棄掉了【${stadiumName}】，這次受到的傷害 -50！`, cls: 'special' });
-      }
-      resolveAttackExchangeSrv(room, G, pending.role, pending.op, pAttacker, pDefender, pAtk, pending.atkCost, pABuff, pDBuff, pLog);
       return;
     }
 
     // Standby (skip attack, draw 1 supporter card)
     if (type === 'standby') {
-      if (G.turn !== role || G.pendingKOSwitch || G.pendingSpaceCutChoice) return;
+      if (G.turn !== role || G.pendingKOSwitch) return;
       if (G[`${role}NeedsDiscard`]) return;
       const active = G[`${role}Deck`][G[`${role}Idx`]];
       const log = [];
@@ -11419,7 +11397,7 @@ async function handleMessage(ws, msg) {
 
     // Switch (ends the turn, unless 撤退背心 granted a free switch); switched-in Pokémon takes ×0.9 damage this turn; switched-out Pokémon heals 100 HP
     if (type === 'switch') {
-      if (G.turn !== role || G.pendingKOSwitch || G.pendingSpaceCutChoice) return;
+      if (G.turn !== role || G.pendingKOSwitch) return;
       if (G[`${role}NeedsDiscard`]) return;
       if (G[`${role}SwitchedThisTurn`]) return; // only one switch per turn, free or not
       const deck   = G[`${role}Deck`];
@@ -11526,7 +11504,7 @@ async function handleMessage(ws, msg) {
     }
 
     if (type === 'discard_trade') {
-      if (G.turn !== role || G.pendingKOSwitch || G.pendingSpaceCutChoice) return;
+      if (G.turn !== role || G.pendingKOSwitch) return;
       const hand = G[`${role}Hand`];
       const indices = msg.indices;
       // 2026-07-22應使用者要求重新設計：棄1張→競技場卡或+5能量；棄2張→道具卡或解除異常狀態
