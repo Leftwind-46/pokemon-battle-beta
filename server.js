@@ -6866,6 +6866,19 @@ const TRAINER_EFFECTS = {
     target.tool = { id: 'FM-005', name: 'Rainbow Energy', energyType: msg.energyType };
     return null;
   },
+  'FM-006': (ctx, msg) => { // 流星之民的祈禱（Fan Made，2026-08-15新增）：玩家自選2個不同屬性
+    // （卡面沒寫at random），從能量區各拿1點分配到場上寶可夢——複用既有energy_distribute的
+    // needsChoice流程（energyQueue放這2個屬性），跟Take a {R},{W},{L}那張ATTACK_EFFECTS同一套
+    // 機制，差別是屬性由玩家自選而非卡面固定、且來源是支援者卡不是招式。卡面明講「回合結束」，
+    // 所以不設noEndTurn，讓pocket_attack_choice收尾時的預設pocketAdvanceTurn接手結束回合。
+    const types = Array.isArray(msg?.types) ? [...new Set(msg.types)] : [];
+    if (types.length !== 2) return '請選擇兩個不同的能量屬性';
+    if (!types.every(t => ctx.side.energyTypes.includes(t))) return '你的能量區沒有這些屬性的能量';
+    const pool = [ctx.side.active, ...ctx.side.bench].filter(Boolean);
+    if (!pool.length) return '場上沒有寶可夢可以附加能量';
+    ctx.needsChoice = { kind: 'energy_distribute', energyQueue: types, eligibleUids: pool.map(p => p.uid), includeActive: true };
+    return null;
+  },
   ...(() => {
     // 其餘15張Tool卡沒有「附加當下的一次性效果」，純粹是裝備上去、往後由被動hook持續生效——
     // 用同一個簡單handler批次產生，減少重複的find/check/assign樣板碼

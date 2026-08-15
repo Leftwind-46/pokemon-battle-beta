@@ -2257,6 +2257,38 @@ function closeEnergyTypePicker() {
   document.getElementById('energy-type-picker-overlay').style.display = 'none';
   _energyPickerPokemonUid = null;
   _rainbowEnergyPending = null;
+  _meteorPrayerPending = null;
+}
+// 流星之民的祈禱（FM-006，Fan Made，2026-08-15新增）：卡面「選擇兩個屬性」——跟FM-005單選1種
+// 屬性不同，這裡要選2個不同屬性，用同一個overlay分兩步選（先選第一個，選完排除掉再選第二個），
+// 不做checkbox式多選，維持跟其他energy-type-picker流程一致的「點了就選定」單擊互動。
+// 選完2個屬性後直接送出pocket_play_supporter，剩下「這2點能量要分配給場上哪隻寶可夢」交給
+// server端既有的energy_distribute needsChoice流程（跟attack-choice-overlay共用）。
+let _meteorPrayerPending = null;
+function openMeteorPrayerTypePicker(handUid) {
+  const types = [...new Set(state.you.energyTypes || [])];
+  if (types.length < 2) { flashActionHint('能量區屬性種類不足兩種，無法使用'); return; }
+  _meteorPrayerPending = { handUid, type1: null };
+  document.getElementById('energy-type-picker-title').textContent = '選擇第一個屬性';
+  document.getElementById('energy-type-picker-options').innerHTML = types.map(t =>
+    `<button class="btn btn-secondary" onclick="chooseMeteorPrayerType('${t}')" style="display:flex;align-items:center;gap:0.4rem;justify-content:center">${energyIconHtml(t)}${TYPE_ZH[t] || t}</button>`
+  ).join('');
+  document.getElementById('energy-type-picker-overlay').style.display = 'flex';
+}
+function chooseMeteorPrayerType(type) {
+  if (!_meteorPrayerPending) return;
+  if (!_meteorPrayerPending.type1) {
+    _meteorPrayerPending.type1 = type;
+    const rest = (state.you.energyTypes || []).filter(t => t !== type);
+    document.getElementById('energy-type-picker-title').textContent = '選擇第二個屬性';
+    document.getElementById('energy-type-picker-options').innerHTML = [...new Set(rest)].map(t =>
+      `<button class="btn btn-secondary" onclick="chooseMeteorPrayerType('${t}')" style="display:flex;align-items:center;gap:0.4rem;justify-content:center">${energyIconHtml(t)}${TYPE_ZH[t] || t}</button>`
+    ).join('');
+    return;
+  }
+  const { handUid, type1 } = _meteorPrayerPending;
+  wsSend({ type: 'pocket_play_supporter', handUid, types: [type1, type] });
+  closeEnergyTypePicker();
 }
 // 跟server.js的TRAINER_EFFECTS同一份清單——A1~B2a擴充後訓練師卡從18張暴增到197張，
 // 只有這份清單裡的卡有做效果，其餘先讓玩家看得到卡但打不出去
@@ -2304,6 +2336,8 @@ const TRAINER_EFFECTS_IMPLEMENTED = new Set([
   'B4-145', 'B4-148', 'B4-149', 'B4-150', 'B4-151', 'B4-152', 'B4-153', 'B4-154', 'B4-155',
   // 2026-08-12新增：彩虹能量（FM-005，Fan Made）
   'FM-005',
+  // 2026-08-15新增：流星之民的祈禱（FM-006，Fan Made）
+  'FM-006',
 ]);
 
 // event delegation：own board (active/bench) 點擊
@@ -2460,6 +2494,15 @@ function computeHandCardActions(card) {
         openDiscardTargetPicker('選擇要跟牌庫隨機寶可夢互換的手牌', eligible, (uid) => {
           wsSend({ type: isSupporter ? 'pocket_play_supporter' : 'pocket_play_item', handUid: card.uid, target: uid });
         });
+      } }];
+    }
+    // 流星之民的祈禱（FM-006，Fan Made，2026-08-15新增）：打出前要先選2個能量屬性，跟
+    // TRAINER_NEEDS_TARGET(選board目標)/TRAINER_NEEDS_DISCARD_TARGET(選卡片)都不同，
+    // 是選「屬性」不是選「目標」，複用openRainbowEnergyTypePicker那套picker overlay
+    // 但要選2次，見openMeteorPrayerTypePicker
+    if ((card.effectId || card.id) === 'FM-006') {
+      return [{ label: '選擇兩個能量屬性', primary: true, onClick: () => {
+        openMeteorPrayerTypePicker(card.uid);
       } }];
     }
     // Eevee Bag（2026-08-08新增）：2選1效果，直接給2顆按鈕各自送出不同的msg.choice，
