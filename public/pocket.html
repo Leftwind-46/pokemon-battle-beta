@@ -2069,10 +2069,11 @@ function renderBoard() {
           <div class="board-name">${zhName(m)}</div>
           <div>威力 ${m.damage || 0}</div>
         </div>`).join('');
-    } else if (pendingChoice.kind === 'retreat_discard') {
-      // 撤退棄能量（2026-08-12新增）：只有主戰身上能量種類不只1種、且不是全部要棄光時才會
-      // 暫停在這裡（見server.js的pocket_retreat說明）——列出目前身上各屬性能量各幾個，
-      // 玩家逐個點選要棄掉哪一種，不是複用renderPokeSlot（選的是能量屬性，不是寶可夢）
+    } else if (pendingChoice.kind === 'retreat_discard' || pendingChoice.kind === 'attack_discard_energy') {
+      // 撤退棄能量（2026-08-12新增）／招式效果自選棄能量（2026-08-15新增，例如波盪水「席捲
+      // 巨浪」）：只有主戰身上能量種類不只1種、且不是全部要棄光時才會暫停在這裡（見server.js
+      // 的pocket_retreat／ATTACK_EFFECTS說明）——列出目前身上各屬性能量各幾個，玩家逐個點選
+      // 要棄掉哪一種，不是複用renderPokeSlot（選的是能量屬性，不是寶可夢），兩種kind共用同一套UI
       const counts = {};
       (you.active?.energy || []).forEach(e => counts[e] = (counts[e] || 0) + 1);
       titleEl.textContent = `選擇要棄掉的能量（還需棄 ${pendingChoice.remaining} 個）`;

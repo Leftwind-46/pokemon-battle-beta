@@ -3794,7 +3794,7 @@ function pocketRunCheckup(G) {
   // G.turnNumber還沒遞增，turnNumber<=2恆等於「endingSide正在結束的這個回合是它自己的第一回合」
   // （turn 1=先攻方第一回合、turn 2=後攻方第一回合，不管誰先攻都成立，不需要額外查firstPlayer）。
   // 不限持有者在主戰/板凳，跟Snowy Terrain(限定主戰)不同，掃全場
-  if (G.turnNumber <= 2 && endingSide.energyTypes.includes('Lightning')) {
+  if (G.turnNumber <= 2) {
     // 2026-08-08修正：原本用find()只抓場上第一隻符合的持有者，場上同時有2隻以上Zeraora時
     // 只有一隻會觸發——這個特性沒有「每回合限用1次」的場地限定，應該每一隻持有者都各自觸發
     const holders = [endingSide.active, ...endingSide.bench].filter(p => p?.abilities?.[0]?.name === 'Thunderclap Flash');
@@ -4506,7 +4506,6 @@ const ATTACK_EFFECTS = {
   },
   "During your next turn, this Pokémon's Overdrive Smash attack does +60 damage.": ctx => { ctx.attacker.moveBuffUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.moveBuffName = 'Overdrive Smash'; ctx.attacker.moveBuffAmount = 60; },
   "Take a {P} Energy from your Energy Zone and attach it to Mesprit or Azelf.": ctx => { // Uxie：能量區拿1超能力，附給Mesprit或Azelf（不限自己）
-    if (!ctx.side.energyTypes.includes('Psychic')) return;
     const target = pocketFindOwnByName(ctx.side, ['Mesprit', 'Azelf']);
     if (target) target.energy.push('Psychic');
   },
@@ -4553,7 +4552,6 @@ const ATTACK_EFFECTS = {
     }
   },
   "Take a {L} Energy from your Energy Zone and attach it to 1 of your Benched  Pokémon.": ctx => { // Pachirisu：能量區拿1電能量，附給自選板凳
-    if (!ctx.side.energyTypes.includes('Lightning')) return;
     if (ctx.side.bench.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownBench', eligibleUids: ctx.side.bench.map(p => p.uid), action: 'attachEnergy', energyType: 'Lightning', count: 1 };
   },
   "This attack also does 20 damage to each of your opponent's Benched Pokémon that has any Energy attached.": ctx => { for (const p of ctx.oppSide.bench) { if (p.energy.length > 0) p.curHp = Math.max(0, p.curHp - 20); } },
@@ -4576,7 +4574,7 @@ const ATTACK_EFFECTS = {
   },
   "If your opponent's Active Pokémon is a Basic Pokémon, this attack does 60 more damage.": ctx => { if (ctx.defender?.stage === 'Basic') ctx.rawDamage += 60; },
   "Discard 2 {L} Energy from this Pokémon.": ctx => { pocketDiscardEnergy(ctx.side, ctx.attacker, 'Lightning', 2); },
-  "Take a {P} Energy from your Energy Zone and attach it to this Pokémon.": ctx => { if (ctx.side.energyTypes.includes('Psychic')) ctx.attacker.energy.push('Psychic'); },
+  "Take a {P} Energy from your Energy Zone and attach it to this Pokémon.": ctx => { ctx.attacker.energy.push('Psychic'); },
   "This attack also does 20 damage to 1 of your Pokémon.": ctx => { // Mimikyu：也對自己1隻造成20傷害，玩家自選
     const pool = [ctx.side.active, ...ctx.side.bench].filter(Boolean);
     if (pool.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownAll', eligibleUids: pool.map(p => p.uid), action: 'damage', amount: 20, noEndTurn: false };
@@ -4765,7 +4763,7 @@ const ATTACK_EFFECTS = {
     while (pocketFlipCoin(ctx) && heads < 50) heads++; // 50上限純防呆，避免理論上的無窮迴圈
     ctx.rawDamage += heads * 40;
   },
-  "Take 2 {G} Energy from your Energy Zone and attach it to this Pokémon.": ctx => { if (ctx.side.energyTypes.includes('Grass')) { ctx.attacker.energy.push('Grass', 'Grass'); } },
+  "Take 2 {G} Energy from your Energy Zone and attach it to this Pokémon.": ctx => { ctx.attacker.energy.push('Grass', 'Grass'); },
   "If this Pokémon has at least 2 extra {W} Energy attached, this attack also does 50 damage to 1 of your opponent's Benched Pokémon.": ctx => { // Blastoise：至少2點額外水能量，額外50傷害給對手板凳1隻
     const have = ctx.attacker.energy.filter(e => e === 'Water').length;
     const need = (ctx.atk.cost || []).filter(t => t === 'Water').length;
@@ -4814,7 +4812,7 @@ const ATTACK_EFFECTS = {
   "During your opponent's next turn, if this Pokémon is damaged by an attack, do 80 damage to the Attacking Pokémon.": ctx => { ctx.defender && (ctx.defender.retaliateUntilTurn = ctx.G.turnNumber + 1, ctx.defender.retaliateAmount = 80); },
   "Put a random card that evolves from Spewpa from your deck into your hand.": ctx => { const idxs = ctx.side.deck.map((c, i) => (c.category === 'Pokemon' && c.evolveFrom === 'Spewpa') ? i : -1).filter(i => i >= 0); if (idxs.length) { const i = idxs[Math.floor(Math.random() * idxs.length)]; ctx.side.hand.push(ctx.side.deck.splice(i, 1)[0]); } },
   "During your next turn, attacks used by your Pokémon do +20 damage to your opponent's Active Pokémon.": ctx => { ctx.side.teamMoveBuffUntilTurn = ctx.G.turnNumber + 1; ctx.side.teamMoveBuffAmount = 20; },
-  "Flip a coin. If heads, take 2 {R} Energy from your Energy Zone and attach it to 1 of your Benched Pokémon.": ctx => { if (pocketFlipCoin(ctx) && ctx.side.energyTypes.includes('Fire') && ctx.side.bench.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownBench', eligibleUids: ctx.side.bench.map(p => p.uid), action: 'attachEnergy', energyType: 'Fire', count: 2 }; },
+  "Flip a coin. If heads, take 2 {R} Energy from your Energy Zone and attach it to 1 of your Benched Pokémon.": ctx => { if (pocketFlipCoin(ctx) && ctx.side.bench.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownBench', eligibleUids: ctx.side.bench.map(p => p.uid), action: 'attachEnergy', energyType: 'Fire', count: 2 }; },
   "Flip a coin. If heads, this attack does 70 damage to your opponent's Active Pokémon. If tails, heal 30 damage from your opponent's Active Pokémon.": ctx => { // Delibird：coin，正面70傷害對手主戰，反面幫對手主戰補30血
     ctx.rawDamage = 0;
     if (!ctx.defender) return;
@@ -4836,7 +4834,7 @@ const ATTACK_EFFECTS = {
   },
   "If Plusle is on your Bench, this attack also does 10 damage to each of your opponent's Benched Pokémon.": ctx => { if (pocketFindOwnByName(ctx.side, ['Plusle'])) { for (const p of ctx.oppSide.bench) p.curHp = Math.max(0, p.curHp - 10); } },
   "If you have 5 or more {P} Energy in play, this attack does 60 more damage.": ctx => { const n = [ctx.side.active, ...ctx.side.bench].filter(Boolean).reduce((s, p) => s + p.energy.filter(e => e === 'Psychic').length, 0); if (n >= 5) ctx.rawDamage += 60; },
-  "Take 2 {P} Energy from your Energy Zone and attach it to 1 of your Benched {P} Pokémon.": ctx => { if (ctx.side.energyTypes.includes('Psychic')) { const targets = ctx.side.bench.filter(p => (p.types || []).includes('Psychic')); if (targets.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownBench', eligibleUids: targets.map(p => p.uid), action: 'attachEnergy', energyType: 'Psychic', count: 2 }; } },
+  "Take 2 {P} Energy from your Energy Zone and attach it to 1 of your Benched {P} Pokémon.": ctx => { const targets = ctx.side.bench.filter(p => (p.types || []).includes('Psychic')); if (targets.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownBench', eligibleUids: targets.map(p => p.uid), action: 'attachEnergy', energyType: 'Psychic', count: 2 }; },
   "This attack does 20 more damage for each Supporter card in your discard pile.": ctx => { const n = ctx.side.discard.filter(c => c.category === 'Trainer' && c.trainerType === 'Supporter').length; ctx.rawDamage += n * 20; },
   "Discard a Stadium in play.": ctx => { ctx.G.activeStadium = null; },
   "If this Pokémon has any {P} Energy attached, this attack does 50 more damage.": ctx => { if (ctx.attacker.energy.some(e => e === 'Psychic')) ctx.rawDamage += 50; },
@@ -5754,7 +5752,6 @@ const ATTACK_EFFECTS = {
     if (ctx.defender && ctx.defender.curHp > ctx.attacker.curHp) ctx.rawDamage += 60;
   },
   "Take a {W} Energy from your Energy Zone and attach it to 1 of your Benched {W} Pokémon.": ctx => {
-    if (!ctx.side.energyTypes.includes('Water')) return;
     const targets = ctx.side.bench.filter(p => (p.types || []).includes('Water'));
     if (targets.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownBench', eligibleUids: targets.map(p => p.uid), action: 'attachEnergy', energyType: 'Water', count: 1 };
   },
@@ -5785,8 +5782,8 @@ const ATTACK_EFFECTS = {
     for (const p of [...ctx.side.bench, ...ctx.oppSide.bench]) p.curHp = Math.max(0, p.curHp - 50);
   },
   "Take a {W} and a {L} Energy from your Energy Zone and attach them to this Pokémon.": ctx => {
-    if (ctx.side.energyTypes.includes('Water')) ctx.attacker.energy.push('Water');
-    if (ctx.side.energyTypes.includes('Lightning')) ctx.attacker.energy.push('Lightning');
+    ctx.attacker.energy.push('Water');
+    ctx.attacker.energy.push('Lightning');
   },
   "Discard a {W} and a {L} Energy from this Pokémon.": ctx => { pocketDiscardEnergy(ctx.side, ctx.attacker, 'Water', 1); pocketDiscardEnergy(ctx.side, ctx.attacker, 'Lightning', 1); },
   "This attack does 20 more damage for each Benched Pokémon (both yours and your opponent's).": ctx => { ctx.rawDamage += 20 * (ctx.side.bench.length + ctx.oppSide.bench.length); },
@@ -5824,7 +5821,7 @@ const ATTACK_EFFECTS = {
     if (pool.length) { const t = pool[Math.floor(Math.random() * pool.length)]; t.curHp = Math.max(0, t.curHp - 160); }
   },
   "If a Stadium is in play, your opponent's Active Pokémon is now Burned.": ctx => { if (ctx.G.activeStadium && ctx.defender) ctx.defender.burned = true; },
-  "Flip a coin. If heads, take 2 {R} Energy from your Energy Zone and attach it to this Pokémon.": ctx => { if (pocketFlipCoin(ctx) && ctx.side.energyTypes.includes('Fire')) ctx.attacker.energy.push('Fire', 'Fire'); },
+  "Flip a coin. If heads, take 2 {R} Energy from your Energy Zone and attach it to this Pokémon.": ctx => { if (pocketFlipCoin(ctx)) ctx.attacker.energy.push('Fire', 'Fire'); },
   "Flip a coin for each {R} Energy attached to this Pokémon. This attack does 30 more damage for each heads.": ctx => {
     const n = ctx.attacker.energy.filter(e => e === 'Fire').length;
     let heads = 0;
@@ -5936,9 +5933,18 @@ const ATTACK_EFFECTS = {
     }
   },
   "This attack does 40 more damage for each time your Pokémon have been Knocked Out during this game.": ctx => { ctx.rawDamage += (ctx.side.pokemonKnockedOutCount || 0) * 40; },
+  // 波盪水「席捲巨浪」：卡面文字沒有「random」字眼，2026-08-15應使用者回報改成玩家自選要棄哪個
+  // 能量——比照retreat_discard「多種能量時才暫停問玩家」的慣例，只有1種能量就不用問直接棄
   "Discard an Energy from this Pokémon, and this attack also does 20 damage to each of your opponent's Benched Pokémon.": ctx => {
-    if (ctx.attacker.energy.length) { const [t] = ctx.attacker.energy.splice(Math.floor(Math.random() * ctx.attacker.energy.length), 1); ctx.side.discardEnergy.push(t); }
     for (const p of ctx.oppSide.bench) p.curHp = Math.max(0, p.curHp - 20);
+    if (ctx.attacker.energy.length) {
+      if (new Set(ctx.attacker.energy).size > 1) {
+        ctx.needsChoice = { kind: 'attack_discard_energy', remaining: 1 };
+      } else {
+        const [t] = ctx.attacker.energy.splice(0, 1);
+        ctx.side.discardEnergy.push(t);
+      }
+    }
   },
   // 「takes −30 damage」是這隻自己之後被攻擊時少受傷，跟既有「自身防禦盾」（3944行那個
   // "During your opponent's next turn, this Pokémon takes -20 damage"）同一種寫法——
@@ -5977,7 +5983,7 @@ const ATTACK_EFFECTS = {
     ctx.rawDamage = 40 * [ctx.side.active, ...ctx.side.bench].filter(p => p?.tool).length;
   },
   "Choose 2 of your Benched Pokémon. For each of those Pokémon, take a {P} Energy from your Energy Zone and attach it to that Pokémon.": ctx => {
-    if (ctx.side.bench.length && ctx.side.energyTypes.includes('Psychic')) {
+    if (ctx.side.bench.length) {
       ctx.needsChoice = { kind: 'pick_target_multi', eligibleUids: ctx.side.bench.map(p => p.uid), energyType: 'Psychic', remaining: Math.min(2, ctx.side.bench.length) };
     }
   },
@@ -6311,7 +6317,7 @@ const TRAINER_EFFECTS = {
     if (!target || !(target.types || []).includes('Lightning') || !ctx.side.bench.some(p => p.uid === target.uid)) {
       return '目標必須是板凳上的電屬性寶可夢';
     }
-    if (pocketFlipCoin(ctx) && ctx.side.energyTypes.includes('Lightning')) target.energy.push('Lightning');
+    if (pocketFlipCoin(ctx)) target.energy.push('Lightning');
     return null;
   },
   'A1a-065': (ctx) => { // Mythical Slab：看牌庫頂1張，是超能力寶可夢就進手牌，不是就放牌庫底
@@ -6464,7 +6470,6 @@ const TRAINER_EFFECTS = {
     return null;
   },
   'B1-224': (ctx) => { // Fantina：從能量區各拿1超能力能量給場上每隻Drifblim跟Mismagius
-    if (!ctx.side.energyTypes.includes('Psychic')) return '你的能量區沒有超能力屬性能量';
     for (const p of [ctx.side.active, ...ctx.side.bench].filter(p => p && ['Drifblim', 'Mismagius'].includes(p.name))) {
       p.energy.push('Psychic');
     }
@@ -6941,7 +6946,6 @@ const TRAINER_EFFECTS = {
   'A3-150': (ctx, msg) => { // Kiawe：己方的Alolan Marowak/Turtonator附加2點火能量，這回合結束
     const target = [ctx.side.active, ...ctx.side.bench].find(p => p && p.uid === msg.target && ['Alolan Marowak', 'Turtonator'].includes(p.name));
     if (!target) return '請選擇場上的阿羅拉喪面犬或圖圖犬';
-    if (!ctx.side.energyTypes.includes('Fire')) return '你的能量區沒有火屬性能量';
     target.energy.push('Fire', 'Fire');
     ctx.endTurnAfter = true;
     return null;
@@ -7450,8 +7454,9 @@ function pocketEnforceHealBlock(G, snapshot) {
 /* ── 特性(ability)：每回合限用1次的主動觸發型（key用ability.name）。
    被動常駐型（Gengar ex「詭異束縛」擋支援者卡）不在這裡，是在打出支援者卡時直接檢查對方主戰是不是Gengar ex。 */
 const ABILITY_EFFECTS = {
-  'Volt Charge': (ctx, poke) => { // Magneton：每回合1次，從能量區拿1電能量附到自己身上
-    if (!ctx.side.energyTypes.includes('Lightning')) return '你的能量區沒有電屬性能量';
+  'Volt Charge': (ctx, poke) => { // Magneton：每回合1次，從能量區拿1電能量附到自己身上——2026-08-15
+    // 應使用者要求，「填能」類特性/招式/道具效果不再受side.energyTypes（牌組能量屬性設定）限制，
+    // 卡面固定寫死的能量屬性一律視為always可以生成，即使牌組沒選那個屬性也能發動
     poke.energy.push('Lightning');
     return null;
   },
@@ -7461,7 +7466,6 @@ const ABILITY_EFFECTS = {
   },
   'Psy Shadow': (ctx) => { // Gardevoir：每回合1次，從能量區拿1超能力能量附給場上是超能力屬性的主戰
     if (!ctx.side.active || !(ctx.side.active.types || []).includes('Psychic')) return '主戰必須是超能力屬性';
-    if (!ctx.side.energyTypes.includes('Psychic')) return '你的能量區沒有超能力屬性能量';
     ctx.side.active.energy.push('Psychic');
     return null;
   },
@@ -7476,7 +7480,6 @@ const ABILITY_EFFECTS = {
   'Ignition': (ctx, poke) => {
     if (poke.boardTurn !== ctx.G.turnNumber) return '這個特性只能在進化上場的那個回合使用';
     if (!ctx.side.active || !(ctx.side.active.types || []).includes('Fire')) return '主戰必須是火屬性';
-    if (!ctx.side.energyTypes.includes('Fire')) return '你的能量區沒有火屬性能量';
     ctx.side.active.energy.push('Fire');
     return null;
   },
@@ -7493,13 +7496,11 @@ const ABILITY_EFFECTS = {
      Forest Breath/Psychic Healing）後來修正過，改成玩家自選目標(msg.target)，不是隨機挑——
      見feedback memory「Pocket效果「1 of your X」預設玩家自選不是隨機」。 ── */
   'Broken-Space Bellow': (ctx, poke) => { // 從能量區拿1超能力能量給自己，用了這個特性直接結束回合
-    if (!ctx.side.energyTypes.includes('Psychic')) return '你的能量區沒有超能力屬性能量';
     poke.energy.push('Psychic');
     ctx.endTurnAfter = true;
     return null;
   },
   'Roar in Unison': (ctx, poke) => { // 從能量區拿2惡屬性能量給自己，自己受到30傷害
-    if (!ctx.side.energyTypes.includes('Darkness')) return '你的能量區沒有惡屬性能量';
     poke.energy.push('Darkness', 'Darkness');
     poke.curHp = Math.max(0, poke.curHp - 30);
     return null;
@@ -7594,7 +7595,6 @@ const ABILITY_EFFECTS = {
   'Slow Sear': (ctx) => { if (ctx.oppSide.deck.length) ctx.oppSide.discard.push(ctx.oppSide.deck.shift()); return null; },
   'Ice Maker': (ctx) => { // 主戰必須是水屬性，從能量區拿1水能量給主戰
     if (!ctx.side.active || !(ctx.side.active.types || []).includes('Water')) return '主戰必須是水屬性';
-    if (!ctx.side.energyTypes.includes('Water')) return '你的能量區沒有水屬性能量';
     ctx.side.active.energy.push('Water');
     return null;
   },
@@ -7658,7 +7658,6 @@ const ABILITY_EFFECTS = {
   // 2026-08-06修正：要附加給哪隻草系寶可夢（含自己）改成玩家自選
   'Forest Breath': (ctx, poke, msg) => {
     if (ctx.side.active?.uid !== poke.uid) return '必須在主戰位置才能使用特性';
-    if (!ctx.side.energyTypes.includes('Grass')) return '你的能量區沒有草屬性能量';
     const target = [ctx.side.active, ...ctx.side.bench].find(p => p.uid === msg.target && (p.types || []).includes('Grass'));
     if (!target) return '請選擇己方場上的草屬性寶可夢';
     target.energy.push('Grass');
@@ -7837,7 +7836,6 @@ const ABILITY_EFFECTS = {
     return null;
   },
   'Aqua Charge': (ctx, poke) => { // 從能量區拿1水能量附給自己
-    if (!ctx.side.energyTypes.includes('Water')) return '你的能量區沒有水屬性能量';
     poke.energy.push('Water');
     return null;
   },
@@ -11218,6 +11216,15 @@ async function handleMessage(ws, msg) {
         pocketFinalizeRetreat(G, role, benchUid);
         pocketBroadcastState(pRoom);
         return;
+      } else if (pending.kind === 'attack_discard_energy') {
+        // 2026-08-15新增：招式效果「棄掉這隻身上的能量」但卡面沒寫random，玩家自選要棄哪個——
+        // 跟retreat_discard同一套UI/解析邏輯，差別是棄完不用呼叫pocketFinalizeRetreat，直接落到
+        // 下面共用收尾（正常結束回合）
+        if (!msg.energyType || !side.active.energy.includes(msg.energyType)) return;
+        side.active.energy.splice(side.active.energy.indexOf(msg.energyType), 1);
+        side.discardEnergy.push(msg.energyType);
+        pending.remaining--;
+        if (pending.remaining > 0) { pocketBroadcastState(pRoom); return; }
       } else if (pending.kind === 'pick_target' && pending.optional && msg.skip) {
         // 2026-08-09新增：optional的pick_target允許玩家不選任何目標直接跳過——目前只有
         // discardForBoost(Vespiquen ex「可以棄1隻板凳換多傷害，不棄也可以」)用到，卡面是
