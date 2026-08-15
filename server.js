@@ -3369,6 +3369,8 @@ function drawForRole(G, role) {
       comebackPoke.cur = comebackPoke.hp;
       G[`${role}Hand`].push(pickSupporterAvoidingDupes(G[`${role}Hand`]));
       G[`${role}ComebackUsed`] = true;
+      // 一次性旗標給broadcast()promote成獨立欄位讓client播救贖之光cutscene，見broadcast()裡的處理
+      G.comebackTriggeredRole = role;
     }
   }
   // 亡靈詛咒／暗影封鎖／封印特性／詛咒／妖精結界：2026-07-30應使用者回報「最後一回合效果應該
@@ -8241,6 +8243,12 @@ function send(ws, msg) {
   if (ws?.readyState === 1) ws.send(JSON.stringify(msg));
 }
 function broadcast(room, msg) {
+  // 逆風補償觸發時drawForRole()會在G上設一次性的comebackTriggeredRole——這裡統一promote成
+  // 獨立的msg欄位給client播cutscene，並從G刪掉，這樣不會被後續跟這次事件無關的state同步誤重播
+  if (msg.state && msg.state.comebackTriggeredRole) {
+    msg.comebackTriggered = msg.state.comebackTriggeredRole;
+    delete msg.state.comebackTriggeredRole;
+  }
   send(room.p1, msg); send(room.p2, msg);
   for (const s of (room.spectators || [])) send(s, msg);
 }
