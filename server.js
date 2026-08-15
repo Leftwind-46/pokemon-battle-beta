@@ -3357,17 +3357,18 @@ function drawForRole(G, role) {
     G[`${role}MegaEnergy`] = Math.min(20, (G[`${role}MegaEnergy`] || 0) + 16);
   }
   // op已在函式開頭宣告過，這裡不用再宣告一次
-  // 2026-08-13新增：雙人對戰限定的逆風補償規則——回合開始時，若我方只剩1隻寶可夢、對方還有
-  // 2隻以上，直接回滿血並多抽1張支援者卡。使用者原文沒有「整場限一次」的字眼，所以每次符合
-  // 條件的回合開始都會觸發，不是一次性的。只在PvP做（single-player沒有這條規則，見使用者
-  // 原文「雙人對戰額外規則」的明確限定範圍）。
+  // 2026-08-13新增、2026-08-15改版：雙人對戰限定的逆風補償規則——回合開始時，若我方只剩1隻
+  // 寶可夢、對方還有2隻以上、且該寶可夢HP低於50%，直接回滿血並多抽1張支援者卡。整場戰鬥每一方
+  // 限觸發一次（G[role+'ComebackUsed']旗標標記），觸發後之後回合即使再符合條件也不會再發動。
+  // 只在PvP做（single-player沒有這條規則，見使用者原文「雙人對戰額外規則」的明確限定範圍）。
   const roleAliveCount = G[`${role}Deck`].filter(p => p.cur > 0).length;
   const opAliveCount = G[`${op}Deck`].filter(p => p.cur > 0).length;
-  if (roleAliveCount === 1 && opAliveCount >= 2) {
+  if (roleAliveCount === 1 && opAliveCount >= 2 && !G[`${role}ComebackUsed`]) {
     const comebackPoke = G[`${role}Deck`][G[`${role}Idx`]];
-    if (comebackPoke.cur > 0) {
+    if (comebackPoke.cur > 0 && comebackPoke.cur < comebackPoke.hp * 0.5) {
       comebackPoke.cur = comebackPoke.hp;
       G[`${role}Hand`].push(pickSupporterAvoidingDupes(G[`${role}Hand`]));
+      G[`${role}ComebackUsed`] = true;
     }
   }
   // 亡靈詛咒／暗影封鎖／封印特性／詛咒／妖精結界：2026-07-30應使用者回報「最後一回合效果應該
