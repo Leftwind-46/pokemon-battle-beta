@@ -3901,7 +3901,12 @@ function pocketRunCheckup(G) {
   // ——攻擊當下設defender.delayedDamageUntilTurn = 攻擊時的turnNumber+1，剛好對應defender
   // 自己下一次回合結束時checkup執行的turnNumber，跟Snowy Terrain(每回合觸發)不同，這是一次性的
   if (endingSide.active && endingSide.active.delayedDamageUntilTurn === G.turnNumber) {
-    endingSide.active.curHp = Math.max(0, endingSide.active.curHp - (endingSide.active.delayedDamageAmount || 0));
+    // 花舞鳥「神秘守護」（2026-08-16）：延遲傷害設下當下的攻擊者到引爆時可能已經換場/被擊倒，
+    // 沒辦法在這裡重新拿到真正的攻擊者物件，所以改成設下當下就把攻擊者是不是ex存成
+    // delayedDamageExOrigin這個布林快照，引爆時直接讀這個快照判斷要不要免疫
+    if (!pocketSafeguardImmune(endingSide.active, { ex: endingSide.active.delayedDamageExOrigin })) {
+      endingSide.active.curHp = Math.max(0, endingSide.active.curHp - (endingSide.active.delayedDamageAmount || 0));
+    }
     if (endingSide.active.curHp <= 0) {
       pocketResolveActiveKO(G, endingRole);
       if (G.phase === 'forced_switch' || G.phase === 'done') return true;
@@ -4695,7 +4700,7 @@ const ATTACK_EFFECTS = {
     for (const i of toDiscard) { ctx.side.discard.push(ctx.side.hand.splice(i, 1)[0]); ctx.rawDamage += 50; }
   },
   "If this Pokémon has damage on it, this attack can be used for 1 {L} Energy.": ctx => {},
-  "At the end of your opponent's next turn, do 90 damage to the Defending Pokémon.": ctx => { if (ctx.defender) { ctx.defender.delayedDamageUntilTurn = ctx.G.turnNumber + 1; ctx.defender.delayedDamageAmount = 90; } },
+  "At the end of your opponent's next turn, do 90 damage to the Defending Pokémon.": ctx => { if (ctx.defender) { ctx.defender.delayedDamageUntilTurn = ctx.G.turnNumber + 1; ctx.defender.delayedDamageAmount = 90; ctx.defender.delayedDamageExOrigin = !!ctx.attacker.ex; } },
   "If Latios is on your Bench, this attack does 20 more damage.": ctx => { if (pocketFindOwnByName(ctx.side, ['Latios'])) ctx.rawDamage += 20; },
   "Discard the top card of your deck. If that card is a {F} Pokémon, this attack does 60 more damage.": ctx => { if (ctx.side.deck.length) { const top = ctx.side.deck.shift(); ctx.side.discard.push(top); if (top.category === 'Pokemon' && (top.types || []).includes('Fighting')) ctx.rawDamage += 60; } },
   "If your opponent's Active Pokémon is Zangoose, this attack does 40 more damage.": ctx => { if (ctx.defender?.name === 'Zangoose') ctx.rawDamage += 40; },
@@ -6222,7 +6227,9 @@ function pocketFinalizeRetreat(G, role, benchUid) {
   // Galarian Stunfisk：對手主戰身上種的「我方撤退時打新主戰」陷阱
   if (oppSide.active?.retreatTrapUntilTurn === G.turnNumber) {
     target.curHp = Math.max(0, target.curHp - (oppSide.active.retreatTrapAmount || 0));
-    if (target.curHp <= 0) pocketResolveActiveKO(G, role);
+    // 2026-08-16應使用者回報一併修正：撤退本身是免費行動、不結束回合，這裡被陷阱擊倒也不該
+    // 連帶結束回合（同一個道理見Nightmare Aura/Electromagnetic Wall的修正）
+    if (target.curHp <= 0) pocketResolveActiveKO(G, role, true, false);
   }
 }
 
@@ -10419,7 +10426,9 @@ async function handleMessage(ws, msg) {
         oppSide.active.curHp = Math.max(0, oppSide.active.curHp - 20);
         pocketEmitCardActivation(G, role, target, '特性觸發：Nightmare Aura');
         if (oppSide.active.curHp <= 0) {
-          pocketResolveActiveKO(G, op);
+          // 2026-08-16應使用者回報修正：附加能量不是攻擊，這裡擊倒對手不該連帶結束回合（跟
+          // pocket_use_ability handler、pocketResolveAmbientKOs同一個道理），endsTurn=false
+          pocketResolveActiveKO(G, op, true, false);
           if (G.phase === 'forced_switch' || G.phase === 'done') { pocketBroadcastState(pRoom); return; }
         }
       }
@@ -10439,7 +10448,8 @@ async function handleMessage(ws, msg) {
         pocketEmitCardActivation(G, op, oppSide.active, '特性觸發：Electromagnetic Wall');
         if (target.curHp <= 0) {
           if (target.uid === side.active?.uid) {
-            pocketResolveActiveKO(G, role);
+            // 同上：附加能量不是攻擊，Electromagnetic Wall擊倒也不該結束回合
+            pocketResolveActiveKO(G, role, true, false);
             if (G.phase === 'forced_switch' || G.phase === 'done') { pocketBroadcastState(pRoom); return; }
           } else {
             pocketResolveBenchKOs(G, side, op);
@@ -11307,6 +11317,7 @@ async function handleMessage(ws, msg) {
           // 同一個delayedDamageUntilTurn/Amount機制，只是這裡多一層「玩家先選目標」的暫停
           target.delayedDamageUntilTurn = G.turnNumber + 1;
           target.delayedDamageAmount = pending.amount;
+          target.delayedDamageExOrigin = !!side.active?.ex; // 花舞鳥「神秘守護」引爆時判斷用的快照
         } else if (pending.action === 'switchInAndDamage') {
           // Pull In and Pound（2026-08-08新增）：把玩家選的對手板凳寶可夢拉上主戰，直接對牠造成
           // 傷害——跟一般damage分支不同的地方是「target」原本在板凳，要先真的換上主戰才打
