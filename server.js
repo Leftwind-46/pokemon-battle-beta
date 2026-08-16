@@ -7283,12 +7283,14 @@ const TRAINER_EFFECTS = {
     ctx.side.active = chosen;
     return null;
   },
-  'B4-153': (ctx, msg) => { // Wally：能量區拿1無色能量附給己方1隻Stage2
-    if (!ctx.side.pendingEnergy) return '能量區目前沒有能量';
+  'B4-153': (ctx, msg) => { // Wally：能量區拿1無色能量附給己方1隻Stage2——2026-08-16應使用者
+    // 回報修正：卡面文字跟其他「Take a {X} Energy from your Energy Zone and attach it to...」
+    // 的招式/特性（例如Volt Charge）是同一種寫法，應該是憑空額外貼1個無色能量，不該綁定/
+    // 消耗side.pendingEnergy這個「本回合正常手動附加能量」的資源——原本錯誤地要求pendingEnergy
+    // 存在才能用、用完還把pendingEnergy清空，等於逼玩家二選一，卡面完全沒有這個限制
     const target = [ctx.side.active, ...ctx.side.bench].find(p => p && p.uid === msg.target && p.stage === 'Stage2');
     if (!target) return '請選擇己方場上的Stage 2寶可夢';
-    target.energy.push(ctx.side.pendingEnergy);
-    ctx.side.pendingEnergy = null;
+    target.energy.push('Colorless');
     return null;
   },
   'B4-154': (ctx) => { ctx.G.activeStadium = { id: 'B4-154', name: 'Soothing Shore' }; return null; },

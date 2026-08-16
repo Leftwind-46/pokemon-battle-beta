@@ -1681,7 +1681,15 @@ function renderPokeSlot(p, { pickable = false, dataset = {}, own = false } = {})
   if (p.sleepTrapUntilTurn === tn) badges.push(`<span class="status-chip" title="下次從能量區附加能量時會陷入睡眠">💤陷阱</span>`);
   if (p.moveLockUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合不能使用【${p.moveLockName}】">🚫【${p.moveLockName}】</span>`);
   if (p.moveBuffUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合使用【${p.moveBuffName}】傷害+${p.moveBuffAmount}">【${p.moveBuffName}】+${p.moveBuffAmount}</span>`);
-  if (p.tool) badges.push(`<span class="status-chip" title="裝備：${zhName(p.tool)}">🔧${zhName(p.tool)}</span>`);
+  if (p.tool) {
+    // 彩虹能量（FM-005）：裝備時玩家自選的屬性只存在p.tool.energyType裡，原本徽章只顯示
+    // 「🔧Rainbow Energy」看不出選了哪個屬性——2026-08-16應使用者要求，額外疊一個對應屬性
+    // 的能量圖示在旁邊，滑鼠提示文字也帶上中文屬性名
+    const rainbowType = p.tool.id === 'FM-005' ? p.tool.energyType : null;
+    const rainbowIcon = rainbowType ? energyIconHtml(rainbowType, true) : '';
+    const rainbowTitle = rainbowType ? `（${TYPE_ZH[rainbowType] || rainbowType}）` : '';
+    badges.push(`<span class="status-chip" title="裝備：${zhName(p.tool)}${rainbowTitle}">🔧${zhName(p.tool)}${rainbowIcon}</span>`);
+  }
   const statusHtml = badges.length ? `<div class="status-badges">${badges.join('')}</div>` : '';
   // 2026-08-08修正：拿掉🔍按鈕——點卡片本體（board-overlay的click委派）本來就會開啟同樣的
   // showCardDetail，🔍是完全多餘的重複入口，使用者反映占位又容易跟特性/棄置按鈕混在一起
