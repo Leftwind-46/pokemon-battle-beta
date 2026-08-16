@@ -3458,6 +3458,16 @@ const pocketRooms = new Map();
 // 直接靠rarity欄位本身判斷要不要進追逐卡池，不用再猜「哪張是base、哪張是variant」。
 const pocketCardsFile = JSON.parse(fs.readFileSync(path.join(__dirname, 'public', 'pocket-cards.json'), 'utf8'));
 const POCKET_CARDS = pocketCardsFile.cards;
+// 2026-08-16應使用者回報修正：TCGdex來源資料裡，真實卡面完全沒印能量符號的「免費招式」
+// （例如盆才怪「淚眼攻擊」），部分卡片被錯誤標成cost:['0']（字面上的字串'0'，不是真的能量
+// 屬性）——pocketCanPayCost會把'0'當成一種永遠不存在、永遠付不出來的能量屬性去比對，導致
+// 這類招式實際上永遠打不出來。在資料載入的當下就把'0'從所有cost陣列裡濾掉，變回真正0能量
+// 需求的免費招式，這樣下游（付費檢查、client端能量圖示顯示）都不用個別特判'0'這個字面值。
+for (const c of POCKET_CARDS) {
+  for (const a of (c.attacks || [])) {
+    if (a.cost) a.cost = a.cost.filter(t => t !== '0');
+  }
+}
 const POCKET_SETS = pocketCardsFile.sets; // [{id, name, cardCount}]，開包/圖鑑選版本用
 // 星等以上（含新系列引入的Shiny）都算「追逐卡池」——高星Trainer卡（角色支援者重印版）
 // 由匯入腳本預先算好effectId指回同系列內最早印刷的那張卡id，TRAINER_EFFECTS才查得到效果
@@ -3823,8 +3833,12 @@ function pocketRunCheckup(G) {
   // 睡眠主戰，otherSideForCheckup持有時打endingSide的睡眠主戰（因為對otherSideForCheckup
   // 來說，endingSide的回合剛結束正好也是「每一個回合結束」的其中一次）
   for (const [holderSide, targetSide, targetRole] of [[endingSide, otherSideForCheckup, otherRoleForCheckup], [otherSideForCheckup, endingSide, endingRole]]) {
-    const badDreamsHolder = [holderSide.active, ...holderSide.bench].find(p => p?.abilities?.[0]?.name === 'Bad Dreams');
-    if (badDreamsHolder && targetSide.active?.status === 'asleep' && targetSide.active.curHp > 0) {
+    // 2026-08-16修正：跟Thunderclap Flash同一種bug——原本用find()只抓場上第一隻持有者，
+    // 場上同時有2隻以上Bad Dreams持有者時應該每一隻各自觸發20傷害（使用者回報：板凳2隻
+    // 只發動1次），不是「有這個特性就固定觸發1次」
+    const badDreamsHolders = [holderSide.active, ...holderSide.bench].filter(p => p?.abilities?.[0]?.name === 'Bad Dreams');
+    for (const badDreamsHolder of badDreamsHolders) {
+      if (!(targetSide.active?.status === 'asleep' && targetSide.active.curHp > 0)) break; // 已經被前面某隻打死/換人，沒有目標可打了
       targetSide.active.curHp = Math.max(0, targetSide.active.curHp - 20);
       pocketEmitCardActivation(G, endingRole, badDreamsHolder, '特性觸發：Bad Dreams');
       if (targetSide.active.curHp <= 0) {
@@ -3845,6 +3859,7 @@ function pocketRunCheckup(G) {
       const preservedEnergy = poke.energy; const preservedUid = poke.uid;
       Object.assign(poke, structuredClone(POCKET_CARDS_BY_ID[pick.c.id]));
       poke.uid = preservedUid; poke.energy = preservedEnergy;
+      poke.status = null; poke.poisoned = false; poke.burned = false; // 2026-08-16應使用者要求：進化時異常狀態要清掉
       poke.curHp = Math.max(1, (poke.hp || 0) - preservedDamage);
       poke.boardTurn = G.turnNumber;
       poke._realAbilities = undefined;
@@ -5640,6 +5655,7 @@ const ATTACK_EFFECTS = {
     const preservedUid = ctx.attacker.uid;
     Object.assign(ctx.attacker, structuredClone(POCKET_CARDS_BY_ID[pick.c.id]));
     ctx.attacker.uid = preservedUid; ctx.attacker.energy = preservedEnergy;
+    ctx.attacker.status = null; ctx.attacker.poisoned = false; ctx.attacker.burned = false; // 2026-08-16應使用者要求：進化時異常狀態要清掉
     ctx.attacker.curHp = Math.max(1, (ctx.attacker.hp || 0) - preservedDamage);
     ctx.attacker.boardTurn = ctx.G.turnNumber;
     ctx.side.deck = pocketShuffle(ctx.side.deck);
@@ -6720,6 +6736,7 @@ const TRAINER_EFFECTS = {
     const preservedUid = target.uid;
     Object.assign(target, structuredClone(POCKET_CARDS_BY_ID[handCard.id]));
     target.uid = preservedUid; target.energy = preservedEnergy;
+    target.status = null; target.poisoned = false; target.burned = false; // 2026-08-16應使用者要求：進化時異常狀態要清掉
     target.hp += pocketToolHpBonusAmount(target); // Object.assign後hp已是純base值(不含Tool加成)，直接加回新加成即可，不能算delta
     target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
     target.boardTurn = ctx.G.turnNumber;
@@ -6767,6 +6784,7 @@ const TRAINER_EFFECTS = {
     const preservedUid = target.uid;
     Object.assign(target, structuredClone(POCKET_CARDS_BY_ID[pick.c.id]));
     target.uid = preservedUid; target.energy = preservedEnergy;
+    target.status = null; target.poisoned = false; target.burned = false; // 2026-08-16應使用者要求：進化時異常狀態要清掉
     target.hp += pocketToolHpBonusAmount(target); // Object.assign後hp已是純base值(不含Tool加成)，直接加回新加成即可，不能算delta
     target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
     target.boardTurn = ctx.G.turnNumber;
@@ -7224,6 +7242,7 @@ const TRAINER_EFFECTS = {
     const preservedEnergy = target.energy; const preservedUid = target.uid;
     Object.assign(target, structuredClone(POCKET_CARDS_BY_ID[pick.c.id]));
     target.uid = preservedUid; target.energy = preservedEnergy;
+    target.status = null; target.poisoned = false; target.burned = false; // 2026-08-16應使用者要求：進化時異常狀態要清掉
     target.hp += pocketToolHpBonusAmount(target); // Object.assign後hp已是純base值(不含Tool加成)，直接加回新加成即可，不能算delta
     target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
     target.boardTurn = ctx.G.turnNumber;
@@ -7976,6 +7995,7 @@ const ABILITY_EFFECTS = {
     const preservedUid = poke.uid;
     Object.assign(poke, structuredClone(POCKET_CARDS_BY_ID[deckCard.id]));
     poke.uid = preservedUid; poke.energy = preservedEnergy;
+    poke.status = null; poke.poisoned = false; poke.burned = false; // 2026-08-16應使用者要求：進化時異常狀態要清掉
     poke.curHp = Math.max(1, (poke.hp || 0) - preservedDamage);
     poke.boardTurn = ctx.G.turnNumber;
     poke._realAbilities = undefined; // 進化後身分變了，清掉舊快取讓特性正確重抓（同Rare Candy）
@@ -10470,6 +10490,7 @@ async function handleMessage(ws, msg) {
           const preservedUid = target.uid;
                 Object.assign(target, structuredClone(POCKET_CARDS_BY_ID[pick.c.id]));
           target.uid = preservedUid; target.energy = preservedEnergy;
+          target.status = null; target.poisoned = false; target.burned = false; // 2026-08-16應使用者要求：進化時異常狀態要清掉
           target.hp += pocketToolHpBonusAmount(target); // Object.assign後hp已是純base值(不含Tool加成)，直接加回新加成即可，不能算delta
           target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
           target.boardTurn = G.turnNumber;
@@ -10694,6 +10715,7 @@ async function handleMessage(ws, msg) {
       Object.assign(target, structuredClone(POCKET_CARDS_BY_ID[handCard.id]));
       target.uid = preservedUid;
       target.energy = preservedEnergy;
+      target.status = null; target.poisoned = false; target.burned = false; // 2026-08-16應使用者要求：進化時異常狀態要清掉
       target.hp += pocketToolHpBonusAmount(target); // Object.assign後hp已是純base值(不含Tool加成)，直接加回新加成即可，不能算delta
       target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
       target.boardTurn = G.turnNumber;
