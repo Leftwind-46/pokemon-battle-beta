@@ -5462,6 +5462,12 @@ const ATTACK_EFFECTS = {
     }
   },
   "Discard the top 3 cards of your deck.": ctx => { ctx.side.discard.push(...ctx.side.deck.splice(0, 3)); },
+  // 究極奈克洛茲瑪ex「噴洩搖滾」（Fan Made，Promo-A P-A-039，2026-08-17新增）：雙方各自棄掉
+  // 牌庫最上面5張——splice(0,5)在牌庫不足5張時自然只拿現有的，不用額外判斷邊界
+  "Discard the top 5 cards of each player's deck.": ctx => {
+    ctx.side.discard.push(...ctx.side.deck.splice(0, 5));
+    ctx.oppSide.discard.push(...ctx.oppSide.deck.splice(0, 5));
+  },
   "Flip 2 coins. This attack does 20 more damage for each heads.": ctx => { ctx.rawDamage += pocketFlipCoins(2, ctx) * 20; },
   "This attack does 10 damage to each of your opponent's Pokémon.": ctx => {
     ctx.rawDamage = 0;
