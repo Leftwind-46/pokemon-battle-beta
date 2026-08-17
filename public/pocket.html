@@ -311,7 +311,34 @@
   .detail-close:hover { background:rgba(255,82,82,0.25); border-color:#ff5252; }
   /* 2026-08-08修正：放大卡圖原本緊貼在面板頂端，跟同樣定位在top:0.7rem右上角的關閉按鈕
      範圍重疊，卡圖會蓋住按鈕點不到——多留一段margin-top讓卡圖從按鈕下方才開始畫 */
-  .card-detail-panel img.detail-img { width:100%; border-radius:12px; margin-top:2.4rem; margin-bottom:0.8rem; }
+  .card-detail-panel img.detail-img { width:100%; display:block; border-radius:12px; }
+  /* 2026-08-17新增：自訂調整卡片（POCKET_CARD_OVERRIDES）在放大顯示時，疊圖層蓋在卡面原本印刷
+     的HP/特性欄位置上，標出「這裡改過了」。座標是量測真實TCGdex卡圖（600x825標準版型）算出來的
+     百分比，只校準過「一般版基礎/Stage1/2寶可夢」跟「支援者卡」兩種版型——ex滿版/閃卡等其他版型
+     還沒校準，疊圖位置可能對不準，見pocket-tcg skill的說明。 */
+  .card-detail-panel .detail-img-wrap { position:relative; margin-top:2.4rem; margin-bottom:0.8rem; }
+  .card-patch-badge {
+    position:absolute; top:0.6%; left:0.6%; z-index:3;
+    background:rgba(255,202,40,0.95); color:#241a00; font-size:0.62rem; font-weight:800;
+    padding:0.15rem 0.55rem; border-radius:999px; box-shadow:0 0 8px rgba(255,202,40,0.6);
+    letter-spacing:0.02em;
+  }
+  .card-patch-hp {
+    position:absolute; left:77.5%; top:5%; width:9%; height:4.3%;
+    background:rgba(8,8,18,0.94); color:#fff6cf; border:2px solid #ffca28; border-radius:5px;
+    display:flex; align-items:center; justify-content:center; font-weight:900;
+    font-size:clamp(0.65rem, 2.6vw, 1.05rem); box-shadow:0 0 8px rgba(255,202,40,0.5);
+  }
+  .card-patch-ability, .card-patch-trainer-effect {
+    position:absolute; left:4.5%; width:91%;
+    background:rgba(8,8,20,0.95); border:2px solid #ffca28; border-radius:9px;
+    color:#fff6cf; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:0.3rem 0.7rem; overflow:hidden; box-shadow:0 0 10px rgba(255,202,40,0.4);
+  }
+  .card-patch-ability { top:47.5%; height:14%; }
+  .card-patch-trainer-effect { top:63%; height:13%; }
+  .card-patch-ability .cpn { font-weight:800; font-size:0.78rem; margin-bottom:0.15rem; }
+  .card-patch-ability .cpe, .card-patch-trainer-effect { font-size:0.62rem; line-height:1.25; }
   .card-detail-panel h3 { font-size:1.1rem; margin-bottom:0.3rem; }
   .card-detail-panel .detail-meta { color:var(--muted); font-size:0.78rem; margin-bottom:0.8rem; }
   .card-detail-panel .detail-attack { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:0.6rem; margin-bottom:0.5rem; font-size:0.8rem; }
@@ -1613,11 +1640,25 @@ function pocketFindCardById(id) {
 // actions（可選）：[{label, primary, disabled, onClick}] ——2026-08-05新增，讓卡片預覽面板
 // 兼任「點卡→看到能做什麼→確認」的操作入口，取代原本手牌/場上寶可夢單擊直接觸發動作
 // （沒有預覽、容易誤觸）的舊行為。純檢視用途（例如查看對手的卡）不傳actions就跟以前一樣。
+// 2026-08-17新增：POCKET_CARD_OVERRIDES自訂調整卡片，放大顯示時疊在卡面原本印刷位置上的
+// 修改標記——只有server端有加_patch欄位的卡才會顯示，一般沒被調整過的卡完全不受影響。
+function buildCardPatchOverlay(card) {
+  const patch = card._patch;
+  if (!patch) return '';
+  let html = `<div class="card-patch-badge" title="這張卡的數值/效果被調整過，跟真實卡面印刷內容不同">⚠️ 已修改</div>`;
+  if (patch.hp) html += `<div class="card-patch-hp">HP ${patch.hp.new}</div>`;
+  if (patch.addedAbility && card.abilities?.[0]) {
+    const ab = card.abilities[0];
+    html += `<div class="card-patch-ability"><div class="cpn">特性：${zhName(ab)}</div><div class="cpe">${zhEffect(ab)}</div></div>`;
+  }
+  if (patch.effect) html += `<div class="card-patch-trainer-effect">${zhEffect(card)}</div>`;
+  return html;
+}
 function showCardDetail(card, actions) {
   if (!card) return;
   const body = document.getElementById('card-detail-body');
   const isPoke = card.category === 'Pokemon';
-  let html = `<img class="detail-img" src="${card.image}" alt="${zhName(card)}">
+  let html = `<div class="detail-img-wrap"><img class="detail-img" src="${card.image}" alt="${zhName(card)}">${buildCardPatchOverlay(card)}</div>
     <h3>${zhName(card)}${card.ex ? ' EX' : ''}</h3>
     <div class="detail-meta">${card.rarity || ''}${isPoke ? ` · ${card.stage === 'Basic' ? '基礎' : card.stage} · HP ${card.hp}` : ` · ${card.trainerType === 'Supporter' ? '支援者卡' : '道具卡'}`}</div>`;
   if (isPoke) {
@@ -2190,6 +2231,9 @@ const TRAINER_NEEDS_TARGET = new Set([
   // 2026-08-12新增：彩虹能量（FM-005，Fan Made）——跟其餘Tool卡一樣選own board目標，
   // 選完目標後另外多一步能量屬性picker，見board-overlay click handler的effectId==='FM-005'分支
   'FM-005',
+  // 2026-08-17新增：Brock（使用者自訂調整，原本自動鎖定Golem/Onix改成任何格鬥屬性寶可夢，
+  // 場上可能不只1隻符合，改成玩家自選own board目標）
+  'A1-224',
 ]);
 const TRAINER_NEEDS_DISCARD_TARGET = new Set(['A1a-064']); // Pokémon Flute：目標是對手棄牌堆的卡，不是board上的寶可夢
 // 2026-08-08新增：TRAINER_NEEDS_TARGET裡目標池在哪一側，預設'own'（沒列出的都是選自己場上）。

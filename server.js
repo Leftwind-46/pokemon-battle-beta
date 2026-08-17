@@ -3468,6 +3468,48 @@ for (const c of POCKET_CARDS) {
     if (a.cost) a.cost = a.cost.filter(t => t !== '0');
   }
 }
+// 2026-08-17使用者自訂調整：直接覆寫既有卡片的HP/特性/招式/撤退（寶可夢）或效果文字（訓練師卡），
+// 依英文name比對——同一隻寶可夢/同一張訓練師卡在遊戲裡每個罕貴度重印版本的name都相同，一次改動
+// 全部套用，不用逐一列每個id。每個override額外算出一個_patch欄位（記錄「哪個欄位、舊值、新值」），
+// 給client端在卡片放大顯示時判斷要疊哪個修改圖層、疊什麼文字。
+const POCKET_CARD_OVERRIDES = {
+  'Nidorina': {
+    addAbility: {
+      type: 'Ability', name: 'Attraction', name_zh: '吸引',
+      effect: 'Once during your turn, you may put up to 2 Nidorino from your deck onto your Bench.',
+      effect_zh: '在你的回合中，你可以從你的牌組中放上限2張尼多力諾到你的板凳上。',
+    },
+  },
+  'Nidorino': {
+    addAbility: {
+      type: 'Ability', name: 'Fighting Spirit', name_zh: '鬥爭心',
+      effect: 'At the end of your turn, if this Pokémon is in the Active Spot, draw a Nidoking from your deck.',
+      effect_zh: '在你的回合結束時，如果這隻寶可夢在主戰位置，從你的牌組抽一張尼多王加入手牌。',
+    },
+  },
+  'Brock': {
+    effect: 'Take 1 {F} Energy from your Energy Zone and attach it to 1 of your Fighting Pokémon.',
+    effect_zh: '從能量區拿1個格鬥能量，貼在你的1隻格鬥屬性寶可夢身上。',
+  },
+  'Blue': {
+    effect: "During your opponent's next turn, all of your Pokémon take −80 damage from attacks from your opponent's Pokémon.",
+    effect_zh: '在對手的下個回合，你所有的寶可夢受到對手寶可夢招式的傷害-80。',
+  },
+};
+for (const c of POCKET_CARDS) {
+  const ov = POCKET_CARD_OVERRIDES[c.name];
+  if (!ov) continue;
+  const patch = {};
+  if (ov.hp != null && c.hp !== ov.hp) { patch.hp = { old: c.hp, new: ov.hp }; c.hp = ov.hp; }
+  if (ov.retreat != null && c.retreat !== ov.retreat) { patch.retreat = { old: c.retreat, new: ov.retreat }; c.retreat = ov.retreat; }
+  if (ov.addAbility && !c.abilities?.length) { patch.addedAbility = true; c.abilities = [ov.addAbility]; }
+  if (ov.effect != null && c.effect !== ov.effect) {
+    patch.effect = { old: c.effect_zh || c.effect, new: ov.effect_zh || ov.effect };
+    c.effect = ov.effect;
+    c.effect_zh = ov.effect_zh || ov.effect;
+  }
+  if (Object.keys(patch).length) c._patch = patch;
+}
 const POCKET_SETS = pocketCardsFile.sets; // [{id, name, cardCount}]，開包/圖鑑選版本用
 // 星等以上（含新系列引入的Shiny）都算「追逐卡池」——高星Trainer卡（角色支援者重印版）
 // 由匯入腳本預先算好effectId指回同系列內最早印刷的那張卡id，TRAINER_EFFECTS才查得到效果
@@ -3791,6 +3833,18 @@ function pocketRunCheckup(G) {
   if (endingAbility === 'Legendary Pulse' && endingSide.active.curHp > 0 && endingSide.deck.length > 0) {
     endingSide.hand.push(endingSide.deck.shift());
     pocketEmitCardActivation(G, endingRole, endingSide.active, '特性觸發：Legendary Pulse');
+  }
+  // 尼多力諾（使用者自訂特性，2026-08-17新增）：回合結束時，若這隻在主戰位置，從牌組搜1張
+  // 「尼多王」加入手牌——是指定搜尋不是隨機抽牌，所以跟Legendary Pulse（單純抽牌庫頂）不同，
+  // 搜完要洗牌；只認完全等於'Nidoking'的name，剛好天然排除掉'Nidoking ex'（不同字串）
+  if (endingAbility === 'Fighting Spirit' && endingSide.active.curHp > 0) {
+    const idx = endingSide.deck.findIndex(c => c.category === 'Pokemon' && c.name === 'Nidoking');
+    if (idx >= 0) {
+      const [card] = endingSide.deck.splice(idx, 1);
+      endingSide.hand.push(card);
+      endingSide.deck = pocketShuffle(endingSide.deck);
+      pocketEmitCardActivation(G, endingRole, endingSide.active, '特性觸發：Fighting Spirit');
+    }
   }
   if (endingAbility === 'Snowy Terrain' && endingSide.active.curHp > 0 && otherSideForCheckup.active) {
     otherSideForCheckup.active.curHp = Math.max(0, otherSideForCheckup.active.curHp - 10);
@@ -6309,9 +6363,11 @@ const TRAINER_EFFECTS = {
     return null;
   },
   'A1-223': (ctx) => { ctx.side.giovanniBoostThisTurn = true; return null; },
-  'A1-224': (ctx) => { // Brock：幫場上的Golem/Onix附1個格鬥能量
-    const target = pocketFindOwnByName(ctx.side, ['Golem', 'Onix']);
-    if (!target) return '場上沒有Golem或Onix';
+  'A1-224': (ctx, msg) => { // Brock（使用者自訂調整，2026-08-17）：原本限定Golem/Onix，改成
+    // 任何格鬥屬性寶可夢——場上可能不只1隻符合，改成玩家自選（見client端TRAINER_NEEDS_TARGET，
+    // 會先跳目標選擇器，這裡收到的msg.target就是玩家選好的uid）
+    const target = [ctx.side.active, ...ctx.side.bench].find(p => p && p.uid === msg.target && (p.types || []).includes('Fighting'));
+    if (!target) return '請選擇己方場上的格鬥屬性寶可夢';
     target.energy.push('Fighting');
     return null;
   },
@@ -6468,9 +6524,9 @@ const TRAINER_EFFECTS = {
   // Blue/Adaman/Jasmine：「對手下回合，己方(符合條件的)全體寶可夢受到的傷害-N」——蓋在
   // 「現在場上這些寶可夢」的dmgDebuffUntilTurn/dmgDebuffAmount上（跟招式那組自身減傷欄位共用），
   // 之後才上場的不會補上這個buff，跟卡面「all of your Pokémon」讀作「打出當下場上這些」一致
-  'A1a-067': (ctx) => { // Blue：己方全體-10
+  'A1a-067': (ctx) => { // Blue（使用者自訂調整，2026-08-17）：原本-10改成-80
     for (const p of [ctx.side.active, ...ctx.side.bench].filter(Boolean)) {
-      p.dmgDebuffUntilTurn = ctx.G.turnNumber + 1; p.dmgDebuffAmount = 10;
+      p.dmgDebuffUntilTurn = ctx.G.turnNumber + 1; p.dmgDebuffAmount = 80;
     }
     return null;
   },
@@ -7499,6 +7555,26 @@ function pocketEnforceHealBlock(G, snapshot) {
 /* ── 特性(ability)：每回合限用1次的主動觸發型（key用ability.name）。
    被動常駐型（Gengar ex「詭異束縛」擋支援者卡）不在這裡，是在打出支援者卡時直接檢查對方主戰是不是Gengar ex。 */
 const ABILITY_EFFECTS = {
+  'Attraction': (ctx, poke) => { // 尼多娜（使用者自訂特性，2026-08-17新增）：每回合1次，從牌組
+    // 把最多2張尼多力諾放上板凳——20張牌組每個卡名最多2張，「兩張」不算真的選擇（沒有可挑的
+    // 空間，牌組裡有幾張尼多力諾就是那幾張），跟隨機搜尋（Weedle那張既有招式效果）同一套模式，
+    // 差別是這裡是「全部符合的都搜出來」不是隨機挑1張，搜完要洗牌（真實TCG規則：主動搜牌庫
+    // 之後要重洗，跟純隨機的那種不用特別洗牌不同）
+    const benchSpace = 3 - ctx.side.bench.length;
+    if (benchSpace <= 0) return '板凳已經滿了';
+    const idxs = [];
+    ctx.side.deck.forEach((c, i) => { if (c.category === 'Pokemon' && c.name === 'Nidorino') idxs.push(i); });
+    if (!idxs.length) return '牌組沒有尼多力諾';
+    const n = Math.min(2, benchSpace, idxs.length);
+    const chosenIdxs = idxs.slice(0, n).sort((a, b) => b - a); // 從後面的index先移除，避免移除後前面index位移
+    for (const i of chosenIdxs) {
+      const [card] = ctx.side.deck.splice(i, 1);
+      card.curHp = card.hp; card.energy = [];
+      ctx.side.bench.push(card);
+    }
+    ctx.side.deck = pocketShuffle(ctx.side.deck);
+    return null;
+  },
   'Volt Charge': (ctx, poke) => { // Magneton：每回合1次，從能量區拿1電能量附到自己身上——2026-08-15
     // 應使用者要求，「填能」類特性/招式/道具效果不再受side.energyTypes（牌組能量屬性設定）限制，
     // 卡面固定寫死的能量屬性一律視為always可以生成，即使牌組沒選那個屬性也能發動
