@@ -3495,6 +3495,10 @@ const POCKET_CARD_OVERRIDES = {
     effect: "During your opponent's next turn, all of your Pokémon take −80 damage from attacks from your opponent's Pokémon.",
     effect_zh: '在對手的下個回合，你所有的寶可夢受到對手寶可夢招式的傷害-80。',
   },
+  'Misty': {
+    effect: 'Choose 1 of your Pokémon, and flip a coin until you get tails. For each heads, take a {W} Energy from your Energy Zone and attach it to that Pokémon.',
+    effect_zh: '選擇你的1隻寶可夢，擲硬幣直到出現反面為止。每次出現正面，就從能量區取出1個{W}能量附加到該寶可夢身上。',
+  },
 };
 for (const c of POCKET_CARDS) {
   const ov = POCKET_CARD_OVERRIDES[c.name];
@@ -6350,9 +6354,10 @@ const TRAINER_EFFECTS = {
     ctx.healUid = target.uid; ctx.healAmount = target.curHp - before;
     return null;
   },
-  'A1-220': (ctx, msg) => { // Misty：選1隻水屬性，連續丟硬幣直到反面，正面各+1水能量
+  'A1-220': (ctx, msg) => { // Misty（使用者自訂調整，2026-08-17）：原本限定水屬性，改成任意寶可夢
+    // 都能選，連續丟硬幣直到反面，正面各+1水能量
     const target = pocketFindOwn(ctx.side, msg.target);
-    if (!target || !(target.types || []).includes('Water')) return '目標必須是水屬性寶可夢';
+    if (!target) return '請選擇己方場上的寶可夢';
     while (pocketFlipCoin(ctx)) target.energy.push('Water');
     return null;
   },
