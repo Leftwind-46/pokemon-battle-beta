@@ -3483,8 +3483,8 @@ const POCKET_CARD_OVERRIDES = {
   'Nidorino': {
     addAbility: {
       type: 'Ability', name: 'Fighting Spirit', name_zh: '鬥爭心',
-      effect: 'At the end of your turn, if this Pokémon is in the Active Spot, draw a Nidoking from your deck.',
-      effect_zh: '在你的回合結束時，如果這隻寶可夢在主戰位置，從你的牌組抽一張尼多王加入手牌。',
+      effect: 'At the end of your turn, draw a Nidoking from your deck.',
+      effect_zh: '在你的回合結束時，從你的牌組抽一張尼多王加入手牌。',
     },
   },
   'Brock': {
@@ -3834,17 +3834,19 @@ function pocketRunCheckup(G) {
     endingSide.hand.push(endingSide.deck.shift());
     pocketEmitCardActivation(G, endingRole, endingSide.active, '特性觸發：Legendary Pulse');
   }
-  // 尼多力諾（使用者自訂特性，2026-08-17新增）：回合結束時，若這隻在主戰位置，從牌組搜1張
-  // 「尼多王」加入手牌——是指定搜尋不是隨機抽牌，所以跟Legendary Pulse（單純抽牌庫頂）不同，
-  // 搜完要洗牌；只認完全等於'Nidoking'的name，剛好天然排除掉'Nidoking ex'（不同字串）
-  if (endingAbility === 'Fighting Spirit' && endingSide.active.curHp > 0) {
+  // 尼多力諾（使用者自訂特性，2026-08-17新增，同日應使用者要求修正：不限主戰位置也能觸發）：
+  // 回合結束時，場上每一隻鬥爭心持有者（不限主戰/板凳）各自從牌組搜1張「尼多王」加入手牌——
+  // 是指定搜尋不是隨機抽牌，所以跟Legendary Pulse（單純抽牌庫頂）不同，搜完要洗牌；只認完全
+  // 等於'Nidoking'的name，剛好天然排除掉'Nidoking ex'（不同字串）。跟Bad Dreams同一種「場上
+  // 有幾隻持有者就各自觸發幾次」寫法，牌組裡的尼多王被前一隻搜光了，後面持有者直接break。
+  const fightingSpiritHolders = [endingSide.active, ...endingSide.bench].filter(p => p?.curHp > 0 && p?.abilities?.[0]?.name === 'Fighting Spirit');
+  for (const holder of fightingSpiritHolders) {
     const idx = endingSide.deck.findIndex(c => c.category === 'Pokemon' && c.name === 'Nidoking');
-    if (idx >= 0) {
-      const [card] = endingSide.deck.splice(idx, 1);
-      endingSide.hand.push(card);
-      endingSide.deck = pocketShuffle(endingSide.deck);
-      pocketEmitCardActivation(G, endingRole, endingSide.active, '特性觸發：Fighting Spirit');
-    }
+    if (idx < 0) break;
+    const [card] = endingSide.deck.splice(idx, 1);
+    endingSide.hand.push(card);
+    endingSide.deck = pocketShuffle(endingSide.deck);
+    pocketEmitCardActivation(G, endingRole, holder, '特性觸發：Fighting Spirit');
   }
   if (endingAbility === 'Snowy Terrain' && endingSide.active.curHp > 0 && otherSideForCheckup.active) {
     otherSideForCheckup.active.curHp = Math.max(0, otherSideForCheckup.active.curHp - 10);
