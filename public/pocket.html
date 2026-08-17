@@ -1783,6 +1783,11 @@ const ABILITY_NAMES_SUPPORTED = new Set([
   // 2026-08-12新增：覺醒（圓陸鯊FM-004，Fan Made）——見notYetOnBoard說明，不是unlimitedUse
   // （進化完就不再是圓陸鯊，這個特性自然不會再出現）
   '覺醒',
+  // 2026-08-17新增：Attraction（尼多娜，使用者自訂調整POCKET_CARD_OVERRIDES）——按鈕觸發、
+  // 每回合限用1次的特性，沒加進這個清單的話client端「特性」按鈕永遠不會顯示，即使server端
+  // ABILITY_EFFECTS已經有對應handler（使用者回報：尼多娜多了特性但對戰時沒有按鈕）。
+  // Fighting Spirit（尼多力諾）不用加——那是回合結束checkup自動觸發，不是按鈕型。
+  'Attraction',
 ]);
 // 2026-08-08再接續：跟ABILITY_NAMES_SUPPORTED是「能不能用」的AND條件——只有進化/上場的那個
 // 回合才顯示按鈕（見renderPokeSlot的evolveTurnOnly判斷），使用者反映Ignition原本完全沒有
