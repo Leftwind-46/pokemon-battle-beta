@@ -341,10 +341,13 @@
      直向排列；.card-patch-trainer-effect的內容是文字+圖示混在一起注入的同一坨inline內容，沒有
      子div——2026-08-18發現flex容器遇到「文字節點+inline元素混雜」時，會把每一段連續文字包成
      獨立的匿名flex item，column方向下這些匿名item會各自被拆成一行，導致圖示前後的文字被強制
-     換行（使用者回報「疊在卡圖的文字說明還是會換行」）。這裡改成預設row方向，混雜的文字+圖示
-     內容不會被拆成多個flex item，恢復成正常的inline文字自動換行（只有真的超出寬度才會換行） */
+     換行。改成row方向解掉這個問題後，又發現第二個問題：flex的flex-wrap預設是nowrap，row方向
+     底下那些匿名item不會像一般inline文字一樣自動換行，字數多的卡片（例如小霞）反而變成整行
+     內容硬擠在一行、超出容器寬度被overflow:hidden左右裁掉一截（使用者回報「還是會有換行/
+     溢出的問題」）。要補上flex-wrap:wrap，讓row方向的匿名item在超出寬度時能好好換行，這樣
+     短文字（阿桔）維持單行、長文字（小霞）正常換成多行，兩種情況都不會被裁切 */
   .card-patch-ability { top:47.5%; height:14%; flex-direction:column; }
-  .card-patch-trainer-effect { top:63%; height:13%; }
+  .card-patch-trainer-effect { top:63%; height:13%; flex-wrap:wrap; }
   .card-patch-ability .cpn { font-weight:800; font-size:0.78rem; margin-bottom:0.15rem; }
   .card-patch-ability .cpe, .card-patch-trainer-effect { font-size:0.62rem; line-height:1.25; }
   .card-detail-panel h3 { font-size:1.1rem; margin-bottom:0.3rem; }
@@ -844,6 +847,15 @@ const TYPE_ZH = {
 // 比對，兩者互不影響，所以這裡只加顯示層，不會動到任何判斷邏輯。找不到翻譯時退回英文原文
 // （代表這張卡還沒補上翻譯，或未來新增的卡還沒跑過翻譯批次）。
 function zhName(x) { return x?.zh_name || x?.name_zh || x?.name || ''; }
+// 2026-08-18新增：訓練師卡分類顯示原本只分「支援者卡」跟「道具卡」兩種，Tool（寶可夢道具，
+// 裝備在寶可夢身上的那種）跟Stadium（場地卡）都被歸進「道具卡」一起顯示，容易讓玩家誤以為
+// 場地卡是普通道具卡（新增憤怒之湖這張場地卡時發現）。補上完整4分類。
+function trainerTypeZh(c) {
+  if (c.trainerType === 'Supporter') return '支援者卡';
+  if (c.trainerType === 'Tool') return '寶可夢道具卡';
+  if (c.trainerType === 'Stadium') return '場地卡';
+  return '道具卡';
+}
 // 2026-08-18新增：卡面文字裡的{W}/{D}等單字母屬性佔位符（跟server.js的ENERGY_LETTER_TO_TYPE
 // 同一套字母對應），原本直接照字面顯示成「{W}」這種大括號文字——改成換成實際的迷你能量圖示，
 // 全部使用zhEffect()的地方（招式/特性/訓練師卡效果文字）都會自動套用，不用逐一改顯示的地方。
@@ -1430,7 +1442,7 @@ function renderPool() {
     const typeDots = (c.types || []).map(t => `<span class="type-dot" style="background:${TYPE_COLOR[t] || '#888'}"></span>`).join('');
     const metaLine = c.category === 'Pokemon'
       ? `${typeDots}${TYPE_ZH[c.types?.[0]] || ''} · ${c.stage === 'Basic' ? '基礎' : c.stage === 'Stage1' ? '第1階' : '第2階'}${c.ex ? ' · EX' : ''} · HP${c.hp}`
-      : c.trainerType === 'Supporter' ? '支援者卡' : '道具卡';
+      : trainerTypeZh(c);
     return `
       <div class="card-tile ${maxed && n < cap ? 'maxed' : ''}" onclick="showCardDetail(cardById['${c.id}'], computePoolCardActions(cardById['${c.id}']))" title="擁有${ownedCounts[c.id]}張 · 點擊查看詳情">
         ${n > 0 ? `<div class="count-badge">${n}/${ownedCounts[c.id]}</div>` : `<div class="count-badge" style="opacity:0.5">×${ownedCounts[c.id]}</div>`}
@@ -1686,7 +1698,7 @@ function showCardDetail(card, actions) {
   const isPoke = card.category === 'Pokemon';
   let html = `<div class="detail-img-wrap${card._patch ? ' has-patch' : ''}"><img class="detail-img" src="${card.image}" alt="${zhName(card)}">${buildCardPatchOverlay(card)}</div>
     <h3>${zhName(card)}${card.ex ? ' EX' : ''}</h3>
-    <div class="detail-meta">${card.rarity || ''}${isPoke ? ` · ${card.stage === 'Basic' ? '基礎' : card.stage} · HP ${card.hp}` : ` · ${card.trainerType === 'Supporter' ? '支援者卡' : '道具卡'}`}</div>`;
+    <div class="detail-meta">${card.rarity || ''}${isPoke ? ` · ${card.stage === 'Basic' ? '基礎' : card.stage} · HP ${card.hp}` : ` · ${trainerTypeZh(card)}`}</div>`;
   if (isPoke) {
     html += (card.attacks || []).map(a => `
       <div class="detail-attack">
@@ -2265,6 +2277,9 @@ const TRAINER_NEEDS_TARGET = new Set([
   // 2026-08-17新增：Brock（使用者自訂調整，原本自動鎖定Golem/Onix改成任何格鬥屬性寶可夢，
   // 場上可能不只1隻符合，改成玩家自選own board目標）
   'A1-224',
+  // 2026-08-18新增：憤怒之湖（FM-007，Fan Made場地卡）——選own board目標，跟Quick-Grow Extract/
+  // Wallace同一種「選1隻己方寶可夢讓牠進化」流程，差別是這張卡是場地卡不是道具卡
+  'FM-007',
 ]);
 const TRAINER_NEEDS_DISCARD_TARGET = new Set(['A1a-064']); // Pokémon Flute：目標是對手棄牌堆的卡，不是board上的寶可夢
 // 2026-08-08新增：TRAINER_NEEDS_TARGET裡目標池在哪一側，預設'own'（沒列出的都是選自己場上）。
@@ -2422,6 +2437,8 @@ const TRAINER_EFFECTS_IMPLEMENTED = new Set([
   'FM-005',
   // 2026-08-15新增：流星之民的祈禱（FM-006，Fan Made）
   'FM-006',
+  // 2026-08-18新增：憤怒之湖（FM-007，Fan Made場地卡）
+  'FM-007',
 ]);
 
 // event delegation：own board (active/bench) 點擊
