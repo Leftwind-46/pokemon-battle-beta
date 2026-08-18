@@ -3499,6 +3499,10 @@ const POCKET_CARD_OVERRIDES = {
     effect: 'Choose 1 of your Pokémon, and flip a coin until you get tails. For each heads, take a {W} Energy from your Energy Zone and attach it to that Pokémon.',
     effect_zh: '選擇你的1隻寶可夢，擲硬幣直到出現反面為止。每次出現正面，就從能量區取出1個{W}能量附加到該寶可夢身上。',
   },
+  'Koga': {
+    effect: 'Put your {D} Pokémon in the Active Spot into your hand.',
+    effect_zh: '把在主戰位置的你的{D}屬性寶可夢放回手牌。',
+  },
 };
 for (const c of POCKET_CARDS) {
   const ov = POCKET_CARD_OVERRIDES[c.name];
@@ -6362,8 +6366,9 @@ const TRAINER_EFFECTS = {
     return null;
   },
   'A1-221': (ctx) => { ctx.side.blaineBoostNamesThisTurn = ['Ninetales', 'Rapidash', 'Magmar']; return null; },
-  'A1-222': (ctx) => { // Koga：把主戰的Muk/Weezing收回手牌（需要有板凳補上，否則擋下避免場上淨空）
-    if (!ctx.side.active || !['Muk', 'Weezing'].includes(ctx.side.active.name)) return '主戰必須是Muk或Weezing';
+  'A1-222': (ctx) => { // Koga（使用者自訂調整，2026-08-18）：原本限定Muk/Weezing，改成任意惡屬性
+    // 寶可夢——把主戰的收回手牌（需要有板凳補上，否則擋下避免場上淨空）
+    if (!ctx.side.active || !(ctx.side.active.types || []).includes('Darkness')) return '主戰必須是惡屬性寶可夢';
     if (!ctx.side.bench.length) return '沒有板凳寶可夢可以補位，無法使用';
     ctx.side.hand.push(ctx.side.active);
     ctx.side.active = ctx.side.bench.shift();

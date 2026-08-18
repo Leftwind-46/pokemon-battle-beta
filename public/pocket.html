@@ -836,7 +836,14 @@ const TYPE_ZH = {
 // 比對，兩者互不影響，所以這裡只加顯示層，不會動到任何判斷邏輯。找不到翻譯時退回英文原文
 // （代表這張卡還沒補上翻譯，或未來新增的卡還沒跑過翻譯批次）。
 function zhName(x) { return x?.zh_name || x?.name_zh || x?.name || ''; }
-function zhEffect(x) { return x?.effect_zh || x?.effect || ''; }
+// 2026-08-18新增：卡面文字裡的{W}/{D}等單字母屬性佔位符（跟server.js的ENERGY_LETTER_TO_TYPE
+// 同一套字母對應），原本直接照字面顯示成「{W}」這種大括號文字——改成換成實際的迷你能量圖示，
+// 全部使用zhEffect()的地方（招式/特性/訓練師卡效果文字）都會自動套用，不用逐一改顯示的地方。
+const EFFECT_PLACEHOLDER_TYPE = { R: 'Fire', W: 'Water', L: 'Lightning', G: 'Grass', P: 'Psychic', F: 'Fighting', D: 'Darkness', M: 'Metal', C: 'Colorless', N: 'Dragon' };
+function zhEffect(x) {
+  const raw = x?.effect_zh || x?.effect || '';
+  return raw.replace(/\{([RWLGPFDMCN])\}/g, (m, letter) => energyIconHtml(EFFECT_PLACEHOLDER_TYPE[letter], true));
+}
 // 自製能量圖示（不是官方PTCG圖檔——那是任天堂/Creatures的版權美術，這個專案一貫不直接使用
 // 官方遊戲素材，比照8-bit音效用合成取代真實音檔的原則）。2026-08-05：原本用emoji疊在色底圓圈上，
 // 使用者反應「emoji有點醜」——emoji本身自帶多色、跟色底圓圈的顏色打架。改成純白色單色SVG線稿
