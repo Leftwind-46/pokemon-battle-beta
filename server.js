@@ -6997,26 +6997,10 @@ const TRAINER_EFFECTS = {
     ctx.needsChoice = { kind: 'energy_distribute', energyQueue: types, eligibleUids: pool.map(p => p.uid), includeActive: true };
     return null;
   },
-  'FM-007': (ctx, msg) => { // 憤怒之湖（Fan Made場地卡，2026-08-18新增）：選場上1隻己方寶可夢，
-    // 從牌組隨機找1張能讓牠進化的寶可夢直接進化——跟Wallace（B3b-068）同一套進化mutation邏輯，
-    // 差別是沒有屬性/HP限定（任意己方寶可夢都能選），且這張本身是場地卡（要設activeStadium）
-    const target = [ctx.side.active, ...ctx.side.bench].find(p => p && p.uid === msg.target);
-    if (!target) return '請選擇場上的1隻寶可夢';
-    const candidates = ctx.side.deck.map((c, i) => ({ c, i })).filter(({ c }) => c.category === 'Pokemon' && c.evolveFrom === target.name);
-    if (!candidates.length) return '牌組沒有能讓這隻寶可夢進化的寶可夢';
-    const pick = candidates[Math.floor(Math.random() * candidates.length)];
-    ctx.side.deck.splice(pick.i, 1);
-    const preservedDamage = (target.hp || 0) - (target.curHp ?? target.hp ?? 0);
-    const preservedEnergy = target.energy; const preservedUid = target.uid;
-    Object.assign(target, structuredClone(POCKET_CARDS_BY_ID[pick.c.id]));
-    target.uid = preservedUid; target.energy = preservedEnergy;
-    target.status = null; target.poisoned = false; target.burned = false; // 進化時異常狀態要清掉
-    target.hp += pocketToolHpBonusAmount(target); // Object.assign後hp已是純base值(不含Tool加成)，直接加回新加成即可，不能算delta
-    target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
-    target.boardTurn = ctx.G.turnNumber;
-    target._realAbilities = undefined;
-    pocketApplyDoubleType(target);
-    ctx.side.deck = pocketShuffle(ctx.side.deck);
+  'FM-007': (ctx, msg) => { // 憤怒之湖（Fan Made場地卡，2026-08-18新增，2026-08-18改版）：
+    // 打出當下純粹只是蓋場地，不做任何選擇/進化——使用者回報原本「打出時立刻要選寶可夢」感覺
+    // 很怪，改成跟Mesagoza等5張同一種模式：場上出現按鈕，玩家想用的時候才點，走獨立的
+    // 'pocket_use_stadium'訊息（見那裡的stadiumId==='FM-007'分支，進化mutation邏輯原封不動搬過去）
     ctx.G.activeStadium = { id: 'FM-007', name: '憤怒之湖' };
     return null;
   },
@@ -11757,6 +11741,28 @@ async function handleMessage(ws, msg) {
         // 就是這份已經存在的預覽直接補上來，不是無關的重新隨機。改用跟回合開始同一套
         // pocketProduceEnergy：pendingEnergy繼承原本的previewEnergy，再重新roll一份新預覽。
         pocketProduceEnergy(side);
+      } else if (stadiumId === 'FM-007') { // 憤怒之湖：選場上1隻己方寶可夢，牌庫隨機找1張能讓牠
+        // 進化的寶可夢直接進化——跟其餘5張場地卡一樣用stadiumUsedThisTurn卡「每回合1次」，
+        // 進化mutation邏輯是從原本打出當下就觸發的舊版TRAINER_EFFECTS['FM-007']原封不動搬過來
+        if (side.stadiumUsedThisTurn) { send(ws, { type: 'error', message: '這回合已經用過場地卡效果了' }); return; }
+        const target = [side.active, ...side.bench].find(p => p && p.uid === msg.target);
+        if (!target) { send(ws, { type: 'error', message: '請選擇場上的1隻寶可夢' }); return; }
+        const candidates = side.deck.map((c, i) => ({ c, i })).filter(({ c }) => c.category === 'Pokemon' && c.evolveFrom === target.name);
+        if (!candidates.length) { send(ws, { type: 'error', message: '牌組沒有能讓這隻寶可夢進化的寶可夢' }); return; }
+        side.stadiumUsedThisTurn = true;
+        const pick = candidates[Math.floor(Math.random() * candidates.length)];
+        side.deck.splice(pick.i, 1);
+        const preservedDamage = (target.hp || 0) - (target.curHp ?? target.hp ?? 0);
+        const preservedEnergy = target.energy; const preservedUid = target.uid;
+        Object.assign(target, structuredClone(POCKET_CARDS_BY_ID[pick.c.id]));
+        target.uid = preservedUid; target.energy = preservedEnergy;
+        target.status = null; target.poisoned = false; target.burned = false;
+        target.hp += pocketToolHpBonusAmount(target);
+        target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
+        target.boardTurn = G.turnNumber;
+        target._realAbilities = undefined;
+        pocketApplyDoubleType(target);
+        side.deck = pocketShuffle(side.deck);
       } else {
         return;
       }
