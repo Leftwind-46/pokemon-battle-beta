@@ -3501,7 +3501,7 @@ const POCKET_CARD_OVERRIDES = {
   },
   'Koga': {
     effect: 'Put your {D} Pokémon in the Active Spot into your hand.',
-    effect_zh: '把在主戰位置的你的{D}屬性寶可夢放回手牌。',
+    effect_zh: '把在主戰位置的你的{D}寶可夢放回手牌。',
   },
 };
 for (const c of POCKET_CARDS) {

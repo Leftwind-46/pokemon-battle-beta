@@ -297,6 +297,9 @@
   .energy-icon svg { width:60%; height:60%; filter:drop-shadow(0 1px 1px rgba(0,0,0,0.6)); }
   .energy-icon.mini { width:14px; height:14px; }
   .attack-cost .energy-icon { width:16px; height:16px; }
+  /* 2026-08-18新增：塞進效果文字內文的圖示——尺寸用1em跟著當下文字大小走，不用固定px，
+     避免撐開比周圍文字還高的行高導致提早換行；vertical-align微調讓圖示落在文字基線上 */
+  .energy-icon.energy-icon-inline { width:1em; height:1em; vertical-align:-0.16em; margin:0 0.05em; }
 
   /* ── 卡牌詳細資訊側欄 ── */
   .card-detail-panel { position:fixed; top:0; right:-340px; width:320px; height:100%; background:#0c0f24;
@@ -317,11 +320,10 @@
      百分比，只校準過「一般版基礎/Stage1/2寶可夢」跟「支援者卡」兩種版型——ex滿版/閃卡等其他版型
      還沒校準，疊圖位置可能對不準，見pocket-tcg skill的說明。 */
   .card-detail-panel .detail-img-wrap { position:relative; margin-top:2.4rem; margin-bottom:0.8rem; }
-  .card-patch-badge {
-    position:absolute; top:0.6%; left:0.6%; z-index:3;
-    background:rgba(255,202,40,0.95); color:#241a00; font-size:0.62rem; font-weight:800;
-    padding:0.15rem 0.55rem; border-radius:999px; box-shadow:0 0 8px rgba(255,202,40,0.6);
-    letter-spacing:0.02em;
+  /* 2026-08-18改版：原本左上角「⚠️已修改」徽章使用者覺得醜，改成直接在卡圖外圍框一圈金黃色
+     邊框+發光，看起來像卡本身被特別標記過，不用額外的文字徽章佔位置 */
+  .card-detail-panel .detail-img-wrap.has-patch img.detail-img {
+    border:3px solid #ffca28; box-shadow:0 0 16px rgba(255,202,40,0.65), inset 0 0 12px rgba(255,202,40,0.15);
   }
   .card-patch-hp {
     position:absolute; left:77.5%; top:5%; width:9%; height:4.3%;
@@ -840,9 +842,18 @@ function zhName(x) { return x?.zh_name || x?.name_zh || x?.name || ''; }
 // 同一套字母對應），原本直接照字面顯示成「{W}」這種大括號文字——改成換成實際的迷你能量圖示，
 // 全部使用zhEffect()的地方（招式/特性/訓練師卡效果文字）都會自動套用，不用逐一改顯示的地方。
 const EFFECT_PLACEHOLDER_TYPE = { R: 'Fire', W: 'Water', L: 'Lightning', G: 'Grass', P: 'Psychic', F: 'Fighting', D: 'Darkness', M: 'Metal', C: 'Colorless', N: 'Dragon' };
+// 2026-08-18再修正：①真實卡面的中文翻譯本來就是「{X}寶可夢」沒有夾「屬性」兩個字（查證過41筆
+// 真實卡片effect_zh都是這個寫法），佔位符後面如果緊接著「屬性」就一併吃掉，不要留下「[圖示]屬性」
+// 這種贅字；②圖示原本直接複用一般用途的.energy-icon.mini（14px固定像素），塞進0.6rem左右的
+// 小字文字流裡明顯比文字行高大一截，會撐開那一行、導致本來放得下的文字被擠到換行——改用專屬的
+// .energy-icon-inline class，尺寸用1em跟著當下字體大小走，不會再跟文字行高打架
 function zhEffect(x) {
   const raw = x?.effect_zh || x?.effect || '';
-  return raw.replace(/\{([RWLGPFDMCN])\}/g, (m, letter) => energyIconHtml(EFFECT_PLACEHOLDER_TYPE[letter], true));
+  // 注意：屬性?（只讓「性」變成可有可無）跟(?:屬性)?（整個兩字詞當一個單位可有可無）是不同的
+  // regex語意——2026-08-18第一版誤寫成前者，等於「屬」變成強制必填字元，只要{X}後面接的不是
+  // 「屬...」開頭（例如這裡的「寶可夢」）整條regex直接match失敗、完全不會替換，不是「留下屬性
+  // 沒被吃掉」這種部分失敗，是整個{X}原封不動穿幫。
+  return raw.replace(/\{([RWLGPFDMCN])\}(?:屬性)?/g, (m, letter) => energyIconHtml(EFFECT_PLACEHOLDER_TYPE[letter], true, 'energy-icon-inline'));
 }
 // 自製能量圖示（不是官方PTCG圖檔——那是任天堂/Creatures的版權美術，這個專案一貫不直接使用
 // 官方遊戲素材，比照8-bit音效用合成取代真實音檔的原則）。2026-08-05：原本用emoji疊在色底圓圈上，
@@ -861,11 +872,11 @@ const TYPE_SVG = {
   Grass: 'M20 4C10 4 4 12 4 20c8 0 16-6 16-16-2 6-6 10-11 12 4-3 8-8 11-12z',
   Metal: 'M12 2 20 7v10l-8 5-8-5V7z'
 };
-function energyIconHtml(type, mini) {
+function energyIconHtml(type, mini, extraClass) {
   const color = TYPE_COLOR[type] || '#888';
   const path = TYPE_SVG[type] || TYPE_SVG.Colorless;
   const bg = `radial-gradient(circle at 34% 30%, rgba(255,255,255,0.6), ${color} 68%)`;
-  return `<span class="energy-icon${mini ? ' mini' : ''}" style="background:${bg}; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.4), 0 0 6px 1px ${color}99, 0 1px 2px rgba(0,0,0,0.4)" title="${TYPE_ZH[type] || type}"><svg viewBox="0 0 24 24" fill="#fff"><path d="${path}"/></svg></span>`;
+  return `<span class="energy-icon${mini ? ' mini' : ''}${extraClass ? ' ' + extraClass : ''}" style="background:${bg}; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.4), 0 0 6px 1px ${color}99, 0 1px 2px rgba(0,0,0,0.4)" title="${TYPE_ZH[type] || type}"><svg viewBox="0 0 24 24" fill="#fff"><path d="${path}"/></svg></span>`;
 }
 const DECK_SIZE = 20;
 const MAX_COPIES = 2;
@@ -1652,7 +1663,9 @@ function pocketFindCardById(id) {
 function buildCardPatchOverlay(card) {
   const patch = card._patch;
   if (!patch) return '';
-  let html = `<div class="card-patch-badge" title="這張卡的數值/效果被調整過，跟真實卡面印刷內容不同">⚠️ 已修改</div>`;
+  // 2026-08-18改版：拿掉左上角文字徽章，改成外框金黃色邊框（見showCardDetail加has-patch
+  // class到.detail-img-wrap），這裡不用再產生額外的badge元素
+  let html = '';
   if (patch.hp) html += `<div class="card-patch-hp">HP ${patch.hp.new}</div>`;
   if (patch.addedAbility && card.abilities?.[0]) {
     const ab = card.abilities[0];
@@ -1665,7 +1678,7 @@ function showCardDetail(card, actions) {
   if (!card) return;
   const body = document.getElementById('card-detail-body');
   const isPoke = card.category === 'Pokemon';
-  let html = `<div class="detail-img-wrap"><img class="detail-img" src="${card.image}" alt="${zhName(card)}">${buildCardPatchOverlay(card)}</div>
+  let html = `<div class="detail-img-wrap${card._patch ? ' has-patch' : ''}"><img class="detail-img" src="${card.image}" alt="${zhName(card)}">${buildCardPatchOverlay(card)}</div>
     <h3>${zhName(card)}${card.ex ? ' EX' : ''}</h3>
     <div class="detail-meta">${card.rarity || ''}${isPoke ? ` · ${card.stage === 'Basic' ? '基礎' : card.stage} · HP ${card.hp}` : ` · ${card.trainerType === 'Supporter' ? '支援者卡' : '道具卡'}`}</div>`;
   if (isPoke) {
