@@ -850,11 +850,12 @@ function zhName(x) { return x?.zh_name || x?.name_zh || x?.name || ''; }
 // 2026-08-18新增：訓練師卡分類顯示原本只分「支援者卡」跟「道具卡」兩種，Tool（寶可夢道具，
 // 裝備在寶可夢身上的那種）跟Stadium（場地卡）都被歸進「道具卡」一起顯示，容易讓玩家誤以為
 // 場地卡是普通道具卡（新增憤怒之湖這張場地卡時發現）。補上完整4分類。
-function trainerTypeZh(c) {
-  if (c.trainerType === 'Supporter') return '支援者卡';
-  if (c.trainerType === 'Tool') return '寶可夢道具卡';
-  if (c.trainerType === 'Stadium') return '場地卡';
-  return '道具卡';
+// short=true給手牌小卡片這種空間有限的地方用（省略「卡」字），預設完整版給detail面板等地方用
+function trainerTypeZh(c, short) {
+  if (c.trainerType === 'Supporter') return short ? '支援者' : '支援者卡';
+  if (c.trainerType === 'Tool') return short ? '寶可夢道具' : '寶可夢道具卡';
+  if (c.trainerType === 'Stadium') return short ? '場地' : '場地卡';
+  return short ? '道具' : '道具卡';
 }
 // 2026-08-18新增：卡面文字裡的{W}/{D}等單字母屬性佔位符（跟server.js的ENERGY_LETTER_TO_TYPE
 // 同一套字母對應），原本直接照字面顯示成「{W}」這種大括號文字——改成換成實際的迷你能量圖示，
@@ -1996,7 +1997,10 @@ function renderBoard() {
   // hand row
   const handRow = document.getElementById('hand-row');
   handRow.innerHTML = (you.hand || []).map(c => {
-    const label = c.category === 'Pokemon' ? `${c.stage === 'Basic' ? '基礎' : c.stage === 'Stage1' ? '第1階' : '第2階'}` : (c.trainerType === 'Supporter' ? '支援者' : '道具');
+    // 2026-08-18修正：原本非支援者卡一律寫死「道具」，場地卡/寶可夢道具卡在手牌小卡片上也被
+    // 誤標成「道具」——使用者回報「憤怒之湖為什麼被弄成像是道具卡」，這裡（手牌列）比detail-meta
+    // 更常被看到，是最主要的問題來源，改call trainerTypeZh(c, true)拿短版標籤
+    const label = c.category === 'Pokemon' ? `${c.stage === 'Basic' ? '基礎' : c.stage === 'Stage1' ? '第1階' : '第2階'}` : trainerTypeZh(c, true);
     const locked = c.trainerType === 'Supporter' && you.supporterUsedThisTurn;
     return `<div class="board-slot ${locked ? 'maxed' : ''}" data-hand-uid="${c.uid}" data-hand-kind="${c.category}">
       <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${zhName(c)}">
@@ -2620,7 +2624,10 @@ function computeHandCardActions(card) {
         } },
       ];
     }
-    return [{ label: isSupporter ? '使用這張支援者卡' : '使用這張道具卡', primary: true, onClick: () => {
+    // 2026-08-18修正：原本非支援者卡一律寫死「使用這張道具卡」，場地卡打出時按鈕也是這個字，
+    // 使用者回報「憤怒之湖為什麼被弄成像是道具卡」——這裡是實際打牌時看到的按鈕，比detail-meta
+    // 那個被動標籤更顯眼，之前只顧著補detail-meta/牌組列表兩處，漏了這個。改call trainerTypeZh()
+    return [{ label: `使用這張${trainerTypeZh(card)}`, primary: true, onClick: () => {
       spawnPlayFlourish(pocketThumbUrl(card.image), document.getElementById('my-discard-pile'));
       wsSend({ type: isSupporter ? 'pocket_play_supporter' : 'pocket_play_item', handUid: card.uid });
     } }];
