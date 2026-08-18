@@ -299,7 +299,7 @@
   .attack-cost .energy-icon { width:16px; height:16px; }
   /* 2026-08-18新增：塞進效果文字內文的圖示——尺寸用1em跟著當下文字大小走，不用固定px，
      避免撐開比周圍文字還高的行高導致提早換行；vertical-align微調讓圖示落在文字基線上 */
-  .energy-icon.energy-icon-inline { width:1em; height:1em; vertical-align:-0.16em; margin:0 0.05em; }
+  .energy-icon.energy-icon-inline { width:1em; height:1em; vertical-align:middle; margin:0 0.05em; }
 
   /* ── 卡牌詳細資訊側欄 ── */
   .card-detail-panel { position:fixed; top:0; right:-340px; width:320px; height:100%; background:#0c0f24;
@@ -334,10 +334,16 @@
   .card-patch-ability, .card-patch-trainer-effect {
     position:absolute; left:4.5%; width:91%;
     background:rgba(8,8,20,0.95); border:2px solid #ffca28; border-radius:9px;
-    color:#fff6cf; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    color:#fff6cf; display:flex; align-items:center; justify-content:center;
     text-align:center; padding:0.3rem 0.7rem; overflow:hidden; box-shadow:0 0 10px rgba(255,202,40,0.4);
   }
-  .card-patch-ability { top:47.5%; height:14%; }
+  /* .card-patch-ability有兩個真的疊起來的子div（.cpn特性名稱／.cpe效果文字），要用column
+     直向排列；.card-patch-trainer-effect的內容是文字+圖示混在一起注入的同一坨inline內容，沒有
+     子div——2026-08-18發現flex容器遇到「文字節點+inline元素混雜」時，會把每一段連續文字包成
+     獨立的匿名flex item，column方向下這些匿名item會各自被拆成一行，導致圖示前後的文字被強制
+     換行（使用者回報「疊在卡圖的文字說明還是會換行」）。這裡改成預設row方向，混雜的文字+圖示
+     內容不會被拆成多個flex item，恢復成正常的inline文字自動換行（只有真的超出寬度才會換行） */
+  .card-patch-ability { top:47.5%; height:14%; flex-direction:column; }
   .card-patch-trainer-effect { top:63%; height:13%; }
   .card-patch-ability .cpn { font-weight:800; font-size:0.78rem; margin-bottom:0.15rem; }
   .card-patch-ability .cpe, .card-patch-trainer-effect { font-size:0.62rem; line-height:1.25; }
