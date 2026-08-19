@@ -3503,6 +3503,25 @@ const POCKET_CARD_OVERRIDES = {
     effect: 'Put your {D} Pokémon in the Active Spot into your hand.',
     effect_zh: '把在主戰位置的你的{D}寶可夢放回手牌。',
   },
+  // 2026-08-19使用者自訂調整：尼多王/尼多后互相保護的一對特性——兩隻都是純被動（不需要按鈕，
+  // 不進ABILITY_NAMES_SUPPORTED/ABILITY_EFFECTS），分別掛進pocketPassiveDamageReduction
+  // （護駕：尼多后受到的傷害-20，逐隻在場的尼多王疊加）跟pocketPassiveFreeRetreat
+  // （母儀：尼多王撤退不需要能量），見那兩個函式裡對應的Nidoking/Nidoqueen名字判斷
+  'Nidoking': {
+    addAbility: {
+      type: 'Ability', name: 'Escort', name_zh: '護駕',
+      effect: 'While this Pokémon is in play, your Nidoqueen takes 20 less damage from attacks. (Stacks for each Nidoking in play.)',
+      effect_zh: '在場上時，你的尼多后受到的攻擊傷害-20（可以疊加）。',
+    },
+    attackCost: { name: 'Poison Horn', cost: ['Darkness', 'Colorless'] },
+  },
+  'Nidoqueen': {
+    addAbility: {
+      type: 'Ability', name: 'Maternal Grace', name_zh: '母儀',
+      effect: 'While this Pokémon is in play, your Nidoking can retreat without paying any Energy.',
+      effect_zh: '在場上時，你的尼多王撤退不需要消耗能量。',
+    },
+  },
 };
 for (const c of POCKET_CARDS) {
   const ov = POCKET_CARD_OVERRIDES[c.name];
@@ -3515,6 +3534,16 @@ for (const c of POCKET_CARDS) {
     patch.effect = { old: c.effect_zh || c.effect, new: ov.effect_zh || ov.effect };
     c.effect = ov.effect;
     c.effect_zh = ov.effect_zh || ov.effect;
+  }
+  // 2026-08-19新增：改招式能量需求（跟hp/retreat一樣的「數值直改」類型，差別是要先找到
+  // 對應名字的那個招式物件）——沒有另外做client端overlay定位框，因為showCardDetail本來就會
+  // 用真實的a.cost畫出招式能量圖示，改完的新花費本來就會正確顯示，不需要額外疊圖層
+  if (ov.attackCost) {
+    const atk = (c.attacks || []).find(a => a.name === ov.attackCost.name);
+    if (atk && JSON.stringify(atk.cost) !== JSON.stringify(ov.attackCost.cost)) {
+      patch.attackCost = { name: atk.name, old: atk.cost, new: ov.attackCost.cost };
+      atk.cost = ov.attackCost.cost;
+    }
   }
   if (Object.keys(patch).length) c._patch = patch;
 }
@@ -4280,6 +4309,13 @@ function pocketPassiveDamageReduction(defender, defenderSide, attacker) {
   // 特性）都額外-10，所以用加法疊加在switch算出的reduction之上，不是互斥的另一個case
   if ([defenderSide.active, ...defenderSide.bench].some(p => p?.abilities?.[0]?.name === 'GUARD') &&
       pocketUnownConditionMet(defenderSide, 'GUARD')) reduction += 10;
+  // 尼多王「護駕」（使用者自訂，2026-08-19新增）：跟GUARD同一種「不是defender自己的特性、是
+  // 場上其他位置的隊友保護defender」方向，差別是限定defender必須是尼多后本人（不是全隊），
+  // 且逐隻在場（主戰/板凳皆算）的尼多王各自疊加-20，不是固定值
+  if (defender.name === 'Nidoqueen') {
+    const escortCount = [defenderSide.active, ...defenderSide.bench].filter(p => p?.abilities?.[0]?.name === 'Escort').length;
+    reduction += escortCount * 20;
+  }
   return reduction;
 }
 // 花舞鳥「神秘守護」（Safeguard）：主戰位置被攻擊時，主傷害管線（mainDamage打ctx.defender）
@@ -4347,6 +4383,9 @@ function pocketPassiveFreeRetreat(active, side, G, myFirstTurn) {
   // 就讓我方主戰免費撤退，所以另外查整個side的特性欄位（不是pocketHasNamed查寶可夢名字，
   // 這裡查的是特性名字，兩者是不同的東西）
   if ([side.active, ...side.bench].some(p => p?.abilities?.[0]?.name === 'Fluffy Flight')) return true;
+  // 尼多后「母儀」（使用者自訂，2026-08-19新增）：跟Fluffy Flight同一種「持有者不限主戰/板凳，
+  // 只要在場就生效」方向，差別是限定active（正要撤退的這隻）必須是尼多王本人，不是全隊通用
+  if (active.name === 'Nidoking' && [side.active, ...side.bench].some(p => p?.abilities?.[0]?.name === 'Maternal Grace')) return true;
   return false;
 }
 // Sky Support是「在板凳上才生效」的被動，讓主戰的基礎寶可夢撤退-1——跟上面幾個「在主戰位置才
