@@ -437,6 +437,10 @@
   .status-chip.status-asleep    { background:#283593; color:#fff; font-weight:700; }
   .status-chip.status-confused  { background:#880e4f; color:#fff; font-weight:700; }
   .status-chip.status-burned    { background:#bf360c; color:#fff; font-weight:700; }
+  /* 2026-08-19新增：被動特性/道具造成的攻擊傷害增加(⚔️)/受到傷害減少(🛡)——跟上面異常狀態
+     同一種「專屬底色+粗體」處理，橘紅色代表變強攻擊、藍綠色代表變強防禦，一眼跟灰底一般徽章分開 */
+  .status-chip.status-dmgup     { background:#d84315; color:#fff; font-weight:700; }
+  .status-chip.status-dmgdown   { background:#00695c; color:#fff; font-weight:700; }
 </style>
 </head>
 <body>
@@ -1744,6 +1748,93 @@ function pocketDetailAction(i) {
 }
 function closeCardDetail() { document.getElementById('card-detail-panel').classList.remove('open'); }
 
+// 2026-08-19新增：使用者要求「攻擊傷害增加/受到的傷害減少」要有圖示方便判斷，範圍是全部被動
+// 特性/道具（不只是尼多王/尼多后那組）——這裡完整鏡射server.js的pocketPassiveDamageBonus/
+// pocketPassiveDamageReduction/pocketToolDamageBonus/pocketToolDamageReduction 4個函式，
+// 純粹算「現在盤面下，主戰寶可夢的攻擊傷害/受到的傷害會被調整多少」給client端顯示用，
+// 不影響任何實際傷害計算（真正的傷害還是server端authoritative算的）。只鏡射*確定性*的部分
+// （不含擲硬幣機率型特性，那些另外用pocketClientChanceDefense顯示、不計入這裡的固定數字）。
+// 這4個函式只在mainDamage結算時對「主戰位置」生效（招式沒有打板凳的），所以呼叫端只對雙方
+// 目前的active算，不對板凳算——板凳上的特性持有者（例如Fighting Coach在板凳也算隊伍加成）
+// 已經在函式內部掃全隊，這裡只是決定「顯示在誰身上」。
+const FUTURE_POKEMON_NAMES = new Set(['Iron Treads', 'Iron Bundle', 'Iron Hands', 'Iron Jugulis', 'Iron Moth', 'Iron Thorns', 'Iron Valiant', 'Iron Leaves', 'Iron Boulder', 'Iron Crown', 'Miraidon', 'Miraidon ex']);
+function pocketClientHasArceus(side) { return [side?.active, ...(side?.bench || [])].some(p => p && (p.name === 'Arceus' || p.name === 'Arceus ex')); }
+function pocketClientUnownConditionMet(side, selfAbilityName) {
+  return [side?.active, ...(side?.bench || [])].some(p => p && p.name === 'Unown' && p.abilities?.[0]?.name && p.abilities[0].name !== selfAbilityName);
+}
+// 鏡射pocketPassiveDamageBonus+pocketToolDamageBonus：回傳{amount, sources:[label,...]}
+function pocketClientDamageBonus(attacker, attackerSide) {
+  let amount = 0; const sources = [];
+  for (const holder of [attackerSide?.active, ...(attackerSide?.bench || [])]) {
+    if (!holder?.abilities?.length) continue;
+    const ability = holder.abilities[0].name;
+    if (ability === 'Fighting Coach' && (attacker.types || []).includes('Fighting')) { amount += 20; sources.push('Fighting Coach +20'); }
+    if (ability === 'Cursed Metal' && (attacker.types || []).some(t => t === 'Psychic' || t === 'Metal')) { amount += 30; sources.push('Cursed Metal +30'); }
+    if (ability === 'Power Link' && holder.uid === attacker.uid && pocketClientHasArceus(attackerSide)) { amount += 30; sources.push('Power Link +30'); }
+    if (ability === 'Torrent' && holder.uid === attacker.uid && holder.curHp <= 50) { amount += 60; sources.push('Torrent +60'); }
+    if (ability === 'Coordinated Unit' && holder.uid === attacker.uid &&
+        [attackerSide.active, ...attackerSide.bench].some(p => p && p.name === 'Falinks' && p.uid !== holder.uid)) { amount += 20; sources.push('Coordinated Unit +20'); }
+    if (ability === 'POWER' && pocketClientUnownConditionMet(attackerSide, 'POWER')) { amount += 10; sources.push('POWER +10'); }
+    if (ability === 'Lordly Cheering' && attackerSide.bench.some(p => p.uid === holder.uid) && attacker.evolveFrom === 'Poliwhirl') { amount += 40; sources.push('Lordly Cheering +40'); }
+  }
+  const toolId = attacker.tool?.id;
+  if (toolId === 'A3a-066') { const v = (attackerSide?.points || 0) * 10; if (v > 0) { amount += v; sources.push(`Beastite +${v}`); } }
+  if (toolId === 'B3a-070' && FUTURE_POKEMON_NAMES.has(attacker.name)) { amount += 20; sources.push('Future Booster Energy Capsule +20'); }
+  return { amount, sources };
+}
+// 鏡射pocketPassiveDamageReduction+pocketToolDamageReduction（不含Guarded Grill/Celestial
+// Blessing/Carefree Steps/Securely Sheltered這4個機率型、也不含Disguise一次性——那些另外
+// 用pocketClientChanceDefense處理）。回傳{amount, sources}，amount可能是Infinity（完全免疫）。
+function pocketClientDamageReduction(defender, defenderSide, attacker) {
+  let amount = 0; const sources = [];
+  const ability = defender.abilities?.[0]?.name;
+  switch (ability) {
+    case 'Fur Coat': case 'Solid Shell': case 'Exoskeleton': amount = 20; sources.push(`${ability} -20`); break;
+    case 'Armor': amount = 30; sources.push('Armor -30'); break;
+    case 'Shell Armor': amount = 10; sources.push('Shell Armor -10'); break;
+    case 'Hard Coat': amount = 20; sources.push('Hard Coat -20'); break;
+    case 'Intimidating Fang': amount = 20; sources.push('Intimidating Fang -20'); break;
+    case 'Thick Fat':
+      if (attacker && (attacker.types || []).some(t => t === 'Fire' || t === 'Water')) { amount = 20; sources.push('Thick Fat -20'); }
+      break;
+    case 'Resilience Link':
+      if (pocketClientHasArceus(defenderSide)) { amount = 30; sources.push('Resilience Link -30'); }
+      break;
+    case 'Ice Face':
+      if (defender.curHp === defender.hp) { amount = 40; sources.push('Ice Face -40'); }
+      break;
+    case 'Safeguard':
+      if (attacker?.ex) return { amount: Infinity, sources: ['Safeguard 完全免疫（對手是ex）'] };
+      break;
+    case 'Coordinated Unit':
+      if ([defenderSide.active, ...defenderSide.bench].some(p => p && p.name === 'Falinks' && p.uid !== defender.uid)) { amount = 20; sources.push('Coordinated Unit -20'); }
+      break;
+  }
+  if ([defenderSide?.active, ...(defenderSide?.bench || [])].some(p => p?.abilities?.[0]?.name === 'GUARD') &&
+      pocketClientUnownConditionMet(defenderSide, 'GUARD')) { amount += 10; sources.push('GUARD -10'); }
+  // 尼多王「護駕」：跟server端pocketPassiveDamageReduction同一份邏輯（POCKET_CARD_OVERRIDES自訂）
+  if (defender.name === 'Nidoqueen') {
+    const escortCount = [defenderSide?.active, ...(defenderSide?.bench || [])].filter(p => p?.abilities?.[0]?.name === 'Escort').length;
+    if (escortCount > 0) { amount += escortCount * 20; sources.push(`護駕 -${escortCount * 20}`); }
+  }
+  const toolId = defender.tool?.id;
+  if (toolId === 'A4-153' && (defender.types || []).includes('Metal')) { amount += 10; sources.push('道具 -10'); }
+  if (toolId === 'B1-219' && (defender.retreat || 0) >= 3) { amount += 20; sources.push('道具 -20'); }
+  if (toolId === 'B2-148' && (defender.types || []).includes('Metal')) { amount += 50; sources.push('道具 -50'); }
+  return { amount, sources };
+}
+// 機率型防禦特性（每次攻擊當下才擲硬幣，這裡只顯示「有這個可能性」，不預先擲）+ Disguise
+// 一次性免疫（用disguiseUsed旗標判斷還沒用過）——跟上面的確定性reduction分開顯示，不能混進
+// 同一個固定數字裡（機率型不保證生效）
+function pocketClientChanceDefense(defender) {
+  const ability = defender.abilities?.[0]?.name;
+  if (ability === 'Guarded Grill') return '50%機率這次攻擊-100傷害';
+  if (ability === 'Celestial Blessing' || ability === 'Carefree Steps') return `50%機率${ability}完全免疫這次攻擊`;
+  if (ability === 'Securely Sheltered') return '50%機率這次攻擊-80傷害';
+  if (ability === 'Disguise' && !defender.disguiseUsed) return 'Disguise：上場後第一次被攻擊打中完全免疫（僅限一次）';
+  return null;
+}
+
 const STATUS_LABEL = { asleep: '😴 睡眠', poisoned: '☠️ 中毒', paralyzed: '⚡ 麻痺', confused: '😵 混亂', burned: '🔥 灼傷' };
 function renderPokeSlot(p, { pickable = false, dataset = {}, own = false } = {}) {
   if (!p) return '<div class="board-slot empty"></div>';
@@ -1757,6 +1848,25 @@ function renderPokeSlot(p, { pickable = false, dataset = {}, own = false } = {})
   if (p.poisoned) badges.push(`<span class="status-chip status-poisoned">${STATUS_LABEL.poisoned}</span>`);
   if (p.burned) badges.push(`<span class="status-chip status-burned">${STATUS_LABEL.burned}</span>`);
   const tn = state?.turnNumber ?? 0;
+  // 2026-08-19新增：被動特性/道具造成的攻擊傷害增加/受到傷害減少——只對「目前的主戰位置」算，
+  // 因為這4個來源函式(pocketClientDamageBonus/Reduction)本來就只在主戰被攻擊/攻擊時生效
+  // （招式沒有打板凳的），用uid比對state.you/state.opponent找出p屬於哪一側、是不是主戰，
+  // 不依賴呼叫端傳own/dataset（opponent.active那個call site本來就沒傳這兩個參數）
+  const mySide = state?.you, oppSide = state?.opponent;
+  const pSide = (mySide?.active?.uid === p.uid || mySide?.bench?.some(b => b.uid === p.uid)) ? mySide
+    : (oppSide?.active?.uid === p.uid || oppSide?.bench?.some(b => b.uid === p.uid)) ? oppSide : null;
+  const enemySide = pSide === mySide ? oppSide : (pSide === oppSide ? mySide : null);
+  if (pSide && pSide.active?.uid === p.uid) {
+    const bonus = pocketClientDamageBonus(p, pSide);
+    if (bonus.amount > 0) badges.push(`<span class="status-chip status-dmgup" title="攻擊傷害+${bonus.amount}：${bonus.sources.join('、')}">⚔️+${bonus.amount}</span>`);
+    if (enemySide?.active) {
+      const reduction = pocketClientDamageReduction(p, pSide, enemySide.active);
+      if (reduction.amount === Infinity) badges.push(`<span class="status-chip status-dmgdown" title="${reduction.sources.join('、')}">🛡∞</span>`);
+      else if (reduction.amount > 0) badges.push(`<span class="status-chip status-dmgdown" title="受到的傷害-${reduction.amount}：${reduction.sources.join('、')}">🛡-${reduction.amount}</span>`);
+    }
+    const chance = pocketClientChanceDefense(p);
+    if (chance) badges.push(`<span class="status-chip status-dmgdown" title="${chance}">🎲🛡</span>`);
+  }
   if (p.cantAttackUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合不能攻擊">🚫⚔</span>`);
   if (p.cantRetreatUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合不能撤退">🚫🔄</span>`);
   if (p.dmgDebuffUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合攻擊傷害-${p.dmgDebuffAmount}">↓${p.dmgDebuffAmount}</span>`);
