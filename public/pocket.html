@@ -377,25 +377,32 @@
     display:flex; align-items:center; justify-content:center; gap:0.12rem;
     font-size:1.1rem; box-shadow:0 0 8px rgba(255,202,40,0.5);
   }
-  .card-patch-ability, .card-patch-trainer-effect {
+  .card-patch-ability, .card-patch-ability-mod, .card-patch-trainer-effect {
     position:absolute; left:4.5%; width:91%;
     background:rgba(8,8,20,0.95); border:2px solid #ffca28; border-radius:9px;
     color:#fff6cf; display:flex; align-items:center; justify-content:center;
     text-align:center; padding:0.3rem 0.7rem; overflow:hidden; box-shadow:0 0 10px rgba(255,202,40,0.4);
   }
-  /* .card-patch-ability有兩個真的疊起來的子div（.cpn特性名稱／.cpe效果文字），要用column
-     直向排列；.card-patch-trainer-effect的內容是文字+圖示混在一起注入的同一坨inline內容，沒有
-     子div——2026-08-18發現flex容器遇到「文字節點+inline元素混雜」時，會把每一段連續文字包成
-     獨立的匿名flex item，column方向下這些匿名item會各自被拆成一行，導致圖示前後的文字被強制
-     換行。改成row方向解掉這個問題後，又發現第二個問題：flex的flex-wrap預設是nowrap，row方向
-     底下那些匿名item不會像一般inline文字一樣自動換行，字數多的卡片（例如小霞）反而變成整行
-     內容硬擠在一行、超出容器寬度被overflow:hidden左右裁掉一截（使用者回報「還是會有換行/
-     溢出的問題」）。要補上flex-wrap:wrap，讓row方向的匿名item在超出寬度時能好好換行，這樣
-     短文字（阿桔）維持單行、長文字（小霞）正常換成多行，兩種情況都不會被裁切 */
+  /* .card-patch-ability/.card-patch-ability-mod有兩個真的疊起來的子div（.cpn特性名稱／.cpe
+     效果文字），要用column直向排列；.card-patch-trainer-effect的內容是文字+圖示混在一起注入的
+     同一坨inline內容，沒有子div——2026-08-18發現flex容器遇到「文字節點+inline元素混雜」時，
+     會把每一段連續文字包成獨立的匿名flex item，column方向下這些匿名item會各自被拆成一行，
+     導致圖示前後的文字被強制換行。改成row方向解掉這個問題後，又發現第二個問題：flex的
+     flex-wrap預設是nowrap，row方向底下那些匿名item不會像一般inline文字一樣自動換行，字數多
+     的卡片（例如小霞）反而變成整行內容硬擠在一行、超出容器寬度被overflow:hidden左右裁掉一截
+     （使用者回報「還是會有換行/溢出的問題」）。要補上flex-wrap:wrap，讓row方向的匿名item在
+     超出寬度時能好好換行，這樣短文字（阿桔）維持單行、長文字（小霞）正常換成多行，兩種情況
+     都不會被裁切 */
   .card-patch-ability { top:47.5%; height:14%; flex-direction:column; }
+  /* 2026-08-19新增：.card-patch-ability校準的是「印刷面原本沒有特性欄」的空白區域（見上面
+     addAbility說明），跟這裡「卡本身已經印了特性欄、只是要改效果文字」是完全不同的位置——
+     實測A3a-021捷拉奧拉卡圖，特性名稱+2行效果文字整塊落在52.5%~65.5%，不是47.5%~61.5%。
+     只針對「基礎/單招式/已印特性」這個版型量測過，換其他版型（ex/雙招式等）位置可能不對，
+     跟hp/attackCost疊圖層同樣的校準限制 */
+  .card-patch-ability-mod { top:52.5%; height:13%; flex-direction:column; }
   .card-patch-trainer-effect { top:63%; height:13%; flex-wrap:wrap; }
-  .card-patch-ability .cpn { font-weight:800; font-size:0.78rem; margin-bottom:0.15rem; }
-  .card-patch-ability .cpe, .card-patch-trainer-effect { font-size:0.62rem; line-height:1.25; }
+  .card-patch-ability .cpn, .card-patch-ability-mod .cpn { font-weight:800; font-size:0.78rem; margin-bottom:0.15rem; }
+  .card-patch-ability .cpe, .card-patch-ability-mod .cpe, .card-patch-trainer-effect { font-size:0.62rem; line-height:1.25; }
   .card-detail-panel h3 { font-size:1.1rem; margin-bottom:0.3rem; }
   .card-detail-panel .detail-meta { color:var(--muted); font-size:0.78rem; margin-bottom:0.8rem; }
   .card-detail-panel .detail-attack { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:0.6rem; margin-bottom:0.5rem; font-size:0.8rem; }
@@ -1756,6 +1763,13 @@ function buildCardPatchOverlay(card) {
     html += `<div class="card-patch-ability"><div class="cpn">特性：${zhName(ab)}</div><div class="cpe">${zhEffect(ab)}</div></div>`;
   }
   if (patch.effect) html += `<div class="card-patch-trainer-effect">${zhEffect(card)}</div>`;
+  // 2026-08-19新增：修改「卡本身已經印刷」的特性效果文字（跟patch.addedAbility不同——那個是
+  // 原本沒特性、疊在印刷面空白區；這個是原本就有特性欄，蓋住印刷的舊效果文字），用獨立的
+  // .card-patch-ability-mod疊圖位置（見上面CSS說明），名字維持不變只換效果文字
+  if (patch.modifiedAbility) {
+    const ab = (card.abilities || []).find(a => a.name === patch.modifiedAbility.name);
+    if (ab) html += `<div class="card-patch-ability-mod"><div class="cpn">特性：${zhName(ab)}</div><div class="cpe">${zhEffect(ab)}</div></div>`;
+  }
   // 2026-08-19新增：招式能量花費改動——蓋住卡圖上印刷的舊能量圖示，換成新花費的圖示
   if (patch.attackCost) {
     const icons = patch.attackCost.new.map(t => energyIconHtml(t, false, 'energy-icon-inline')).join('');

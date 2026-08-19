@@ -3522,6 +3522,16 @@ const POCKET_CARD_OVERRIDES = {
       effect_zh: '在場上時，你的尼多王撤退不需要消耗能量。',
     },
   },
+  // 2026-08-19使用者自訂調整：捷拉奧拉「雷鳴閃光」原本限定「第一個回合結束」才觸發1次，
+  // 改成不限回合、每次回合結束都觸發——特性名字/持有者不變，只改效果文字+checkup判斷條件
+  // （見pocketRunCheckup裡Thunderclap Flash那段，拿掉G.turnNumber<=2限制）
+  'Zeraora': {
+    modifyAbility: {
+      name: 'Thunderclap Flash',
+      effect: 'At the end of your turn, take a {L} Energy from your Energy Zone and attach it to this Pokémon.',
+      effect_zh: '在你的回合結束時，從能量區取出1個{L}能量附加到這隻寶可夢身上。',
+    },
+  },
 };
 for (const c of POCKET_CARDS) {
   const ov = POCKET_CARD_OVERRIDES[c.name];
@@ -3536,13 +3546,28 @@ for (const c of POCKET_CARDS) {
     c.effect_zh = ov.effect_zh || ov.effect;
   }
   // 2026-08-19新增：改招式能量需求（跟hp/retreat一樣的「數值直改」類型，差別是要先找到
-  // 對應名字的那個招式物件）——沒有另外做client端overlay定位框，因為showCardDetail本來就會
-  // 用真實的a.cost畫出招式能量圖示，改完的新花費本來就會正確顯示，不需要額外疊圖層
+  // 對應名字的那個招式物件）。這裡只負責算出patch.attackCost這筆資料——疊圖層本身（蓋住
+  // 卡圖上印刷的舊能量符號）在client端public/pocket.html的buildCardPatchOverlay()裡，
+  // 見.card-patch-attack-cost（使用者當時回報「圖案上的部分沒修到」才補上，純文字顯示不夠）
   if (ov.attackCost) {
     const atk = (c.attacks || []).find(a => a.name === ov.attackCost.name);
     if (atk && JSON.stringify(atk.cost) !== JSON.stringify(ov.attackCost.cost)) {
       patch.attackCost = { name: atk.name, old: atk.cost, new: ov.attackCost.cost };
       atk.cost = ov.attackCost.cost;
+    }
+  }
+  // 2026-08-19新增：改一張卡「已經有」的特性效果文字（跟addAbility不同——addAbility是給
+  // 原本沒有特性的卡新增一個，這裡是卡本身已經印了某個特性、只是要改它的觸發條件/效果）。
+  // 只替換effect/effect_zh，name/name_zh維持印刷原樣不動（捷拉奧拉還是叫「雷鳴閃光」，
+  // 只是不再限定「第一個回合」）。client端疊圖層用另一個獨立的patch.modifiedAbility旗標
+  // （不能共用addedAbility——那個疊圖座標是校準給「印刷面原本沒有特性欄」的空白區域，
+  // 這裡的卡本身就印了特性欄，畫面位置不一樣，見public/pocket.html的.card-patch-ability-mod）
+  if (ov.modifyAbility) {
+    const ab = (c.abilities || []).find(a => a.name === ov.modifyAbility.name);
+    if (ab && ab.effect !== ov.modifyAbility.effect) {
+      patch.modifiedAbility = { name: ab.name, old: ab.effect_zh || ab.effect, new: ov.modifyAbility.effect_zh || ov.modifyAbility.effect };
+      ab.effect = ov.modifyAbility.effect;
+      ab.effect_zh = ov.modifyAbility.effect_zh || ov.modifyAbility.effect;
     }
   }
   if (Object.keys(patch).length) c._patch = patch;
@@ -3895,11 +3920,12 @@ function pocketRunCheckup(G) {
       if (G.phase === 'forced_switch' || G.phase === 'done') return true;
     }
   }
-  // Thunderclap Flash（2026-08-08新增）：「At the end of your first turn」——checkup執行的當下
-  // G.turnNumber還沒遞增，turnNumber<=2恆等於「endingSide正在結束的這個回合是它自己的第一回合」
-  // （turn 1=先攻方第一回合、turn 2=後攻方第一回合，不管誰先攻都成立，不需要額外查firstPlayer）。
-  // 不限持有者在主戰/板凳，跟Snowy Terrain(限定主戰)不同，掃全場
-  if (G.turnNumber <= 2) {
+  // Thunderclap Flash：原卡面是「At the end of your first turn」，2026-08-19使用者自訂調整
+  // （POCKET_CARD_OVERRIDES的Zeraora modifyAbility）改成「At the end of your turn」不限
+  // 第一回合——原本這裡卡G.turnNumber<=2（先攻/後攻方各自第一回合），現在拿掉這個限制，
+  // 每次回合結束都觸發，跟Bad Dreams等「every turn」特性同一種寫法。不限持有者在主戰/板凳，
+  // 跟Snowy Terrain(限定主戰)不同，掃全場
+  {
     // 2026-08-08修正：原本用find()只抓場上第一隻符合的持有者，場上同時有2隻以上Zeraora時
     // 只有一隻會觸發——這個特性沒有「每回合限用1次」的場地限定，應該每一隻持有者都各自觸發
     const holders = [endingSide.active, ...endingSide.bench].filter(p => p?.abilities?.[0]?.name === 'Thunderclap Flash');
@@ -4413,7 +4439,9 @@ function pocketPassiveRetreatIncrease(oppSide) {
 }
 // 「這是role這一方的第一個回合」——turnNumber是全域遞增（1=先攻方第1回合、2=後攻方第1回合、
 // 3=先攻方第2回合...），不是每方各自從1開始算，所以「我方第一回合」要看自己是不是先攻方
-// 再對應turnNumber===1或===2，兩個地方都要用這個判斷（Wimp Out撤退+Thunderclap Flash回合結束）
+// 再對應turnNumber===1或===2。目前只有Wimp Out撤退用到這個判斷——Thunderclap Flash原本也是
+// 靠類似邏輯（G.turnNumber<=2）限定第一回合，2026-08-19使用者自訂調整後拿掉了這個限制，
+// 改成每回合結束都觸發，不再是「第一回合限定」的一員
 function pocketIsFirstTurnFor(pRoom, G, role) {
   return role === pRoom.firstPlayer ? G.turnNumber === 1 : G.turnNumber === 2;
 }
