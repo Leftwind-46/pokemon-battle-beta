@@ -178,14 +178,25 @@
 
   .board-slot { width:76px; text-align:center; font-size:0.62rem; cursor:default; }
   .board-slot.empty { border:1px dashed var(--border); border-radius:8px; height:100%; min-height:60px; }
-  .board-slot img { width:100%; border-radius:6px; background:#111; aspect-ratio:5/7; object-fit:cover; }
+  /* 2026-08-19改版：特性/道具/能量/狀態圖示原本全部擠在卡片下方一長串，使用者要求善用卡牌
+     本身的空間——img改包一層.slot-img-wrap(position:relative)，圖示疊在卡圖上（頂部：狀態/
+     道具/加成減傷徽章，底部：能量），卡圖下方只留名字+HP，不再有一大串徽章把版面往下撐 */
+  .slot-img-wrap { position:relative; }
+  .board-slot img { width:100%; border-radius:6px; background:#111; aspect-ratio:5/7; object-fit:cover; display:block; }
   .board-slot.pickable img { outline:2px solid #ffd54f; cursor:pointer; }
   .board-slot .board-name { font-weight:700; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .active-row .board-slot { width:96px; font-size:0.7rem; }
   .hp-bar { height:5px; background:rgba(255,255,255,0.1); border-radius:3px; overflow:hidden; margin-top:2px; }
   .hp-fill { height:100%; background:#69f0ae; transition:width 0.35s ease, background 0.35s ease; }
   .hp-fill.low { background:#ff8a80; }
-  .energy-row { display:flex; gap:2px; justify-content:center; margin-top:2px; flex-wrap:wrap; }
+  .slot-badges-top { position:absolute; top:2px; left:2px; right:2px; display:flex; flex-wrap:wrap; gap:2px; justify-content:flex-start; }
+  .slot-energy-strip { position:absolute; left:2px; right:2px; bottom:2px; display:flex; gap:1px; flex-wrap:wrap; justify-content:center; }
+  /* 疊在卡圖上的徽章要跟底下的插畫有足夠對比，原本.status-chip半透明白底(rgba(255,255,255,0.1))
+     在深色頁面背景上還看得清楚，疊在彩色卡圖上就常常糊掉——疊圖情境下改深色不透明底+陰影，
+     沒特別上色的異常狀態/dmgup/dmgdown等專屬色徽章本來就有實色背景，不受這條規則影響（後定義
+     的.status-poisoned等規則specificity更高，仍然維持原本顏色） */
+  .slot-badges-top .status-chip { background:rgba(6,6,16,0.88); box-shadow:0 1px 3px rgba(0,0,0,0.7); }
+  .slot-energy-strip .energy-icon { box-shadow:0 1px 2px rgba(0,0,0,0.7); }
   .energy-icon { width:8px; height:8px; border-radius:50%; display:inline-block; }
   .mini-btn { font-size:0.58rem; background:rgba(255,255,255,0.1); border:1px solid var(--border); color:var(--text); border-radius:5px; padding:1px 4px; margin-top:2px; cursor:pointer; }
   .mini-btn:hover { background:rgba(255,255,255,0.2); }
@@ -300,6 +311,30 @@
   /* 2026-08-18新增：塞進效果文字內文的圖示——尺寸用1em跟著當下文字大小走，不用固定px，
      避免撐開比周圍文字還高的行高導致提早換行；vertical-align微調讓圖示落在文字基線上 */
   .energy-icon.energy-icon-inline { width:1em; height:1em; vertical-align:middle; margin:0 0.05em; }
+
+  /* ── 對戰記錄側欄（2026-08-19新增）── 跟卡牌詳細資訊側欄同一種滑出面板手法，放左側 */
+  .log-toggle-btn { background:rgba(255,255,255,0.08); border:1px solid var(--border); color:var(--text);
+    border-radius:8px; padding:0.35rem 0.75rem; font-size:0.78rem; font-weight:700; cursor:pointer; white-space:nowrap; }
+  .log-toggle-btn:hover { background:rgba(255,255,255,0.16); }
+  .log-toggle-btn.has-unread { background:rgba(121,134,203,0.25); border-color:rgba(121,134,203,0.6); }
+  .battle-log-panel { position:fixed; top:0; left:-320px; width:300px; height:100%; background:#0c0f24;
+    border-right:1px solid var(--border); z-index:91; padding:1rem; display:flex; flex-direction:column; transition:left 0.25s ease; }
+  .battle-log-panel.open { left:0; }
+  .battle-log-header { display:flex; justify-content:space-between; align-items:center; font-weight:800;
+    margin-bottom:0.7rem; padding-bottom:0.6rem; border-bottom:1px solid var(--border); }
+  .log-close-btn { background:rgba(255,255,255,0.14); border:1px solid rgba(255,255,255,0.4); color:var(--text);
+    border-radius:50%; width:28px; height:28px; font-size:0.85rem; line-height:1; cursor:pointer; }
+  .log-close-btn:hover { background:rgba(255,82,82,0.25); border-color:#ff5252; }
+  #battle-log { flex:1; overflow-y:auto; display:flex; flex-direction:column-reverse; gap:0.4rem; padding-right:0.2rem; }
+  .log-msg { font-size:0.76rem; line-height:1.4; padding:0.4rem 0.6rem; border-radius:8px;
+    background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); }
+  /* 依事件屬於誰/類型上色，一眼分辨——藍=我方行動、紅=對手行動、紫=回合切換、金=結束、
+     深紅底=擊倒（比一般log-mine/log-opp更搶眼，KO是整場最重要的節點） */
+  .log-msg.log-mine { border-left:3px solid #64b5f6; }
+  .log-msg.log-opp  { border-left:3px solid #ef5350; }
+  .log-msg.log-turn { background:rgba(121,134,203,0.16); border-color:rgba(121,134,203,0.4); font-weight:700; text-align:center; }
+  .log-msg.log-ko   { background:rgba(255,82,82,0.16); border-color:rgba(255,82,82,0.45); font-weight:700; }
+  .log-msg.log-win  { background:rgba(255,202,40,0.18); border-color:rgba(255,202,40,0.55); font-weight:800; text-align:center; }
 
   /* ── 卡牌詳細資訊側欄 ── */
   .card-detail-panel { position:fixed; top:0; right:-340px; width:320px; height:100%; background:#0c0f24;
@@ -426,8 +461,7 @@
   .board-slot.hit-shake img { animation:shakeHit 0.4s ease; }
   .board-slot.hit-flash img { box-shadow:0 0 0 3px #ff5252; }
 
-  /* ── 狀態/增益小圖示 ── */
-  .status-badges { display:flex; gap:2px; justify-content:center; flex-wrap:wrap; margin-top:2px; }
+  /* ── 狀態/增益小圖示（2026-08-19改版後疊在卡圖上，見上面.slot-badges-top） ── */
   .status-chip { font-size:0.6rem; background:rgba(255,255,255,0.1); border-radius:4px; padding:0 3px; }
   /* 2026-08-09新增：異常狀態（中毒/麻痺/睡眠/灼傷/混亂）跟其他一般小徽章（禁止攻擊/裝備等）
      共用同一個.status-chip樣式，太不顯眼容易被忽略——比照主戰鬥模式(pokemon_battle.html)
@@ -625,6 +659,18 @@
       <span class="points-side" id="my-points-side">你 <b id="my-points">0</b><span class="point-markers" id="my-points-markers"></span></span>
       <span class="points-side" id="opp-points-side">對手 <b id="opp-points">0</b><span class="point-markers" id="opp-points-markers"></span></span>
     </div>
+    <button class="log-toggle-btn" id="log-toggle-btn" onclick="toggleBattleLog()" title="對戰記錄">📜 記錄</button>
+  </div>
+
+  <!-- 2026-08-19新增：對戰記錄——跟card-detail-panel同一種position:fixed滑出面板手法，
+       放在左側（detail-panel佔右側），跟著#board-overlay一起display:none/flex，不用另外判斷
+       要不要顯示 -->
+  <div class="battle-log-panel" id="battle-log-panel">
+    <div class="battle-log-header">
+      <span>對戰記錄</span>
+      <button class="log-close-btn" onclick="toggleBattleLog(false)">✕</button>
+    </div>
+    <div id="battle-log"></div>
   </div>
 
   <div class="arena-zone opp-zone">
@@ -1543,6 +1589,10 @@ let myRole = null; // 'p1' | 'p2'
 let myIsFirstPlayer = null; // 2026-08-08新增：撤退成本試算需要知道「這是不是我方第一回合」（Wimp Out用），從pocket_match_start的firstPlayer存下來
 let lastMyPoints = 0, lastOppPoints = 0; // 用來判斷分數是否剛好在這次render增加，觸發標記彈跳動畫
 let lastMyActiveUid = null, lastOppActiveUid = null; // 用來判斷主戰是不是剛好換了一隻新的，觸發上場特效
+// 2026-08-19新增：對戰記錄用——分別判斷「回合數剛好變了」「對戰剛從setup進入active」
+// 「winner欄位剛好從null變成有值」，這3個都要用「上一次render時的值」比對才能只在真的
+// 變化那一刻log一次，不然renderBoard每次state broadcast都會呼叫（同一回合內也會重複render）
+let lastLoggedTurnNumber = 0, loggedBattleStart = false, lastLoggedWinner = undefined;
 let lastMyHandCount = 0, lastOppHandCount = 0; // 用來判斷手牌是不是剛好變多，觸發抽卡動畫
 
 function lobbyShowStep(step) {
@@ -1896,7 +1946,8 @@ function renderPokeSlot(p, { pickable = false, dataset = {}, own = false } = {})
     const rainbowTitle = rainbowType ? `（${TYPE_ZH[rainbowType] || rainbowType}）` : '';
     badges.push(`<span class="status-chip" title="裝備：${zhName(p.tool)}${rainbowTitle}">🔧${zhName(p.tool)}${rainbowIcon}</span>`);
   }
-  const statusHtml = badges.length ? `<div class="status-badges">${badges.join('')}</div>` : '';
+  const statusHtml = badges.length ? `<div class="slot-badges-top">${badges.join('')}</div>` : '';
+  const energyHtml = energyIcons ? `<div class="slot-energy-strip">${energyIcons}</div>` : '';
   // 2026-08-08修正：拿掉🔍按鈕——點卡片本體（board-overlay的click委派）本來就會開啟同樣的
   // showCardDetail，🔍是完全多餘的重複入口，使用者反映占位又容易跟特性/棄置按鈕混在一起
   let extraBtns = '';
@@ -1916,12 +1967,14 @@ function renderPokeSlot(p, { pickable = false, dataset = {}, own = false } = {})
   }
   return `
     <div class="board-slot ${pickable ? 'pickable' : ''}" data-uid="${p.uid}" ${attrs}>
-      <img src="${pocketThumbUrl(p.image)}" loading="lazy" alt="${zhName(p)}">
+      <div class="slot-img-wrap">
+        <img src="${pocketThumbUrl(p.image)}" loading="lazy" alt="${zhName(p)}">
+        ${statusHtml}
+        ${energyHtml}
+      </div>
       <div class="board-name">${zhName(p)}${p.ex ? ' EX' : ''}</div>
       <div class="hp-bar"><div class="hp-fill ${hpPct <= 30 ? 'low' : ''}" style="width:${hpPct}%"></div></div>
       <div>${p.curHp ?? p.hp}/${p.hp}</div>
-      <div class="energy-row">${energyIcons}</div>
-      ${statusHtml}
       ${extraBtns}
     </div>`;
 }
@@ -1968,6 +2021,20 @@ function renderBoard() {
   if (!state) return;
   const { you, opponent, turn, turnNumber, phase, pendingSwitchRole, pendingSwitchExcludeUid, pendingSwitchIsKO } = state;
   const myTurn = turn === myRole;
+
+  // 2026-08-19新增：對戰記錄的回合切換/開戰/勝負這3個節點，跟lastEvent/cardActivations
+  // 不同（那兩個是server端主動push的離散事件，這3個只是state裡的欄位值變化），用上面宣告的
+  // 3個module-level追蹤變數比對「這次render前後有沒有真的變化」，避免同一回合內重複render
+  // 時log灌水
+  if (phase === 'active' && !loggedBattleStart) { loggedBattleStart = true; pocketLog('對戰開始！', 'log-turn'); }
+  if (phase === 'active' && turnNumber !== lastLoggedTurnNumber) {
+    lastLoggedTurnNumber = turnNumber;
+    pocketLog(`── 第 ${turnNumber} 回合，輪到${myTurn ? '你' : '對手'} ──`, 'log-turn');
+  }
+  if (state.winner !== undefined && state.winner !== null && state.winner !== lastLoggedWinner) {
+    lastLoggedWinner = state.winner;
+    pocketLog(state.winner === 'draw' ? '對戰結束：平手' : `對戰結束：${state.winner === myRole ? '你贏了！' : '對手贏了'}`, 'log-win');
+  }
 
   document.getElementById('turn-indicator').textContent = phase === 'done' ? '對戰結束' : `第 ${turnNumber} 回合 · ${myTurn ? '輪到你' : '對手回合'}`;
   document.getElementById('my-points').textContent = you.points;
@@ -3036,9 +3103,50 @@ document.getElementById('board-overlay').addEventListener('drop', e => {
 let overlayChain = Promise.resolve();
 
 let lastSeenEventSeq = 0;
+// ── 對戰記錄（2026-08-19新增）── 純client端的顯示層，不影響任何遊戲判定。內容來源是既有的
+// 兩條事件管線：handlePocketEvent的lastEvent（攻擊/攻擊失敗/補血）+ handleCardActivations
+// 的cardActivations（出牌/特性觸發/道具觸發/場地卡效果觸發），跟播動畫用的是同一批資料，
+// 只是這裡額外把它們轉成一行行文字留存，不會因為動畫播完就消失。
+function toggleBattleLog(force) {
+  const panel = document.getElementById('battle-log-panel');
+  const open = typeof force === 'boolean' ? force : !panel.classList.contains('open');
+  panel.classList.toggle('open', open);
+  if (open) document.getElementById('log-toggle-btn').classList.remove('has-unread');
+}
+function pocketLog(text, cls) {
+  const el = document.createElement('div');
+  el.className = `log-msg ${cls || ''}`;
+  el.textContent = text;
+  const logEl = document.getElementById('battle-log');
+  if (!logEl) return; // 組牌頁等非戰鬥畫面board-overlay是display:none，裡面的元素還在DOM但
+  logEl.prepend(el);   // 呼叫端(turn-change偵測等)本來就只在renderBoard內執行，正常不會踩到
+  const btn = document.getElementById('log-toggle-btn');
+  if (btn && !document.getElementById('battle-log-panel').classList.contains('open')) btn.classList.add('has-unread');
+}
+// 補血/失敗事件的攻擊者名字要用uid反查場上寶可夢——跟attack事件不同，attack事件的
+// attacker/targetName已經由server端算好包進lastEvent（見server.js那邊的說明：被擊倒換人後
+// uid可能查不到），這裡的情境（補血/攻擊失敗）當事者一定還在場上，client端反查是安全的
+function pocketLogFindName(uid) {
+  const pool = [state?.you?.active, ...(state?.you?.bench || []), state?.opponent?.active, ...(state?.opponent?.bench || [])];
+  const p = pool.find(x => x && x.uid === uid);
+  return p ? zhName(p) : '寶可夢';
+}
+const ATTACK_FAILED_REASON_ZH = { paralyzed: '因麻痺無法攻擊', asleep: '因睡眠攻擊失敗', confused: '混亂發作，攻擊失敗且自己受到30傷害', flipLock: '被封印效果擋下，攻擊失敗' };
 function handlePocketEvent(evt) {
   if (!evt || evt.seq <= lastSeenEventSeq) return;
   lastSeenEventSeq = evt.seq;
+  const mine = evt.attackerRole === myRole;
+  if (evt.kind === 'attack') {
+    let line = `${mine ? '你' : '對手'}的${evt.attackerName || '寶可夢'}使用【${evt.moveName || '招式'}】`;
+    if (evt.damage > 0) line += `，對${evt.targetName || '對方寶可夢'}造成${evt.damage}點傷害`;
+    pocketLog(line, mine ? 'log-mine' : 'log-opp');
+    if (evt.selfDamage > 0) pocketLog(`${mine ? '你' : '對手'}的${evt.attackerName || '寶可夢'}自己受到${evt.selfDamage}點傷害`, mine ? 'log-mine' : 'log-opp');
+    if (evt.targetFainted) pocketLog(`${evt.targetName || '寶可夢'}倒下了！`, 'log-ko');
+  } else if (evt.kind === 'attackFailed') {
+    const name = pocketLogFindName(evt.attackerUid);
+    pocketLog(`${mine ? '你' : '對手'}的${name}${ATTACK_FAILED_REASON_ZH[evt.reason] || '攻擊失敗'}`, mine ? 'log-mine' : 'log-opp');
+  }
+  if (evt.healUid && evt.healAmount > 0) pocketLog(`${pocketLogFindName(evt.healUid)}恢復了${evt.healAmount}點HP`);
   overlayChain = overlayChain.then(async () => {
     if (evt.coinFlips && evt.coinFlips.length) await playCoinFlipAnim(evt.coinFlips);
     if (evt.kind === 'attack') {
@@ -3061,6 +3169,8 @@ function handleCardActivations(activations) {
   if (!newOnes.length) return;
   lastSeenCardEventSeq = Math.max(lastSeenCardEventSeq, ...activations.map(a => a.seq));
   for (const evt of newOnes) {
+    const mine = evt.role === myRole;
+    pocketLog(`${mine ? '你' : '對手'}${evt.label || '觸發了效果'}：${evt.zh_name || evt.name || ''}`, mine ? 'log-mine' : 'log-opp');
     overlayChain = overlayChain.then(() => playCardActivation(evt));
   }
 }

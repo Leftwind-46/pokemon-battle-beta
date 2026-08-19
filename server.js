@@ -3744,7 +3744,9 @@ function buildPocketG(pRoom) {
 function pocketEmitCardActivation(G, role, card, label) {
   if (!card) return;
   G.cardActivations = G.cardActivations || [];
-  G.cardActivations.push({ seq: ++G.cardEventSeq, role, name: card.name, image: card.image, label });
+  // 2026-08-19新增zh_name：對戰log要用中文顯示卡名，原本這裡只塞英文name（卡片彈窗本身沒有
+  // 用到zh_name，純加欄位不影響既有顯示邏輯）
+  G.cardActivations.push({ seq: ++G.cardEventSeq, role, name: card.name, zh_name: card.zh_name || card.name_zh || null, image: card.image, label });
   if (G.cardActivations.length > 20) G.cardActivations.shift();
 }
 // Tool物件在寶可夢instance上只存{id,name}（沒有image，見makePocketInstance/attach handler），
@@ -11217,6 +11219,12 @@ async function handleMessage(ws, msg) {
         attackerUid: attacker.uid, targetUid: defender.uid, damage: mainDamage,
         selfDamage: ctx.selfDamage || 0, coinFlips,
         healUid: ctx.healUid || null, healAmount: ctx.healAmount || 0,
+        // 2026-08-19新增：對戰log要顯示「誰用了什麼招式對誰造成多少傷害」，光靠attackerUid/
+        // targetUid在client端事後查不夠可靠（如果這隻剛好被打倒換人了，uid可能已經不在場上/
+        // 板凳找得到）——直接在server端把名字/招式名/是否擊倒一起算好塞進事件，client端log
+        // 不用自己反查
+        attackerName: attacker.zh_name || attacker.name, targetName: defender.zh_name || defender.name,
+        moveName: atk.name_zh || atk.name, targetFainted: defender.curHp <= 0,
       };
 
       // 板凳濺傷造成的擊倒先處理（不會觸發forced_switch，因為主戰沒被打）
@@ -11805,6 +11813,10 @@ async function handleMessage(ws, msg) {
       } else {
         return;
       }
+      // 2026-08-19新增：對戰log要顯示場地卡主動觸發的效果——這6張場地卡原本只有Mesagoza那張
+      // 有專屬的擲硬幣lastEvent，統一在這裡補一個cardActivation（跟出牌/特性同一套顯示管線），
+      // 不用逐一在每個else if分支裡各自加一次
+      pocketEmitCardActivation(G, role, POCKET_CARDS_BY_ID[stadiumId], '場地卡效果觸發');
       pocketBroadcastState(pRoom);
       return;
     }
