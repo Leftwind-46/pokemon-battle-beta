@@ -377,6 +377,15 @@
     display:flex; align-items:center; justify-content:center; gap:0.12rem;
     font-size:1.1rem; box-shadow:0 0 8px rgba(255,202,40,0.5);
   }
+  /* 2026-08-19新增：卡片改名（夏南→電次）疊圖層——量測真實A2-153(Volkner)卡圖，印刷名字落在
+     6.5%~13%這段，跟其他Trainer卡（Supporter/Item/Stadium）header列高度是同一套固定版型，
+     只校準過標準版Trainer卡；ex/滿版Pokémon卡的名字位置跟這個不同，換版型要重新量測 */
+  .card-patch-name {
+    position:absolute; left:2%; top:6%; width:70%; height:9%;
+    background:rgba(8,8,18,0.94); color:#fff6cf; border:2px solid #ffca28; border-radius:6px;
+    display:flex; align-items:center; justify-content:center; font-weight:900;
+    font-size:clamp(0.7rem, 3vw, 1.1rem); box-shadow:0 0 8px rgba(255,202,40,0.5); padding:0 0.4rem;
+  }
   .card-patch-ability, .card-patch-ability-mod, .card-patch-trainer-effect {
     position:absolute; left:4.5%; width:91%;
     background:rgba(8,8,20,0.95); border:2px solid #ffca28; border-radius:9px;
@@ -1758,6 +1767,9 @@ function buildCardPatchOverlay(card) {
   // class到.detail-img-wrap），這裡不用再產生額外的badge元素
   let html = '';
   if (patch.hp) html += `<div class="card-patch-hp">HP ${patch.hp.new}</div>`;
+  // 2026-08-19新增：改名——蓋住卡圖上印刷的舊名字，換成新名字（目前只校準過標準版Trainer卡，
+  // 見上面.card-patch-name的CSS說明）
+  if (patch.renamed) html += `<div class="card-patch-name">${patch.renamed.new}</div>`;
   if (patch.addedAbility && card.abilities?.[0]) {
     const ab = card.abilities[0];
     html += `<div class="card-patch-ability"><div class="cpn">特性：${zhName(ab)}</div><div class="cpe">${zhEffect(ab)}</div></div>`;

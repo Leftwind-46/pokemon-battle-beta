@@ -3532,6 +3532,13 @@ const POCKET_CARD_OVERRIDES = {
       effect_zh: '在你的回合結束時，從能量區取出1個{L}能量附加到這隻寶可夢身上。',
     },
   },
+  // 2026-08-19使用者自訂調整：夏南改名電次，原本限定Electivire/Luxray兩個指名種族，
+  // 改成任何電屬性寶可夢都能選（見TRAINER_EFFECTS['A2-153']的target.types檢查）
+  'Volkner': {
+    name_zh: '電次',
+    effect: 'Choose 1 of your {L} Pokémon. Attach 2 {L} Energy from your discard pile to that Pokémon.',
+    effect_zh: '選擇你的1隻電屬性寶可夢。從你的棄牌堆中取出2個{L}能量附加到該寶可夢身上。',
+  },
 };
 for (const c of POCKET_CARDS) {
   const ov = POCKET_CARD_OVERRIDES[c.name];
@@ -3539,6 +3546,9 @@ for (const c of POCKET_CARDS) {
   const patch = {};
   if (ov.hp != null && c.hp !== ov.hp) { patch.hp = { old: c.hp, new: ov.hp }; c.hp = ov.hp; }
   if (ov.retreat != null && c.retreat !== ov.retreat) { patch.retreat = { old: c.retreat, new: ov.retreat }; c.retreat = ov.retreat; }
+  // 2026-08-19新增：改卡片的中文顯示名稱（夏南→電次）——只改zh_name，英文name維持印刷原樣
+  // 不動（override表本身是拿英文name當key查表，改掉它會讓這條override自己找不到自己）
+  if (ov.name_zh != null && c.zh_name !== ov.name_zh) { patch.renamed = { old: c.zh_name, new: ov.name_zh }; c.zh_name = ov.name_zh; }
   if (ov.addAbility && !c.abilities?.length) { patch.addedAbility = true; c.abilities = [ov.addAbility]; }
   if (ov.effect != null && c.effect !== ov.effect) {
     patch.effect = { old: c.effect_zh || c.effect, new: ov.effect_zh || ov.effect };
@@ -6637,9 +6647,10 @@ const TRAINER_EFFECTS = {
     ctx.side.active.energy.push(type);
     return null;
   },
-  'A2-153': (ctx, msg) => { // Volkner：選場上的Electivire/Luxray，從棄牌堆拿2電能量附加
+  'A2-153': (ctx, msg) => { // 電次（原Volkner/夏南，2026-08-19使用者自訂調整）：原本限定
+    // Electivire/Luxray兩個指名種族，改成任何電屬性寶可夢都能選——從棄牌堆拿2電能量附加
     const target = pocketFindOwn(ctx.side, msg.target);
-    if (!target || !['Electivire', 'Luxray'].includes(target.name)) return '目標必須是Electivire或Luxray';
+    if (!target || !(target.types || []).includes('Lightning')) return '目標必須是電屬性寶可夢';
     let moved = 0;
     if (pocketTakeEnergyFromDiscard(ctx.side, 'Lightning')) moved++;
     if (pocketTakeEnergyFromDiscard(ctx.side, 'Lightning')) moved++;
