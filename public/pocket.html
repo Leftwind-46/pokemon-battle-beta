@@ -331,6 +331,17 @@
     display:flex; align-items:center; justify-content:center; font-weight:900;
     font-size:clamp(0.65rem, 2.6vw, 1.05rem); box-shadow:0 0 8px rgba(255,202,40,0.5);
   }
+  /* 2026-08-19新增：招式能量花費疊圖層——使用者回報卡圖上印的能量符號（尼多王「毒角」）沒有跟著
+     修正，只有卡片下方文字列表算對。座標是量測真實A1-171 Nidoking卡圖（600x825，跟HP/特性同一套
+     「一般版無特性Stage2」版型）算出來的百分比：印刷的招式能量圖示列剛好落在特性欄空隙(47.5~61.5%)
+     結束後的62.3~68.6%，跟.card-patch-ability是同一張卡上下相鄰的兩個區塊，不衝突。目前只針對
+     「沒有印刷特性、單一招式」的版型量測過，跟HP/特性欄位同樣的校準限制（見上面說明）。 */
+  .card-patch-attack-cost {
+    position:absolute; left:4.5%; top:62.3%; width:23%; height:6.3%;
+    background:rgba(8,8,18,0.94); border:2px solid #ffca28; border-radius:8px;
+    display:flex; align-items:center; justify-content:center; gap:0.12rem;
+    font-size:1.1rem; box-shadow:0 0 8px rgba(255,202,40,0.5);
+  }
   .card-patch-ability, .card-patch-trainer-effect {
     position:absolute; left:4.5%; width:91%;
     background:rgba(8,8,20,0.95); border:2px solid #ffca28; border-radius:9px;
@@ -1691,6 +1702,11 @@ function buildCardPatchOverlay(card) {
     html += `<div class="card-patch-ability"><div class="cpn">特性：${zhName(ab)}</div><div class="cpe">${zhEffect(ab)}</div></div>`;
   }
   if (patch.effect) html += `<div class="card-patch-trainer-effect">${zhEffect(card)}</div>`;
+  // 2026-08-19新增：招式能量花費改動——蓋住卡圖上印刷的舊能量圖示，換成新花費的圖示
+  if (patch.attackCost) {
+    const icons = patch.attackCost.new.map(t => energyIconHtml(t, false, 'energy-icon-inline')).join('');
+    html += `<div class="card-patch-attack-cost">${icons}</div>`;
+  }
   return html;
 }
 function showCardDetail(card, actions) {
