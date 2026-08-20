@@ -3539,6 +3539,42 @@ const POCKET_CARD_OVERRIDES = {
     effect: 'Choose 1 of your {L} Pokémon. Attach 2 {L} Energy from your discard pile to that Pokémon.',
     effect_zh: '選擇你的1隻電屬性寶可夢。從你的棄牌堆中取出2個{L}能量附加到該寶可夢身上。',
   },
+  // 2026-08-20使用者自訂調整：雷公新增「避雷針」特性（場上己方電屬性寶可夢受到的傷害-30，
+  // 不疊加——使用者沒有像尼多王護駕那樣特別講「可以疊加」，跟GUARD同一種固定值團隊被動），
+  // 撤退費用改成0。特性邏輯掛在pocketPassiveDamageReduction（見那裡的Lightning Rod分支）
+  'Raikou': {
+    retreat: 0,
+    addAbility: {
+      type: 'Ability', name: 'Lightning Rod', name_zh: '避雷針',
+      effect: 'Your {L} Pokémon in play take 30 less damage from attacks. (Does not stack.)',
+      effect_zh: '場上你的電屬性寶可夢受到的傷害-30。',
+    },
+  },
+  // 2026-08-20使用者自訂調整：A4a雷公ex/炎帝ex/水君ex的「傳說脈動」原本限定「這隻在主戰位置」
+  // 才抽卡，拿掉這個限制——3張卡各自的英文name不同，要各開一個override entry，但都指向
+  // 同一個特性名字Legendary Pulse（見pocketRunCheckup那段，從單看endingSide.active改成
+  // 掃全場board的持有者，跟Thunderclap Flash同一種模式）
+  'Entei ex': {
+    modifyAbility: {
+      name: 'Legendary Pulse',
+      effect: 'At the end of your turn, draw a card.',
+      effect_zh: '在你回合結束時，抽1張卡。',
+    },
+  },
+  'Suicune ex': {
+    modifyAbility: {
+      name: 'Legendary Pulse',
+      effect: 'At the end of your turn, draw a card.',
+      effect_zh: '在你回合結束時，抽1張卡。',
+    },
+  },
+  'Raikou ex': {
+    modifyAbility: {
+      name: 'Legendary Pulse',
+      effect: 'At the end of your turn, draw a card.',
+      effect_zh: '在你回合結束時，抽1張卡。',
+    },
+  },
 };
 for (const c of POCKET_CARDS) {
   const ov = POCKET_CARD_OVERRIDES[c.name];
@@ -3897,16 +3933,24 @@ function pocketRunCheckup(G) {
   // 的paralyzed分支）跟這裡不會衝突——那條路徑執行到這裡時status早就已經是null了。
   if (endingSide.active?.status === 'paralyzed') endingSide.active.status = null;
   // 回合結束觸發型被動特性（"At the end of your turn, if this Pokémon is in the Active
-  // Spot..."）：Full-Mouth Manner回血、Legendary Pulse抽牌、Snowy Terrain對對方主戰造成10傷害。
-  // 掛在endingSide真正結束回合的這個時間點，跟中毒/燒傷扣血是同一個Pokémon Checkup時機。
+  // Spot..."）：Full-Mouth Manner回血、Snowy Terrain對對方主戰造成10傷害，這兩個還維持
+  // 「限定主戰位置」的原文條件。掛在endingSide真正結束回合的這個時間點，跟中毒/燒傷扣血
+  // 是同一個Pokémon Checkup時機。
   const endingAbility = endingSide.active?.abilities?.[0]?.name;
   if (endingAbility === 'Full-Mouth Manner' && endingSide.active.curHp > 0) {
     endingSide.active.curHp = Math.min(endingSide.active.hp, endingSide.active.curHp + 20);
     pocketEmitCardActivation(G, endingRole, endingSide.active, '特性觸發：Full-Mouth Manner');
   }
-  if (endingAbility === 'Legendary Pulse' && endingSide.active.curHp > 0 && endingSide.deck.length > 0) {
-    endingSide.hand.push(endingSide.deck.shift());
-    pocketEmitCardActivation(G, endingRole, endingSide.active, '特性觸發：Legendary Pulse');
+  // Legendary Pulse（2026-08-20使用者自訂調整）：原文「if this Pokémon is in the Active Spot」
+  // 被拿掉，改成跟Thunderclap Flash同一種「不限主戰/板凳，逐一持有者各自觸發」寫法——
+  // 场上可能同時有雷公ex/炎帝ex/水君ex等多隻，每一隻都各自抽1張卡，deck.length每次迴圈
+  // 重新檢查，牌庫抽完後面的持有者自然不會再抽到
+  const legendaryPulseHolders = [endingSide.active, ...endingSide.bench].filter(p => p?.curHp > 0 && p?.abilities?.[0]?.name === 'Legendary Pulse');
+  for (const holder of legendaryPulseHolders) {
+    if (endingSide.deck.length > 0) {
+      endingSide.hand.push(endingSide.deck.shift());
+      pocketEmitCardActivation(G, endingRole, holder, '特性觸發：Legendary Pulse');
+    }
   }
   // 尼多力諾（使用者自訂特性，2026-08-17新增，同日應使用者要求修正：不限主戰位置也能觸發）：
   // 回合結束時，場上每一隻鬥爭心持有者（不限主戰/板凳）各自從牌組搜1張「尼多王」加入手牌——
@@ -4354,6 +4398,11 @@ function pocketPassiveDamageReduction(defender, defenderSide, attacker) {
     const escortCount = [defenderSide.active, ...defenderSide.bench].filter(p => p?.abilities?.[0]?.name === 'Escort').length;
     reduction += escortCount * 20;
   }
+  // 雷公「避雷針」（使用者自訂，2026-08-20新增）：跟GUARD同一種「defenderSide任一位置的持有者
+  // 保護整隊符合條件的成員」方向，差別是條件換成「defender自己是電屬性」而不是Unown特殊條件，
+  // 且卡面沒有講「可以疊加」，固定+30、用.some()判斷有沒有持有者在場即可，不用算持有者數量
+  if ((defender.types || []).includes('Lightning') &&
+      [defenderSide.active, ...defenderSide.bench].some(p => p?.abilities?.[0]?.name === 'Lightning Rod')) reduction += 30;
   return reduction;
 }
 // 花舞鳥「神秘守護」（Safeguard）：主戰位置被攻擊時，主傷害管線（mainDamage打ctx.defender）
