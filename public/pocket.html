@@ -388,13 +388,14 @@
   }
   /* 2026-08-20新增：撤退費用疊圖層——量測真實A4-071(Raikou)卡圖，印刷的「retreat [星星圖示]」
      膠囊落在57%~93%(x)、85.3%~89%(y)，跟weakness那半是同一排、只校準過標準版Basic/Stage1/2
-     無特性寶可夢版型。用文字「撤退 N」而不是畫圖示——因為改成0之類的值時「畫0個圖示」會變成
-     一個看起來像沒疊到圖層的空白框，文字更清楚傳達「這裡被改過」 */
+     無特性寶可夢版型。2026-08-20改版：跟attackCost一樣畫真正的無色能量圖示（不是文字），
+     改成0時畫0個圖示——使用者要求「就讓撤退區域變成空白」，不要顯示「撤退0」這種文字，
+     跟印刷卡本身「免費撤退=完全沒有圖示」的呈現方式一致 */
   .card-patch-retreat {
     position:absolute; left:57%; top:85.3%; width:37%; height:3.8%;
-    background:rgba(8,8,18,0.94); color:#fff6cf; border:2px solid #ffca28; border-radius:5px;
-    display:flex; align-items:center; justify-content:center; font-weight:900;
-    font-size:clamp(0.55rem, 2.2vw, 0.9rem); box-shadow:0 0 8px rgba(255,202,40,0.5);
+    background:rgba(8,8,18,0.94); border:2px solid #ffca28; border-radius:5px;
+    display:flex; align-items:center; justify-content:center; gap:0.1rem;
+    font-size:0.85rem; box-shadow:0 0 8px rgba(255,202,40,0.5);
   }
   .card-patch-ability, .card-patch-ability-mod, .card-patch-trainer-effect {
     position:absolute; left:4.5%; width:91%;
@@ -1797,9 +1798,13 @@ function buildCardPatchOverlay(card) {
     const icons = patch.attackCost.new.map(t => energyIconHtml(t, false, 'energy-icon-inline')).join('');
     html += `<div class="card-patch-attack-cost">${icons}</div>`;
   }
-  // 2026-08-20新增：撤退費用改動——蓋住卡圖上印刷的舊撤退圖示，用文字顯示新費用（不是圖示，
-  // 見.card-patch-retreat的CSS說明：改成0的話畫0個圖示反而看起來像沒疊到層）
-  if (patch.retreat) html += `<div class="card-patch-retreat">撤退 ${patch.retreat.new}</div>`;
+  // 2026-08-20改版：撤退費用改動——蓋住卡圖上印刷的舊撤退圖示，畫真正的無色能量圖示
+  // （跟attackCost同一種畫法）。改成0時Array(0)產生空陣列，join後是空字串，框內自然
+  // 什麼都不畫——使用者要求「讓撤退區域變成空白」，不要顯示「撤退0」文字
+  if (patch.retreat) {
+    const icons = Array(patch.retreat.new).fill(0).map(() => energyIconHtml('Colorless', false, 'energy-icon-inline')).join('');
+    html += `<div class="card-patch-retreat">${icons}</div>`;
+  }
   return html;
 }
 function showCardDetail(card, actions) {
