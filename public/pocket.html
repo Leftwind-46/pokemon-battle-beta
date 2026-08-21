@@ -563,6 +563,15 @@
 
     <aside class="deck-panel">
       <input id="deck-name-input" class="deck-name-input" placeholder="牌組名稱" maxlength="30">
+      <!-- 2026-08-21新增：牌組代碼——複製目前編輯中的牌組成一串代碼分享給朋友，或貼上朋友的
+           代碼快速套用成他的牌組組成（只會套用自己收藏裡實際擁有的張數，缺卡會另外提示） -->
+      <div class="deck-code-row">
+        <input id="deck-code-input" class="deck-name-input" style="margin-bottom:0.4rem" placeholder="貼上朋友的牌組代碼...">
+        <div class="btn-row" style="margin-bottom:0.6rem">
+          <button class="btn btn-secondary" onclick="importDeckCode()">📥 匯入代碼</button>
+          <button class="btn btn-secondary" onclick="copyDeckCode()">📋 複製代碼</button>
+        </div>
+      </div>
       <div class="deck-count">牌組 <span id="deck-total">0</span> / 20</div>
       <div class="deck-warn" id="deck-warn"></div>
       <div class="energy-type-picker">
@@ -1180,6 +1189,94 @@ function startNewDeck() {
   energyTypesManuallySet = false;
   document.getElementById('deck-name-input').value = '';
   renderPool(); renderDeck(); renderDeckListChips(); renderEnergyTypePicker();
+}
+
+// ── 牌組代碼（2026-08-21新增）── 純client端編碼，不經過server，也不驗證卡片持有——匯入時
+// 才依照ownedCounts裁切成玩家實際擁有的張數。用card id（不是陣列index）當編碼內容，
+// 避免未來卡池資料順序異動時舊代碼失效或對錯卡。格式：`id*張數,id*張數,...|能量屬性1,能量屬性2`，
+// 整段再包base64，單純讓代碼看起來像一串代碼、不會被隨手打錯字元，不是為了加密或極限壓縮長度。
+function encodeDeckCode(ids, energyTypes) {
+  const counts = {};
+  for (const id of ids) counts[id] = (counts[id] || 0) + 1;
+  const cardsPart = Object.entries(counts).map(([id, n]) => `${id}*${n}`).join(',');
+  const energyPart = (energyTypes && energyTypes.length) ? energyTypes.join(',') : '';
+  const payload = `${cardsPart}|${energyPart}`;
+  return btoa(unescape(encodeURIComponent(payload)));
+}
+function decodeDeckCode(code) {
+  let payload;
+  try { payload = decodeURIComponent(escape(atob(code.trim()))); } catch (e) { return null; }
+  const sepIdx = payload.indexOf('|');
+  if (sepIdx < 0) return null;
+  const ids = [];
+  for (const seg of payload.slice(0, sepIdx).split(',')) {
+    if (!seg) continue;
+    const starIdx = seg.lastIndexOf('*');
+    const n = starIdx >= 0 ? parseInt(seg.slice(starIdx + 1), 10) : NaN;
+    if (starIdx < 0 || !Number.isFinite(n) || n <= 0) return null;
+    const id = seg.slice(0, starIdx);
+    for (let i = 0; i < n; i++) ids.push(id);
+  }
+  const energyTypes = payload.slice(sepIdx + 1).split(',').filter(Boolean);
+  return { ids, energyTypes };
+}
+function pocketToast(msg, ms = 1400) {
+  const toast = document.getElementById('save-toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), ms);
+}
+async function copyDeckCode() {
+  if (!deck.length) { pocketToast('牌組是空的，沒有東西可以複製', 1800); return; }
+  const code = encodeDeckCode(deck, deckEnergyTypes);
+  try {
+    await navigator.clipboard.writeText(code);
+    pocketToast('牌組代碼已複製到剪貼簿！');
+  } catch (e) {
+    // clipboard API可能因為權限或非https環境失敗，退回用prompt讓玩家自己手動複製
+    prompt('無法自動複製，請手動複製這串代碼：', code);
+  }
+}
+// 匯入視同「開一副新牌組」——不沿用currentDeckId，避免按下儲存時誤蓋掉原本正在編輯的
+// 已存牌組（跟startNewDeck()同一種reset慣例）
+function importDeckCode() {
+  const input = document.getElementById('deck-code-input');
+  const raw = input.value.trim();
+  if (!raw) return;
+  const decoded = decodeDeckCode(raw);
+  if (!decoded) { pocketToast('牌組代碼格式錯誤，請確認貼上完整代碼', 1800); return; }
+  const requestedCounts = {};
+  for (const id of decoded.ids) requestedCounts[id] = (requestedCounts[id] || 0) + 1;
+  const newDeck = [];
+  const missing = []; // 有這張卡但張數不夠
+  const unknown = [];  // 目前卡池完全找不到這個id（可能是代碼打錯或卡池版本不同）
+  for (const [id, need] of Object.entries(requestedCounts)) {
+    const card = cardById[id];
+    if (!card) { unknown.push(id); continue; }
+    const have = ownedCap(id);
+    for (let i = 0; i < have && i < need; i++) newDeck.push(id);
+    if (have < need) missing.push({ name: zhName(card), need, have: ownedCounts[id] || 0 });
+  }
+  currentDeckId = null;
+  deck = newDeck.slice(0, DECK_SIZE); // 防呆：格式正常但被竄改超過20張的代碼，裁到上限
+  if (decoded.energyTypes.length) {
+    deckEnergyTypes = decoded.energyTypes.filter(t => POCKET_ENERGY_TYPE_LIST.includes(t));
+    energyTypesManuallySet = true;
+  } else {
+    energyTypesManuallySet = false;
+    deckEnergyTypes = autoDeckEnergyTypes();
+  }
+  document.getElementById('deck-name-input').value = '';
+  input.value = '';
+  renderPool(); renderDeck(); renderDeckListChips(); renderEnergyTypePicker();
+  if (missing.length || unknown.length) {
+    let report = `已套用 ${deck.length}/20 張（依照你目前的收藏）。以下卡片你還沒收藏齊全：\n\n`;
+    report += missing.map(m => `${m.name}：需要 ${m.need} 張，你有 ${m.have} 張`).join('\n');
+    if (unknown.length) report += `${missing.length ? '\n' : ''}\n有 ${unknown.length} 張卡在目前卡池找不到（代碼可能有誤，或來自不同版本的卡池）`;
+    alert(report);
+  } else {
+    pocketToast(`已匯入 ${deck.length}/20 張！`);
+  }
 }
 
 function loadDeckIntoEditor(deckId) {
