@@ -3592,6 +3592,25 @@ const POCKET_CARD_OVERRIDES = {
       effect_zh: '在你回合結束時，抽1張卡。',
     },
   },
+  // 2026-08-21使用者自訂調整：口呆花新增「香甜燻氣」特性——回合結束時從牌組隨機挑
+  // 「巴大蝶」或「摩魯蛾」共2隻放上板凳（見pocketRunCheckup的sweetFumeHolders那段）
+  'Weepinbell': {
+    addAbility: {
+      type: 'Ability', name: 'Sweet Fume', name_zh: '香甜燻氣',
+      effect: 'At the end of your turn, put 2 random Pokémon (Butterfree or Venomoth) from your deck onto your Bench.',
+      effect_zh: '在你的回合結束時，從你的牌組裡隨機挑選「巴大蝶」或「摩魯蛾」共2隻寶可夢放上你的板凳。',
+    },
+  },
+  // 2026-08-21使用者自訂調整：大食花「香氣陷阱」原本限定「這隻在主戰位置」才能用，改成
+  // 「在場上」（不限主戰/板凳）即可；目標從「對手板凳上的基礎寶可夢」放寬成「對手板凳上的
+  // 任一寶可夢」（拿掉stage==='Basic'限制）——見ABILITY_EFFECTS['Fragrance Trap']
+  'Victreebel': {
+    modifyAbility: {
+      name: 'Fragrance Trap',
+      effect: "Once during your turn, you may switch in 1 of your opponent's Benched Pokémon to the Active Spot.",
+      effect_zh: '如果這隻寶可夢在場上，你的回合中可以使用1次以下效果：把對手板凳上的1隻寶可夢換到主戰位置。',
+    },
+  },
 };
 for (const c of POCKET_CARDS) {
   const ov = POCKET_CARD_OVERRIDES[c.name];
@@ -3994,6 +4013,29 @@ function pocketRunCheckup(G) {
     endingSide.hand.push(card);
     endingSide.deck = pocketShuffle(endingSide.deck);
     pocketEmitCardActivation(G, endingRole, holder, '特性觸發：Fighting Spirit');
+  }
+  // 口呆花「香甜燻氣」（使用者自訂特性，2026-08-21新增）：回合結束時，從牌組隨機挑「巴大蝶」
+  // 或「摩魯蛾」共2隻放上板凳——卡面沒有限定主戰位置，跟Fighting Spirit/Legendary Pulse同一種
+  // 「場上每個持有者各自觸發」寫法；是「隨機」不是指定搜尋（跟Fighting Spirit不同），2次抽取
+  // 各自獨立判斷板凳空間(上限3)/牌庫還有沒有候選，抽完（不管實際抽了幾隻）才統一洗牌一次
+  // （跟Attraction「搜完才洗一次」同一個節奏，不是每次都洗）
+  const sweetFumeHolders = [endingSide.active, ...endingSide.bench].filter(p => p?.curHp > 0 && p?.abilities?.[0]?.name === 'Sweet Fume');
+  for (const holder of sweetFumeHolders) {
+    let drewAny = false;
+    for (let i = 0; i < 2; i++) {
+      if (endingSide.bench.length >= 3) break;
+      const idxs = endingSide.deck.map((c, idx) => idx).filter(idx => endingSide.deck[idx].category === 'Pokemon' && (endingSide.deck[idx].name === 'Butterfree' || endingSide.deck[idx].name === 'Venomoth'));
+      if (!idxs.length) break;
+      const pick = idxs[Math.floor(Math.random() * idxs.length)];
+      const [card] = endingSide.deck.splice(pick, 1);
+      card.curHp = card.hp; card.energy = [];
+      endingSide.bench.push(card);
+      drewAny = true;
+    }
+    if (drewAny) {
+      endingSide.deck = pocketShuffle(endingSide.deck);
+      pocketEmitCardActivation(G, endingRole, holder, '特性觸發：Sweet Fume');
+    }
   }
   if (endingAbility === 'Snowy Terrain' && endingSide.active.curHp > 0 && otherSideForCheckup.active) {
     otherSideForCheckup.active.curHp = Math.max(0, otherSideForCheckup.active.curHp - 10);
@@ -7973,10 +8015,12 @@ const ABILITY_EFFECTS = {
   },
 
   /* ── 2026-08-07新增：主動觸發型特性第三批 ── */
-  'Fragrance Trap': (ctx, poke, msg) => { // 必須在主戰位置，把對手指定的1隻基礎板凳換上場
-    if (ctx.side.active?.uid !== poke.uid) return '必須在主戰位置才能使用特性';
-    const idx = ctx.oppSide.bench.findIndex(p => p.uid === msg.target && p.stage === 'Basic');
-    if (idx < 0) return '請選擇對手板凳上的基礎寶可夢';
+  // 2026-08-21使用者自訂調整：拿掉「必須在主戰位置」的限制（改成在場上即可，主戰/板凳皆可用），
+  // 目標也從「對手板凳上的基礎寶可夢」放寬成「對手板凳上的任一寶可夢」（不限stage）——見
+  // POCKET_CARD_OVERRIDES.Victreebel.modifyAbility
+  'Fragrance Trap': (ctx, poke, msg) => { // 把對手指定的1隻板凳寶可夢換上場
+    const idx = ctx.oppSide.bench.findIndex(p => p.uid === msg.target);
+    if (idx < 0) return '請選擇對手板凳上的寶可夢';
     const chosen = ctx.oppSide.bench.splice(idx, 1)[0];
     if (ctx.oppSide.active) { ctx.oppSide.active.status = null; ctx.oppSide.active.poisoned = false; ctx.oppSide.active.burned = false; ctx.oppSide.bench.push(ctx.oppSide.active); }
     ctx.oppSide.active = chosen;

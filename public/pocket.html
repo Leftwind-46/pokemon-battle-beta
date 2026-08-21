@@ -420,6 +420,14 @@
      只針對「基礎/單招式/已印特性」這個版型量測過，換其他版型（ex/雙招式等）位置可能不對，
      跟hp/attackCost疊圖層同樣的校準限制 */
   .card-patch-ability-mod { top:52.5%; height:13%; flex-direction:column; }
+  /* 2026-08-21新增：Stage1/Stage2卡比Basic多印一行「Evolves from X」，把下面的特性欄整塊往下
+     推——實測A1-020大食花(Victreebel, Stage2)，特性欄紅色Ability徽章+3行效果文字實際落在
+     54.1%~66.4%（用canvas掃像素找紅色徽章+黑字文字列的方式量測，不是憑螢幕截圖目測），跟
+     Basic版型的52.5%~65.5%對不上，直接沿用會讓舊印刷文字最後一行露出一小截在疊圖層下緣
+     （使用者截圖抓到過這個leak）。加這個修飾class疊在.card-patch-ability-mod之上，只在
+     card.stage !== 'Basic'時套用，見buildCardPatchOverlay()。只驗證過Stage2這一種，Stage1
+     未量測但因為同樣多印那一行「Evolves from」，先假設偏移量相同套用同一組座標 */
+  .card-patch-ability-mod-evo { top:53.7%; height:13.4%; }
   .card-patch-trainer-effect { top:63%; height:13%; flex-wrap:wrap; }
   .card-patch-ability .cpn, .card-patch-ability-mod .cpn { font-weight:800; font-size:0.78rem; margin-bottom:0.15rem; }
   .card-patch-ability .cpe, .card-patch-ability-mod .cpe, .card-patch-trainer-effect { font-size:0.62rem; line-height:1.25; }
@@ -1888,7 +1896,10 @@ function buildCardPatchOverlay(card) {
   // .card-patch-ability-mod疊圖位置（見上面CSS說明），名字維持不變只換效果文字
   if (patch.modifiedAbility) {
     const ab = (card.abilities || []).find(a => a.name === patch.modifiedAbility.name);
-    if (ab) html += `<div class="card-patch-ability-mod"><div class="cpn">特性：${zhName(ab)}</div><div class="cpe">${zhEffect(ab)}</div></div>`;
+    // 2026-08-21新增：Stage1/Stage2卡比Basic多印一行「Evolves from X」，特性欄位置整塊往下移
+    // （見上面CSS的.card-patch-ability-mod-evo說明），非Basic卡多加這個修飾class校正位置
+    const abModClass = card.stage === 'Basic' ? 'card-patch-ability-mod' : 'card-patch-ability-mod card-patch-ability-mod-evo';
+    if (ab) html += `<div class="${abModClass}"><div class="cpn">特性：${zhName(ab)}</div><div class="cpe">${zhEffect(ab)}</div></div>`;
   }
   // 2026-08-19新增：招式能量花費改動——蓋住卡圖上印刷的舊能量圖示，換成新花費的圖示
   if (patch.attackCost) {
