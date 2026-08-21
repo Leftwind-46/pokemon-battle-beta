@@ -3541,12 +3541,16 @@ const POCKET_CARD_OVERRIDES = {
   },
   // 2026-08-19使用者自訂調整：捷拉奧拉「雷鳴閃光」原本限定「第一個回合結束」才觸發1次，
   // 改成不限回合、每次回合結束都觸發——特性名字/持有者不變，只改效果文字+checkup判斷條件
-  // （見pocketRunCheckup裡Thunderclap Flash那段，拿掉G.turnNumber<=2限制）
+  // （見pocketRunCheckup裡Thunderclap Flash那段，拿掉G.turnNumber<=2限制）。
+  // 2026-08-21再修正：使用者覺得「每回合都觸發」太強，改成「這隻寶可夢放到場上的那個回合結束
+  // 時」才觸發（不是遊戲的第1回合，是這張卡自己上場那一刻算起的回合，跟原印刷文字"your first
+  // turn"是不同的條件——沿用既有的boardTurn欄位，見pocketRunCheckup那段改成
+  // p.boardTurn === G.turnNumber的判斷，只觸發1次，不像原本每回合都觸發）
   'Zeraora': {
     modifyAbility: {
       name: 'Thunderclap Flash',
-      effect: 'At the end of your turn, take a {L} Energy from your Energy Zone and attach it to this Pokémon.',
-      effect_zh: '在你的回合結束時，從能量區取出1個{L}能量附加到這隻寶可夢身上。',
+      effect: 'At the end of the turn this Pokémon was put into play, take a {L} Energy from your Energy Zone and attach it to this Pokémon.',
+      effect_zh: '在這隻寶可夢放到場上的那個回合結束時，從能量區取出1個{L}能量附加到這隻寶可夢身上。',
     },
   },
   // 2026-08-19使用者自訂調整：夏南改名電次，原本限定Electivire/Luxray兩個指名種族，
@@ -3593,12 +3597,34 @@ const POCKET_CARD_OVERRIDES = {
     },
   },
   // 2026-08-21使用者自訂調整：口呆花新增「香甜燻氣」特性——回合結束時從牌組隨機挑
-  // 「巴大蝶」或「摩魯蛾」共2隻放上板凳（見pocketRunCheckup的sweetFumeHolders那段）
+  // 「巴大蝶」/「雪絨蛾」/「摩魯蛾」3選2共2隻放上板凳（見pocketRunCheckup的sweetFumeHolders
+  // 那段，同日追加雪絨蛾進候選種族清單SWEET_FUME_SPECIES）
   'Weepinbell': {
     addAbility: {
       type: 'Ability', name: 'Sweet Fume', name_zh: '香甜燻氣',
-      effect: 'At the end of your turn, put 2 random Pokémon (Butterfree or Venomoth) from your deck onto your Bench.',
-      effect_zh: '在你的回合結束時，從你的牌組裡隨機挑選「巴大蝶」或「摩魯蛾」共2隻寶可夢放上你的板凳。',
+      effect: 'At the end of your turn, put 2 random Pokémon (Butterfree, Frosmoth, or Venomoth) from your deck onto your Bench.',
+      effect_zh: '在你的回合結束時，從你的牌組裡隨機挑選「巴大蝶」、「雪絨蛾」或「摩魯蛾」共2隻寶可夢放上你的板凳。',
+    },
+  },
+  // 2026-08-21使用者自訂調整：雪絨蛾新增「雪粉」特性——跟A2b-051塗標客的「毒粉塗層」
+  // (Poison Coating)同一套「你的回合中1次、擲硬幣正面才生效」button-triggered模式，只是
+  // 結果從中毒改成睡眠。目標固定是對手主戰（這個引擎的異常狀態本來就只作用在主戰位置，
+  // 不需要玩家選目標）
+  'Frosmoth': {
+    addAbility: {
+      type: 'Ability', name: 'Snow Powder', name_zh: '雪粉',
+      effect: "Once during your turn, you may flip a coin. If heads, your opponent's Active Pokémon is now Asleep.",
+      effect_zh: '在你的回合中，你可以擲一次硬幣。如果正面，對手的主戰寶可夢陷入睡眠狀態。',
+    },
+  },
+  // 2026-08-21使用者自訂調整：摩魯蛾新增「毒粉」特性——跟A4-029暴風蠑螈的「噴火」(Fire Breath)
+  // 同一套「你的回合中1次、無條件生效（不用擲硬幣）」button-triggered模式，只是結果從灼傷
+  // 改成中毒
+  'Venomoth': {
+    addAbility: {
+      type: 'Ability', name: 'Toxic Powder', name_zh: '毒粉',
+      effect: "Once during your turn, you may make your opponent's Active Pokémon Poisoned.",
+      effect_zh: '在你的回合中，你可以讓對手的主戰寶可夢陷入中毒狀態。',
     },
   },
   // 2026-08-21使用者自訂調整：大食花「香氣陷阱」原本限定「這隻在主戰位置」才能用，改成
@@ -4014,17 +4040,19 @@ function pocketRunCheckup(G) {
     endingSide.deck = pocketShuffle(endingSide.deck);
     pocketEmitCardActivation(G, endingRole, holder, '特性觸發：Fighting Spirit');
   }
-  // 口呆花「香甜燻氣」（使用者自訂特性，2026-08-21新增）：回合結束時，從牌組隨機挑「巴大蝶」
-  // 或「摩魯蛾」共2隻放上板凳——卡面沒有限定主戰位置，跟Fighting Spirit/Legendary Pulse同一種
-  // 「場上每個持有者各自觸發」寫法；是「隨機」不是指定搜尋（跟Fighting Spirit不同），2次抽取
-  // 各自獨立判斷板凳空間(上限3)/牌庫還有沒有候選，抽完（不管實際抽了幾隻）才統一洗牌一次
-  // （跟Attraction「搜完才洗一次」同一個節奏，不是每次都洗）
+  // 口呆花「香甜燻氣」（使用者自訂特性，2026-08-21新增，同日再修正：候選種族從2種擴增成
+  // 「巴大蝶」/「雪絨蛾」/「摩魯蛾」3選2）：回合結束時，從牌組隨機挑其中2隻放上板凳——卡面
+  // 沒有限定主戰位置，跟Fighting Spirit/Legendary Pulse同一種「場上每個持有者各自觸發」寫法；
+  // 是「隨機」不是指定搜尋（跟Fighting Spirit不同），2次抽取各自獨立判斷板凳空間(上限3)/牌庫
+  // 還有沒有候選，抽完（不管實際抽了幾隻）才統一洗牌一次（跟Attraction「搜完才洗一次」同一個節奏，
+  // 不是每次都洗）
+  const SWEET_FUME_SPECIES = ['Butterfree', 'Frosmoth', 'Venomoth'];
   const sweetFumeHolders = [endingSide.active, ...endingSide.bench].filter(p => p?.curHp > 0 && p?.abilities?.[0]?.name === 'Sweet Fume');
   for (const holder of sweetFumeHolders) {
     let drewAny = false;
     for (let i = 0; i < 2; i++) {
       if (endingSide.bench.length >= 3) break;
-      const idxs = endingSide.deck.map((c, idx) => idx).filter(idx => endingSide.deck[idx].category === 'Pokemon' && (endingSide.deck[idx].name === 'Butterfree' || endingSide.deck[idx].name === 'Venomoth'));
+      const idxs = endingSide.deck.map((c, idx) => idx).filter(idx => endingSide.deck[idx].category === 'Pokemon' && SWEET_FUME_SPECIES.includes(endingSide.deck[idx].name));
       if (!idxs.length) break;
       const pick = idxs[Math.floor(Math.random() * idxs.length)];
       const [card] = endingSide.deck.splice(pick, 1);
@@ -4047,13 +4075,18 @@ function pocketRunCheckup(G) {
   }
   // Thunderclap Flash：原卡面是「At the end of your first turn」，2026-08-19使用者自訂調整
   // （POCKET_CARD_OVERRIDES的Zeraora modifyAbility）改成「At the end of your turn」不限
-  // 第一回合——原本這裡卡G.turnNumber<=2（先攻/後攻方各自第一回合），現在拿掉這個限制，
-  // 每次回合結束都觸發，跟Bad Dreams等「every turn」特性同一種寫法。不限持有者在主戰/板凳，
-  // 跟Snowy Terrain(限定主戰)不同，掃全場
+  // 第一回合——原本這裡卡G.turnNumber<=2（先攻/後攻方各自第一回合），一度拿掉這個限制變成
+  // 每次回合結束都觸發。2026-08-21再修正：使用者覺得每回合都觸發太強，改成「這隻寶可夢放到
+  // 場上的那個回合結束時」才觸發1次——沿用boardTurn欄位（進場/最近一次進化的回合數，
+  // pocket_bench_play/pocket_evolve/開局發牌都會設值），判斷式是p.boardTurn===G.turnNumber
+  // （checkup執行當下turnNumber還沒遞增，這裡的G.turnNumber就是「這隻寶可夢進場那個回合」）。
+  // 不限持有者在主戰/板凳，跟Snowy Terrain(限定主戰)不同，掃全場
   {
     // 2026-08-08修正：原本用find()只抓場上第一隻符合的持有者，場上同時有2隻以上Zeraora時
     // 只有一隻會觸發——這個特性沒有「每回合限用1次」的場地限定，應該每一隻持有者都各自觸發
-    const holders = [endingSide.active, ...endingSide.bench].filter(p => p?.abilities?.[0]?.name === 'Thunderclap Flash');
+    // （現在改成只在進場那個回合觸發後，同時符合這個條件的通常只會有1隻，但邏輯上仍保留
+    // filter+迴圈，避免「同一回合放上場2隻Zeraora」這種邊緣情況只觸發1次）
+    const holders = [endingSide.active, ...endingSide.bench].filter(p => p?.abilities?.[0]?.name === 'Thunderclap Flash' && p.boardTurn === G.turnNumber);
     for (const holder of holders) { holder.energy.push('Lightning'); pocketEmitCardActivation(G, endingRole, holder, '特性觸發：Thunderclap Flash'); }
   }
   // 回合結束觸發型Tool（2026-08-07新增）：Leftovers只在主戰位置生效，Lum Berry/Sitrus Berry
@@ -7956,6 +7989,13 @@ const ABILITY_EFFECTS = {
     return null;
   },
   'Fire Breath': (ctx) => { if (ctx.oppSide.active) ctx.oppSide.active.burned = true; return null; },
+  // 雪絨蛾「雪粉」（使用者自訂特性，2026-08-21新增）：跟Poison Coating同一種「你的回合中1次、
+  // 擲硬幣正面才生效」，結果是讓對手主戰睡眠——status是互斥欄位，直接覆蓋沒關係（跟其餘
+  // "This Pokémon is now Asleep."handler同一種寫法）
+  'Snow Powder': (ctx) => { if (ctx.oppSide.active && pocketFlipCoin(ctx)) ctx.oppSide.active.status = 'asleep'; return null; },
+  // 摩魯蛾「毒粉」（使用者自訂特性，2026-08-21新增）：跟Fire Breath同一種「你的回合中1次、
+  // 無條件生效（不擲硬幣）」，結果是讓對手主戰中毒
+  'Toxic Powder': (ctx) => { if (ctx.oppSide.active) ctx.oppSide.active.poisoned = true; return null; },
   // 2026-08-06修正：治療對象改成玩家自選（哪隻ex寶可夢），丟棄的能量本身卡面文字是
   // "a random Energy"，這部分維持隨機
   'Extra Heal': (ctx, poke, msg) => {
