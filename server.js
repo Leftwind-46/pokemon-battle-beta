@@ -3914,33 +3914,45 @@ function pocketRunCheckup(G) {
   // 2026-08-13修正：中毒/灼傷改成獨立布林欄位（可以彼此同時存在，也可以跟status欄位的睡眠/
   // 麻痺/混亂同時存在），這裡改成各自獨立的if（不是互斥的.status===比對），兩個都成立時兩段
   // 傷害都會結算——真實TCG規則本來就允許同時中毒+灼傷各自扣血
-  if (endingSide.active && endingSide.active.poisoned) {
-    // More Poison：對手（otherSideForCheckup，中毒debuff的施加方）主戰持有時，中毒傷害10→20
-    const poisonBonus = otherSideForCheckup.active?.abilities?.[0]?.name === 'More Poison' ? 10 : 0;
-    // Toxicroak（2026-08-08新增）：卡面明講「instead of the usual amount」——這次中毒的傷害
-    // 直接被覆蓋成固定值，不跟More Poison的+10疊加（"instead of"字面意思就是取代，不是疊加）
-    const poisonAmount = endingSide.active.poisonDamageOverride != null ? endingSide.active.poisonDamageOverride : 10 + poisonBonus;
-    endingSide.active.curHp = Math.max(0, endingSide.active.curHp - poisonAmount);
-    if (endingSide.active.curHp <= 0) {
-      pocketResolveActiveKO(G, endingRole);
-      if (G.phase === 'forced_switch' || G.phase === 'done') return true;
+  //
+  // 2026-08-21修正（使用者回報「中毒、燒傷每回合的判定怪怪的」，查證PTCG Pocket真實規則後
+  // 確認：中毒/灼傷是在「每一次checkup」都同時檢查雙方主戰（不分是誰的回合結束），也就是雙方
+  // 主戰各自每個回合結束（含自己回合結束跟對手回合結束）都要扣一次傷害——之前這裡的舊寫法
+  // 之前只查endingSide.active（正要結束回合那一方自己），漏掉了otherSideForCheckup那一側，
+  // 導致中毒/灼傷的一方只有在「自己回合結束」時才扣血，等於少扣了一半（每2個半回合才扣1次，
+  // 不是真實規則的每個半回合都扣）。改成掃描[endingSide, otherSideForCheckup]兩側，跟
+  // Bad Dreams（同一個函式裡既有的「雙方向checkup」寫法）同一種結構。
+  for (const [checkedSide, checkedRole, checkedOppSide] of [
+    [endingSide, endingRole, otherSideForCheckup],
+    [otherSideForCheckup, otherRoleForCheckup, endingSide],
+  ]) {
+    if (checkedSide.active && checkedSide.active.poisoned) {
+      // More Poison：對手（checkedOppSide，中毒debuff的施加方）主戰持有時，中毒傷害10→20
+      const poisonBonus = checkedOppSide.active?.abilities?.[0]?.name === 'More Poison' ? 10 : 0;
+      // Toxicroak（2026-08-08新增）：卡面明講「instead of the usual amount」——這次中毒的傷害
+      // 直接被覆蓋成固定值，不跟More Poison的+10疊加（"instead of"字面意思就是取代，不是疊加）
+      const poisonAmount = checkedSide.active.poisonDamageOverride != null ? checkedSide.active.poisonDamageOverride : 10 + poisonBonus;
+      checkedSide.active.curHp = Math.max(0, checkedSide.active.curHp - poisonAmount);
+      if (checkedSide.active.curHp <= 0) {
+        pocketResolveActiveKO(G, checkedRole);
+        if (G.phase === 'forced_switch' || G.phase === 'done') return true;
+      }
     }
-  }
-  // 2026-08-06新增：灼傷（Burned）——跟中毒同樣在該側回合結束時扣血，但傷害是20（中毒10）
-  // 且扣完血額外擲一次硬幣，正面直接治癒灼傷（這點中毒沒有，中毒要等到被其他效果解除才會消失，
-  // 灼傷則是真實規則裡本來就會「自己有機會好」的限時debuff，跟中毒設計成兩種不同持續時間的異常）。
-  if (endingSide.active && endingSide.active.burned) {
-    endingSide.active.curHp = Math.max(0, endingSide.active.curHp - 20);
-    if (endingSide.active.curHp <= 0) {
-      pocketResolveActiveKO(G, endingRole);
-      if (G.phase === 'forced_switch' || G.phase === 'done') return true;
-    } else {
-      // 2026-08-11修正：這顆治癒硬幣原本完全沒有回饋，玩家看不到到底有沒有真的擲——
-      // 補上lastEvent，跟Mesagoza同一個修法。checkup只會執行一次（每次回合切換endingSide
-      // 只有一側），不會有兩顆硬幣搶著設同一個G.lastEvent的疑慮
-      const cured = pocketFlipCoin({ G, role: endingRole });
-      G.lastEvent = { seq: ++G.eventSeq, kind: 'checkup', coinFlips: [cured] };
-      if (cured) endingSide.active.burned = false;
+    // 2026-08-06新增：灼傷（Burned）——跟中毒同樣在checkup扣血，但傷害是20（中毒10）
+    // 且扣完血額外擲一次硬幣，正面直接治癒灼傷（這點中毒沒有，中毒要等到被其他效果解除才會消失，
+    // 灼傷則是真實規則裡本來就會「自己有機會好」的限時debuff，跟中毒設計成兩種不同持續時間的異常）。
+    if (checkedSide.active && checkedSide.active.burned) {
+      checkedSide.active.curHp = Math.max(0, checkedSide.active.curHp - 20);
+      if (checkedSide.active.curHp <= 0) {
+        pocketResolveActiveKO(G, checkedRole);
+        if (G.phase === 'forced_switch' || G.phase === 'done') return true;
+      } else {
+        // 2026-08-11修正：這顆治癒硬幣原本完全沒有回饋，玩家看不到到底有沒有真的擲——
+        // 補上lastEvent，跟Mesagoza同一個修法。
+        const cured = pocketFlipCoin({ G, role: checkedRole });
+        G.lastEvent = { seq: ++G.eventSeq, kind: 'checkup', coinFlips: [cured] };
+        if (cured) checkedSide.active.burned = false;
+      }
     }
   }
   // 麻痺（跟睡眠/中毒不同）在真實規則裡是限時debuff：只擋這一整個回合的攻擊/撤退，
@@ -4857,9 +4869,9 @@ const ATTACK_EFFECTS = {
   "Flip a coin. If tails, this attack does nothing. If heads, your opponent's Active Pokémon is now Paralyzed.": ctx => { if (!pocketFlipCoin(ctx)) { ctx.rawDamage = 0; return; } if (ctx.defender) ctx.defender.status = 'paralyzed'; },
   "This attack does 20 damage for each of your Benched Pokémon.": ctx => { ctx.rawDamage += ctx.side.bench.length * 20; },
   "This attack does 40 more damage for each Energy in your opponent's Active Pokémon's Retreat Cost.": ctx => { const n = (ctx.defender?.retreat || 0); ctx.rawDamage += n * 40; },
-  "1 other Pokémon (either yours or your opponent's) is chosen at random 3 times. For each time a Pokémon was chosen, do 50 damage to it.": ctx => { // Magcargo：3次各自隨機挑1隻（雙方場上任一位置皆可），各50傷害
+  "1 other Pokémon (either yours or your opponent's) is chosen at random 3 times. For each time a Pokémon was chosen, do 50 damage to it.": ctx => { // Magcargo：3次各自隨機挑1隻（雙方場上任一位置皆可，但排除攻擊者自己——卡面文字是"1 OTHER Pokémon"），各50傷害
     for (let i = 0; i < 3; i++) {
-      const pool = [ctx.side.active, ...ctx.side.bench, ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean);
+      const pool = [ctx.side.active, ...ctx.side.bench, ctx.oppSide.active, ...ctx.oppSide.bench].filter(p => p && p !== ctx.attacker);
       if (!pool.length) break;
       const t = pool[Math.floor(Math.random() * pool.length)];
       t.curHp = Math.max(0, t.curHp - 50);
@@ -5064,8 +5076,8 @@ const ATTACK_EFFECTS = {
     if (ctx.defender) ctx.defender.status = 'paralyzed';
   },
   "Flip a coin. If heads, this attack also does 40 damage to 1 of your opponent's Benched Pokémon.": ctx => { if (pocketFlipCoin(ctx) && ctx.oppSide.bench.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: ctx.oppSide.bench.map(p => p.uid), action: 'damage', amount: 40 }; },
-  "1 other Pokémon (either yours or your opponent's) is chosen at random 1 time. Do 100 damage to the chosen Pokémon.": ctx => { // Zapdos：雙方任一位置隨機挑1隻，100傷害
-    const pool = [ctx.side.active, ...ctx.side.bench, ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean);
+  "1 other Pokémon (either yours or your opponent's) is chosen at random 1 time. Do 100 damage to the chosen Pokémon.": ctx => { // Zapdos：雙方任一位置隨機挑1隻，100傷害（排除攻擊者自己——卡面文字是"1 OTHER Pokémon"）
+    const pool = [ctx.side.active, ...ctx.side.bench, ctx.oppSide.active, ...ctx.oppSide.bench].filter(p => p && p !== ctx.attacker);
     ctx.rawDamage = 0;
     if (pool.length) { const t = pool[Math.floor(Math.random() * pool.length)]; t.curHp = Math.max(0, t.curHp - 100); }
   },
