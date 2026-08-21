@@ -4006,6 +4006,20 @@ function pocketRunCheckup(G) {
   // 這裡在麻痺方回合真正結束時清除，攻擊handler自己觸發的失敗清除（見pocket_attack
   // 的paralyzed分支）跟這裡不會衝突——那條路徑執行到這裡時status早就已經是null了。
   if (endingSide.active?.status === 'paralyzed') endingSide.active.status = null;
+  // 2026-08-21修正（使用者回報「為何睡眠了還是可以攻擊」）：睡眠喚醒的擲硬幣時機原本設在
+  // 「玩家嘗試攻擊時」（pocket_attack handler），查證PTCG Pocket真實規則後確認錯了——真實
+  // 規則是在該側自己回合「即將開始前」的Pokémon Checkup先擲一次硬幣，正面才醒，不是等到
+  // 玩家主動點攻擊才擲。這裡checkup執行的當下，對otherSideForCheckup來說正好就是「牠的下一
+  // 回合即將開始」（checkup跑完、pocketStartNextTurn才會真的把G.turn切給對方），所以在這裡
+  // 幫otherSideForCheckup的睡眠主戰擲這次硬幣——只擲這一次，不管有沒有醒，整個回合都不會
+  // 再擲第二次（跟中毒/燒傷「每次checkup都要判定」不同，睡眠只有這一次判定機會）。
+  // pocket_attack那邊原本「嘗試攻擊時擲硬幣」的邏輯已改成單純判定「還是不是睡眠狀態」，
+  // 不再擲硬幣（見那裡的asleep分支）
+  if (otherSideForCheckup.active?.status === 'asleep') {
+    const woke = pocketFlipCoin({ G, role: otherRoleForCheckup });
+    G.lastEvent = { seq: ++G.eventSeq, kind: 'checkup', coinFlips: [woke] };
+    if (woke) otherSideForCheckup.active.status = null;
+  }
   // 回合結束觸發型被動特性（"At the end of your turn, if this Pokémon is in the Active
   // Spot..."）：Full-Mouth Manner回血、Snowy Terrain對對方主戰造成10傷害，這兩個還維持
   // 「限定主戰位置」的原文條件。掛在endingSide真正結束回合的這個時間點，跟中毒/燒傷扣血
@@ -11156,21 +11170,18 @@ async function handleMessage(ws, msg) {
       const attacker = side.active;
       const atk = attacker && pocketEffectiveMoves(attacker, side)[msg.attackIndex];
       if (!atk) return;
-      let wakeCoinFlip = null;
       if (attacker.status === 'paralyzed') {
         send(ws, { type: 'error', message: '麻痺中無法攻擊' }); attacker.status = null;
         G.lastEvent = { seq: ++G.eventSeq, kind: 'attackFailed', reason: 'paralyzed', attackerRole: role, attackerUid: attacker.uid };
         pocketAdvanceTurn(G); pocketBroadcastState(pRoom); return;
       }
+      // 2026-08-21修正：睡眠的喚醒擲硬幣已經搬到pocketRunCheckup（該側回合開始前判定一次，
+      // 跟真實PTCG Pocket規則一致），這裡攻擊時只需要單純判定「還是不是睡眠狀態」，不再擲
+      // 硬幣——如果checkup那次擲到反面，睡眠會一路維持到攻擊都還在，直接擋下不用再賭一次
       if (attacker.status === 'asleep') {
-        const woke = pocketFlipCoin({ G, role });
-        wakeCoinFlip = woke;
-        if (!woke) {
-          send(ws, { type: 'error', message: '睡眠中，攻擊失敗' });
-          G.lastEvent = { seq: ++G.eventSeq, kind: 'attackFailed', reason: 'asleep', attackerRole: role, attackerUid: attacker.uid, coinFlips: [false] };
-          pocketAdvanceTurn(G); pocketBroadcastState(pRoom); return;
-        }
-        attacker.status = null;
+        send(ws, { type: 'error', message: '睡眠中無法攻擊' });
+        G.lastEvent = { seq: ++G.eventSeq, kind: 'attackFailed', reason: 'asleep', attackerRole: role, attackerUid: attacker.uid };
+        pocketAdvanceTurn(G); pocketBroadcastState(pRoom); return;
       }
       // 2026-08-06新增：混亂（Confused）——攻擊前擲硬幣，反面攻擊失敗且自己受到30傷害，
       // 正面攻擊照常進行、混亂繼續留著（不像睡眠醒來就解除，混亂要撤退才會清除，見既有
@@ -11413,7 +11424,8 @@ async function handleMessage(ws, msg) {
 
       // 攻擊事件紀錄——client端用seq判斷是不是「新的」一次攻擊，藉此播放屬性特效/擲硬幣動畫/
       // 傷害飄字，seq在每次真正攻擊都遞增，state broadcast頻繁但這個值不常變，client不會重複播放
-      const preCoinFlips = [wakeCoinFlip, confusionCoinFlip, flipLockCoinFlip].filter(v => v != null);
+      // 2026-08-21修正：睡眠喚醒的擲硬幣搬到checkup（見pocketRunCheckup），這裡不再有wakeCoinFlip
+      const preCoinFlips = [confusionCoinFlip, flipLockCoinFlip].filter(v => v != null);
       const coinFlips = preCoinFlips.length ? [...preCoinFlips, ...(ctx.coinFlips || [])] : (ctx.coinFlips || null);
       G.lastEvent = {
         seq: ++G.eventSeq, kind: 'attack', attackerRole: role, atkType: atk.type,
