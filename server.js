@@ -1842,12 +1842,22 @@ function triggerOnEnterSrv(poke, role, G, log, isFieldEntry = true, suppressAbil
     log.push({ text: `${poke.name} 的威壓氣場發動，讓對方能量歸零、下一次攻擊傷害 -50！`, cls: 'special' });
   }
   // 妖精氣場／妖精領域（fairy-aura-field，2026-08-15新增）：上場時場地切換為妖精結界原野，並回復8點能量
+  // 2026-08-21修正：這裡原本只單純切換G.activeStadium，沒有連同觸發stadium-fairy-ward手動打出時
+  // 才有的「妖精寶可夢解除負面狀態」一次性效果（applyTrainer的case 'stadium-fairy-ward'）——
+  // 使用者回報反轉世界（同一種bug）沒有觸發手牌互換才發現這個class的問題也影響這張，兩張一起修
   if (poke.ability.id === 'fairy-aura-field') {
     if (!spaceCutBlocksSrv(G, role)) {
       const fairyCard = TRAINERS.find(c => c.id === 'stadium-fairy-ward');
       if (fairyCard) {
         G.activeStadium = { ...fairyCard };
         log.push({ text: `${poke.name} 的${poke.ability.name}發動，場地切換成了妖精結界原野！`, cls: 'special' });
+        const opActive = G[`${op}Deck`]?.[G[`${op}Idx`]];
+        [poke, opActive].forEach(p => {
+          if (p && p.cur > 0 && (p.type === 'fairy' || p.type2 === 'fairy') && (p.status || p.status2)) {
+            p.status = null; p.status2 = null;
+            log.push({ text: `妖精結界原野發動，${p.name} 的負面狀態解除了！`, cls: 'special' });
+          }
+        });
       }
     }
     G[`${role}Energy`] = Math.min(20, (G[`${role}Energy`] || 0) + 8);
@@ -1993,11 +2003,18 @@ function triggerOnEnterSrv(poke, role, G, log, isFieldEntry = true, suppressAbil
     }
   }
   // 反轉世界（reverse-world-dodge，2026-08-14新增，騎拉帝納專屬）：同一套onEnter場地切換寫法，改成反轉世界
+  // 2026-08-21修正：使用者回報「騎拉帝納的特性發動反轉世界，手牌沒有互換」——這裡原本只切換
+  // G.activeStadium，沒有連同觸發stadium-invert手動打出時才有的「雙方手牌互換」一次性效果
+  // （applyTrainer的case 'stadium-invert'），補上完全同樣的手牌互換+棄牌判斷邏輯
   if (poke.ability.id === 'reverse-world-dodge' && !spaceCutBlocksSrv(G, role)) {
     const invertCard = TRAINERS.find(c => c.id === 'stadium-invert');
     if (invertCard) {
       G.activeStadium = { ...invertCard };
       log.push({ text: `${poke.name} 的反轉世界發動，場地切換成了反轉世界！`, cls: 'special' });
+      const tmp = G.p1Hand; G.p1Hand = G.p2Hand; G.p2Hand = tmp;
+      log.push({ text: `反轉世界讓雙方的手牌互換了！`, cls: 'special' });
+      G.p1NeedsDiscard = G.p1Hand.length > 7;
+      G.p2NeedsDiscard = G.p2Hand.length > 7;
     }
   }
   // 空間切割（space-cut，2026-08-14修正：「受到攻擊時可棄場地卡換-50」改成「上場時清除競技場效果」）：
