@@ -442,6 +442,21 @@
   .card-patch-trainer-effect { top:63%; height:13%; flex-wrap:wrap; }
   .card-patch-ability .cpn, .card-patch-ability-mod .cpn { font-weight:800; font-size:0.78rem; margin-bottom:0.15rem; }
   .card-patch-ability .cpe, .card-patch-ability-mod .cpe, .card-patch-trainer-effect { font-size:0.62rem; line-height:1.25; }
+  /* 2026-08-22新增：登山客(A4-161)改成的新效果文字明顯比既有override（Brock/Blue/Misty等）
+     長很多（2個完整選項句子，~90字，Misty的52字已經是既有13%高度靠flex-wrap撐到極限的長度），
+     直接沿用13%高度會被overflow:hidden從中間裁斷（使用者截圖抓到「的寶可夢（二階進化的也
+     可以）」那句被切掉）。加這個修飾class，只在effect_zh超過某個字數時套用（見
+     buildCardPatchOverlay()），縮小字級+往下多留一點高度到85.3%（撤退列開始的位置）之前，
+     不會跟下面的weakness/retreat疊圖層卡到——刻意放在.cpe共用字級規則「之後」，讓font-size
+     照CSS cascade的source-order規則正確覆蓋過去（兩條規則對.card-patch-trainer-effect這個
+     class的specificity一樣，放前面反而會被後面的0.62rem蓋掉，這裡曾經因為順序放錯而失效過） */
+  /* 2026-08-22校準：canvas像素掃描確認A4-161原印刷文字（3行）實際只落在64.85%~73.82%
+     （用嚴格threshold排除卡框裝飾用的細小刻度線雜訊），top:63%/bottom:84%對這個範圍
+     有1.85%~10%的安全邊界，理論上足夠——螢幕截圖曾經看起來像有洩漏，但反覆用
+     getBoundingClientRect實測box本身確實精準落在63%（跟預期完全一致），判斷是screenshot
+     zoom工具在這個瀏覽器分頁的座標/DPR換算問題（devicePixelRatio量到2），不是CSS真的算錯，
+     不要再單憑screenshot外觀去回頭改這個數字 */
+  .card-patch-trainer-effect-long { height:21%; font-size:0.52rem; }
   .card-detail-panel h3 { font-size:1.1rem; margin-bottom:0.3rem; }
   .card-detail-panel .detail-meta { color:var(--muted); font-size:0.78rem; margin-bottom:0.8rem; }
   .card-detail-panel .detail-attack { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:0.6rem; margin-bottom:0.5rem; font-size:0.8rem; }
@@ -1913,7 +1928,12 @@ function buildCardPatchOverlay(card) {
     const ab = card.abilities[0];
     html += `<div class="card-patch-ability"><div class="cpn">特性：${zhName(ab)}</div><div class="cpe">${zhEffect(ab)}</div></div>`;
   }
-  if (patch.effect) html += `<div class="card-patch-trainer-effect">${zhEffect(card)}</div>`;
+  if (patch.effect) {
+    // 2026-08-22新增：長效果文字（登山客改成的2選1新效果，~90字）用加大版疊圖層，見上面CSS
+    // .card-patch-trainer-effect-long的說明，避免被固定13%高度的box從中間裁斷
+    const isLong = (card.effect_zh || card.effect || '').length > 60;
+    html += `<div class="card-patch-trainer-effect${isLong ? ' card-patch-trainer-effect-long' : ''}">${zhEffect(card)}</div>`;
+  }
   // 2026-08-19新增：修改「卡本身已經印刷」的特性效果文字（跟patch.addedAbility不同——那個是
   // 原本沒特性、疊在印刷面空白區；這個是原本就有特性欄，蓋住印刷的舊效果文字），用獨立的
   // .card-patch-ability-mod疊圖位置（見上面CSS說明），名字維持不變只換效果文字
@@ -2749,6 +2769,10 @@ const TRAINER_NEEDS_TARGET = new Set([
   // 2026-08-17新增：Brock（使用者自訂調整，原本自動鎖定Golem/Onix改成任何格鬥屬性寶可夢，
   // 場上可能不只1隻符合，改成玩家自選own board目標）
   'A1-224',
+  // 2026-08-22新增：化石復活機（FM-009，Fan Made）——選own board目標（server端再驗證是不是
+  // isFossil），跟Rare Candy/Wallace同一種own-target evolve卡。化石採掘場(FM-008)沒有target，
+  // 打出當下就直接觸發，不用加進這個Set
+  'FM-009',
 ]);
 const TRAINER_NEEDS_DISCARD_TARGET = new Set(['A1a-064']); // Pokémon Flute：目標是對手棄牌堆的卡，不是board上的寶可夢
 // 2026-08-08新增：TRAINER_NEEDS_TARGET裡目標池在哪一側，預設'own'（沒列出的都是選自己場上）。
@@ -2908,6 +2932,8 @@ const TRAINER_EFFECTS_IMPLEMENTED = new Set([
   'FM-006',
   // 2026-08-18新增：憤怒之湖（FM-007，Fan Made場地卡）
   'FM-007',
+  // 2026-08-22新增：化石採掘場（FM-008，場地卡）/化石復活機（FM-009，道具卡，Fan Made）
+  'FM-008', 'FM-009',
 ]);
 
 // event delegation：own board (active/bench) 點擊
@@ -2943,8 +2969,10 @@ document.getElementById('board-overlay').addEventListener('click', e => {
       wsSend({ type: 'pocket_evolve', handUid: selectedAction.handUid, target: uid });
     }
     else if (selectedAction.mode === 'retreat' && slot.closest('#my-bench')) wsSend({ type: 'pocket_retreat', target: uid });
-    else if (selectedAction.mode === 'item-target' && selectedAction.side !== 'opp' && selectedAction.effectId === 'FM-005') {
-      // 彩虹能量：選完裝備目標後還要再選一次能量屬性，兩個選擇缺一不可，先不送出訊息
+    else if (selectedAction.mode === 'item-target' && selectedAction.side !== 'opp' && (selectedAction.effectId === 'FM-005' || selectedAction.effectId === 'A4-161')) {
+      // 彩虹能量/登山客選項二：選完目標寶可夢後還要再選一次能量屬性，兩個選擇缺一不可，先不
+      // 送出訊息——openRainbowEnergyTypePicker本身跟FM-005無關，純粹是「target選好後補選
+      // 屬性再送出{handUid,target,energyType}」的通用流程，登山客直接複用同一套
       openRainbowEnergyTypePicker(selectedAction.handUid, uid, selectedAction.isSupporter);
     }
     else if (selectedAction.mode === 'item-target' && selectedAction.side !== 'opp') {
@@ -3074,6 +3102,23 @@ function computeHandCardActions(card) {
       return [{ label: '選擇兩個能量屬性', primary: true, onClick: () => {
         openMeteorPrayerTypePicker(card.uid);
       } }];
+    }
+    // 登山客（使用者自訂調整，2026-08-22新增，A4-161）：原效果整個換掉，改成2選1——
+    // 選項一不需要目標，跟Eevee Bag同一種「直接按鈕送出msg.choice」；選項二需要「選own board
+    // 目標+選能量屬性」兩步，複用彩虹能量(FM-005)既有的openRainbowEnergyTypePicker
+    // （target選好後再補選屬性，最後送出{handUid,target,energyType}，不需要額外的choice欄位
+    // 區分——server端看msg.choice==='search'還是msg.target/msg.energyType有值來分支）
+    if ((card.effectId || card.id) === 'A4-161') {
+      return [
+        { label: '搜尋化石採掘場+化石復活機加入手牌', primary: true, onClick: () => {
+          spawnPlayFlourish(pocketThumbUrl(card.image), document.getElementById('my-discard-pile'));
+          wsSend({ type: isSupporter ? 'pocket_play_supporter' : 'pocket_play_item', handUid: card.uid, choice: 'search' });
+        } },
+        { label: '選1隻化石進化寶可夢給予能量', primary: true, onClick: () => {
+          selectedAction = { mode: 'item-target', handUid: card.uid, isSupporter, side: 'own', effectId: 'A4-161' };
+          updateActionHint(); renderBoard();
+        } },
+      ];
     }
     // Eevee Bag（2026-08-08新增）：2選1效果，直接給2顆按鈕各自送出不同的msg.choice，
     // 不需要另外開選擇modal

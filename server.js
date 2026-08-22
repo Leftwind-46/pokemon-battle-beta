@@ -3637,6 +3637,15 @@ const POCKET_CARD_OVERRIDES = {
       effect_zh: '如果這隻寶可夢在場上，你的回合中可以使用1次以下效果：把對手板凳上的1隻寶可夢換到主戰位置。',
     },
   },
+  // 2026-08-22使用者自訂調整：登山客(Hiker)原效果整個換掉（完整重述=整個替換，不是疊加），
+  // 改成2選1——選項一搜尋新增的化石採掘場(FM-008)+化石復活機(FM-009)加入手牌，選項二選1隻
+  // 化石進化而來的寶可夢給予玩家自選屬性的能量。實際邏輯在TRAINER_EFFECTS['A4-161']，這裡
+  // 只改顯示文字——effect比對用英文原文，Hiker在卡池裡有A4-161(canonical)/A4-201(重印，
+  // 透過effectId指回A4-161)兩張，這個override迴圈是逐卡比對name打patch，兩張都會套用到
+  'Hiker': {
+    effect: 'Choose 1 of the following effects to use: 1) Search your deck for a Fossil Excavation Site and a Fossil Reanimator and put them into your hand. 2) Choose a type of Energy, and give an Energy of that type to 1 of your Pokémon in play that evolved from a Fossil (Stage 2 also counts).',
+    effect_zh: '從以下效果選擇一個發動：一、從牌組將「化石採掘場」以及「化石復活機」加入手中。二、選擇一種屬性，將選擇屬性的能量給予場上一個從化石進化而來的寶可夢（二階進化的也可以）。',
+  },
 };
 for (const c of POCKET_CARDS) {
   const ov = POCKET_CARD_OVERRIDES[c.name];
@@ -3744,6 +3753,17 @@ function makePocketInstance(cardId) {
 // makePocketFossilInstance本來就是從卡片原始資料讀name/image動態生成，不用額外改邏輯，
 // 只要把id補進這個Set就全部能用了。
 const POCKET_FOSSIL_IDS = new Set(['A1-216', 'A1-217', 'A1-218', 'A1a-063', 'A2-144', 'A2-145', 'B1-214', 'B1-216', 'B2-144', 'B2-146', 'B4-146', 'B4-147']);
+// 2026-08-22新增：登山客(A4-161)第二選項要判斷「這隻寶可夢是不是化石進化而來」，含Stage2——
+// 真實資料裡Stage1的evolveFrom直接就是化石卡本身的英文名字（例如Aerodactyl.evolveFrom===
+// 'Old Amber'），Stage2的evolveFrom是牠自己Stage1的物種名字（例如Omastar.evolveFrom===
+// 'Omanyte'），所以要往上查兩層才涵蓋二階進化，不能只比對evolveFrom是不是化石名字
+const FOSSIL_NAMES = new Set([...POCKET_FOSSIL_IDS].map(id => POCKET_CARDS_BY_ID[id]?.name).filter(Boolean));
+function pocketIsFossilEvolved(poke) {
+  if (!poke?.evolveFrom) return false;
+  if (FOSSIL_NAMES.has(poke.evolveFrom)) return true;
+  const stage1 = POCKET_CARDS.find(c => c.category === 'Pokemon' && c.name === poke.evolveFrom);
+  return !!(stage1 && FOSSIL_NAMES.has(stage1.evolveFrom));
+}
 // 2026-08-08新增：「Ancient Pokémon」/「Future Pokémon」是這批卡才出現的新archetype標籤，
 // CSV資料沒有掃到任何rules-box欄位能判斷「哪些寶可夢算」——固定寫死成真實對戰卡池已知的
 // 準古神獸清單（Iron開頭=Future，其餘=Ancient，這是SV系列公開的官方分類，不是猜的）
@@ -7055,13 +7075,10 @@ const TRAINER_EFFECTS = {
     ctx.oppSide.discardEnergy.push(t);
     return null;
   },
-  // Hiker/Morty："look at...and put them back in any order"——只做「看」的部分，重新排序
-  // 沒有UI可以讓玩家實際操作，牌庫順序原封不動放回去(splice(0,n)+unshift回去)，不算竄改內容
-  'A4-161': (ctx) => { // Hiker：依己方場上格鬥寶可夢數量，看牌庫頂那麼多張
-    const n = [ctx.side.active, ...ctx.side.bench].filter(p => p && (p.types || []).includes('Fighting')).length;
-    if (n > 0) ctx.peekDeck = ctx.side.deck.slice(0, n);
-    return null;
-  },
+  // Morty："look at...and put them back in any order"——只做「看」的部分，重新排序
+  // 沒有UI可以讓玩家實際操作，牌庫順序原封不動放回去(splice(0,n)+unshift回去)，不算竄改內容。
+  // （原本這裡也有Hiker/A4-161用同一套邏輯，2026-08-22使用者自訂調整整個換掉效果，
+  // 新handler搬到下面單獨一區，見「登山客」那段）
   'A4a-071': (ctx) => { // Morty：依己方場上超能力寶可夢數量，看對手牌庫頂那麼多張
     const n = [ctx.side.active, ...ctx.side.bench].filter(p => p && (p.types || []).includes('Psychic')).length;
     if (n > 0) ctx.peekDeck = ctx.oppSide.deck.slice(0, n);
@@ -7303,6 +7320,78 @@ const TRAINER_EFFECTS = {
     // 很怪，改成跟Mesagoza等5張同一種模式：場上出現按鈕，玩家想用的時候才點，走獨立的
     // 'pocket_use_stadium'訊息（見那裡的stadiumId==='FM-007'分支，進化mutation邏輯原封不動搬過去）
     ctx.G.activeStadium = { id: 'FM-007', name: '憤怒之湖' };
+    return null;
+  },
+  // 2026-08-22新增：化石採掘場（Fan Made場地卡）——卡面沒有「可以」/「選擇」字樣，純粹是
+  // 打出當下立刻觸發的一次性效果（跟Wallace/Rare Candy同一類One-shot，不是Mesagoza那種
+  // 「蓋場地+按鈕另外觸發」模式），之後沒有任何持續效果，蓋場地純粹只是佔用場地卡欄位
+  'FM-008': (ctx) => {
+    ctx.G.activeStadium = { id: 'FM-008', name: '化石採掘場' };
+    // 跟Sweet Fume（口呆花「香甜燻氣」）同一種「2次各自獨立判斷板凳空間/牌庫候選」寫法，
+    // 每次都重新從目前的deck算候選index，不是一次算好2個index（splice會讓後面index位移）
+    for (let i = 0; i < 2; i++) {
+      if (ctx.side.bench.length >= 3) break;
+      const idxs = ctx.side.deck.map((c, idx) => idx).filter(idx => ctx.side.deck[idx].category === 'Trainer' && POCKET_FOSSIL_IDS.has(ctx.side.deck[idx].id));
+      if (!idxs.length) break;
+      const pick = idxs[Math.floor(Math.random() * idxs.length)];
+      const [fossilCard] = ctx.side.deck.splice(pick, 1);
+      ctx.side.bench.push(makePocketFossilInstance(fossilCard.id));
+    }
+    ctx.side.deck = pocketShuffle(ctx.side.deck);
+    return null;
+  },
+  // 2026-08-22新增：化石復活機（Fan Made道具卡）——選場上1隻己方化石寶可夢，牌庫隨機找1隻
+  // 能讓牠進化的寶可夢直接進化，跟Wallace/Quick-Grow Extract/覺醒同一套「Object.assign身分
+  // 置換」evolve邏輯，只是目標限定必須是isFossil（不像Wallace限定水屬性+HP上限）。真實資料裡
+  // 化石進化species(例如Aerodactyl)的evolveFrom就是印在化石卡本身的英文名字(例如'Old Amber')，
+  // 泛用的evolveFrom===target.name比對天生就能直接用，不需要另外查POCKET_FOSSIL_IDS對應表
+  'FM-009': (ctx, msg) => {
+    const target = pocketFindOwn(ctx.side, msg.target);
+    if (!target || !target.isFossil) return '請選擇場上你的1隻化石寶可夢';
+    if (target.boardTurn >= ctx.G.turnNumber) return '這隻寶可夢這回合剛上場，不能使用';
+    const candidates = ctx.side.deck.map((c, i) => ({ c, i })).filter(({ c }) => c.category === 'Pokemon' && c.evolveFrom === target.name);
+    if (!candidates.length) return '牌組沒有能讓這隻化石寶可夢進化的寶可夢';
+    const pick = candidates[Math.floor(Math.random() * candidates.length)];
+    ctx.side.deck.splice(pick.i, 1);
+    // 化石在場上一樣可以被攻擊受傷/附加能量（只是不能撤退、沒有招式），進化時要保留傷害/能量，
+    // 跟其餘evolve mutation site同一套preservedDamage/preservedEnergy算式，不能假設一定滿血無能量
+    const preservedDamage = (target.hp || 0) - (target.curHp ?? target.hp ?? 0);
+    const preservedEnergy = target.energy;
+    const preservedUid = target.uid;
+    pocketPushEvolutionStack(target);
+    Object.assign(target, structuredClone(POCKET_CARDS_BY_ID[pick.c.id]));
+    target.uid = preservedUid; target.energy = preservedEnergy;
+    target.status = null; target.poisoned = false; target.burned = false;
+    target.hp += pocketToolHpBonusAmount(target);
+    target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
+    target.boardTurn = ctx.G.turnNumber;
+    target.isFossil = false; // 進化成真正物種，不再是化石
+    target._realAbilities = undefined;
+    pocketApplyDoubleType(target);
+    ctx.side.deck = pocketShuffle(ctx.side.deck);
+    return null;
+  },
+  // 2026-08-22使用者自訂調整：登山客(A4-161)——2選1，跟Eevee Bag(A3b-066)同一種
+  // 「client端2顆按鈕各自送出不同msg」模式，這裡只需要照msg內容分支，不用ctx.needsChoice暫停
+  'A4-161': (ctx, msg) => {
+    if (msg.choice === 'search') {
+      // 選項一：從牌組搜「化石採掘場」「化石復活機」各1張加入手牌——找不到的那張就跳過
+      // （卡面沒說「必須都找得到」），不是硬性要求兩張都在牌組裡才能發動
+      for (const name of ['化石採掘場', '化石復活機']) {
+        const idx = ctx.side.deck.findIndex(c => c.name === name);
+        if (idx >= 0) ctx.side.hand.push(ctx.side.deck.splice(idx, 1)[0]);
+      }
+      ctx.side.deck = pocketShuffle(ctx.side.deck);
+      return null;
+    }
+    // 選項二：目標必須是「從化石進化而來的寶可夢」（含二階進化，見pocketIsFossilEvolved），
+    // 能量屬性玩家自選（client端複用彩虹能量的target→能量屬性picker流程，跟FM-005一樣不限定
+    // 只能選deck.energyTypes裡的屬性——卡面沒有「限定你牌組配置的屬性」這種文字）
+    const target = pocketFindOwn(ctx.side, msg.target);
+    if (!target) return '請選擇場上你的1隻寶可夢';
+    if (!pocketIsFossilEvolved(target)) return '這隻寶可夢不是從化石進化而來的';
+    if (!msg.energyType) return '請選擇要給予的能量屬性';
+    target.energy.push(msg.energyType);
     return null;
   },
   ...(() => {
