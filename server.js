@@ -7329,34 +7329,42 @@ const TRAINER_EFFECTS = {
     ctx.G.activeStadium = { id: 'FM-008', name: '化石採掘場' };
     return null;
   },
-  // 2026-08-22新增：化石復活機（Fan Made道具卡）——選場上1隻己方化石寶可夢，牌庫隨機找1隻
-  // 能讓牠進化的寶可夢直接進化，跟Wallace/Quick-Grow Extract/覺醒同一套「Object.assign身分
-  // 置換」evolve邏輯，只是目標限定必須是isFossil（不像Wallace限定水屬性+HP上限）。真實資料裡
-  // 化石進化species(例如Aerodactyl)的evolveFrom就是印在化石卡本身的英文名字(例如'Old Amber')，
-  // 泛用的evolveFrom===target.name比對天生就能直接用，不需要另外查POCKET_FOSSIL_IDS對應表
-  'FM-009': (ctx, msg) => {
-    const target = pocketFindOwn(ctx.side, msg.target);
-    if (!target || !target.isFossil) return '請選擇場上你的1隻化石寶可夢';
-    if (target.boardTurn >= ctx.G.turnNumber) return '這隻寶可夢這回合剛上場，不能使用';
-    const candidates = ctx.side.deck.map((c, i) => ({ c, i })).filter(({ c }) => c.category === 'Pokemon' && c.evolveFrom === target.name);
-    if (!candidates.length) return '牌組沒有能讓這隻化石寶可夢進化的寶可夢';
-    const pick = candidates[Math.floor(Math.random() * candidates.length)];
-    ctx.side.deck.splice(pick.i, 1);
-    // 化石在場上一樣可以被攻擊受傷/附加能量（只是不能撤退、沒有招式），進化時要保留傷害/能量，
-    // 跟其餘evolve mutation site同一套preservedDamage/preservedEnergy算式，不能假設一定滿血無能量
-    const preservedDamage = (target.hp || 0) - (target.curHp ?? target.hp ?? 0);
-    const preservedEnergy = target.energy;
-    const preservedUid = target.uid;
-    pocketPushEvolutionStack(target);
-    Object.assign(target, structuredClone(POCKET_CARDS_BY_ID[pick.c.id]));
-    target.uid = preservedUid; target.energy = preservedEnergy;
-    target.status = null; target.poisoned = false; target.burned = false;
-    target.hp += pocketToolHpBonusAmount(target);
-    target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
-    target.boardTurn = ctx.G.turnNumber;
-    target.isFossil = false; // 進化成真正物種，不再是化石
-    target._realAbilities = undefined;
-    pocketApplyDoubleType(target);
+  // 2026-08-22新增，2026-08-23修正：化石復活機（Fan Made道具卡）——使用者回報「我要的是
+  // 『所有』化石都進化，不是選擇一個化石」，原本誤判成Wallace那種「玩家選1隻own board目標」
+  // 的single-target evolve，改成掃場上（主戰+板凳）全部化石寶可夢，每一隻各自獨立去牌庫找
+  // 看看有沒有能讓牠進化的寶可夢，找得到的都各自進化，不需要玩家選目標。跟Attraction「全部
+  // 搜完才統一洗牌一次」同一個節奏，不是每進化1隻就洗一次牌。真實資料裡化石進化species
+  // (例如Aerodactyl)的evolveFrom就是印在化石卡本身的英文名字(例如'Old Amber')，泛用的
+  // evolveFrom===target.name比對天生就能直接用，不需要另外查POCKET_FOSSIL_IDS對應表
+  'FM-009': (ctx) => {
+    // 跟一般evolve mutation site的boardTurn門檻同一個道理，逐隻各自檢查——剛上場那隻跳過，
+    // 不影響場上其他符合資格的化石照樣進化
+    const fossils = [ctx.side.active, ...ctx.side.bench].filter(p => p?.isFossil && !(p.boardTurn >= ctx.G.turnNumber));
+    if (!fossils.length) return '場上沒有可以使用這張卡的化石寶可夢';
+    let anyEvolved = false;
+    for (const target of fossils) {
+      const candidates = ctx.side.deck.map((c, i) => ({ c, i })).filter(({ c }) => c.category === 'Pokemon' && c.evolveFrom === target.name);
+      if (!candidates.length) continue;
+      const pick = candidates[Math.floor(Math.random() * candidates.length)];
+      ctx.side.deck.splice(pick.i, 1);
+      // 化石在場上一樣可以被攻擊受傷/附加能量（只是不能撤退、沒有招式），進化時要保留傷害/能量，
+      // 跟其餘evolve mutation site同一套preservedDamage/preservedEnergy算式，不能假設一定滿血無能量
+      const preservedDamage = (target.hp || 0) - (target.curHp ?? target.hp ?? 0);
+      const preservedEnergy = target.energy;
+      const preservedUid = target.uid;
+      pocketPushEvolutionStack(target);
+      Object.assign(target, structuredClone(POCKET_CARDS_BY_ID[pick.c.id]));
+      target.uid = preservedUid; target.energy = preservedEnergy;
+      target.status = null; target.poisoned = false; target.burned = false;
+      target.hp += pocketToolHpBonusAmount(target);
+      target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
+      target.boardTurn = ctx.G.turnNumber;
+      target.isFossil = false; // 進化成真正物種，不再是化石
+      target._realAbilities = undefined;
+      pocketApplyDoubleType(target);
+      anyEvolved = true;
+    }
+    if (!anyEvolved) return '牌組沒有能讓場上任何化石寶可夢進化的寶可夢';
     ctx.side.deck = pocketShuffle(ctx.side.deck);
     return null;
   },
@@ -11334,7 +11342,13 @@ async function handleMessage(ws, msg) {
           pocketAdvanceTurn(G); pocketBroadcastState(pRoom); return;
         }
       }
-      if (attacker.cantAttackUntilTurn === G.turnNumber) { send(ws, { type: 'error', message: '這回合這隻寶可夢不能攻擊' }); pocketAdvanceTurn(G); pocketBroadcastState(pRoom); return; }
+      // 2026-08-23修正（使用者回報「多刺菊石獸的效果是讓對手寶可夢不能攻擊，不是按了攻擊沒有
+      // 反應就結束回合」）：這是「這次攻擊被擋下」的限時debuff，跟緊接在下面的moveLockUntilTurn/
+      // Seal of Antiquity同一類——玩家應該還能做其他事（附能量/用訓練師卡/撤退），自己決定
+      // 什麼時候結束回合，不該像睡眠/麻痺/混亂那樣直接強制跳過整個回合。原本這裡誤用了跟
+      // 狀態異常一樣的「擋下+直接結束回合」寫法，改成單純return（不呼叫pocketAdvanceTurn），
+      // 沒有任何狀態改變，也不用廣播
+      if (attacker.cantAttackUntilTurn === G.turnNumber) { send(ws, { type: 'error', message: '這回合這隻寶可夢不能攻擊' }); return; }
       // Seal of Antiquity（2026-08-08新增）：跟cantAttackUntilTurn不同，這不是限時debuff，
       // 是持續性條件（板凳必須同時有雷吉洛克/雷吉艾斯/雷吉斯奇魯），不符合就單純擋下不結束回合
       if (attacker.abilities?.[0]?.name === 'Seal of Antiquity') {

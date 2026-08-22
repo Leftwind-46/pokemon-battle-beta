@@ -2769,10 +2769,9 @@ const TRAINER_NEEDS_TARGET = new Set([
   // 2026-08-17新增：Brock（使用者自訂調整，原本自動鎖定Golem/Onix改成任何格鬥屬性寶可夢，
   // 場上可能不只1隻符合，改成玩家自選own board目標）
   'A1-224',
-  // 2026-08-22新增：化石復活機（FM-009，Fan Made）——選own board目標（server端再驗證是不是
-  // isFossil），跟Rare Candy/Wallace同一種own-target evolve卡。化石採掘場(FM-008)沒有target，
-  // 打出當下就直接觸發，不用加進這個Set
-  'FM-009',
+  // 2026-08-22新增化石復活機(FM-009)時原本設計成選own board目標——2026-08-23使用者糾正
+  // 「我要的是所有化石都進化，不是選擇一個化石」，改成不用選目標、打出當下自動掃全場，
+  // 這裡拿掉，讓它落回computeHandCardActions最後的預設「使用這張道具卡」直接送出流程
 ]);
 const TRAINER_NEEDS_DISCARD_TARGET = new Set(['A1a-064']); // Pokémon Flute：目標是對手棄牌堆的卡，不是board上的寶可夢
 // 2026-08-08新增：TRAINER_NEEDS_TARGET裡目標池在哪一側，預設'own'（沒列出的都是選自己場上）。
