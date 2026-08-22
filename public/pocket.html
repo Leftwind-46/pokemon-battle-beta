@@ -208,6 +208,18 @@
      的.status-poisoned等規則specificity更高，仍然維持原本顏色） */
   .slot-badges-top .status-chip { background:rgba(6,6,16,0.88); box-shadow:0 1px 3px rgba(0,0,0,0.7); }
   .slot-energy-strip .energy-icon { box-shadow:0 1px 2px rgba(0,0,0,0.7); }
+  /* 2026-08-23新增：使用者反應棋盤格內的能量圖示太小/不容易發現（捷拉奧拉「雷鳴閃光」
+     特性在回合結束時默默加了1點電能量，玩家常常沒注意到）——加大這個場景下的圖示尺寸
+     +補上外圈白色發光，跟其他情境共用的.energy-icon.mini（14px，招式消耗文字列/
+     energy-type-picker按鈕/peek彈窗）分開處理，用.slot-energy-strip .energy-icon.mini
+     這個更高specificity的組合選擇器只影響棋盤格場景，不會讓別的地方的小圖示意外跟著變大 */
+  .slot-energy-strip .energy-icon.mini {
+    width:19px; height:19px;
+    /* energyIconHtml()本身用inline style設box-shadow（背景色glow），inline style的優先度
+       固定贏過任何外部stylesheet規則（不管specificity多高）——這裡的box-shadow只能靠
+       !important蓋過去，是刻意、範圍很窄的例外，不是隨手亂用 */
+    box-shadow:0 1px 3px rgba(0,0,0,0.8), 0 0 7px 2px rgba(255,255,255,0.6) !important;
+  }
   .energy-icon { width:8px; height:8px; border-radius:50%; display:inline-block; }
   .mini-btn { font-size:0.58rem; background:rgba(255,255,255,0.1); border:1px solid var(--border); color:var(--text); border-radius:5px; padding:1px 4px; margin-top:2px; cursor:pointer; }
   .mini-btn:hover { background:rgba(255,255,255,0.2); }
