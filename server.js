@@ -3814,6 +3814,32 @@ function pocketApplyDoubleType(poke) {
   const extraTypes = letters.map(l => ENERGY_LETTER_TO_TYPE[l]).filter(Boolean);
   if (extraTypes.length) poke.types = [...new Set([...(poke.types || []), ...extraTypes])];
 }
+// 進化疊層（evolutionStack，2026-08-22新增）：真實TCG規則裡進化不是把前一階丟棄——前一階
+// 卡片是疊在新卡下方，整疊當作同一隻寶可夢，被擊倒時全部一起進棄牌堆。這個引擎原本每個
+// Object.assign(target, structuredClone(POCKET_CARDS_BY_ID[...]))的身分置換點都是直接把
+// 前一階資料整個覆蓋掉，前一階的卡片實例憑空消失（不進棄牌堆、也查不到），使用者回報
+// 「希望進化的寶可夢疊在原本寶可夢上方，被擊倒才一起進棄牌區，也希望能看到疊在下方的」。
+// 這個函式要在Object.assign「之前」呼叫（此時target.id還是進化前那個物種的id），把進化前的
+// 印刷卡片資料snapshot起來疊進target.evolutionStack——Object.assign的來源物件沒有
+// evolutionStack這個key，不會覆蓋掉剛設定的值，之後多次進化會自然疊加（Bulbasaur→Ivysaur→
+// Venusaur：疊到Venusaur時evolutionStack會是[Bulbasaur快照, Ivysaur快照]，各自只留一份印刷版
+// 資料，不含傷害/能量——那些本來就跟著target這個物件本身走，不需要複製）。
+function pocketPushEvolutionStack(target) {
+  if (!target?.id) return;
+  const snapshot = structuredClone(POCKET_CARDS_BY_ID[target.id]);
+  if (!snapshot) return;
+  snapshot.uid = `stk${pocketUidCounter++}`;
+  target.evolutionStack = [...(target.evolutionStack || []), snapshot];
+}
+// 寶可夢離場進棄牌堆時（擊倒/Guzzlord棄置對手主戰），疊在下方的進化前卡片要一起進去——
+// 真實規則整疊視為同一隻寶可夢，不是只有最上面那張。用共用函式取代所有直接discard.push(dead)，
+// 避免漏掉哪個call site。清空evolutionStack是保險（poke物件理論上不會再被用到，但避免萬一
+// 被其他地方誤重用時殘留舊疊層資料）。
+function pocketDiscardWithStack(discardArr, poke) {
+  discardArr.push(poke);
+  if (poke.evolutionStack?.length) discardArr.push(...poke.evolutionStack);
+  poke.evolutionStack = [];
+}
 function pocketInstantiateBoardCard(handCard, turnNumber) {
   const inst = POCKET_FOSSIL_IDS.has(handCard.id) ? makePocketFossilInstance(handCard.id) : handCard;
   inst.boardTurn = turnNumber;
@@ -4150,6 +4176,7 @@ function pocketRunCheckup(G) {
       otherSideForCheckup.deck.splice(pick.i, 1);
       const preservedDamage = (poke.hp || 0) - (poke.curHp ?? poke.hp ?? 0);
       const preservedEnergy = poke.energy; const preservedUid = poke.uid;
+      pocketPushEvolutionStack(poke);
       Object.assign(poke, structuredClone(POCKET_CARDS_BY_ID[pick.c.id]));
       poke.uid = preservedUid; poke.energy = preservedEnergy;
       poke.status = null; poke.poisoned = false; poke.burned = false; // 2026-08-16應使用者要求：進化時異常狀態要清掉
@@ -4349,13 +4376,16 @@ function pocketResolveActiveKO(G, koRole, awardPoint = true, endsTurn = true) {
     // （化石卡實例當作Pokemon類別放board，理論上也能裝Tool，但這個組合太邊緣，刻意不處理，
     // 維持原本進棄牌堆的行為，避免把Trainer類的化石卡錯誤地當Pokemon卡塞進手牌）
     if (dead.tool?.id === 'A4-155' && !dead.isFossil) {
+      // 2026-08-22新增：Rescue Scarf只救回「最上面那張」，疊在下方的進化前卡片不算被救回，
+      // 一樣要進棄牌堆（跟真實規則一致：Tool只作用在牠附著的那張卡，不影響底下疊層）
+      if (dead.evolutionStack?.length) { koSide.discard.push(...dead.evolutionStack); dead.evolutionStack = []; }
       Object.assign(dead, {
         curHp: dead.hp, energy: [], tool: null, status: null, boardTurn: null,
         cantAttackUntilTurn: 0, cantRetreatUntilTurn: 0, dmgDebuffUntilTurn: 0, dmgDebuffAmount: 0,
       });
       koSide.hand.push(dead);
     } else {
-      koSide.discard.push(dead);
+      pocketDiscardWithStack(koSide.discard, dead);
     }
   }
   koSide.active = null;
@@ -4382,7 +4412,7 @@ function pocketResolveMutualKO(G, roleA, roleB) {
     const dead = koSide.active;
     koSide.pokemonKnockedOutCount = (koSide.pokemonKnockedOutCount || 0) + 1; // Overlord's Blade，跟pocketResolveActiveKO同一個計數
     G[otherRole].points += pocketKoPoints(dead);
-    koSide.discard.push(dead);
+    pocketDiscardWithStack(koSide.discard, dead);
     koSide.active = null;
     return { koRole, otherRole, benchEmpty: koSide.bench.length === 0 };
   });
@@ -4436,7 +4466,7 @@ function pocketResolveBenchKOs(G, side, otherRole) {
     if (p.curHp > 0) return true;
     side.pokemonKnockedOutCount = (side.pokemonKnockedOutCount || 0) + 1; // Overlord's Blade，跟pocketResolveActiveKO同一個計數
     otherSide.points += pocketKoPoints(p);
-    side.discard.push(p);
+    pocketDiscardWithStack(side.discard, p);
     return false; // 從板凳移除
   });
 }
@@ -4859,6 +4889,9 @@ const ATTACK_EFFECTS = {
     ctx.rawDamage = 0;
     if (!ctx.defender) return;
     const p = ctx.defender;
+    // 2026-08-22新增：只有最上面這張卡回手牌，疊在下方的進化前卡片不算被放回手牌，一樣要
+    // 進棄牌堆（跟Rescue Scarf同一種「Tool/效果只作用在最上層那張，底下疊層不受影響」處理）
+    if (p.evolutionStack?.length) { ctx.oppSide.discard.push(...p.evolutionStack); p.evolutionStack = []; }
     p.curHp = p.hp; p.energy = []; p.status = null; p.poisoned = false; p.burned = false; p.boardTurn = null; p.tool = null;
     p.cantAttackUntilTurn = 0; p.cantRetreatUntilTurn = 0; p.dmgDebuffUntilTurn = 0; p.dmgDebuffAmount = 0;
     ctx.oppSide.hand.push(p);
@@ -4992,8 +5025,15 @@ const ATTACK_EFFECTS = {
   "If your opponent's Active Pokémon is an evolved Pokémon, devolve it by putting the highest Stage Evolution card on it into your opponent's hand.": ctx => { // Celebi：對手主戰是進化寶可夢時，退化（把現在這張卡放回對手手牌，board換成上一階）
     const defender = ctx.defender;
     if (!defender || defender.stage === 'Basic' || !defender.evolveFrom) return;
-    const prevCard = POCKET_CARDS.find(c => c.category === 'Pokemon' && c.name === defender.evolveFrom);
+    // 2026-08-22修正：改成從evolutionStack彈出最上面那張（真正「牠是從哪張進化上來的」），
+    // 不是重新用evolveFrom名字查一張全新印刷版——如果進化鏈超過1階（例如三階進化的Stage2
+    // 退化成Stage1），退化後底下應該還留著更早的階段（Stage1底下還留著原本的Basic），不是
+    // 直接歸零。牌組裡沒有evolutionStack（理論上不該發生，進化過的寶可夢一定有）才退回舊的
+    // 名字查詢當保底。
+    const stack = defender.evolutionStack || [];
+    const prevCard = stack.length ? stack[stack.length - 1] : POCKET_CARDS.find(c => c.category === 'Pokemon' && c.name === defender.evolveFrom);
     if (!prevCard) return;
+    const remainingStack = stack.slice(0, -1);
     const currentFormCard = structuredClone(POCKET_CARDS_BY_ID[defender.id]);
     ctx.oppSide.hand.push(currentFormCard);
     const preservedDamage = (defender.hp || 0) - (defender.curHp ?? defender.hp ?? 0);
@@ -5002,6 +5042,7 @@ const ATTACK_EFFECTS = {
     const preservedTool = defender.tool;
     Object.assign(defender, structuredClone(prevCard));
     defender.uid = preservedUid; defender.energy = preservedEnergy; defender.tool = preservedTool;
+    defender.evolutionStack = remainingStack;
     defender.curHp = Math.max(1, (defender.hp || 0) - preservedDamage);
     // 2026-08-08修正：退化後身分變了，pocketSyncAbilitySuppression快取的_realAbilities還是
     // 退化「前」那個物種的特性，要清掉讓它在下次sync時重新抓——不然退化後的正確特性會被
@@ -5124,6 +5165,9 @@ const ATTACK_EFFECTS = {
     if (ctx.oppSide.hand.length) { const idx = Math.floor(Math.random() * ctx.oppSide.hand.length); const [card] = ctx.oppSide.hand.splice(idx, 1); ctx.oppSide.deck.push(card); ctx.oppSide.deck = pocketShuffle(ctx.oppSide.deck); }
     ctx.rawDamage = 0;
     const p = ctx.attacker;
+    // 2026-08-22新增：只有最上面這張卡洗回牌庫，疊在下方的進化前卡片一樣要進棄牌堆（見
+    // Fan Rotom同一批修正的說明）
+    if (p.evolutionStack?.length) { ctx.side.discard.push(...p.evolutionStack); p.evolutionStack = []; }
     p.curHp = p.hp; p.energy = []; p.status = null; p.poisoned = false; p.burned = false; p.boardTurn = null; p.tool = null;
     p.cantAttackUntilTurn = 0; p.cantRetreatUntilTurn = 0; p.dmgDebuffUntilTurn = 0; p.dmgDebuffAmount = 0;
     ctx.side.deck.push(p);
@@ -5182,7 +5226,7 @@ const ATTACK_EFFECTS = {
     if (!pocketFlipCoin(ctx)) { ctx.rawDamage = 0; return; }
     ctx.rawDamage = 0;
     if (!ctx.defender) return;
-    ctx.oppSide.discard.push(ctx.defender);
+    pocketDiscardWithStack(ctx.oppSide.discard, ctx.defender);
     pocketResolveActiveKO(ctx.G, ctx.op, false);
     ctx.skipMainDamage = true;
   },
@@ -5286,6 +5330,9 @@ const ATTACK_EFFECTS = {
       // 塞回deck，之後抽到重新上場時會帶著舊的殘血/能量/中毒狀態，跟真實規則不符
       // （洗進牌庫視為重新變成一張未使用過的卡）。
       const p = ctx.defender;
+      // 2026-08-22新增：只有最上面這張卡洗回牌庫，疊在下方的進化前卡片一樣要進棄牌堆（見
+      // Fan Rotom同一批修正的說明）
+      if (p.evolutionStack?.length) { ctx.oppSide.discard.push(...p.evolutionStack); p.evolutionStack = []; }
       p.curHp = p.hp; p.energy = []; p.status = null; p.poisoned = false; p.burned = false; p.boardTurn = null;
       p.cantAttackUntilTurn = 0; p.cantRetreatUntilTurn = 0; p.dmgDebuffUntilTurn = 0; p.dmgDebuffAmount = 0;
       ctx.oppSide.deck.push(p);
@@ -5969,6 +6016,7 @@ const ATTACK_EFFECTS = {
     const preservedDamage = (ctx.attacker.hp || 0) - (ctx.attacker.curHp ?? ctx.attacker.hp ?? 0);
     const preservedEnergy = ctx.attacker.energy;
     const preservedUid = ctx.attacker.uid;
+    pocketPushEvolutionStack(ctx.attacker);
     Object.assign(ctx.attacker, structuredClone(POCKET_CARDS_BY_ID[pick.c.id]));
     ctx.attacker.uid = preservedUid; ctx.attacker.energy = preservedEnergy;
     ctx.attacker.status = null; ctx.attacker.poisoned = false; ctx.attacker.burned = false; // 2026-08-16應使用者要求：進化時異常狀態要清掉
@@ -6257,7 +6305,11 @@ const ATTACK_EFFECTS = {
   "During your next turn, the Defending Pokémon takes +50 damage from attacks.": ctx => { if (ctx.defender) { ctx.defender.selfVulnUntilTurn = ctx.G.turnNumber + 2; ctx.defender.selfVulnAmount = 50; } },
   "Flip 2 coins. If both of them are heads, discard your opponent's Active Pokémon.": ctx => {
     if (pocketFlipCoin(ctx) && pocketFlipCoin(ctx) && ctx.defender) {
-      ctx.oppSide.discard.push(structuredClone(POCKET_CARDS_BY_ID[ctx.defender.id]));
+      // 2026-08-22新增：這裡本來就故意用structuredClone一張全新印刷版（不是live物件本身）
+      // 避免殘留curHp/tool/energy等暫存欄位，跟其他KO/discard路徑直接discardWithStack(live物件)
+      // 不同寫法——但疊在下方的進化前卡片一樣要跟著進棄牌堆，那些本來就是乾淨的snapshot，
+      // 直接展開附加即可，不用透過pocketDiscardWithStack
+      ctx.oppSide.discard.push(structuredClone(POCKET_CARDS_BY_ID[ctx.defender.id]), ...(ctx.defender.evolutionStack || []));
       ctx.oppSide.active = null;
       ctx.rawDamage = 0;
       ctx.skipMainDamage = true;
@@ -7055,6 +7107,7 @@ const TRAINER_EFFECTS = {
     const preservedDamage = (target.hp || 0) - (target.curHp ?? target.hp ?? 0);
     const preservedEnergy = target.energy;
     const preservedUid = target.uid;
+    pocketPushEvolutionStack(target);
     Object.assign(target, structuredClone(POCKET_CARDS_BY_ID[handCard.id]));
     target.uid = preservedUid; target.energy = preservedEnergy;
     target.status = null; target.poisoned = false; target.burned = false; // 2026-08-16應使用者要求：進化時異常狀態要清掉
@@ -7103,6 +7156,7 @@ const TRAINER_EFFECTS = {
     const preservedDamage = (target.hp || 0) - (target.curHp ?? target.hp ?? 0);
     const preservedEnergy = target.energy;
     const preservedUid = target.uid;
+    pocketPushEvolutionStack(target);
     Object.assign(target, structuredClone(POCKET_CARDS_BY_ID[pick.c.id]));
     target.uid = preservedUid; target.energy = preservedEnergy;
     target.status = null; target.poisoned = false; target.burned = false; // 2026-08-16應使用者要求：進化時異常狀態要清掉
@@ -7568,6 +7622,7 @@ const TRAINER_EFFECTS = {
     ctx.side.deck.splice(pick.i, 1);
     const preservedDamage = (target.hp || 0) - (target.curHp ?? target.hp ?? 0);
     const preservedEnergy = target.energy; const preservedUid = target.uid;
+    pocketPushEvolutionStack(target);
     Object.assign(target, structuredClone(POCKET_CARDS_BY_ID[pick.c.id]));
     target.uid = preservedUid; target.energy = preservedEnergy;
     target.status = null; target.poisoned = false; target.burned = false; // 2026-08-16應使用者要求：進化時異常狀態要清掉
@@ -8173,7 +8228,7 @@ const ABILITY_EFFECTS = {
     const idx = ctx.side.bench.findIndex(p => p.uid === poke.uid);
     ctx.side.bench.splice(idx, 1);
     poke.tool = null;
-    ctx.side.discard.push(poke);
+    pocketDiscardWithStack(ctx.side.discard, poke);
     return null;
   },
   // 2026-08-08再接續：Shadow Void——「as often as you like」，跟其他特性不同，這個名字被
@@ -8352,6 +8407,7 @@ const ABILITY_EFFECTS = {
     const preservedDamage = (poke.hp || 0) - (poke.curHp ?? poke.hp ?? 0);
     const preservedEnergy = poke.energy;
     const preservedUid = poke.uid;
+    pocketPushEvolutionStack(poke);
     Object.assign(poke, structuredClone(POCKET_CARDS_BY_ID[deckCard.id]));
     poke.uid = preservedUid; poke.energy = preservedEnergy;
     poke.status = null; poke.poisoned = false; poke.burned = false; // 2026-08-16應使用者要求：進化時異常狀態要清掉
@@ -10847,6 +10903,7 @@ async function handleMessage(ws, msg) {
           const preservedDamage = (target.hp || 0) - (target.curHp ?? target.hp ?? 0);
           const preservedEnergy = target.energy;
           const preservedUid = target.uid;
+                pocketPushEvolutionStack(target);
                 Object.assign(target, structuredClone(POCKET_CARDS_BY_ID[pick.c.id]));
           target.uid = preservedUid; target.energy = preservedEnergy;
           target.status = null; target.poisoned = false; target.burned = false; // 2026-08-16應使用者要求：進化時異常狀態要清掉
@@ -11071,6 +11128,7 @@ async function handleMessage(ws, msg) {
       // 2026-08-13修正：裝備Leaf Cape的Combee進化成Vespiquen後+30HP消失——Object.assign會把
       // target.hp整個換成新物種的印刷HP，蓋掉Tool卡先前套用的一次性加成，卻沒有依進化後的新
       // 條件（屬性/階段）重新判斷要不要補回來。見TOOL_HP_BONUS定義處的完整說明。
+      pocketPushEvolutionStack(target);
       Object.assign(target, structuredClone(POCKET_CARDS_BY_ID[handCard.id]));
       target.uid = preservedUid;
       target.energy = preservedEnergy;
@@ -11744,7 +11802,7 @@ async function handleMessage(ws, msg) {
           // 固定的defender，不是玩家選的），這裡只處理「棄掉選中的板凳寶可夢」+補上額外傷害，
           // 跟damage/damagePerEnergy同一種「延遲生效，自己重跑KO/勝負判定」模式
           side.bench = side.bench.filter(p => p.uid !== target.uid);
-          side.discard.push(target);
+          pocketDiscardWithStack(side.discard, target);
           const defender = oppSide.active;
           if (defender) {
             defender.curHp = Math.max(0, defender.curHp - pending.boostAmount);
@@ -11833,7 +11891,7 @@ async function handleMessage(ws, msg) {
         const discarded = [];
         validUids.forEach(u => {
           const idx = side.bench.findIndex(p => p.uid === u);
-          if (idx >= 0) { const [p] = side.bench.splice(idx, 1); side.discard.push(p); discarded.push(p); }
+          if (idx >= 0) { const [p] = side.bench.splice(idx, 1); pocketDiscardWithStack(side.discard, p); discarded.push(p); }
         });
         if (discarded.length) {
           const op2 = role === 'p1' ? 'p2' : 'p1';
@@ -12014,6 +12072,7 @@ async function handleMessage(ws, msg) {
         side.deck.splice(pick.i, 1);
         const preservedDamage = (target.hp || 0) - (target.curHp ?? target.hp ?? 0);
         const preservedEnergy = target.energy; const preservedUid = target.uid;
+        pocketPushEvolutionStack(target);
         Object.assign(target, structuredClone(POCKET_CARDS_BY_ID[pick.c.id]));
         target.uid = preservedUid; target.energy = preservedEnergy;
         target.status = null; target.poisoned = false; target.burned = false;

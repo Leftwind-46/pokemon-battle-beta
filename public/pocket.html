@@ -447,6 +447,12 @@
   .card-detail-panel .detail-attack { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:0.6rem; margin-bottom:0.5rem; font-size:0.8rem; }
   .card-detail-panel .detail-attack .dname { font-weight:700; display:flex; justify-content:space-between; }
   .card-detail-panel .detail-effect { color:var(--muted); font-size:0.75rem; margin-top:0.3rem; line-height:1.4; }
+  /* 2026-08-22新增：進化前疊在下方的卡片清單，橫向捲動的小縮圖列，點一張可以再開它自己的
+     detail面板（遞迴showCardDetail），跟peekCards同一種小縮圖+名字的簡易列表樣式 */
+  .evo-stack-list { display:flex; gap:0.5rem; overflow-x:auto; padding-bottom:0.3rem; margin-bottom:0.6rem; }
+  .evo-stack-item { flex:none; width:52px; text-align:center; cursor:pointer; font-size:0.62rem; color:var(--muted); }
+  .evo-stack-item img { width:100%; border-radius:5px; aspect-ratio:5/7; object-fit:cover; background:#111; display:block; }
+  .evo-stack-item span { display:block; margin-top:0.2rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .board-slot img.zoomable, .hand-fan img { cursor:pointer; }
 
   /* ── 屬性攻擊特效層 ── */
@@ -1947,6 +1953,19 @@ function showCardDetail(card, actions) {
       </div>`).join('');
     if (card.abilities?.length) html += card.abilities.map(ab => `<div class="detail-attack"><div class="dname">特性：${zhName(ab)}</div><div class="detail-effect">${zhEffect(ab)}</div></div>`).join('');
     if (card.weaknesses?.length) html += `<div class="detail-meta">弱點：${card.weaknesses.map(w => (TYPE_ZH[w.type] || w.type) + w.value).join(', ')}${card.retreat != null ? ` · 撤退 ${card.retreat}` : ' · 無法撤退'}</div>`;
+    // 2026-08-22新增：進化前疊在下方的卡片清單——使用者要求「希望可以看到被疊在下方的
+    // 寶可夢」，每張都是小縮圖+名字，點擊可以再開自己的detail（遞迴用showCardDetail，
+    // 不帶actions，純檢視，跟peekCards同一種「window.__xxx暫存陣列+index」傳遞方式，
+    // 避免把整包卡片物件塞進onclick屬性字串裡）
+    if (card.evolutionStack?.length) {
+      window.__evoStackCards = card.evolutionStack;
+      html += `<div class="detail-meta">疊在下方的進化前寶可夢：</div>
+        <div class="evo-stack-list">${card.evolutionStack.map((s, i) => `
+          <div class="evo-stack-item" onclick="event.stopPropagation();showCardDetail(window.__evoStackCards[${i}])">
+            <img src="${pocketThumbUrl(s.image)}" loading="lazy" alt="${zhName(s)}">
+            <span>${zhName(s)}</span>
+          </div>`).join('')}</div>`;
+    }
   } else {
     html += `<div class="detail-effect">${zhEffect(card)}</div>`;
   }
@@ -2077,6 +2096,54 @@ function pocketClientChanceDefense(defender) {
   if (ability === 'Disguise' && !defender.disguiseUsed) return 'Disguise：上場後第一次被攻擊打中完全免疫（僅限一次）';
   return null;
 }
+// 2026-08-22新增：使用者要求「特性造成的撤退能量增加/減少」也要有圖示，跟⚔️/🛡（傷害加成/
+// 減免）同一種client端鏡射寫法。只算「被動特性/道具/場地」造成的撤退成本增減，刻意不含
+// side.retreatDiscountThisTurn（X Speed/Leaf，玩家自己剛打的支援者卡buff，一次性、不是特性，
+// 不需要額外提示）跟retreatIncreaseUntilTurn（Oranguru，已經有自己的🔄+N限時徽章，見下面
+// renderPokeSlot那行，避免同一件事被畫兩次）。跟pocketComputeRetreatCostClient（既有的撤退
+// 按鈕費用試算）算的是同一組來源，但那個只回傳最終數字沒有來源清單，這裡另外寫一份給徽章
+// tooltip用，兩份算式務必保持同步——server端改pocketPassiveFreeRetreat/
+// pocketPassiveBenchRetreatDiscount/pocketPassiveSelfRetreatDiscount/pocketToolRetreatDiscount/
+// pocketPassiveRetreatIncrease任何一個時，這裡要一併更新。
+function pocketClientRetreatModifier(p, you, opponent, activeStadium) {
+  if (!p || p.isFossil || p.retreat == null) return null;
+  const ability = p.abilities?.[0]?.name;
+  const hasArceus = [you.active, ...(you.bench || [])].some(x => x && ['Arceus', 'Arceus ex'].includes(x.name));
+  const hasLatias = [you.active, ...(you.bench || [])].some(x => x && x.name === 'Latias');
+  const myFirstTurn = myIsFirstPlayer === true ? state.turnNumber === 1 : myIsFirstPlayer === false ? state.turnNumber === 2 : false;
+  const freeSources = [];
+  if (ability === 'Levitate' && (p.energy?.length || 0) > 0) freeSources.push('漂浮');
+  if (ability === 'Speed Link' && hasArceus) freeSources.push('Speed Link');
+  if (ability === 'Retreat Directive' && p.name === 'Dondozo') freeSources.push('Retreat Directive');
+  if (ability === 'Fantastical Floating' && hasLatias) freeSources.push('Fantastical Floating');
+  if (ability === 'Surge Surfer' && !!activeStadium) freeSources.push('Surge Surfer');
+  if (ability === 'Wimp Out' && myFirstTurn) freeSources.push('Wimp Out');
+  if ([you.active, ...(you.bench || [])].some(x => x?.abilities?.[0]?.name === 'Fluffy Flight')) freeSources.push('Fluffy Flight');
+  if (p.name === 'Nidoking' && [you.active, ...(you.bench || [])].some(x => x?.abilities?.[0]?.name === 'Maternal Grace')) freeSources.push('母儀');
+  const toolId = p.tool?.id;
+  if (toolId === 'B2a-087' && p.stage === 'Stage2') freeSources.push('Big Air Balloon');
+  if (freeSources.length) return { free: true, delta: 0, sources: freeSources };
+
+  let discount = 0; const sources = [];
+  const plazaDiscount = (activeStadium?.id === 'B2-155' && (p.types || []).includes('Psychic')) ? 2 : 0;
+  if (plazaDiscount) { discount += plazaDiscount; sources.push('奇異廣場'); }
+  let benchDiscount = p.stage === 'Basic' ? (you.bench || []).filter(x => x.abilities?.[0]?.name === 'Sky Support').length : 0;
+  if ((p.types || []).includes('Darkness')) benchDiscount += (you.bench || []).filter(x => x.abilities?.[0]?.name === 'Villainous Delivery').length;
+  if (benchDiscount) { discount += benchDiscount; sources.push(`板凳協助-${benchDiscount}`); }
+  const selfDiscount = (ability === 'Conductive Body' && [you.active, ...(you.bench || [])].some(x => x && x.uid !== p.uid && x.name === p.name)) ? 2 : 0;
+  if (selfDiscount) { discount += selfDiscount; sources.push('Conductive Body'); }
+  const toolDiscount = ((toolId === 'A4a-067' && (p.types || []).includes('Water')) ? 1 : 0) + ((toolId === 'B3b-064' && p.stage === 'Basic') ? 1 : 0);
+  if (toolDiscount) { discount += toolDiscount; sources.push(toolId === 'A4a-067' ? 'Inflatable Boat' : 'Small Balloon'); }
+
+  const oppPool = [opponent?.active, ...(opponent?.bench || [])];
+  const trapIncrease = oppPool.filter(x => x?.abilities?.[0]?.name === 'Trap Territory').length
+    + oppPool.filter(x => x?.abilities?.[0]?.name === '冰封世界').length * 2;
+  if (trapIncrease) sources.push(`對手${trapIncrease > 2 ? '冰封世界' : 'Trap Territory'}+${trapIncrease}`);
+
+  const delta = trapIncrease - discount;
+  if (delta === 0) return null;
+  return { free: false, delta, sources };
+}
 
 const STATUS_LABEL = { asleep: '😴 睡眠', poisoned: '☠️ 中毒', paralyzed: '⚡ 麻痺', confused: '😵 混亂', burned: '🔥 灼傷' };
 function renderPokeSlot(p, { pickable = false, dataset = {}, own = false } = {}) {
@@ -2090,6 +2157,9 @@ function renderPokeSlot(p, { pickable = false, dataset = {}, own = false } = {})
   if (p.status) badges.push(`<span class="status-chip status-${p.status}">${STATUS_LABEL[p.status] || p.status}</span>`);
   if (p.poisoned) badges.push(`<span class="status-chip status-poisoned">${STATUS_LABEL.poisoned}</span>`);
   if (p.burned) badges.push(`<span class="status-chip status-burned">${STATUS_LABEL.burned}</span>`);
+  // 2026-08-22新增：進化前疊在下方的卡片數量——使用者要求「希望可以看到被疊在下方的寶可夢」，
+  // 這裡先給一個一眼可見的數量提示，點卡片開detail面板能看到完整清單（見showCardDetail）
+  if (p.evolutionStack?.length) badges.push(`<span class="status-chip" title="這隻寶可夢下面疊著${p.evolutionStack.length}張進化前的卡片：${p.evolutionStack.map(zhName).join('→')}→（現在）${zhName(p)}">🗂️${p.evolutionStack.length}</span>`);
   const tn = state?.turnNumber ?? 0;
   // 2026-08-19新增：被動特性/道具造成的攻擊傷害增加/受到傷害減少——只對「目前的主戰位置」算，
   // 因為這4個來源函式(pocketClientDamageBonus/Reduction)本來就只在主戰被攻擊/攻擊時生效
@@ -2109,6 +2179,14 @@ function renderPokeSlot(p, { pickable = false, dataset = {}, own = false } = {})
     }
     const chance = pocketClientChanceDefense(p);
     if (chance) badges.push(`<span class="status-chip status-dmgdown" title="${chance}">🎲🛡</span>`);
+    // 2026-08-22新增：被動特性/道具/場地造成的撤退成本增減，同樣只對主戰算（撤退按鈕本來
+    // 就只在主戰位置才會出現）
+    const retreatMod = pocketClientRetreatModifier(p, pSide, enemySide, state?.activeStadium);
+    if (retreatMod) {
+      if (retreatMod.free) badges.push(`<span class="status-chip status-dmgdown" title="撤退免費：${retreatMod.sources.join('、')}">🔄免費</span>`);
+      else if (retreatMod.delta < 0) badges.push(`<span class="status-chip status-dmgdown" title="撤退成本${retreatMod.delta}：${retreatMod.sources.join('、')}">🔄${retreatMod.delta}</span>`);
+      else badges.push(`<span class="status-chip status-dmgup" title="撤退成本+${retreatMod.delta}：${retreatMod.sources.join('、')}">🔄+${retreatMod.delta}</span>`);
+    }
   }
   if (p.cantAttackUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合不能攻擊">🚫⚔</span>`);
   if (p.cantRetreatUntilTurn === tn) badges.push(`<span class="status-chip" title="這回合不能撤退">🚫🔄</span>`);
