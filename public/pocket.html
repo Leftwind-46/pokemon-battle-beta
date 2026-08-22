@@ -77,6 +77,9 @@
   .card-tile .meta { font-size:0.65rem; color:var(--muted); margin-top:0.15rem; }
   .card-tile .type-dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:3px; }
   .card-tile .count-badge { position:absolute; top:4px; right:4px; background:#f05030; color:#fff; font-size:0.65rem; font-weight:800; border-radius:999px; min-width:18px; height:18px; display:flex; align-items:center; justify-content:center; padding:0 4px; }
+  /* 2026-08-22新增：卡池格子左上角顯示卡包代碼（例如A1/A3a），跟count-badge（右上角）對稱擺放，
+     方便瀏覽「全部卡包」時一眼看出每張卡是哪一包的，不用逐張點開詳情或先選卡包篩選 */
+  .card-tile .set-badge { position:absolute; top:4px; left:4px; background:rgba(6,6,16,0.75); color:var(--muted); font-size:0.58rem; font-weight:700; border-radius:5px; padding:1px 5px; letter-spacing:0.02em; }
 
   /* ── deck panel ── */
   .deck-panel { border-left:1px solid var(--border); background:rgba(255,255,255,0.02); padding:1rem 1.1rem 1.5rem; display:flex; flex-direction:column; gap:0.8rem; position:sticky; top:0; align-self:flex-start; height:100vh; overflow-y:auto; }
@@ -175,6 +178,14 @@
   .action-hint .hint-cancel { background:none; border:1px solid rgba(255,213,79,0.6); color:#ffd54f; border-radius:999px; padding:0.1rem 0.6rem; font-size:0.72rem; cursor:pointer; }
   .detail-actions { display:flex; flex-direction:column; gap:0.5rem; margin-top:0.8rem; }
   .detail-actions button { width:100%; }
+  /* 2026-08-22新增：組牌頁放大卡片的+/-加減按鈕，跟一般detail-actions（直向單一按鈕清單）
+     不同版面——這裡是橫向一排，中間夾一個「目前張數/上限」的計數文字，點+/-後面板不關閉，
+     直接原地更新計數（見pocketDetailStepperAction），方便連續加減不用每次重新點卡片 */
+  .detail-stepper { flex-direction:row; align-items:center; justify-content:center; gap:1rem; }
+  .detail-stepper .stepper-btn { width:44px; height:44px; border-radius:50%; font-size:1.3rem; font-weight:800; flex:none; padding:0; line-height:1; }
+  .detail-stepper .stepper-count { min-width:64px; text-align:center; font-size:1rem; font-weight:700; }
+  .detail-stepper .stepper-count .cap { color:var(--muted); font-weight:400; font-size:0.82rem; }
+  .detail-stepper-hint { text-align:center; font-size:0.72rem; color:var(--muted); margin-top:0.3rem; }
 
   .board-slot { width:76px; text-align:center; font-size:0.62rem; cursor:default; }
   .board-slot.empty { border:1px dashed var(--border); border-radius:8px; height:100%; min-height:60px; }
@@ -1618,8 +1629,10 @@ function renderPool() {
   const sortKey = document.getElementById('sort').value;
   // 2026-08-05：卡池不再是全部ALL_CARDS，只顯示自己擁有至少1張的卡——組牌只能用抽到的卡牌
   const ownedPool = ALL_CARDS.filter(c => (ownedCounts[c.id] || 0) > 0);
+  // 2026-08-22修正：搜尋原本只比對c.name（英文），中文卡名（zhName(c)）完全搜不到——改成
+  // 英文/中文任一邊符合就算，中文不用轉小寫（toLowerCase對中文字元是no-op，直接比對即可）
   let filtered = ownedPool.filter(c => {
-    if (q && !c.name.toLowerCase().includes(q)) return false;
+    if (q && !c.name.toLowerCase().includes(q) && !zhName(c).includes(q)) return false;
     if (cat && c.category !== cat) return false;
     if (type && !(c.types || []).includes(type)) return false;
     if (set && c.set !== set) return false;
@@ -1638,7 +1651,8 @@ function renderPool() {
       ? `${typeDots}${TYPE_ZH[c.types?.[0]] || ''} · ${c.stage === 'Basic' ? '基礎' : c.stage === 'Stage1' ? '第1階' : '第2階'}${c.ex ? ' · EX' : ''} · HP${c.hp}`
       : trainerTypeZh(c);
     return `
-      <div class="card-tile ${maxed && n < cap ? 'maxed' : ''}" onclick="showCardDetail(cardById['${c.id}'], computePoolCardActions(cardById['${c.id}']))" title="擁有${ownedCounts[c.id]}張 · 點擊查看詳情">
+      <div class="card-tile ${maxed && n < cap ? 'maxed' : ''}" onclick="showCardDetail(cardById['${c.id}'], computeDeckStepperActions(cardById['${c.id}']))" title="擁有${ownedCounts[c.id]}張 · ${c.setName || c.set} · 點擊查看詳情">
+        <div class="set-badge">${c.set}</div>
         ${n > 0 ? `<div class="count-badge">${n}/${ownedCounts[c.id]}</div>` : `<div class="count-badge" style="opacity:0.5">×${ownedCounts[c.id]}</div>`}
         <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${zhName(c)}">
         <div class="name">${zhName(c)}</div>
@@ -1677,7 +1691,7 @@ function renderDeck() {
   list.innerHTML = groups.map(g => {
     const c = cardById[g.id];
     return `
-      <div class="deck-row" onclick="showCardDetail(cardById['${g.id}'], computeDeckCardActions(cardById['${g.id}']))">
+      <div class="deck-row" onclick="showCardDetail(cardById['${g.id}'], computeDeckStepperActions(cardById['${g.id}']))">
         <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${zhName(c)}">
         <div class="n">${zhName(c)}</div>
         <div class="x">×${g.count}</div>
@@ -1687,15 +1701,18 @@ function renderDeck() {
 }
 
 // 2026-08-06新增：組牌頁點卡片改成先開放大詳情面板（跟對戰畫面「點卡看詳情→按鈕確認」同一套
-// 既有模式），不再一點就直接加入/移除牌組——使用者反應原本點了就直接動作，容易誤觸也看不清卡片內容
-function computePoolCardActions(card) {
-  if (deck.length >= DECK_SIZE) return [{ label: '牌組已滿20張', disabled: true }];
-  const cap = ownedCap(card.id);
-  if (countInDeck(card.id) >= cap) return [{ label: `已達持有上限（${cap}張）`, disabled: true }];
-  return [{ label: '加入牌組', primary: true, onClick: () => addCard(card.id) }];
-}
-function computeDeckCardActions(card) {
-  return [{ label: '從牌組移除', primary: true, onClick: () => removeCard(card.id) }];
+// 既有模式），不再一點就直接加入/移除牌組——使用者反應原本點了就直接動作，容易誤觸也看不清卡片內容。
+// 2026-08-22改版：原本卡池/牌組列表分別是「加入」單一按鈕/「移除」單一按鈕兩個各自獨立的函式，
+// 使用者要求放大卡片直接有+/-可以判斷加減——合併成一個共用的stepper資料函式，卡池跟牌組列表
+// 點進來都是同一組+/-（跟哪裡點進來的無關，純粹看這張卡目前牌組裡有幾張/上限幾張）
+function computeDeckStepperActions(card) {
+  return [{
+    stepper: true,
+    cardId: card.id,
+    count: countInDeck(card.id),
+    cap: ownedCap(card.id),
+    deckFull: deck.length >= DECK_SIZE,
+  }];
 }
 
 ['q', 'cat', 'type', 'set', 'sort'].forEach(id => document.getElementById(id).addEventListener('input', renderPool));
@@ -1934,13 +1951,37 @@ function showCardDetail(card, actions) {
     html += `<div class="detail-effect">${zhEffect(card)}</div>`;
   }
   window.__detailActions = actions || [];
-  if (actions && actions.length) {
+  // 2026-08-22新增：組牌頁的卡池/牌組列表改傳「stepper」這種特殊action（見
+  // computeDeckStepperActions），不是一般的單次按鈕清單——+/-兩顆按鈕橫向並排，中間顯示
+  // 「目前張數/上限」，點擊後不關閉面板，原地重算並重繪（見pocketDetailStepperAction）
+  const stepper = actions && actions[0] && actions[0].stepper ? actions[0] : null;
+  if (stepper) {
+    window.__detailStepper = stepper;
+    const atCap = stepper.count >= stepper.cap || stepper.deckFull;
+    html += `<div class="detail-actions detail-stepper">
+      <button class="btn btn-secondary stepper-btn" ${stepper.count <= 0 ? 'disabled' : ''} onclick="pocketDetailStepperAction('minus')">－</button>
+      <div class="stepper-count">${stepper.count}<span class="cap"> / ${stepper.cap}</span></div>
+      <button class="btn btn-primary stepper-btn" ${atCap ? 'disabled' : ''} onclick="pocketDetailStepperAction('plus')">＋</button>
+    </div>`;
+    if (stepper.deckFull && stepper.count < stepper.cap) html += `<div class="detail-stepper-hint">牌組已滿20張</div>`;
+  } else if (actions && actions.length) {
     html += `<div class="detail-actions">` + actions.map((a, i) =>
       `<button class="btn ${a.primary ? 'btn-primary' : 'btn-secondary'}" ${a.disabled ? 'disabled' : ''} onclick="pocketDetailAction(${i})">${a.label}</button>`
     ).join('') + `</div>`;
   }
   body.innerHTML = html;
   document.getElementById('card-detail-panel').classList.add('open');
+}
+// 2026-08-22新增：+/-按鈕的點擊handler，跟pocketDetailAction不同——加減完不關閉面板，
+// 直接用同一張card重新算stepper資料+重繪整個detail body（面板保持開啟），方便連續點擊
+function pocketDetailStepperAction(dir) {
+  const s = window.__detailStepper;
+  if (!s) return;
+  const card = cardById[s.cardId];
+  if (!card) return;
+  if (dir === 'minus') { if (s.count <= 0) return; removeCard(s.cardId); }
+  else { if (s.count >= s.cap || s.deckFull) return; addCard(s.cardId); }
+  showCardDetail(card, computeDeckStepperActions(card));
 }
 function pocketDetailAction(i) {
   const a = window.__detailActions?.[i];
