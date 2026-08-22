@@ -2464,11 +2464,11 @@ function renderBoard() {
   // 共4張同句型場地卡）：只有場上剛好是這幾張場地卡其中一張、輪到我、這回合還沒用過時才顯示
   // 2026-08-18新增：憤怒之湖（FM-007）改版加入這個set——跟其餘5張一樣打出後只蓋場地，
   // 按鈕點了才觸發（原本是打出當下就要選寶可夢進化，使用者回報體驗很怪，改成這個模式）
-  const STADIUM_TRIGGER_IDS = new Set(['B2a-093', 'B3-153', 'B3a-074', 'B3b-069', 'B4-155', 'FM-007']);
+  const STADIUM_TRIGGER_IDS = new Set(['B2a-093', 'B3-153', 'B3a-074', 'B3b-069', 'B4-155', 'FM-007', 'FM-008']);
   const stadiumBtn = document.getElementById('stadium-trigger-btn');
   stadiumBtn.style.display =
     (myTurn && phase === 'active' && STADIUM_TRIGGER_IDS.has(state.activeStadium?.id) && !you.stadiumUsedThisTurn) ? '' : 'none';
-  const STADIUM_TRIGGER_LABEL = { 'B2a-093': '場地卡：擲硬幣抽卡', 'B3-153': '場地卡：抽草屬性基礎寶可夢', 'B3a-074': '場地卡：洗回基礎寶可夢並抽牌', 'B3b-069': '場地卡：交換道具卡', 'B4-155': '場地卡：重新產生能量', 'FM-007': '場地卡：選寶可夢進化' };
+  const STADIUM_TRIGGER_LABEL = { 'B2a-093': '場地卡：擲硬幣抽卡', 'B3-153': '場地卡：抽草屬性基礎寶可夢', 'B3a-074': '場地卡：洗回基礎寶可夢並抽牌', 'B3b-069': '場地卡：交換道具卡', 'B4-155': '場地卡：重新產生能量', 'FM-007': '場地卡：選寶可夢進化', 'FM-008': '場地卡：搜尋化石道具卡' };
   stadiumBtn.textContent = STADIUM_TRIGGER_LABEL[state.activeStadium?.id] || '場地卡效果';
   document.getElementById('cancel-action-btn').style.display = selectedAction ? '' : 'none';
 

@@ -7322,22 +7322,11 @@ const TRAINER_EFFECTS = {
     ctx.G.activeStadium = { id: 'FM-007', name: '憤怒之湖' };
     return null;
   },
-  // 2026-08-22新增：化石採掘場（Fan Made場地卡）——卡面沒有「可以」/「選擇」字樣，純粹是
-  // 打出當下立刻觸發的一次性效果（跟Wallace/Rare Candy同一類One-shot，不是Mesagoza那種
-  // 「蓋場地+按鈕另外觸發」模式），之後沒有任何持續效果，蓋場地純粹只是佔用場地卡欄位
+  // 2026-08-22新增，同日再修正：化石採掘場（Fan Made場地卡）——使用者要求「以後所有場地卡
+  // 除非特別要求，一律走跟Mesagoza同一種『蓋場地+按鈕另外觸發』模式，不要打出當下就立刻生效」，
+  // 原本的一次性搜尋邏輯搬到pocket_use_stadium的stadiumId==='FM-008'分支，這裡只負責蓋場地
   'FM-008': (ctx) => {
     ctx.G.activeStadium = { id: 'FM-008', name: '化石採掘場' };
-    // 跟Sweet Fume（口呆花「香甜燻氣」）同一種「2次各自獨立判斷板凳空間/牌庫候選」寫法，
-    // 每次都重新從目前的deck算候選index，不是一次算好2個index（splice會讓後面index位移）
-    for (let i = 0; i < 2; i++) {
-      if (ctx.side.bench.length >= 3) break;
-      const idxs = ctx.side.deck.map((c, idx) => idx).filter(idx => ctx.side.deck[idx].category === 'Trainer' && POCKET_FOSSIL_IDS.has(ctx.side.deck[idx].id));
-      if (!idxs.length) break;
-      const pick = idxs[Math.floor(Math.random() * idxs.length)];
-      const [fossilCard] = ctx.side.deck.splice(pick, 1);
-      ctx.side.bench.push(makePocketFossilInstance(fossilCard.id));
-    }
-    ctx.side.deck = pocketShuffle(ctx.side.deck);
     return null;
   },
   // 2026-08-22新增：化石復活機（Fan Made道具卡）——選場上1隻己方化石寶可夢，牌庫隨機找1隻
@@ -12170,6 +12159,22 @@ async function handleMessage(ws, msg) {
         target.boardTurn = G.turnNumber;
         target._realAbilities = undefined;
         pocketApplyDoubleType(target);
+        side.deck = pocketShuffle(side.deck);
+      } else if (stadiumId === 'FM-008') { // 化石採掘場：牌組隨機找2張化石道具卡放上板凳
+        // 2026-08-22修正：原本打出當下就立刻生效，使用者要求改成跟其餘場地卡一樣按鈕觸發，
+        // 邏輯從TRAINER_EFFECTS['FM-008']原封不動搬過來，一樣用stadiumUsedThisTurn卡「每回合1次」
+        if (side.stadiumUsedThisTurn) { send(ws, { type: 'error', message: '這回合已經用過場地卡效果了' }); return; }
+        side.stadiumUsedThisTurn = true;
+        // 跟Sweet Fume（口呆花「香甜燻氣」）同一種「2次各自獨立判斷板凳空間/牌庫候選」寫法，
+        // 每次都重新從目前的deck算候選index，不是一次算好2個index（splice會讓後面index位移）
+        for (let i = 0; i < 2; i++) {
+          if (side.bench.length >= 3) break;
+          const idxs = side.deck.map((c, idx) => idx).filter(idx => side.deck[idx].category === 'Trainer' && POCKET_FOSSIL_IDS.has(side.deck[idx].id));
+          if (!idxs.length) break;
+          const pick = idxs[Math.floor(Math.random() * idxs.length)];
+          const [fossilCard] = side.deck.splice(pick, 1);
+          side.bench.push(makePocketFossilInstance(fossilCard.id));
+        }
         side.deck = pocketShuffle(side.deck);
       } else {
         return;
