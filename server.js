@@ -7329,17 +7329,22 @@ const TRAINER_EFFECTS = {
     ctx.G.activeStadium = { id: 'FM-008', name: '化石採掘場' };
     return null;
   },
-  // 2026-08-22新增，2026-08-23修正：化石復活機（Fan Made道具卡）——使用者回報「我要的是
-  // 『所有』化石都進化，不是選擇一個化石」，原本誤判成Wallace那種「玩家選1隻own board目標」
-  // 的single-target evolve，改成掃場上（主戰+板凳）全部化石寶可夢，每一隻各自獨立去牌庫找
-  // 看看有沒有能讓牠進化的寶可夢，找得到的都各自進化，不需要玩家選目標。跟Attraction「全部
-  // 搜完才統一洗牌一次」同一個節奏，不是每進化1隻就洗一次牌。真實資料裡化石進化species
-  // (例如Aerodactyl)的evolveFrom就是印在化石卡本身的英文名字(例如'Old Amber')，泛用的
-  // evolveFrom===target.name比對天生就能直接用，不需要另外查POCKET_FOSSIL_IDS對應表
+  // 2026-08-22新增，2026-08-23修正兩次：化石復活機（Fan Made道具卡）——
+  // (1) 使用者回報「我要的是『所有』化石都進化，不是選擇一個化石」，原本誤判成Wallace那種
+  // 「玩家選1隻own board目標」的single-target evolve，改成掃場上全部化石寶可夢各自獨立進化，
+  // 不需要玩家選目標。
+  // (2) 使用者接著回報「應該連從化石進化而來的一階寶可夢都要能進化成二階寶可夢」——目標範圍
+  // 不能只看isFossil===true（還是化石外型那個階段），已經進化成Stage1物種的（例如舊珀進化成
+  // 化石翼龍、螺旋化石進化成菊石獸）也要能繼續往Stage2進化。重用pocketIsFossilEvolved
+  // （Hiker/A4-161第二選項用的同一個判斷，含Stage2也算，但Stage2物種天生查不到再進一階的
+  // 候選，included進來也不會有副作用）取代單純的p.isFossil。跟Attraction「全部搜完才統一
+  // 洗牌一次」同一個節奏，不是每進化1隻就洗一次牌。真實資料裡化石進化species(例如Aerodactyl)
+  // 的evolveFrom就是印在化石卡本身的英文名字(例如'Old Amber')，泛用的evolveFrom===
+  // target.name比對天生就能直接用，不需要另外查POCKET_FOSSIL_IDS對應表
   'FM-009': (ctx) => {
-    // 跟一般evolve mutation site的boardTurn門檻同一個道理，逐隻各自檢查——剛上場那隻跳過，
-    // 不影響場上其他符合資格的化石照樣進化
-    const fossils = [ctx.side.active, ...ctx.side.bench].filter(p => p?.isFossil && !(p.boardTurn >= ctx.G.turnNumber));
+    // 跟一般evolve mutation site的boardTurn門檻同一個道理，逐隻各自檢查——剛上場/剛進化那隻
+    // 跳過，不影響場上其他符合資格的目標照樣進化
+    const fossils = [ctx.side.active, ...ctx.side.bench].filter(p => p && !(p.boardTurn >= ctx.G.turnNumber) && (p.isFossil || pocketIsFossilEvolved(p)));
     if (!fossils.length) return '場上沒有可以使用這張卡的化石寶可夢';
     let anyEvolved = false;
     for (const target of fossils) {
