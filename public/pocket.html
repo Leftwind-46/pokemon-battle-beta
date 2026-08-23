@@ -474,6 +474,10 @@
   .card-detail-panel .detail-attack { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:0.6rem; margin-bottom:0.5rem; font-size:0.8rem; }
   .card-detail-panel .detail-attack .dname { font-weight:700; display:flex; justify-content:space-between; }
   .card-detail-panel .detail-effect { color:var(--muted); font-size:0.75rem; margin-top:0.3rem; line-height:1.4; }
+  /* 2026-08-23新增：attackEffect覆蓋沒有卡圖疊圖位置可用，改標記文字列表裡的那一招——
+     跟.has-patch同一套金黃色(#ffca28)配色，維持「這張卡被動過」的視覺語言一致 */
+  .card-detail-panel .detail-attack.attack-patched { border-color:#ffca28; box-shadow:0 0 8px rgba(255,202,40,0.35); }
+  .attack-patched-badge { display:inline-block; font-size:0.65rem; font-weight:700; color:#ffca28; margin-left:0.4rem; vertical-align:middle; }
   /* 2026-08-22新增：進化前疊在下方的卡片清單，橫向捲動的小縮圖列，點一張可以再開它自己的
      detail面板（遞迴showCardDetail），跟peekCards同一種小縮圖+名字的簡易列表樣式 */
   .evo-stack-list { display:flex; gap:0.5rem; overflow-x:auto; padding-bottom:0.3rem; margin-bottom:0.6rem; }
@@ -1978,9 +1982,15 @@ function showCardDetail(card, actions) {
     <h3>${zhName(card)}${card.ex ? ' EX' : ''}</h3>
     <div class="detail-meta">${card.rarity || ''}${isPoke ? ` · ${card.stage === 'Basic' ? '基礎' : card.stage} · HP ${card.hp}` : ` · ${trainerTypeZh(card)}`}</div>`;
   if (isPoke) {
+    // 2026-08-23新增：attackEffect覆蓋沒有卡圖疊圖框可用（見pocket-tcg skill的已知缺口說明——
+    // 招式效果文字區塊在不同招式/版型上位置長度都不一樣，沒有固定座標可以疊），改成在下方文字
+    // 列表裡標記出「被改過的那一招」本身：金色邊框+「⚠️已修改」徽章，跟has-patch同一套配色
+    // (#ffca28)。使用者回報「圖片沒標示修改的部分」——效果文字本身其實已經是正確的新文字
+    // （load-time就mutate進card.attacks[i].effect了），缺的只是「哪一招被改過」這個視覺提示。
+    const patchedAttackNames = new Set((card._patch?.attackEffect || []).map(ae => ae.name));
     html += (card.attacks || []).map(a => `
-      <div class="detail-attack">
-        <div class="dname"><span>${zhName(a)}</span><span>${(a.cost || []).map(t => energyIconHtml(t, true)).join('')} ${a.damage || ''}</span></div>
+      <div class="detail-attack${patchedAttackNames.has(a.name) ? ' attack-patched' : ''}">
+        <div class="dname"><span>${zhName(a)}${patchedAttackNames.has(a.name) ? ' <span class="attack-patched-badge">⚠️已修改</span>' : ''}</span><span>${(a.cost || []).map(t => energyIconHtml(t, true)).join('')} ${a.damage || ''}</span></div>
         ${a.effect ? `<div class="detail-effect">${zhEffect(a)}</div>` : ''}
       </div>`).join('');
     if (card.abilities?.length) html += card.abilities.map(ab => `<div class="detail-attack"><div class="dname">特性：${zhName(ab)}</div><div class="detail-effect">${zhEffect(ab)}</div></div>`).join('');

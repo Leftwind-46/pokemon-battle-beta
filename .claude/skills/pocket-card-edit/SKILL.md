@@ -128,17 +128,32 @@ never renders (`renderPokeSlot()` gates the button on `ABILITY_NAMES_SUPPORTED.h
 — missing entry = no crash, just an invisible feature). Passive/checkup abilities don't
 need this.
 
-## 5. Card-art overlay (`_patch` visual box) — only if you touched hp/ability/attackCost
+## 5. Make sure the changed field is visibly marked somewhere — image overlay OR text-list highlight
 
-Every override field that changes something *printed on the card art itself*
-(hp, addAbility, modifyAbility, attackCost — but notably **not yet** `attackEffect`,
-a known gap) needs a calibrated overlay box in `buildCardPatchOverlay()` in
-`public/pocket.html`, or the zoomed card-detail view keeps showing the old printed
-value even though game logic is correct. Coordinates are pixel-measured per template
-shape (see `pocket-tcg` skill for the full measurement method) — don't reuse another
-field's box coordinates for a new field, and don't skip this step reasoning "the plain
-text below the image already shows the right value" — a user has explicitly flagged
-that as insufficient before (「圖案上招式能量消耗的部分沒修到」).
+Every override field needs a visible "this was changed" marker, or the user sees correct
+behavior in battle but the card-detail view looks untouched and reports it as still
+broken. Two different mechanisms depending on whether the field has fixed printed
+real estate to draw over:
+
+- **hp / addAbility / modifyAbility / attackCost** change something at a fixed position
+  on the printed card art → get a pixel-calibrated overlay box in
+  `buildCardPatchOverlay()` in `public/pocket.html`. Coordinates are measured per
+  template shape (see `pocket-tcg` skill for the full measurement method) — don't reuse
+  another field's box coordinates for a new field, and don't skip this step reasoning
+  "the plain text below the image already shows the right value" — flagged insufficient
+  before for attackCost (「圖案上招式能量消耗的部分沒修到」).
+- **attackEffect / anything whose text area has no fixed position or length** (varies
+  per attack, per template) → don't try to calibrate an image overlay for it. Instead
+  highlight the field in the **text list already rendered below the image** — e.g.
+  `attackEffect`'s fix (2026-08-23) checks `card._patch?.attackEffect` against each
+  attack's name in `showCardDetail`'s attack map and adds a `.attack-patched` class +
+  "⚠️已修改" badge to just that attack's block. Also flagged insufficient once already
+  when skipped entirely — a whole-card gold border (`.has-patch`) doesn't say *which*
+  attack changed, especially on a multi-attack Pokémon (「圖片沒標示修改的部分」).
+
+Bottom line: don't ship an override field with only the generic `.has-patch` border and
+call it done — check whether it needs the pixel-overlay treatment or the text-list
+highlight treatment, and do one of them.
 
 ## 6. Commit + push
 
