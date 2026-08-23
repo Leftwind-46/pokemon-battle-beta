@@ -7106,7 +7106,12 @@ const TRAINER_EFFECTS = {
   'A1a-066': (ctx) => { // Budding Expeditioner
     const targets = [ctx.side.active, ...ctx.side.bench].filter(p => p && ['Mew', 'Mew ex'].includes(p.name));
     if (!targets.length) return '場上沒有夢幻或夢幻ex';
-    ctx.needsChoice = { kind: 'pick_target', pool: 'ownAll', eligibleUids: targets.map(p => p.uid), action: 'attachEnergy', energyTypes: ['Colorless', 'Psychic'] };
+    // 2026-08-23修正：使用者回報「用完新秀探險家回合馬上結束」——這是道具卡，不是招式，
+    // 少設noEndTurn:true的話，pick_target的通用resolver收尾時預設呼叫pocketAdvanceTurn
+    // （那個預設是為了攻擊觸發的選擇準備的，道具/支援者卡的needsChoice都要自己加noEndTurn，
+    // 這裡漏加了）。同一批attachEnergy的其他call site(energyType+count那種)全部都是
+    // ATTACK_EFFECTS，攻擊本來就會結束回合所以不用設；這條是TRAINER_EFFECTS，情境不一樣。
+    ctx.needsChoice = { kind: 'pick_target', pool: 'ownAll', eligibleUids: targets.map(p => p.uid), action: 'attachEnergy', energyTypes: ['Colorless', 'Psychic'], noEndTurn: true };
     return null;
   },
   'A3-149': (ctx, msg) => { // Ilima：己方1隻身上有傷的無色寶可夢收回手牌（若是主戰，需要板凳補位）

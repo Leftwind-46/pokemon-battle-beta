@@ -155,25 +155,28 @@ actually have live cards for:
 3. Verify on a **second** card of the same believed shape (different set, same
    species/template) before trusting the coordinates as shape-general rather than
    one-card-specific — e.g. A1-205 and B1a-055 Ditto matched to the pixel.
-4. If the field's *new* text needs more room than the field's *old* printed text
-   occupied (a rewritten attack effect is usually longer, not shorter), size the box to
-   the actual available gap before the next fixed element (e.g. the weakness/retreat
-   row), not to the old text's footprint.
-5. Wire the box selection in `buildCardPatchOverlay()` by matching card shape
-   (`card.ex`, `card.stage`, ability count, attack count, and which attack index for
-   per-attack fields) to a CSS class — only emit a box for shapes you've actually
-   calibrated; anything else gets no image overlay.
+4. **Don't hand-tune box size (height/width/font) per card or per situation** — measure
+   the box ONCE from a single representative normal card and use that exact size for
+   every instance of the field, full stop. This was explicitly requested after an
+   earlier attempt customized box height per attack (a cramped smaller box for a
+   blank-gap case, a taller one for an already-printed-text case): "你先用一張一般卡，
+   判斷招式說明的框，修改時不論如何都直接照那個大小蓋過去" — measure once, apply
+   everywhere, no exceptions. If the uniform box overlaps neighboring printed text in a
+   tight spot (confirmed via `AskUserQuestion` when the consequence isn't obvious — here,
+   covering another attack's printed name), that's an accepted tradeoff, not a bug to
+   work around with a smaller custom box.
+5. Only `top` (where on the card this specific attack/field sits) varies by shape/index —
+   set it as an inline `style="top:{n}%"` rather than a size-carrying CSS class. Wire the
+   `top` selection in `buildCardPatchOverlay()` by matching card shape (`card.ex`,
+   `card.stage`, ability count, attack count, attack index) — only emit a box for shapes
+   you've actually measured a `top` for; anything else gets no image overlay.
 6. **Keep the text-list highlight too, as a fallback for uncalibrated shapes** — it's not
-   wasted work, it's just not sufficient on its own. Both mechanisms coexist:
-   `.attack-patched` in the attack list (round-1 fix) plus
-   `.card-patch-attack-effect-*` on the image (round-2 fix) both currently ship.
-7. If the box is short on vertical room (a blank-gap box for text that had no prior
-   printed effect is often much shorter than a normal effect box), check whether the
-   base font-size actually fits — reverse-estimate rendered pixel height from
-   `.card-detail-panel`'s fixed width (320px) rather than assuming the base size works;
-   shrink font-size for that specific box class if the arithmetic is tight.
+   wasted work, it's just not sufficient on its own (see step 4 in the section above for
+   why the image overlay is still required). Both mechanisms coexist: `.attack-patched`
+   in the attack list plus the single shared `.card-patch-attack-effect` class on the
+   image both currently ship.
 
-See the `pocket-tcg` skill's `attackEffect` section for the two currently-calibrated
+See the `pocket-tcg` skill's `attackEffect` section for the two currently-measured `top`
 shapes (non-ex Basic/no-ability/1-attack, and ex Basic/no-ability/2-attack) as a
 worked example of this whole process.
 

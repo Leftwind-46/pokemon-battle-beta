@@ -473,32 +473,23 @@
      不接受只有卡片詳情頁文字列表裡的badge標記（見attack-patched那組class，繼續保留當作
      沒校準到的版型的退場機制）。招式效果文字跟trainer-effect一樣是「文字+inline能量圖示」
      混雜注入，用同一套row+flex-wrap解法（見上面.card-patch-trainer-effect那段2026-08-18
-     的說明，這裡不重複）。座標依卡片版型分兩種、各自實測：
-     ① .card-patch-attack-effect-solo：一般版Basic、無印刷特性、單一招式（實測A1-205/
-        B1a-055百變怪，用canvas像素掃描抓文字色塊上下邊界，兩張不同系列的百變怪印刷版位
-        完全一致，確認同版型可共用同一組座標，不用每張卡分別量）——招式名稱列60%~63.27%，
-        效果文字本身64%~76.61%，取63.5%~77%留一點邊界。
-     ② .card-patch-attack-effect-ex2-0／-1：ex版、無印刷特性、恰好2個招式（實測A1a-032
-        夢幻ex）——ex卡的版面跟一般卡不是同一套（第一招名稱列57.94%~61.70%起始位置就跟①
-        的60%不一樣，量出來才發現差了快2%，不能沿用①的座標），這是目前唯一量過的ex版型，
-        只在card.ex===true時套用，不要跟①共用。第0招(Psyshot)原本沒印效果文字，第二招
-        名稱列開始前(68.12%)之間本來就是空白，直接疊上去；第1招(Genome Hacking)原本印刷
-        效果文字只有2行(72.24%~77.58%)，但覆蓋後的新文字更長，往下多留到weakness列開始
-        (85.09%)前的84.5%，避免長文字被裁斷。同一個「已知只校準這個版型」限制，跟hp/
-        ability/attackCost等其他欄位一樣。 */
+     的說明，這裡不重複）。
+     尺寸（寬/高/字級）統一用一般版Basic、無印刷特性、單一招式卡（實測A1-205/B1a-055
+     百變怪，canvas像素掃描抓文字色塊上下邊界，兩張不同系列的百變怪印刷版位完全一致）量出
+     來的框：招式名稱列60%~63.27%、效果文字本身64%~76.61%，取63.5%~77%留邊界，換算成
+     left:6% width:88% height:13.5%。使用者明確要求「不論如何都直接照那個大小蓋過去」——
+     原本針對夢幻ex(A1a-032)的Psyshot空白區間另外校準了一個縮小版(5.8%高/0.5rem字)，
+     使用者反饋要拿掉這種個案客製化，情願疊圖框蓋到隔壁「Genome Hacking」的印刷招式名稱
+     （2026-08-23再次確認：接受這種重疊换取全卡片統一的簡單規則）。只有「top」還是要依
+     卡片版型/第幾個招式各自定位（招式在卡面上的實際垂直位置本來就不一樣，這無法統一），
+     用inline style帶入，寬/高/字級全部共用這一個class不再分版本。 */
   .card-patch-attack-effect {
-    position:absolute; background:rgba(8,8,20,0.95); border:2px solid #ffca28; border-radius:9px;
+    position:absolute; left:6%; width:88%; height:13.5%;
+    background:rgba(8,8,20,0.95); border:2px solid #ffca28; border-radius:9px;
     color:#fff6cf; display:flex; align-items:center; justify-content:center; flex-wrap:wrap;
     text-align:center; padding:0.25rem 0.6rem; overflow:hidden; box-shadow:0 0 10px rgba(255,202,40,0.4);
     font-size:0.6rem; line-height:1.22;
   }
-  .card-patch-attack-effect-solo { left:6%; width:88%; top:63.5%; height:13.5%; }
-  /* ex2-0（Psyshot的空白區間）垂直空間只有5.8%（受限於上下兩個招式名稱列的印刷位置，見上面
-     說明），比其他疊圖框窄很多——用panel實際寬度(320px面板/~288px圖片渲染寬)反推：0.6rem
-     基準字級的2行文字大約需要23px，5.8%高度換算成實際像素只有~23px，幾乎沒有餘裕，容易被
-     overflow:hidden裁到；縮小到0.5rem/line-height:1.15才有安全邊界，這個框專用、不動base */
-  .card-patch-attack-effect-ex2-0 { left:4%; width:92%; top:62%; height:5.8%; font-size:0.5rem; line-height:1.15; }
-  .card-patch-attack-effect-ex2-1 { left:4%; width:92%; top:72%; height:12.5%; }
   .card-detail-panel h3 { font-size:1.1rem; margin-bottom:0.3rem; }
   .card-detail-panel .detail-meta { color:var(--muted); font-size:0.78rem; margin-bottom:0.8rem; }
   .card-detail-panel .detail-attack { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:0.6rem; margin-bottom:0.5rem; font-size:0.8rem; }
@@ -2002,22 +1993,26 @@ function buildCardPatchOverlay(card) {
     const icons = Array(patch.retreat.new).fill(0).map(() => energyIconHtml('Colorless', false, 'energy-icon-inline')).join('');
     html += `<div class="card-patch-retreat">${icons}</div>`;
   }
-  // 2026-08-23新增：招式效果文字改動——蓋住卡圖上印刷的舊效果文字。座標只校準過兩種版型
-  // （見上面CSS .card-patch-attack-effect-*的說明），對不上這兩種版型的卡就不畫圖層疊加，
-  // 純靠showCardDetail下方文字列表的.attack-patched badge標記（原本的退場機制，繼續保留）
+  // 2026-08-23新增：招式效果文字改動——蓋住卡圖上印刷的舊效果文字。尺寸統一用
+  // .card-patch-attack-effect這一個class（見上面CSS的說明），只有top（這一招在卡面上的
+  // 實際垂直位置）依版型/招式順序個別給，使用者明確要求「不論如何都直接照那個大小蓋過去」，
+  // 不再依「這格空間夠不夠」客製化尺寸——寧可蓋到隔壁招式的印刷名稱也維持統一尺寸。
+  // top座標只實測過兩種版型（一般版Basic無特性單招式；ex版Basic無特性雙招式），對不上這兩種
+  // 版型的卡就不畫圖層疊加，純靠showCardDetail下方文字列表的.attack-patched badge標記
+  // （原本的退場機制，繼續保留）
   if (patch.attackEffect?.length) {
     const noAbility = !card.abilities?.length;
     for (const ae of patch.attackEffect) {
       const idx = (card.attacks || []).findIndex(a => a.name === ae.name);
       if (idx < 0) continue;
       const atk = card.attacks[idx];
-      let cls = null;
+      let top = null;
       if (!card.ex && card.stage === 'Basic' && noAbility && card.attacks.length === 1 && idx === 0) {
-        cls = 'card-patch-attack-effect-solo';
+        top = 63.5;
       } else if (card.ex && card.stage === 'Basic' && noAbility && card.attacks.length === 2) {
-        cls = idx === 0 ? 'card-patch-attack-effect-ex2-0' : 'card-patch-attack-effect-ex2-1';
+        top = idx === 0 ? 62 : 72;
       }
-      if (cls) html += `<div class="card-patch-attack-effect ${cls}">${zhEffect(atk)}</div>`;
+      if (top != null) html += `<div class="card-patch-attack-effect" style="top:${top}%">${zhEffect(atk)}</div>`;
     }
   }
   return html;
@@ -2224,6 +2219,10 @@ function pocketClientRetreatModifier(p, you, opponent, activeStadium) {
   if (selfDiscount) { discount += selfDiscount; sources.push('Conductive Body'); }
   const toolDiscount = ((toolId === 'A4a-067' && (p.types || []).includes('Water')) ? 1 : 0) + ((toolId === 'B3b-064' && p.stage === 'Basic') ? 1 : 0);
   if (toolDiscount) { discount += toolDiscount; sources.push(toolId === 'A4a-067' ? 'Inflatable Boat' : 'Small Balloon'); }
+  // 2026-08-23修正：FM-008同一批漏掉的兩份鏡射之一，見pocketComputeRetreatCostClient的說明——
+  // 這份是徽章顯示用，不重算floor（跟這裡其他折扣來源一樣是近似值，不是權威判定）
+  const fossilStadiumDiscount = (activeStadium?.id === 'FM-008' && pocketIsFossilEvolvedClient(p)) ? 1 : 0;
+  if (fossilStadiumDiscount) { discount += fossilStadiumDiscount; sources.push('化石採掘場'); }
 
   const oppPool = [opponent?.active, ...(opponent?.bench || [])];
   const trapIncrease = oppPool.filter(x => x?.abilities?.[0]?.name === 'Trap Territory').length
@@ -3311,7 +3310,14 @@ function pocketComputeRetreatCostClient(card, you, opponent, state) {
   const trapIncrease = oppRetreatPool.filter(p => p?.abilities?.[0]?.name === 'Trap Territory').length
     + oppRetreatPool.filter(p => p?.abilities?.[0]?.name === '冰封世界').length * 2;
   const oranguruIncrease = card.retreatIncreaseUntilTurn === state.turnNumber ? (card.retreatIncreaseAmount || 0) : 0;
-  return Math.max(0, (card.retreat || 0) - (you.retreatDiscountThisTurn || 0) - plazaDiscount - benchDiscount - selfDiscount - toolDiscount + trapIncrease + oranguruIncrease);
+  // 2026-08-23修正：化石採掘場(FM-008)常駐撤退折扣漏掉了——這份試算是「按鈕能不能按/顯示
+  // 多少費用」的那份（跟pocketClientRetreatModifier徽章那份是各自獨立的鏡射，前一輪只修了
+  // Maternal Grace卻沒發現這裡連FM-008都沒有，同一種「兩份鏡射各自漏東西」的坑，這次一次把
+  // 這份補齊，另一份也一起補），跟server端pocket_retreat handler的fossilStadiumDiscount/
+  // retreatFloor邏輯逐字對齊：只對由化石進化而成的寶可夢生效，floor從0改成1（不是完全免費）
+  const fossilStadiumDiscount = (state.activeStadium?.id === 'FM-008' && pocketIsFossilEvolvedClient(card)) ? 1 : 0;
+  const retreatFloor = fossilStadiumDiscount > 0 ? 1 : 0;
+  return Math.max(retreatFloor, (card.retreat || 0) - (you.retreatDiscountThisTurn || 0) - plazaDiscount - benchDiscount - selfDiscount - toolDiscount - fossilStadiumDiscount + trapIncrease + oranguruIncrease);
 }
 // 己方場上寶可夢可用動作——撤退原本是「點板凳直接觸發」的隱藏捷徑（容易誤觸浪費這回合僅有
 // 一次的撤退機會），現在統一成「點主戰→撤退按鈕→再點板凳完成交換」兩步驟，跟附加能量共用
