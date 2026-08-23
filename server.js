@@ -3646,6 +3646,53 @@ const POCKET_CARD_OVERRIDES = {
     effect: 'Choose 1 of the following effects to use: 1) Search your deck for a Fossil Excavation Site and a Fossil Reanimator and put them into your hand. 2) Choose a type of Energy, and give an Energy of that type to 1 of your Pokémon in play that evolved from a Fossil (Stage 2 also counts).',
     effect_zh: '從以下效果選擇一個發動：一、從牌組將「化石採掘場」以及「化石復活機」加入手中。二、選擇一種屬性，將選擇屬性的能量給予場上一個從化石進化而來的寶可夢（二階進化的也可以）。',
   },
+  // 2026-08-23使用者自訂調整：百變怪兩張卡（A1「複製一切」/B1a「複製夥伴」）原本都要求
+  // 「借來的招式所需能量」完整付得起才能用，改成只要有1個對應屬性能量即可（見上面新增的
+  // pocketCanBorrowMoveRelaxed，checkEnergy的判斷邏輯已經改了，這裡只改顯示文字）；
+  // 「複製夥伴」同時拿掉「ex寶可夢除外」的板凳目標限制（見ATTACK_EFFECTS/pick_move
+  // resolution那兩處拿掉!p.ex的說明）。這個override entry兩個attackEffect分別對應A1版/B1a版
+  // 各自的招式名字，不會互相污染（Ditto這個name在POCKET_CARDS裡同時對應這兩張不同印刷卡，
+  // 但招式名字不同，find(a => a.name === ae.name)自然只會命中卡片自己真的有的那個招式）
+  'Ditto': {
+    attackEffect: [
+      {
+        name: 'Copy Anything',
+        effect: "Choose 1 of your opponent's Pokémon's attacks and use it as this attack. As long as you have 1 Energy of a type that attack requires, you can use it.",
+        effect_zh: '選擇對手1隻寶可夢的1個招式，作為這個招式使用。有一個該招式所需的屬性能量，就可以使用。',
+      },
+      {
+        name: 'Copy a Friend',
+        effect: "Choose 1 of your Benched Pokémon's attacks and use it as this attack. As long as you have 1 Energy of a type that attack requires, you can use it.",
+        effect_zh: '選擇你板凳上1隻寶可夢的1個招式，作為這個招式使用。有一個該招式所需的屬性能量，就可以使用。',
+      },
+    ],
+  },
+  // 2026-08-23使用者自訂調整：夢幻ex兩招都要改——「精神射擊」原本沒有效果文字，加上查看
+  // 對手手牌+可選發動1張支援者卡效果；「基因駭入」目標從只有對手主戰擴大成主戰+板凳+棄牌區，
+  // 並加上打完之後棄掉被借那隻身上所有能量。實際邏輯見ATTACK_EFFECTS裡這兩個新增的key
+  // （新的effect文字本身就是查表用的key，這裡只是把它們寫進卡片資料）。
+  'Mew ex': {
+    attackEffect: [
+      {
+        name: 'Psyshot',
+        effect: "You may look at your opponent's hand. If you do, you may choose a Supporter card there and use its effect (as if you played it).",
+        effect_zh: '你可以查看對手的手牌。如果你這麼做，你可以選擇其中1張支援者卡，發動該卡的效果（視為你自己使用這張卡）。',
+      },
+      {
+        name: 'Genome Hacking',
+        effect: "Choose 1 of your opponent's Pokémon in the Active Spot, on the Bench, or in the discard pile, and use 1 of its attacks as this attack. Then, discard all Energy from that Pokémon.",
+        effect_zh: '選擇對手主戰、板凳，或棄牌區裡的1隻寶可夢的1個招式，作為這個招式使用。然後，棄掉該寶可夢身上所有的能量。',
+      },
+    ],
+  },
+  // 2026-08-23使用者自訂調整：新秀探險家原效果「收Mew ex回手牌」整個換掉（完整重述=整個
+  // 替換），改成給場上的夢幻各1個無色+超能力能量——這是Trainer卡，用頂層effect/effect_zh
+  // （跟Hiker那次同一種模式），不是attackEffect（那個只對Pokemon的attacks[]生效）。實際邏輯
+  // 見TRAINER_EFFECTS['A1a-066']。
+  'Budding Expeditioner': {
+    effect: 'Take a {C} Energy and a {P} Energy from your Energy Zone and attach them to your Mew in play.',
+    effect_zh: '從能量區各拿1個無色能量和1個超能力能量，附加在場上的夢幻身上。',
+  },
 };
 for (const c of POCKET_CARDS) {
   const ov = POCKET_CARD_OVERRIDES[c.name];
@@ -6088,18 +6135,39 @@ const ATTACK_EFFECTS = {
     pocketApplyDoubleType(ctx.attacker);
   },
 
-  // 招式借用（2026-08-07新增pick_move機制，見pocket_attack_choice handler的說明）：兩種卡面
-  // 版本文字有直引號/彎引號差異，是TCGdex原始資料本身的印刷版本差異，兩個key都要留著分別
-  // 對應不同的實際卡片（跟先前Cubone那次彎引號的教訓一樣，不是bug）
-  "Choose 1 of your opponent's Active Pokémon's attacks and use it as this attack.": ctx => {
-    ctx.rawDamage = 0; // 實際傷害延遲到玩家選完招式才套用，這裡先歸零避免mainDamage誤用0-effect前的殘留值
-    if (!ctx.defender?.attacks?.length) return;
-    ctx.needsChoice = { kind: 'pick_move' };
-  },
+  // 招式借用（2026-08-07新增pick_move機制，見pocket_attack_choice handler的說明）——這個key
+  // 原本對應夢幻ex「基因駭入」的印刷文字，2026-08-23使用者要求整個換掉（見下面新的
+  // "Choose 1 of your opponent's Pokémon in the Active Spot..."那個key跟POCKET_CARD_OVERRIDES
+  // ['Mew ex']），所以舊key在Mew ex的effect被override覆蓋之後不會再被任何卡片的印刷effect
+  // 命中，是確定的死代碼——比照Hiker那次「stale duplicate要刪掉不是留著shadow」的教訓，直接
+  // 刪除不留著。
   "Choose 1 of your opponent’s Pokémon’s attacks and use it as this attack. If this Pokémon doesn’t have the necessary Energy to use that attack, this attack does nothing.": ctx => {
     ctx.rawDamage = 0;
     if (!ctx.defender?.attacks?.length) return;
     ctx.needsChoice = { kind: 'pick_move', checkEnergy: true };
+  },
+  // 夢幻ex「基因駭入」新效果（2026-08-23使用者新增，POCKET_CARD_OVERRIDES['Mew ex']改過的
+  // 印刷文字）：目標池從原本只有對手主戰，擴大成對手主戰+板凳+棄牌區——見上面pick_move
+  // resolution新增的'oppAllZones'池。棄牌區裡的寶可夢也能被借（借完再棄光牠的能量，即使
+  // 是棄牌區裡的卡，這個動作本身沒有額外效果，只是統一走同一套discardSourceEnergy邏輯）。
+  "Choose 1 of your opponent's Pokémon in the Active Spot, on the Bench, or in the discard pile, and use 1 of its attacks as this attack. Then, discard all Energy from that Pokémon.": ctx => {
+    ctx.rawDamage = 0;
+    const pool = [ctx.oppSide.active, ...ctx.oppSide.bench, ...ctx.oppSide.discard].filter(p => p && p.category === 'Pokemon' && p.attacks?.length);
+    if (!ctx.oppSide.active || !pool.length) return;
+    ctx.needsChoice = { kind: 'pick_move', pool: 'oppAllZones', discardSourceEnergy: true };
+  },
+  // 夢幻ex「精神射擊」新效果（2026-08-23使用者新增）：原本這招沒有任何效果文字，純20傷害——
+  // 使用者要求「加上」查看對手手牌+可選發動1張支援者卡效果，base傷害不受影響（不用歸零
+  // rawDamage，維持正常結算，跟Vespiquen ex「固定基礎傷害+可選加成」是同一種模式，只是這裡
+  // 選到的不是加成傷害而是另一個支援者的效果）。使用者確認：發動效果的視角是你自己（夢幻的
+  // 持有者），那張支援者卡本身保留在對手手牌不動（不進棄牌堆）——見pocket_attack_choice新增
+  // 的action:'triggerSupporterEffect'分支，跟同一個pool下面discard/shuffleIntoDeck不同，
+  // 那兩個都會把卡從對手手牌移走，這個不會。optional:true讓玩家可以「查看了但選擇不發動」，
+  // 沒有支援者卡可選時（eligible為空）就只揭露手牌，不會暫停等選擇。
+  "You may look at your opponent's hand. If you do, you may choose a Supporter card there and use its effect (as if you played it).": ctx => {
+    ctx.peekOpponentHand = true;
+    const eligible = ctx.oppSide.hand.filter(c => c.category === 'Trainer' && c.trainerType === 'Supporter');
+    if (eligible.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppHand', eligibleUids: eligible.map(c => c.uid), action: 'triggerSupporterEffect', optional: true };
   },
 
   // 對手公開手牌選擇（2026-08-07新增，重用pick_target的pool='oppHand'）——ctx.peekHand讓client
@@ -7026,11 +7094,17 @@ const TRAINER_EFFECTS = {
     }
     return null;
   },
-  'A1a-066': (ctx) => { // Budding Expeditioner：主戰必須是Mew ex，收回手牌（需要板凳補位，同Koga的邏輯）
-    if (!ctx.side.active || ctx.side.active.name !== 'Mew ex') return '主戰必須是Mew ex';
-    if (!ctx.side.bench.length) return '沒有板凳寶可夢可以補位，無法使用';
-    ctx.side.hand.push(ctx.side.active);
-    ctx.side.active = ctx.side.bench.shift();
+  // 2026-08-23使用者自訂調整：新秀探險家原效果整個換掉（完整重述=整個替換，不是疊加）——
+  // 從「收Mew ex回手牌」改成「給場上的夢幻各1個無色+1個超能力能量」。使用者原文只寫「夢幻」
+  // 不是「夢幻ex」，這裡照字面實作成名字精確等於Mew（不含Mew ex）——跟pool:'ownAll'的其他
+  // 「給energy到你的1隻寶可夢」card一樣，就算候選只有1隻也要走pick_target讓玩家自己確認
+  // （不能因為只有1個候選就自動幫玩家選，見這個skill的player-choice規則），eligibleUids先
+  // 篩過名字限定Mew。energyTypes是新擴充的欄位（原本的attachEnergy只能單一屬性*count次，
+  // 這裡要一次給2種不同屬性各1個），見下面pick_target resolution的attachEnergy分支新增判斷。
+  'A1a-066': (ctx) => { // Budding Expeditioner
+    const targets = [ctx.side.active, ...ctx.side.bench].filter(p => p && p.name === 'Mew');
+    if (!targets.length) return '場上沒有夢幻';
+    ctx.needsChoice = { kind: 'pick_target', pool: 'ownAll', eligibleUids: targets.map(p => p.uid), action: 'attachEnergy', energyTypes: ['Colorless', 'Psychic'] };
     return null;
   },
   'A3-149': (ctx, msg) => { // Ilima：己方1隻身上有傷的無色寶可夢收回手牌（若是主戰，需要板凳補位）
@@ -11861,6 +11935,51 @@ async function handleMessage(ws, msg) {
           if (!pending.eligibleUids.includes(msg.uid)) return;
           const idx = oppSide.hand.findIndex(c => c.uid === msg.uid);
           if (idx < 0) return;
+          // 夢幻ex「精神射擊」（2026-08-23使用者新增）：發動對手手牌裡選中的支援者卡效果，
+          // 視為你（夢幻的持有者）在使用——但那張卡本身使用者確認「保留在對手手牌，不動」，
+          // 跟同一個pool下面discard/shuffleIntoDeck那兩種「一定會把卡從對手手牌移走」的action
+          // 完全不同方向，所以要在splice之前另外分支，不能共用splice後的流程。TRAINER_EFFECTS
+          // 用card.effectId||card.id查（跟pocket_play_supporter同一套高星版查回base id邏輯），
+          // ctx刻意用「這次攻擊發動方」的side/oppSide（不是對手），效果套用的視角就是你自己在用；
+          // 沿用pocket_play_supporter同一套immunity快取+enforce包法，因為這是本檔案少數幾個
+          // 「手動呼叫TRAINER_EFFECTS handler」的call site之一，不會自動套用那層保護。
+          if (pending.action === 'triggerSupporterEffect') {
+            // 已知限制：某些支援者卡（Ilima/Erika/Misty/Brock這類）的目標是玩家在「打出這張卡」
+            // 那個訊息裡就直接帶msg.target（TRAINER_NEEDS_TARGET那批，走pocket_play_supporter
+            // 那條路），不是card自己內部設needsChoice——這裡的msg是「選哪張支援者卡」的
+            // pocket_attack_choice訊息，沒有機會夾帶那些卡各自需要的target，所以借到這類卡
+            // 時handler會因為msg.target是undefined直接return錯誤字串（安全no-op，不會crash，
+            // 但玩家會看到「查看了手牌卻什麼都沒發生」）。不需要自己內部target、或效果自己用
+            // needsChoice二次暫停問目標的支援者卡（大部分抽卡/搜牌/揭露類）完全不受影響。
+            const card = oppSide.hand[idx];
+            const handler = TRAINER_EFFECTS[card.effectId || card.id];
+            const deferredKO = pending.deferredKO;
+            G.pendingChoice = null;
+            G.phase = 'active';
+            if (handler) {
+              const statusSnapA = pocketSnapshotStatus(side), statusSnapB = pocketSnapshotStatus(oppSide);
+              const benchSnap = pocketSnapshotBenchHp(oppSide);
+              const healSnap = pocketSnapshotAllHp(G);
+              const ctx2 = { G, role, op, side, oppSide, pRoom };
+              const err = handler(ctx2, msg);
+              if (!err) {
+                pocketEnforceStatusImmunity(side, statusSnapA); pocketEnforceStatusImmunity(oppSide, statusSnapB);
+                pocketEnforceBenchImmunity(oppSide, benchSnap);
+                pocketEnforceHealBlock(G, healSnap);
+                pocketResolveBenchKOs(G, side, op); pocketResolveBenchKOs(G, oppSide, role);
+                if (ctx2.needsChoice) {
+                  G.phase = 'attack_choice';
+                  G.pendingChoice = { role, ...ctx2.needsChoice };
+                  pocketBroadcastState(pRoom);
+                  return;
+                }
+              }
+            }
+            if (pocketResolveDeferredKO(G, pRoom, deferredKO)) return;
+            pocketAdvanceTurn(G);
+            pocketBroadcastState(pRoom);
+            return;
+          }
           const [card] = oppSide.hand.splice(idx, 1);
           if (pending.action === 'discard') oppSide.discard.push(card);
           else if (pending.action === 'shuffleIntoDeck') { oppSide.deck.push(card); oppSide.deck = pocketShuffle(oppSide.deck); }
@@ -11896,7 +12015,11 @@ async function handleMessage(ws, msg) {
           : side.bench.find(p => p.uid === msg.uid);
         if (!target) return;
         if (pending.action === 'attachEnergy') {
-          for (let i = 0; i < (pending.count || 1); i++) target.energy.push(pending.energyType);
+          // energyTypes（2026-08-23新增，新秀探險家用）：一次給好幾種「不同」屬性各1個，
+          // 跟原本energyType+count（同一種屬性重複N次）是互斥的兩種寫法，既有call site都只
+          // 設energyType沒設energyTypes，行為完全不變
+          if (pending.energyTypes) { for (const t of pending.energyTypes) target.energy.push(t); }
+          else { for (let i = 0; i < (pending.count || 1); i++) target.energy.push(pending.energyType); }
         } else if (pending.action === 'moveAllEnergyFromAttacker') {
           // Swanna/Mismagius（2026-08-08新增）：把攻擊者(side.active，此刻還沒變過)身上全部
           // （或篩選特定屬性，見energyFilter）能量移給玩家選的板凳寶可夢
@@ -11978,12 +12101,18 @@ async function handleMessage(ws, msg) {
         // Ditto（2026-08-08新增）：跟一般pick_move借「對手主戰」的招式方向不同，這是借「自己
         // 板凳」上任一隻的招式——多一層「先選哪隻寶可夢」，client端把uid跟moveIndex一起送，
         // borrowSource固定用msg.uid查自己板凳（跟oppSide.active方向相反）。2026-08-23使用者
-        // 拿掉「不能選ex」限制，跟上面ATTACK_EFFECTS那個pool filter同一次改動，這裡也要同步拿掉
-        const borrowSource = pending.pool === 'ownBench' ? side.bench.find(p => p.uid === msg.uid) : null;
+        // 拿掉「不能選ex」限制，跟上面ATTACK_EFFECTS那個pool filter同一次改動，這裡也要同步拿掉。
+        // 夢幻ex「基因駭入」（2026-08-23使用者新增）：跟Ditto一樣要多選「哪隻」，但候選池換成
+        // 對手主戰+板凳+棄牌區（不是自己板凳），所以再加一個'oppAllZones'池——棄牌區裡混著
+        // Trainer卡，要濾category==='Pokemon'。
+        const sourcePool = pending.pool === 'ownBench' ? side.bench
+          : pending.pool === 'oppAllZones' ? [oppSide.active, ...oppSide.bench, ...oppSide.discard].filter(p => p && p.category === 'Pokemon')
+          : null;
+        const borrowSource = sourcePool ? sourcePool.find(p => p.uid === msg.uid) : null;
         const defender = oppSide.active;
         if (!attacker || !defender) { G.pendingChoice = null; G.phase = 'active'; pocketBroadcastState(pRoom); return; }
-        if (pending.pool === 'ownBench' && !borrowSource) return; // 不合法的來源（不是板凳上的、或選到ex），維持pendingChoice等玩家重選
-        const borrowedAtk = (pending.pool === 'ownBench' ? borrowSource : defender).attacks?.[msg.moveIndex];
+        if (sourcePool && !borrowSource) return; // 不合法的來源（不在候選池裡），維持pendingChoice等玩家重選
+        const borrowedAtk = (sourcePool ? borrowSource : defender).attacks?.[msg.moveIndex];
         if (!borrowedAtk) return; // 不合法的招式索引，維持pendingChoice等玩家重選
         // 部分卡面版本多了「沒有必要能量就完全沒效果」的條件，跟一般攻擊事前擋下不同——這裡
         // 是「選了才知道要不要付得起」，付不起就直接結束回合、什麼都不做（不是拒絕這次選擇）。
@@ -12001,6 +12130,14 @@ async function handleMessage(ws, msg) {
         const weak = (defender.weaknesses || []).find(w => (attacker.types || []).includes(w.type));
         if (weak) dmg += parseInt(String(weak.value).replace(/\D+/g, ''), 10) || 0;
         defender.curHp = Math.max(0, defender.curHp - dmg);
+        // 夢幻ex「基因駭入」：打完之後棄掉「被借招式的那隻」身上所有能量——如果借的是棄牌區裡
+        // 已經離場的寶可夢，牠身上的energy陣列本來就跟遊戲進行無關，這裡照樣清空不會有副作用；
+        // 如果借的是還在場上(主戰/板凳)的寶可夢，這才是真正有意義的懲罰。能量進oppSide的
+        // discardEnergy（借來的招式一定是對手的寶可夢，能量所屬方固定是oppSide，不用另外判斷）
+        if (pending.discardSourceEnergy && borrowSource?.energy?.length) {
+          oppSide.discardEnergy.push(...borrowSource.energy);
+          borrowSource.energy = [];
+        }
         pocketResolveBenchKOs(G, oppSide, role);
         if (pocketCheckWin(G)) { G.pendingChoice = null; pocketBroadcastState(pRoom); return; }
         if (oppSide.active?.uid === defender.uid && defender.curHp <= 0) {
