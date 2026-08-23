@@ -469,6 +469,36 @@
      zoom工具在這個瀏覽器分頁的座標/DPR換算問題（devicePixelRatio量到2），不是CSS真的算錯，
      不要再單憑screenshot外觀去回頭改這個數字 */
   .card-patch-trainer-effect-long { height:21%; font-size:0.52rem; }
+  /* 2026-08-23新增：招式效果文字疊圖層——使用者反饋「應該要像效果、特性那樣蓋在圖層上」，
+     不接受只有卡片詳情頁文字列表裡的badge標記（見attack-patched那組class，繼續保留當作
+     沒校準到的版型的退場機制）。招式效果文字跟trainer-effect一樣是「文字+inline能量圖示」
+     混雜注入，用同一套row+flex-wrap解法（見上面.card-patch-trainer-effect那段2026-08-18
+     的說明，這裡不重複）。座標依卡片版型分兩種、各自實測：
+     ① .card-patch-attack-effect-solo：一般版Basic、無印刷特性、單一招式（實測A1-205/
+        B1a-055百變怪，用canvas像素掃描抓文字色塊上下邊界，兩張不同系列的百變怪印刷版位
+        完全一致，確認同版型可共用同一組座標，不用每張卡分別量）——招式名稱列60%~63.27%，
+        效果文字本身64%~76.61%，取63.5%~77%留一點邊界。
+     ② .card-patch-attack-effect-ex2-0／-1：ex版、無印刷特性、恰好2個招式（實測A1a-032
+        夢幻ex）——ex卡的版面跟一般卡不是同一套（第一招名稱列57.94%~61.70%起始位置就跟①
+        的60%不一樣，量出來才發現差了快2%，不能沿用①的座標），這是目前唯一量過的ex版型，
+        只在card.ex===true時套用，不要跟①共用。第0招(Psyshot)原本沒印效果文字，第二招
+        名稱列開始前(68.12%)之間本來就是空白，直接疊上去；第1招(Genome Hacking)原本印刷
+        效果文字只有2行(72.24%~77.58%)，但覆蓋後的新文字更長，往下多留到weakness列開始
+        (85.09%)前的84.5%，避免長文字被裁斷。同一個「已知只校準這個版型」限制，跟hp/
+        ability/attackCost等其他欄位一樣。 */
+  .card-patch-attack-effect {
+    position:absolute; background:rgba(8,8,20,0.95); border:2px solid #ffca28; border-radius:9px;
+    color:#fff6cf; display:flex; align-items:center; justify-content:center; flex-wrap:wrap;
+    text-align:center; padding:0.25rem 0.6rem; overflow:hidden; box-shadow:0 0 10px rgba(255,202,40,0.4);
+    font-size:0.6rem; line-height:1.22;
+  }
+  .card-patch-attack-effect-solo { left:6%; width:88%; top:63.5%; height:13.5%; }
+  /* ex2-0（Psyshot的空白區間）垂直空間只有5.8%（受限於上下兩個招式名稱列的印刷位置，見上面
+     說明），比其他疊圖框窄很多——用panel實際寬度(320px面板/~288px圖片渲染寬)反推：0.6rem
+     基準字級的2行文字大約需要23px，5.8%高度換算成實際像素只有~23px，幾乎沒有餘裕，容易被
+     overflow:hidden裁到；縮小到0.5rem/line-height:1.15才有安全邊界，這個框專用、不動base */
+  .card-patch-attack-effect-ex2-0 { left:4%; width:92%; top:62%; height:5.8%; font-size:0.5rem; line-height:1.15; }
+  .card-patch-attack-effect-ex2-1 { left:4%; width:92%; top:72%; height:12.5%; }
   .card-detail-panel h3 { font-size:1.1rem; margin-bottom:0.3rem; }
   .card-detail-panel .detail-meta { color:var(--muted); font-size:0.78rem; margin-bottom:0.8rem; }
   .card-detail-panel .detail-attack { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:0.6rem; margin-bottom:0.5rem; font-size:0.8rem; }
@@ -1971,6 +2001,24 @@ function buildCardPatchOverlay(card) {
   if (patch.retreat) {
     const icons = Array(patch.retreat.new).fill(0).map(() => energyIconHtml('Colorless', false, 'energy-icon-inline')).join('');
     html += `<div class="card-patch-retreat">${icons}</div>`;
+  }
+  // 2026-08-23新增：招式效果文字改動——蓋住卡圖上印刷的舊效果文字。座標只校準過兩種版型
+  // （見上面CSS .card-patch-attack-effect-*的說明），對不上這兩種版型的卡就不畫圖層疊加，
+  // 純靠showCardDetail下方文字列表的.attack-patched badge標記（原本的退場機制，繼續保留）
+  if (patch.attackEffect?.length) {
+    const noAbility = !card.abilities?.length;
+    for (const ae of patch.attackEffect) {
+      const idx = (card.attacks || []).findIndex(a => a.name === ae.name);
+      if (idx < 0) continue;
+      const atk = card.attacks[idx];
+      let cls = null;
+      if (!card.ex && card.stage === 'Basic' && noAbility && card.attacks.length === 1 && idx === 0) {
+        cls = 'card-patch-attack-effect-solo';
+      } else if (card.ex && card.stage === 'Basic' && noAbility && card.attacks.length === 2) {
+        cls = idx === 0 ? 'card-patch-attack-effect-ex2-0' : 'card-patch-attack-effect-ex2-1';
+      }
+      if (cls) html += `<div class="card-patch-attack-effect ${cls}">${zhEffect(atk)}</div>`;
+    }
   }
   return html;
 }

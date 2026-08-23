@@ -128,32 +128,54 @@ never renders (`renderPokeSlot()` gates the button on `ABILITY_NAMES_SUPPORTED.h
 — missing entry = no crash, just an invisible feature). Passive/checkup abilities don't
 need this.
 
-## 5. Make sure the changed field is visibly marked somewhere — image overlay OR text-list highlight
+## 5. Every override field needs an on-image overlay box — plan for the calibration work, don't skip it
 
-Every override field needs a visible "this was changed" marker, or the user sees correct
-behavior in battle but the card-detail view looks untouched and reports it as still
-broken. Two different mechanisms depending on whether the field has fixed printed
-real estate to draw over:
+Every override field needs a pixel-calibrated overlay box in `buildCardPatchOverlay()`
+in `public/pocket.html`, positioned over the actual printed card art. **Don't reach for
+"just highlight it in the text list below the image instead" as a way to skip the
+calibration work** — that was tried for `attackEffect` reasoning "the text area has no
+fixed position, there's nothing to calibrate," and the user explicitly rejected it
+("為什麼沒有蓋在卡片圖層上，應該要像效果、特性那樣也蓋在圖層上", 2026-08-23,
+immediately after shipping the text-list-only version) — being technically correct
+elsewhere doesn't substitute for marking the actual spot the user is looking at.
 
-- **hp / addAbility / modifyAbility / attackCost** change something at a fixed position
-  on the printed card art → get a pixel-calibrated overlay box in
-  `buildCardPatchOverlay()` in `public/pocket.html`. Coordinates are measured per
-  template shape (see `pocket-tcg` skill for the full measurement method) — don't reuse
-  another field's box coordinates for a new field, and don't skip this step reasoning
-  "the plain text below the image already shows the right value" — flagged insufficient
-  before for attackCost (「圖案上招式能量消耗的部分沒修到」).
-- **attackEffect / anything whose text area has no fixed position or length** (varies
-  per attack, per template) → don't try to calibrate an image overlay for it. Instead
-  highlight the field in the **text list already rendered below the image** — e.g.
-  `attackEffect`'s fix (2026-08-23) checks `card._patch?.attackEffect` against each
-  attack's name in `showCardDetail`'s attack map and adds a `.attack-patched` class +
-  "⚠️已修改" badge to just that attack's block. Also flagged insufficient once already
-  when skipped entirely — a whole-card gold border (`.has-patch`) doesn't say *which*
-  attack changed, especially on a multi-attack Pokémon (「圖片沒標示修改的部分」).
+What "no fixed position" really means: attack-effect-text position **varies by card
+shape** (ex vs non-ex, attack count, ability presence, stage), not that it has no
+position at all. Handle it the same way as every other field — measure the shapes you
+actually have live cards for:
 
-Bottom line: don't ship an override field with only the generic `.has-patch` border and
-call it done — check whether it needs the pixel-overlay treatment or the text-list
-highlight treatment, and do one of them.
+1. Download the real card image (`curl` the `image` URL from `pocket-cards.json`, `sips
+   -s format png`).
+2. Find the text row boundaries with a pixel-darkness scan, not eyeballing a gridline
+   screenshot — `numpy`: `dark = grayscale_array < 120`, then find contiguous row-bands
+   where `dark.sum(axis=1) > threshold`. Far more precise than reading percent labels
+   off a rendered grid, and it's what caught the ~2% vertical offset between the ex and
+   non-ex Basic templates (ex cards are NOT just "the same layout with holo art" — their
+   text rows sit measurably higher).
+3. Verify on a **second** card of the same believed shape (different set, same
+   species/template) before trusting the coordinates as shape-general rather than
+   one-card-specific — e.g. A1-205 and B1a-055 Ditto matched to the pixel.
+4. If the field's *new* text needs more room than the field's *old* printed text
+   occupied (a rewritten attack effect is usually longer, not shorter), size the box to
+   the actual available gap before the next fixed element (e.g. the weakness/retreat
+   row), not to the old text's footprint.
+5. Wire the box selection in `buildCardPatchOverlay()` by matching card shape
+   (`card.ex`, `card.stage`, ability count, attack count, and which attack index for
+   per-attack fields) to a CSS class — only emit a box for shapes you've actually
+   calibrated; anything else gets no image overlay.
+6. **Keep the text-list highlight too, as a fallback for uncalibrated shapes** — it's not
+   wasted work, it's just not sufficient on its own. Both mechanisms coexist:
+   `.attack-patched` in the attack list (round-1 fix) plus
+   `.card-patch-attack-effect-*` on the image (round-2 fix) both currently ship.
+7. If the box is short on vertical room (a blank-gap box for text that had no prior
+   printed effect is often much shorter than a normal effect box), check whether the
+   base font-size actually fits — reverse-estimate rendered pixel height from
+   `.card-detail-panel`'s fixed width (320px) rather than assuming the base size works;
+   shrink font-size for that specific box class if the arithmetic is tight.
+
+See the `pocket-tcg` skill's `attackEffect` section for the two currently-calibrated
+shapes (non-ex Basic/no-ability/1-attack, and ex Basic/no-ability/2-attack) as a
+worked example of this whole process.
 
 ## 6. Commit + push
 
