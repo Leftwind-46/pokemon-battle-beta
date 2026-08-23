@@ -3686,12 +3686,12 @@ const POCKET_CARD_OVERRIDES = {
     ],
   },
   // 2026-08-23使用者自訂調整：新秀探險家原效果「收Mew ex回手牌」整個換掉（完整重述=整個
-  // 替換），改成給場上的夢幻各1個無色+超能力能量——這是Trainer卡，用頂層effect/effect_zh
-  // （跟Hiker那次同一種模式），不是attackEffect（那個只對Pokemon的attacks[]生效）。實際邏輯
-  // 見TRAINER_EFFECTS['A1a-066']。
+  // 替換），改成給場上的夢幻（含夢幻ex，使用者當天澄清「夢幻以及夢幻ex都要」）各1個無色+
+  // 超能力能量——這是Trainer卡，用頂層effect/effect_zh（跟Hiker那次同一種模式），不是
+  // attackEffect（那個只對Pokemon的attacks[]生效）。實際邏輯見TRAINER_EFFECTS['A1a-066']。
   'Budding Expeditioner': {
-    effect: 'Take a {C} Energy and a {P} Energy from your Energy Zone and attach them to your Mew in play.',
-    effect_zh: '從能量區各拿1個無色能量和1個超能力能量，附加在場上的夢幻身上。',
+    effect: 'Take a {C} Energy and a {P} Energy from your Energy Zone and attach them to your Mew or Mew ex in play.',
+    effect_zh: '從能量區各拿1個無色能量和1個超能力能量，附加在場上的夢幻或夢幻ex身上。',
   },
 };
 for (const c of POCKET_CARDS) {
@@ -7095,15 +7095,16 @@ const TRAINER_EFFECTS = {
     return null;
   },
   // 2026-08-23使用者自訂調整：新秀探險家原效果整個換掉（完整重述=整個替換，不是疊加）——
-  // 從「收Mew ex回手牌」改成「給場上的夢幻各1個無色+1個超能力能量」。使用者原文只寫「夢幻」
-  // 不是「夢幻ex」，這裡照字面實作成名字精確等於Mew（不含Mew ex）——跟pool:'ownAll'的其他
-  // 「給energy到你的1隻寶可夢」card一樣，就算候選只有1隻也要走pick_target讓玩家自己確認
-  // （不能因為只有1個候選就自動幫玩家選，見這個skill的player-choice規則），eligibleUids先
-  // 篩過名字限定Mew。energyTypes是新擴充的欄位（原本的attachEnergy只能單一屬性*count次，
-  // 這裡要一次給2種不同屬性各1個），見下面pick_target resolution的attachEnergy分支新增判斷。
+  // 從「收Mew ex回手牌」改成「給場上的夢幻各1個無色+1個超能力能量」。第一版照字面只算Mew，
+  // 使用者當天澄清「夢幻以及夢幻ex都要」，改成['Mew','Mew ex'].includes(p.name)——跟
+  // pool:'ownAll'的其他「給energy到你的1隻寶可夢」card一樣，就算候選只有1隻也要走pick_target
+  // 讓玩家自己確認（不能因為只有1個候選就自動幫玩家選，見這個skill的player-choice規則），
+  // eligibleUids先篩過名字限定Mew/Mew ex兩種。energyTypes是新擴充的欄位（原本的attachEnergy
+  // 只能單一屬性*count次，這裡要一次給2種不同屬性各1個），見下面pick_target resolution的
+  // attachEnergy分支新增判斷。
   'A1a-066': (ctx) => { // Budding Expeditioner
-    const targets = [ctx.side.active, ...ctx.side.bench].filter(p => p && p.name === 'Mew');
-    if (!targets.length) return '場上沒有夢幻';
+    const targets = [ctx.side.active, ...ctx.side.bench].filter(p => p && ['Mew', 'Mew ex'].includes(p.name));
+    if (!targets.length) return '場上沒有夢幻或夢幻ex';
     ctx.needsChoice = { kind: 'pick_target', pool: 'ownAll', eligibleUids: targets.map(p => p.uid), action: 'attachEnergy', energyTypes: ['Colorless', 'Psychic'] };
     return null;
   },
