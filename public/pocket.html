@@ -490,6 +490,13 @@
     text-align:center; padding:0.25rem 0.6rem; overflow:hidden; box-shadow:0 0 10px rgba(255,202,40,0.4);
     font-size:0.6rem; line-height:1.22;
   }
+  /* 2026-08-23新增：同一張卡改了不只一個招式時合併成一個框（見buildCardPatchOverlay()的
+     patched.length>1分支）——column直向排列每個招式的名稱+效果文字，跟.card-patch-ability
+     同一套.cpn/.cpe視覺（招式名稱用跟特性名稱一樣的粗體小標籤）。top/height由JS依實際涵蓋
+     的招式數量算出來蓋掉base的13.5%，這裡不用再設 */
+  .card-patch-attack-effect-merged { flex-direction:column; justify-content:flex-start; gap:0.15rem; }
+  .card-patch-attack-effect-merged .cpn { font-weight:800; font-size:0.66rem; }
+  .card-patch-attack-effect-merged .cpe { font-size:0.58rem; line-height:1.2; margin-bottom:0.1rem; }
   .card-detail-panel h3 { font-size:1.1rem; margin-bottom:0.3rem; }
   .card-detail-panel .detail-meta { color:var(--muted); font-size:0.78rem; margin-bottom:0.8rem; }
   .card-detail-panel .detail-attack { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:0.6rem; margin-bottom:0.5rem; font-size:0.8rem; }
@@ -1994,25 +2001,39 @@ function buildCardPatchOverlay(card) {
     html += `<div class="card-patch-retreat">${icons}</div>`;
   }
   // 2026-08-23新增：招式效果文字改動——蓋住卡圖上印刷的舊效果文字。尺寸統一用
-  // .card-patch-attack-effect這一個class（見上面CSS的說明），只有top（這一招在卡面上的
-  // 實際垂直位置）依版型/招式順序個別給，使用者明確要求「不論如何都直接照那個大小蓋過去」，
-  // 不再依「這格空間夠不夠」客製化尺寸——寧可蓋到隔壁招式的印刷名稱也維持統一尺寸。
-  // top座標只實測過兩種版型（一般版Basic無特性單招式；ex版Basic無特性雙招式），對不上這兩種
-  // 版型的卡就不畫圖層疊加，純靠showCardDetail下方文字列表的.attack-patched badge標記
-  // （原本的退場機制，繼續保留）
+  // .card-patch-attack-effect這一個class（見上面CSS的說明），只有top/height（這些內容在
+  // 卡面上的實際垂直範圍）依版型/招式數量個別給，使用者明確要求「不論如何都直接照那個大小
+  // 蓋過去」，不再依「這格空間夠不夠」客製化尺寸——寧可蓋到隔壁招式的印刷名稱也維持統一。
+  // 2026-08-23再修：同一張卡改了不只一個招式時（夢幻ex兩招都改），原本一招一個框、疊圖層
+  // 分開蓋，使用者要求「可以合併起來修改，不需要分開蓋圖層」——改成整張卡只出一個框，
+  // 涵蓋從第一個被改招式的top到最後一個招式底部的整段範圍，框裡依序列出每個被改招式的
+  // 名稱+效果文字（跟.card-patch-ability同一套cpn/cpe直向排列）。只有單一招式被改時維持
+  // 原本「只顯示效果文字、不重複顯示招式名稱」的簡單版面（本來就只有一招，不用特別標名字）。
+  // top/height座標只實測過兩種版型（一般版Basic無特性單招式；ex版Basic無特性雙招式），對不上
+  // 這兩種版型的卡就不畫圖層疊加，純靠showCardDetail下方文字列表的.attack-patched badge
+  // 標記（原本的退場機制，繼續保留）。特性+招式同卡一起改的組合目前還沒有實際卡片用到，
+  // 沒有可以實測的印刷座標，先不合併特性框——等真的有這種卡再量。
   if (patch.attackEffect?.length) {
     const noAbility = !card.abilities?.length;
+    const patched = [];
     for (const ae of patch.attackEffect) {
       const idx = (card.attacks || []).findIndex(a => a.name === ae.name);
       if (idx < 0) continue;
-      const atk = card.attacks[idx];
       let top = null;
       if (!card.ex && card.stage === 'Basic' && noAbility && card.attacks.length === 1 && idx === 0) {
         top = 63.5;
       } else if (card.ex && card.stage === 'Basic' && noAbility && card.attacks.length === 2) {
         top = idx === 0 ? 62 : 72;
       }
-      if (top != null) html += `<div class="card-patch-attack-effect" style="top:${top}%">${zhEffect(atk)}</div>`;
+      if (top != null) patched.push({ atk: card.attacks[idx], top });
+    }
+    if (patched.length === 1) {
+      html += `<div class="card-patch-attack-effect" style="top:${patched[0].top}%">${zhEffect(patched[0].atk)}</div>`;
+    } else if (patched.length > 1) {
+      const top = Math.min(...patched.map(p => p.top));
+      const height = Math.max(...patched.map(p => p.top)) + 13.5 - top;
+      const inner = patched.map(p => `<div class="cpn">${zhName(p.atk)}</div><div class="cpe">${zhEffect(p.atk)}</div>`).join('');
+      html += `<div class="card-patch-attack-effect card-patch-attack-effect-merged" style="top:${top}%;height:${height}%">${inner}</div>`;
     }
   }
   return html;
