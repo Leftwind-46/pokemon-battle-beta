@@ -3687,6 +3687,23 @@ for (const c of POCKET_CARDS) {
       ab.effect_zh = ov.modifyAbility.effect_zh || ov.modifyAbility.effect;
     }
   }
+  // 2026-08-23新增：改一張卡「某個招式」的效果文字（跟attackCost改能量需求是不同欄位——這裡
+  // 改的是招式的effect文字本身，不管該招式原本有沒有印效果文字都能覆蓋；跟modifyAbility改
+  // 特性文字是同一種概念，只是對象換成攻擊招式）。一張卡可能同時要改好幾個招式（例如夢幻ex
+  // 兩招都要改），所以是陣列不是單一物件。疊圖層目前只掛「⚠️已修改」badge（_patch存在就會
+  // 自動顯示），沒有另外校準「蓋在卡圖招式文字位置上」的專屬疊圖框——已知缺口，跟hp/ability/
+  // attackCost那幾個欄位比，這個沒有印刷版面座標可以疊，見這個skill文件的說明
+  if (ov.attackEffect) {
+    for (const ae of ov.attackEffect) {
+      const atk = (c.attacks || []).find(a => a.name === ae.name);
+      if (atk && atk.effect !== ae.effect) {
+        patch.attackEffect = patch.attackEffect || [];
+        patch.attackEffect.push({ name: atk.name, old: atk.effect_zh || atk.effect, new: ae.effect_zh || ae.effect });
+        atk.effect = ae.effect;
+        atk.effect_zh = ae.effect_zh || ae.effect;
+      }
+    }
+  }
   if (Object.keys(patch).length) c._patch = patch;
 }
 const POCKET_SETS = pocketCardsFile.sets; // [{id, name, cardCount}]，開包/圖鑑選版本用
@@ -3859,6 +3876,22 @@ function pocketDiscardWithStack(discardArr, poke) {
   discardArr.push(poke);
   if (poke.evolutionStack?.length) discardArr.push(...poke.evolutionStack);
   poke.evolutionStack = [];
+}
+// 由特性/訓練師卡（道具、場地卡）從牌組把寶可夢直接召喚到板凳時，統一走這個函式——2026-08-23
+// 使用者要求：「由寶可夢特性、或是訓練家卡牌（道具、場地卡）召喚到場上的寶可夢，當回合不能
+// 進化」。查過之後發現Nidoran♂/Koffing/Weedle/Wishiwashi/Poliwag/Starly/Tandemaus-Maushold/
+// 隨機基礎寶可夢這幾個既有招式效果、Attraction特性、Sweet Fume特性、化石採掘場(FM-008)場地卡，
+// 全部都只重置curHp/energy就直接push上板凳，沒有一個有設boardTurn——導致pocket_evolve那邊
+// `target.boardTurn >= G.turnNumber`的「這回合剛上場不能進化」門檻對這些召喚來的寶可夢完全
+// 不生效（新卡從makePocketInstance來的boardTurn預設是null，null>=數字恆為false，門檻形同虛設）。
+// 跟pocketInstantiateBoardCard（玩家自己手動打出手牌）是同一個道理但對象不同：那個是「玩家
+// 主動打出手牌」，這個是「效果自動把牌組裡的卡送上板凳」，都要蓋到boardTurn。
+function pocketSummonToBench(side, card, turnNumber) {
+  card.curHp = card.hp; card.energy = []; card.status = null; card.poisoned = false; card.burned = false;
+  card.boardTurn = turnNumber;
+  side.bench.push(card);
+  pocketApplyDoubleType(card);
+  return card;
 }
 function pocketInstantiateBoardCard(handCard, turnNumber) {
   const inst = POCKET_FOSSIL_IDS.has(handCard.id) ? makePocketFossilInstance(handCard.id) : handCard;
@@ -4116,8 +4149,7 @@ function pocketRunCheckup(G) {
       if (!idxs.length) break;
       const pick = idxs[Math.floor(Math.random() * idxs.length)];
       const [card] = endingSide.deck.splice(pick, 1);
-      card.curHp = card.hp; card.energy = [];
-      endingSide.bench.push(card);
+      pocketSummonToBench(endingSide, card, G.turnNumber);
       drewAny = true;
     }
     if (drewAny) {
@@ -4732,6 +4764,18 @@ function pocketCanPayCost(pokemon, cost, side) {
   const leftover = Object.values(have).reduce((a, b) => a + b, 0);
   return leftover >= colorlessNeed;
 }
+// 百變怪「複製一切」/「複製夥伴」（2026-08-23使用者放寬能量門檻）：原印刷文字是「沒有借來
+// 招式所需的完整能量，這招式不會發生任何效果」（照數量比對，走一般pocketCanPayCost），改成
+// 「有一個該招式所需的屬性能量，就可以使用」——量的門檻放寬到只要1個，但「種類」仍要對：
+// 借來的招式費用裡每個非無色的屬性需求，百變怪身上只要有1個對應屬性能量即可（不用湊到印刷
+// 數量），不同屬性各自都要至少1個；如果整條費用完全是無色（沒有任何屬性能量需求），使用者
+// 確認「仍需身上至少有1個任意屬性的能量」，不是完全免費（跟FM-008「任何屬性都可以扣」是
+// 不同的放寬方向，別搞混）
+function pocketCanBorrowMoveRelaxed(attacker, cost) {
+  const coloredTypes = [...new Set((cost || []).filter(t => t !== 'Colorless'))];
+  if (coloredTypes.length) return coloredTypes.every(t => (attacker.energy || []).includes(t));
+  return (attacker.energy || []).length > 0;
+}
 function pocketViewFor(G, role) {
   const op = role === 'p1' ? 'p2' : 'p1';
   // discardEnergy（2026-08-08新增）：沒有卡片可以掛的「純能量」棄牌區（Rainbow Cave等來源），
@@ -4827,8 +4871,8 @@ const ATTACK_EFFECTS = {
   "If the Defending Pokémon tries to use an attack, your opponent flips a coin. If tails, that attack doesn't happen. This effect lasts until the Defending Pokémon leaves the Active Spot, and it doesn't stack.": (ctx) => { // Octillery：已知簡化——真實卡面「持續到離開主戰、不疊加」簡化成只鎖對手下一次攻擊嘗試，重用既有attackFlipLockUntilTurn機制
   if (ctx.defender) ctx.defender.attackFlipLockUntilTurn = ctx.G.turnNumber + 1;
 },
-  "Choose 1 of your Benched Pokémon's attacks, except any Pokémon ex, and use it as this attack. If this Pokémon doesn't have the necessary Energy to use that attack, this attack does nothing.": (ctx) => { // Ditto：借自己板凳(不含ex)任一隻的招式
-  const pool = ctx.side.bench.filter(p => !p.ex && p.attacks?.length);
+  "Choose 1 of your Benched Pokémon's attacks, except any Pokémon ex, and use it as this attack. If this Pokémon doesn't have the necessary Energy to use that attack, this attack does nothing.": (ctx) => { // Ditto：借自己板凳任一隻的招式——2026-08-23使用者拿掉「ex寶可夢除外」限制（見POCKET_CARD_OVERRIDES['Ditto']改的顯示文字），這個dictionary key本身要維持跟真實印刷英文原文逐字一致（查表用），實際邏輯已經不再排除ex
+  const pool = ctx.side.bench.filter(p => p.attacks?.length);
   if (pool.length) ctx.needsChoice = { kind: 'pick_move', pool: 'ownBench', checkEnergy: true };
   else ctx.rawDamage = 0;
 },
@@ -4858,8 +4902,7 @@ const ATTACK_EFFECTS = {
     if (idxs.length) {
       const i = idxs[Math.floor(Math.random() * idxs.length)];
       const p = ctx.side.deck.splice(i, 1)[0];
-      p.curHp = p.hp; p.energy = [];
-      ctx.side.bench.push(p);
+      pocketSummonToBench(ctx.side, p, ctx.G.turnNumber);
     }
   },
   "Flip a coin. If heads, discard a random card from your opponent's hand.": ctx => { if (pocketFlipCoin(ctx) && ctx.oppSide.hand.length) ctx.oppSide.hand.splice(Math.floor(Math.random() * ctx.oppSide.hand.length), 1); },
@@ -4880,8 +4923,7 @@ const ATTACK_EFFECTS = {
     if (idxs.length) {
       const i = idxs[Math.floor(Math.random() * idxs.length)];
       const p = ctx.side.deck.splice(i, 1)[0];
-      p.curHp = p.hp; p.energy = [];
-      ctx.side.bench.push(p);
+      pocketSummonToBench(ctx.side, p, ctx.G.turnNumber);
     }
   },
   "Shuffle your hand into your deck. Draw a card for each card in your opponent's hand.": ctx => { // Chatot：洗手牌回牌庫，抽跟對手手牌數量一樣多的牌
@@ -4935,8 +4977,7 @@ const ATTACK_EFFECTS = {
     if (idxs.length) {
       const i = idxs[Math.floor(Math.random() * idxs.length)];
       const p = ctx.side.deck.splice(i, 1)[0];
-      p.curHp = p.hp; p.energy = [];
-      ctx.side.bench.push(p);
+      pocketSummonToBench(ctx.side, p, ctx.G.turnNumber);
     }
   },
   "1 of your opponent's Pokémon is chosen at random. Do 30 damage to it.": ctx => { // Wiglett：隨機挑對手1隻（含板凳），30傷害
@@ -4964,8 +5005,7 @@ const ATTACK_EFFECTS = {
     if (idxs.length) {
       const i = idxs[Math.floor(Math.random() * idxs.length)];
       const p = ctx.side.deck.splice(i, 1)[0];
-      p.curHp = p.hp; p.energy = [];
-      ctx.side.bench.push(p);
+      pocketSummonToBench(ctx.side, p, ctx.G.turnNumber);
     }
   },
   "If your opponent's Active Pokémon is a Basic Pokémon, this attack does 60 more damage.": ctx => { if (ctx.defender?.stage === 'Basic') ctx.rawDamage += 60; },
@@ -5081,8 +5121,7 @@ const ATTACK_EFFECTS = {
     if (idxs.length) {
       const i = idxs[Math.floor(Math.random() * idxs.length)];
       const p = ctx.side.deck.splice(i, 1)[0];
-      p.curHp = p.hp; p.energy = [];
-      ctx.side.bench.push(p);
+      pocketSummonToBench(ctx.side, p, ctx.G.turnNumber);
     }
   },
   "Discard up to 2 Pokémon Tool cards from your hand. This attack does 50 damage for each card you discarded in this way.": ctx => { // Slowking：棄最多2張手牌Tool卡，各+50傷害（已知簡化：自動棄到上限，不是逐張詢問要不要棄）
@@ -5210,8 +5249,7 @@ const ATTACK_EFFECTS = {
     if (idxs.length) {
       const i = idxs[Math.floor(Math.random() * idxs.length)];
       const p = ctx.side.deck.splice(i, 1)[0];
-      p.curHp = p.hp; p.energy = [];
-      ctx.side.bench.push(p);
+      pocketSummonToBench(ctx.side, p, ctx.G.turnNumber);
     }
   },
   "If any of your Pokémon were Knocked Out by damage from an attack during your opponent's last turn, this attack does 40 more damage.": ctx => { if (ctx.side.lostToAttackLastOppTurn) ctx.rawDamage += 40; },
@@ -5270,8 +5308,7 @@ const ATTACK_EFFECTS = {
       if (!idxs.length) break;
       const i = idxs[Math.floor(Math.random() * idxs.length)];
       const p = ctx.side.deck.splice(i, 1)[0];
-      p.curHp = p.hp; p.energy = [];
-      ctx.side.bench.push(p);
+      pocketSummonToBench(ctx.side, p, ctx.G.turnNumber);
       slots--;
     }
   },
@@ -5614,8 +5651,7 @@ const ATTACK_EFFECTS = {
     if (idxs.length) {
       const i = idxs[Math.floor(Math.random() * idxs.length)];
       const p = ctx.side.deck.splice(i, 1)[0];
-      p.curHp = p.hp; p.energy = [];
-      ctx.side.bench.push(p);
+      pocketSummonToBench(ctx.side, p, ctx.G.turnNumber);
     }
   },
   "Discard the top card of your opponent's deck.": ctx => { if (ctx.oppSide.deck.length) ctx.oppSide.discard.push(ctx.oppSide.deck.shift()); },
@@ -7986,8 +8022,7 @@ const ABILITY_EFFECTS = {
     const chosenIdxs = idxs.slice(0, n).sort((a, b) => b - a); // 從後面的index先移除，避免移除後前面index位移
     for (const i of chosenIdxs) {
       const [card] = ctx.side.deck.splice(i, 1);
-      card.curHp = card.hp; card.energy = [];
-      ctx.side.bench.push(card);
+      pocketSummonToBench(ctx.side, card, ctx.G.turnNumber);
     }
     ctx.side.deck = pocketShuffle(ctx.side.deck);
     return null;
@@ -11942,16 +11977,20 @@ async function handleMessage(ws, msg) {
         const attacker = side.active;
         // Ditto（2026-08-08新增）：跟一般pick_move借「對手主戰」的招式方向不同，這是借「自己
         // 板凳」上任一隻的招式——多一層「先選哪隻寶可夢」，client端把uid跟moveIndex一起送，
-        // borrowSource固定用msg.uid查自己板凳（跟oppSide.active方向相反），不能選ex（卡面排除）
-        const borrowSource = pending.pool === 'ownBench' ? side.bench.find(p => p.uid === msg.uid && !p.ex) : null;
+        // borrowSource固定用msg.uid查自己板凳（跟oppSide.active方向相反）。2026-08-23使用者
+        // 拿掉「不能選ex」限制，跟上面ATTACK_EFFECTS那個pool filter同一次改動，這裡也要同步拿掉
+        const borrowSource = pending.pool === 'ownBench' ? side.bench.find(p => p.uid === msg.uid) : null;
         const defender = oppSide.active;
         if (!attacker || !defender) { G.pendingChoice = null; G.phase = 'active'; pocketBroadcastState(pRoom); return; }
         if (pending.pool === 'ownBench' && !borrowSource) return; // 不合法的來源（不是板凳上的、或選到ex），維持pendingChoice等玩家重選
         const borrowedAtk = (pending.pool === 'ownBench' ? borrowSource : defender).attacks?.[msg.moveIndex];
         if (!borrowedAtk) return; // 不合法的招式索引，維持pendingChoice等玩家重選
         // 部分卡面版本多了「沒有必要能量就完全沒效果」的條件，跟一般攻擊事前擋下不同——這裡
-        // 是「選了才知道要不要付得起」，付不起就直接結束回合、什麼都不做（不是拒絕這次選擇）
-        if (pending.checkEnergy && !pocketCanPayCost(attacker, borrowedAtk.cost || [], side)) {
+        // 是「選了才知道要不要付得起」，付不起就直接結束回合、什麼都不做（不是拒絕這次選擇）。
+        // checkEnergy只有百變怪這兩張卡在用（見上面的Ditto註解），2026-08-23使用者放寬成
+        // pocketCanBorrowMoveRelaxed（只要有1個對應屬性能量，不用湊到印刷數量），不是原本的
+        // pocketCanPayCost完整費用比對——這個key目前沒有其他卡共用，直接改不影響別的效果
+        if (pending.checkEnergy && !pocketCanBorrowMoveRelaxed(attacker, borrowedAtk.cost || [])) {
           G.pendingChoice = null;
           G.phase = 'active';
           pocketAdvanceTurn(G);
@@ -12213,7 +12252,7 @@ async function handleMessage(ws, msg) {
           if (!idxs.length) break;
           const pick = idxs[Math.floor(Math.random() * idxs.length)];
           const [fossilCard] = side.deck.splice(pick, 1);
-          side.bench.push(makePocketFossilInstance(fossilCard.id));
+          pocketSummonToBench(side, makePocketFossilInstance(fossilCard.id), G.turnNumber);
         }
         side.deck = pocketShuffle(side.deck);
       } else {
