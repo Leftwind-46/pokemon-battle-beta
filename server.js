@@ -11284,8 +11284,15 @@ async function handleMessage(ws, msg) {
       // Oranguru（2026-08-08新增）：招式效果種在對手身上的「下回合撤退多付1」時限debuff，
       // 跟pocketPassiveRetreatIncrease（Trap Territory，常駐特性）是不同來源，直接加總
       const retreatTrapIncrease = active.retreatIncreaseUntilTurn === G.turnNumber ? (active.retreatIncreaseAmount || 0) : 0;
-      const cost = (pocketPassiveFreeRetreat(active, side, G, pocketIsFirstTurnFor(pRoom, G, role)) || toolRetreat.free) ? 0 : Math.max(0,
-        (active.retreat || 0) - (side.retreatDiscountThisTurn || 0) - plazaDiscount - pocketPassiveBenchRetreatDiscount(active, side) - pocketPassiveSelfRetreatDiscount(active, side) - toolRetreat.discount + pocketPassiveRetreatIncrease(oppSide) + retreatTrapIncrease);
+      // 化石採掘場（FM-008）常駐效果，2026-08-23使用者新增：由化石進化而成的寶可夢（含二階，
+      // 見pocketIsFossilEvolved）撤退所需能量-1，最低仍需要1個——折扣本身跟其餘折扣來源一起
+      // 疊加進同一個discount池，但這裡的floor從0改成1（只針對符合這個條件的寶可夢），不影響
+      // 其他寶可夢，也不影響「撤退免費」類特性/道具（那些在free短路那段就已經決定成0了，
+      // 不會走到這個floor判斷）
+      const fossilStadiumDiscount = (G.activeStadium?.id === 'FM-008' && pocketIsFossilEvolved(active)) ? 1 : 0;
+      const retreatFloor = fossilStadiumDiscount > 0 ? 1 : 0;
+      const cost = (pocketPassiveFreeRetreat(active, side, G, pocketIsFirstTurnFor(pRoom, G, role)) || toolRetreat.free) ? 0 : Math.max(retreatFloor,
+        (active.retreat || 0) - (side.retreatDiscountThisTurn || 0) - plazaDiscount - pocketPassiveBenchRetreatDiscount(active, side) - pocketPassiveSelfRetreatDiscount(active, side) - toolRetreat.discount - fossilStadiumDiscount + pocketPassiveRetreatIncrease(oppSide) + retreatTrapIncrease);
       if (active.energy.length < cost) { send(ws, { type: 'error', message: '能量不足，無法撤退' }); return; }
       if (cost > 0) {
         // 2026-08-12新增：主戰身上能量種類不只1種、且付完還會剩下能量時，讓玩家自選要棄哪些——
@@ -11399,6 +11406,15 @@ async function handleMessage(ws, msg) {
       // 身上的「下回合攻擊多付N無色能量」時限debuff，跟extraCost（特性常駐）同一個陣列疊加方向
       if (attacker.costIncreaseUntilTurn === G.turnNumber) {
         effectiveCost = [...effectiveCost, ...Array(attacker.costIncreaseAmount || 0).fill('Colorless')];
+      }
+      // 化石採掘場（FM-008）常駐效果，2026-08-23使用者新增：由化石進化而成的寶可夢（含二階，
+      // 見pocketIsFossilEvolved）招式所需能量-1，任何屬性都可以扣（不像Vigor Link/Future
+      // System等既有折扣只認Colorless）——優先扣有色屬性需求，對玩家最有利（無色需求本來就
+      // 最好付，留到最後才扣），最低仍需要1個能量，cost陣列只剩1個時不再繼續扣
+      if (G.activeStadium?.id === 'FM-008' && pocketIsFossilEvolved(attacker) && effectiveCost.length > 1) {
+        const coloredIdx = effectiveCost.findIndex(c => c !== 'Colorless');
+        const idx = coloredIdx >= 0 ? coloredIdx : 0;
+        effectiveCost = effectiveCost.filter((_, i) => i !== idx);
       }
       // Boltund/Veluza（2026-08-08新增）：條件成立時完全取代成固定的替代花費，不是疊加/扣減
       if (atk.name === 'Defiant Spark' && attacker.curHp < attacker.hp) effectiveCost = ['Lightning'];
