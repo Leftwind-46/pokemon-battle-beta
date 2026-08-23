@@ -4918,7 +4918,7 @@ const ATTACK_EFFECTS = {
   "If the Defending Pokémon tries to use an attack, your opponent flips a coin. If tails, that attack doesn't happen. This effect lasts until the Defending Pokémon leaves the Active Spot, and it doesn't stack.": (ctx) => { // Octillery：已知簡化——真實卡面「持續到離開主戰、不疊加」簡化成只鎖對手下一次攻擊嘗試，重用既有attackFlipLockUntilTurn機制
   if (ctx.defender) ctx.defender.attackFlipLockUntilTurn = ctx.G.turnNumber + 1;
 },
-  "Choose 1 of your Benched Pokémon's attacks, except any Pokémon ex, and use it as this attack. If this Pokémon doesn't have the necessary Energy to use that attack, this attack does nothing.": (ctx) => { // Ditto：借自己板凳任一隻的招式——2026-08-23使用者拿掉「ex寶可夢除外」限制（見POCKET_CARD_OVERRIDES['Ditto']改的顯示文字），這個dictionary key本身要維持跟真實印刷英文原文逐字一致（查表用），實際邏輯已經不再排除ex
+  "Choose 1 of your Benched Pokémon's attacks and use it as this attack. As long as you have 1 Energy of a type that attack requires, you can use it.": (ctx) => { // Ditto：借自己板凳任一隻的招式——2026-08-23使用者拿掉「ex寶可夢除外」限制。POCKET_CARD_OVERRIDES['Ditto']的attackEffect在載入時會把這張卡的atk.effect直接改寫成這個新文字，所以這個dictionary key必須跟override的新文字逐字一致才查得到（原本這裡誤留舊印刷文字當key，導致override生效後這個handler永遠對不上、Copy a Friend會靜默變成0傷害無效果——2026-08-23由pocket-card-edit skill新增的verify.js reachability檢查抓出來修正）
   const pool = ctx.side.bench.filter(p => p.attacks?.length);
   if (pool.length) ctx.needsChoice = { kind: 'pick_move', pool: 'ownBench', checkEnergy: true };
   else ctx.rawDamage = 0;
@@ -6135,13 +6135,14 @@ const ATTACK_EFFECTS = {
     pocketApplyDoubleType(ctx.attacker);
   },
 
-  // 招式借用（2026-08-07新增pick_move機制，見pocket_attack_choice handler的說明）——這個key
-  // 原本對應夢幻ex「基因駭入」的印刷文字，2026-08-23使用者要求整個換掉（見下面新的
-  // "Choose 1 of your opponent's Pokémon in the Active Spot..."那個key跟POCKET_CARD_OVERRIDES
-  // ['Mew ex']），所以舊key在Mew ex的effect被override覆蓋之後不會再被任何卡片的印刷effect
-  // 命中，是確定的死代碼——比照Hiker那次「stale duplicate要刪掉不是留著shadow」的教訓，直接
-  // 刪除不留著。
-  "Choose 1 of your opponent’s Pokémon’s attacks and use it as this attack. If this Pokémon doesn’t have the necessary Energy to use that attack, this attack does nothing.": ctx => {
+  // 招式借用（2026-08-07新增pick_move機制，見pocket_attack_choice handler的說明）——2026-08-23
+  // 曾誤判這個key是夢幻ex「基因駭入」的印刷文字、覆蓋掉之後變死代碼，動手刪除；但實際上這個
+  // 字串是A1百變怪「複製一切」(Copy Anything)真正的印刷文字（跟夢幻ex基因駭入的印刷文字是
+  // 兩個不同的字串，只是敘述模式很像），從沒被刪掉，只是POCKET_CARD_OVERRIDES['Ditto']的
+  // attackEffect在載入時會把這張卡的atk.effect改寫成新文字，導致key對不上舊文字、handler
+  // 永遠打不到——靜默造成Copy Anything變成0傷害無效果。key必須跟override的新文字逐字一致
+  // （2026-08-23由pocket-card-edit skill新增的verify.js reachability檢查抓出來修正）。
+  "Choose 1 of your opponent's Pokémon's attacks and use it as this attack. As long as you have 1 Energy of a type that attack requires, you can use it.": ctx => {
     ctx.rawDamage = 0;
     if (!ctx.defender?.attacks?.length) return;
     ctx.needsChoice = { kind: 'pick_move', checkEnergy: true };
