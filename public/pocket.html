@@ -2459,8 +2459,9 @@ function renderBoard() {
     // Memory Light（2026-08-08新增）：裝備者的可用招式清單改用server算好的effectiveAttacks
     // （包含前面所有進化階段的招式），沒裝備的寶可夢這個欄位跟attacks完全一樣
     atkRow.innerHTML = (you.active.effectiveAttacks || you.active.attacks || []).map((a, i) => {
-      const affordable = pocketCanPayCostClient(you.active, a.cost, you);
-      const costHtml = (a.cost || []).map(t => energyIconHtml(t)).join('');
+      const effCost = pocketEffectiveAttackCostClient(you.active, a, you, opponent, state);
+      const affordable = pocketCanPayCostClient(you.active, effCost, you);
+      const costHtml = effCost.map(t => energyIconHtml(t)).join('');
       return `<button class="attack-btn" ${affordable ? '' : 'disabled'} onclick="doAttack(${i})">
         <span>${zhName(a)}</span>
         <span class="attack-cost">${costHtml}</span>
@@ -2744,6 +2745,57 @@ function pocketCanPayCostClient(pokemon, cost, side) {
   for (const t in need) { if ((have[t] || 0) < need[t]) return false; have[t] -= need[t]; }
   const leftover = Object.values(have).reduce((a, b) => a + b, 0);
   return leftover >= colorlessNeed;
+}
+
+// FM-008鏡射用：POCKET_FOSSIL_IDS在下面才宣告，這個函式只在呼叫當下才讀取，宣告順序不影響
+function pocketIsFossilEvolvedClient(poke) {
+  if (!poke?.evolveFrom) return false;
+  const fossilNames = new Set([...POCKET_FOSSIL_IDS].map(id => cardById[id]?.name).filter(Boolean));
+  if (fossilNames.has(poke.evolveFrom)) return true;
+  const stage1 = ALL_CARDS.find(c => c.category === 'Pokemon' && c.name === poke.evolveFrom);
+  return !!(stage1 && fossilNames.has(stage1.evolveFrom));
+}
+
+// 攻擊費用的動態折扣/增加鏡射（2026-08-23新增）——修正使用者回報「化石採掘場在場、多刺菊石獸
+// 招式還是要3個能量」：根本原因是這個client端從一開始就只用a.cost（印刷原始費用）判斷按鈕能不
+// 能按、顯示的能量圖示也是印刷原始值，從沒套用過任何一種server端pocket_attack handler裡的
+// effectiveCost動態折扣/增加——不只FM-008，Future System/Barry/Vigor Link/En-fruits-iastic/
+// Oranguru的debuff這些既有來源全部都有同樣的顯示落後問題（只是先前沒人回報過），這次一次補齊，
+// 不是只補FM-008。跟pocketClientDamageBonus/pocketClientRetreatModifier同一種「手寫鏡射
+// server函式、需要手動保持同步」的既有模式，分支順序完全比照server.js pocket_attack handler
+// 裡effectiveCost那段（Sticky Membrane extraCost→Future System→Barry→Vigor Link→
+// En-fruits-iastic→Oranguru增加→FM-008折扣→Boltund/Veluza固定替代）。
+function pocketEffectiveAttackCostClient(attacker, atk, side, oppSide, state) {
+  const oppAbility = oppSide?.active?.abilities?.[0]?.name;
+  const extraCost = (oppAbility === 'Sticky Membrane' || oppAbility === 'Guard Dog Visage') ? ['Colorless'] : [];
+  let cost = [...(atk.cost || []), ...extraCost];
+  if (FUTURE_POKEMON_NAMES.has(attacker.name) && [side?.active, ...(side?.bench || [])].some(p => p?.abilities?.[0]?.name === 'Future System')) {
+    let removed = false;
+    cost = cost.filter(c => { if (!removed && c === 'Colorless') { removed = true; return false; } return true; });
+  }
+  if (side?.namedCostDiscountThisTurn?.names?.includes(attacker.name)) {
+    let toRemove = side.namedCostDiscountThisTurn.amount;
+    cost = cost.filter(c => { if (c === 'Colorless' && toRemove > 0) { toRemove--; return false; } return true; });
+  }
+  if (attacker.abilities?.[0]?.name === 'Vigor Link' && pocketClientHasArceus(side)) {
+    let removed = false;
+    cost = cost.filter(c => { if (!removed && c === 'Colorless') { removed = true; return false; } return true; });
+  }
+  if (attacker.abilities?.[0]?.name === "En-fruits-iastic" && attacker.tool) {
+    let removed = false;
+    cost = cost.filter(c => { if (!removed && c === 'Grass') { removed = true; return false; } return true; });
+  }
+  if (attacker.costIncreaseUntilTurn === state?.turnNumber) {
+    cost = [...cost, ...Array(attacker.costIncreaseAmount || 0).fill('Colorless')];
+  }
+  if (state?.activeStadium?.id === 'FM-008' && pocketIsFossilEvolvedClient(attacker) && cost.length > 1) {
+    const coloredIdx = cost.findIndex(c => c !== 'Colorless');
+    const idx = coloredIdx >= 0 ? coloredIdx : 0;
+    cost = cost.filter((_, i) => i !== idx);
+  }
+  if (atk.name === 'Defiant Spark' && attacker.curHp < attacker.hp) cost = ['Lightning'];
+  if (atk.name === 'Shedding Spiral' && side?.deckCount === 0) cost = ['Water'];
+  return cost;
 }
 
 function doAttack(i) { wsSend({ type: 'pocket_attack', attackIndex: i }); }
@@ -3172,7 +3224,13 @@ function pocketComputeRetreatCostClient(card, you, opponent, state) {
     || (ability === 'Fantastical Floating' && hasLatias)
     || (ability === 'Surge Surfer' && !!state.activeStadium)
     || (ability === 'Wimp Out' && myFirstTurn)
-    || [you.active, ...(you.bench || [])].some(p => p?.abilities?.[0]?.name === 'Fluffy Flight');
+    || [you.active, ...(you.bench || [])].some(p => p?.abilities?.[0]?.name === 'Fluffy Flight')
+    // 2026-08-23修正：尼多后「母儀」（Maternal Grace）漏在這裡——這個函式才是真正決定撤退
+    // 按鈕能不能按/顯示多少費用的地方，跟pocketClientRetreatModifier（只負責畫🔄徽章的另一份
+    // 獨立鏡射）不是同一個函式，2026-08-19新增Maternal Grace時只補了徽章那份，這份漏掉了，
+    // 導致徽章正確顯示「🔄免費」但按鈕本身還是照印刷費用算、能量不夠就被disable（使用者回報
+    // 「用憤怒之湖進化了尼多后，可是戰鬥場上的尼多王卻無法撤退」）
+    || (card.name === 'Nidoking' && [you.active, ...(you.bench || [])].some(p => p?.abilities?.[0]?.name === 'Maternal Grace'));
   const toolId = card.tool?.id;
   const toolFree = toolId === 'B2a-087' && card.stage === 'Stage2';
   // 2026-08-11修正：Small Balloon(B3b-064，基礎階-1)原本沒列進這份client試算，跟server端

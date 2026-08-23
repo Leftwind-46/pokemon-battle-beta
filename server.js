@@ -4762,6 +4762,11 @@ function pocketViewFor(G, role) {
       // 導致畫面上顯示/擋下的撤退成本沒扣到這1點折扣，玩家會覺得「明明用了X Speed，還是撤退不了」。
       retreatDiscountThisTurn: G[role].retreatDiscountThisTurn || 0,
       stadiumUsedThisTurn: G[role].stadiumUsedThisTurn || false, // Mesagoza
+      // 2026-08-23修正：同一種「算好了折扣、但沒送進view」的缺口——Barry的
+      // namedCostDiscountThisTurn從沒被送過，導致client端完全沒辦法正確預測攻擊費用折扣
+      // （不只擋Barry自己，這次順便補齊整條effectiveCost鏈的client鏡射，見pocket.html的
+      // pocketEffectiveAttackCostClient）
+      namedCostDiscountThisTurn: G[role].namedCostDiscountThisTurn || null,
     },
     // 2026-08-15新增：對手當前能量區（pendingEnergy，這回合可以拿去裝的那顆能量）是公開資訊，
     // 跟牌庫/棄牌堆一樣雙方都看得到——真實遊戲畫面上對手的能量區本來就是可見的。previewEnergy
