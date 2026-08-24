@@ -469,34 +469,17 @@
      zoom工具在這個瀏覽器分頁的座標/DPR換算問題（devicePixelRatio量到2），不是CSS真的算錯，
      不要再單憑screenshot外觀去回頭改這個數字 */
   .card-patch-trainer-effect-long { height:21%; font-size:0.52rem; }
-  /* 2026-08-23新增：招式效果文字疊圖層——使用者反饋「應該要像效果、特性那樣蓋在圖層上」，
-     不接受只有卡片詳情頁文字列表裡的badge標記（見attack-patched那組class，繼續保留當作
-     沒校準到的版型的退場機制）。招式效果文字跟trainer-effect一樣是「文字+inline能量圖示」
-     混雜注入，用同一套row+flex-wrap解法（見上面.card-patch-trainer-effect那段2026-08-18
-     的說明，這裡不重複）。
-     尺寸（寬/高/字級）統一用一般版Basic、無印刷特性、單一招式卡（實測A1-205/B1a-055
-     百變怪，canvas像素掃描抓文字色塊上下邊界，兩張不同系列的百變怪印刷版位完全一致）量出
-     來的框：招式名稱列60%~63.27%、效果文字本身64%~76.61%，取63.5%~77%留邊界，換算成
-     left:6% width:88% height:13.5%。使用者明確要求「不論如何都直接照那個大小蓋過去」——
-     原本針對夢幻ex(A1a-032)的Psyshot空白區間另外校準了一個縮小版(5.8%高/0.5rem字)，
-     使用者反饋要拿掉這種個案客製化，情願疊圖框蓋到隔壁「Genome Hacking」的印刷招式名稱
-     （2026-08-23再次確認：接受這種重疊换取全卡片統一的簡單規則）。只有「top」還是要依
-     卡片版型/第幾個招式各自定位（招式在卡面上的實際垂直位置本來就不一樣，這無法統一），
-     用inline style帶入，寬/高/字級全部共用這一個class不再分版本。 */
+  /* 2026-08-24三修：招式效果文字疊圖層——放棄在圖層裡塞入新效果文字（使用者反饋「還是沒
+     改好」，多次嘗試合併框/加高框都還是會遇到文字塞不下或位置不對），改成單純遮蓋：只蓋住
+     卡面上印刷的舊招式資訊，框內不放文字，真正的新效果文字只在卡片詳情頁下方的招式列表顯示
+     （見showCardDetail，那邊沒有版面限制、內容本來就是正確的）。座標依卡片各自校準，見
+     buildCardPatchOverlay()裡的說明（目前只量測過夢幻ex A1a-032的「基因駭入」+百變怪單招式
+     版型）。left:6% width:88%維持跟改版前一樣的統一寬度，height依各校準座標各自帶入。 */
   .card-patch-attack-effect {
-    position:absolute; left:6%; width:88%; height:13.5%;
+    position:absolute; left:6%; width:88%;
     background:rgba(8,8,20,0.95); border:2px solid #ffca28; border-radius:9px;
-    color:#fff6cf; display:flex; align-items:center; justify-content:center; flex-wrap:wrap;
-    text-align:center; padding:0.25rem 0.6rem; overflow:hidden; box-shadow:0 0 10px rgba(255,202,40,0.4);
-    font-size:0.6rem; line-height:1.22;
+    box-shadow:0 0 10px rgba(255,202,40,0.4);
   }
-  /* 2026-08-23新增：同一張卡改了不只一個招式時合併成一個框（見buildCardPatchOverlay()的
-     patched.length>1分支）——column直向排列每個招式的名稱+效果文字，跟.card-patch-ability
-     同一套.cpn/.cpe視覺（招式名稱用跟特性名稱一樣的粗體小標籤）。top/height由JS依實際涵蓋
-     的招式數量算出來蓋掉base的13.5%，這裡不用再設 */
-  .card-patch-attack-effect-merged { flex-direction:column; justify-content:flex-start; gap:0.15rem; }
-  .card-patch-attack-effect-merged .cpn { font-weight:800; font-size:0.66rem; }
-  .card-patch-attack-effect-merged .cpe { font-size:0.58rem; line-height:1.2; margin-bottom:0.1rem; }
   .card-detail-panel h3 { font-size:1.1rem; margin-bottom:0.3rem; }
   .card-detail-panel .detail-meta { color:var(--muted); font-size:0.78rem; margin-bottom:0.8rem; }
   .card-detail-panel .detail-attack { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:0.6rem; margin-bottom:0.5rem; font-size:0.8rem; }
@@ -1995,68 +1978,45 @@ function buildCardPatchOverlay(card) {
     const icons = Array(patch.retreat.new).fill(0).map(() => energyIconHtml('Colorless', false, 'energy-icon-inline')).join('');
     html += `<div class="card-patch-retreat">${icons}</div>`;
   }
-  // 2026-08-23新增：招式效果文字改動——蓋住卡圖上印刷的舊效果文字。尺寸統一用
-  // .card-patch-attack-effect這一個class（見上面CSS的說明），只有top/height（這些內容在
-  // 卡面上的實際垂直範圍）依版型/招式數量個別給，使用者明確要求「不論如何都直接照那個大小
-  // 蓋過去」，不再依「這格空間夠不夠」客製化尺寸——寧可蓋到隔壁招式的印刷名稱也維持統一。
-  // 2026-08-23再修：同一張卡改了不只一個招式時（夢幻ex兩招都改），原本一招一個框、疊圖層
-  // 分開蓋，使用者要求「可以合併起來修改，不需要分開蓋圖層」——改成整張卡只出一個框，
-  // 涵蓋從第一個被改招式的top到最後一個招式底部的整段範圍，框裡依序列出每個被改招式的
-  // 名稱+效果文字（跟.card-patch-ability同一套cpn/cpe直向排列）。只有單一招式被改時維持
-  // 原本「只顯示效果文字、不重複顯示招式名稱」的簡單版面（本來就只有一招，不用特別標名字）。
-  // top/height座標只實測過兩種版型（一般版Basic無特性單招式；ex版Basic無特性雙招式），對不上
-  // 這兩種版型的卡就不畫圖層疊加，純靠showCardDetail下方文字列表的.attack-patched badge
-  // 標記（原本的退場機制，繼續保留）。特性+招式同卡一起改的組合目前還沒有實際卡片用到，
-  // 沒有可以實測的印刷座標，先不合併特性框——等真的有這種卡再量。
+  // 2026-08-24三修：使用者反饋「夢幻修改的部分還是沒改好」——放棄先前在疊圖層裡塞入新招式
+  // 效果文字的做法（合併框/加高框都還是會遇到文字塞不下或位置對不上的問題），改成單純
+  // 「遮蓋」：疊圖層只負責蓋住卡面上印刷的舊招式資訊，框裡不放任何文字，真正的新效果文字
+  // 只在下方showCardDetail的招式列表顯示（那邊沒有版面限制，內容本來就一直是正確的新文字，
+  // 見patchedAttackNames/.attack-patched那組「⚠️已修改」標記）。
+  // 座標用canvas像素掃描量測真實A1a-032夢幻ex卡圖（600x825）：「精神射擊」原印刷完全沒有
+  // 效果文字（招式名稱列57.94~61.70%結束後就是空白，沒東西可遮），這一招不疊圖層；
+  // 「基因駭入」原印刷名稱+能量圖示列在68.24~70.67%、效果文字兩行落在72.24~77.45%，這一招
+  // 同時改了能量消耗（attackCost）跟效果文字，兩者一起用同一個框蓋掉（68%~78.2%整段，
+  // 含招式名稱本身——名稱雖然沒變，但沒有精準只蓋能量圖示的辦法，寧可連著名稱一起蓋掉維持
+  // 單一矩形，不做更複雜的分段遮蓋）。
+  // 只有這兩張實測過座標的卡才會出現圖層；其他版型/招式沒有校準座標，跟以前一樣完全不疊
+  // 圖層，純靠下方文字列表的.attack-patched badge。
   const patchedAttacks = [];
   if (patch.attackEffect?.length) {
     const noAbility = !card.abilities?.length;
     for (const ae of patch.attackEffect) {
       const idx = (card.attacks || []).findIndex(a => a.name === ae.name);
       if (idx < 0) continue;
-      let top = null;
+      let box = null;
       if (!card.ex && card.stage === 'Basic' && noAbility && card.attacks.length === 1 && idx === 0) {
-        top = 63.5;
-      } else if (card.ex && card.stage === 'Basic' && noAbility && card.attacks.length === 2) {
-        // 2026-08-24再修：第一招top從62改成58——原本62是卡面上第一招印刷名稱列（57.94~61.70%）
-        // 「結束後」的空白區起點，沒把印刷名稱列本身涵蓋進框內，導致合併框可用高度不夠、
-        // 夢幻ex兩招合併後的文字塞不下。改成58涵蓋進印刷名稱列，讓合併框（top取兩招最小值）
-        // 多出約4%高度，底部(=第二招top+13.5)不受影響、不會更逼近弱點列。
-        top = idx === 0 ? 58 : 72;
+        box = { top: 63.5, height: 13.5 };
+      } else if (card.ex && card.stage === 'Basic' && noAbility && card.attacks.length === 2 && idx === 1) {
+        box = { top: 68, height: 10.2 };
       }
-      if (top != null) patchedAttacks.push({ atk: card.attacks[idx], top });
+      if (box) patchedAttacks.push({ name: card.attacks[idx].name, ...box });
     }
   }
-  // 2026-08-24新增：同一招同時被attackCost跟attackEffect改到時（夢幻ex「基因駭入」，能量
-  // 消耗跟效果文字一起改），不要再另外疊一個.card-patch-attack-cost——那個框的座標是校準給
-  // 尼多王那種「單招式、無特性」版型的固定位置，套在這裡完全對不上（基因駭入是第2招）。
-  // 改成把新能量圖示直接插進這一招在合併框裡的.cpn名稱列前面，因為那個框本來就會蓋住這一招
-  // 印刷的能量圖示列（見上面top/height涵蓋範圍），圖示不需要另外校準位置。
-  const costMergedIntoAttack = patch.attackCost && patchedAttacks.some(p => p.atk.name === patch.attackCost.name);
-  function attackCostIconsHtml() {
-    return patch.attackCost.new.map(t => energyIconHtml(t, false, 'energy-icon-inline')).join('');
-  }
-  if (patchedAttacks.length === 1 && !costMergedIntoAttack) {
-    // 沒有能量花費一起改時維持原本最簡單的版面——純效果文字，不額外標招式名稱
-    // （本來就只有一招，不用特別標名字，跟showCardDetail的原始行為一致，不因為重構動它）
-    html += `<div class="card-patch-attack-effect" style="top:${patchedAttacks[0].top}%">${zhEffect(patchedAttacks[0].atk)}</div>`;
-  } else if (patchedAttacks.length === 1 && costMergedIntoAttack) {
-    const p = patchedAttacks[0];
-    const inner = `<div class="cpn">${attackCostIconsHtml()} ${zhName(p.atk)}</div><div class="cpe">${zhEffect(p.atk)}</div>`;
-    html += `<div class="card-patch-attack-effect card-patch-attack-effect-merged" style="top:${p.top}%">${inner}</div>`;
-  } else if (patchedAttacks.length > 1) {
-    const top = Math.min(...patchedAttacks.map(p => p.top));
-    const height = Math.max(...patchedAttacks.map(p => p.top)) + 13.5 - top;
-    const inner = patchedAttacks.map(p => {
-      const costIcons = costMergedIntoAttack && patch.attackCost.name === p.atk.name ? `${attackCostIconsHtml()} ` : '';
-      return `<div class="cpn">${costIcons}${zhName(p.atk)}</div><div class="cpe">${zhEffect(p.atk)}</div>`;
-    }).join('');
-    html += `<div class="card-patch-attack-effect card-patch-attack-effect-merged" style="top:${top}%;height:${height}%">${inner}</div>`;
+  for (const box of patchedAttacks) {
+    html += `<div class="card-patch-attack-effect" style="top:${box.top}%;height:${box.height}%"></div>`;
   }
   // 2026-08-19新增：招式能量花費改動——蓋住卡圖上印刷的舊能量圖示，換成新花費的圖示。
-  // 只在這一招沒有被上面的attackEffect圖層一起蓋到時才用這個獨立框（見costMergedIntoAttack）
-  if (patch.attackCost && !costMergedIntoAttack) {
-    html += `<div class="card-patch-attack-cost">${attackCostIconsHtml()}</div>`;
+  // 如果這一招同時被上面的遮蓋框涵蓋到（例如基因駭入，遮蓋範圍本來就含能量圖示列），不用
+  // 再疊一個獨立框，避免蓋兩層；否則用.card-patch-attack-cost這個獨立位置（校準給尼多王那種
+  // 單招式、無特性版型，只有沒跟attackEffect疊在一起改的招式才會走到這裡）
+  const costCoveredByEffectMask = patch.attackCost && patchedAttacks.some(p => p.name === patch.attackCost.name);
+  if (patch.attackCost && !costCoveredByEffectMask) {
+    const icons = patch.attackCost.new.map(t => energyIconHtml(t, false, 'energy-icon-inline')).join('');
+    html += `<div class="card-patch-attack-cost">${icons}</div>`;
   }
   return html;
 }
