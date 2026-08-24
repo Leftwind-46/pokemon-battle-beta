@@ -2018,7 +2018,11 @@ function buildCardPatchOverlay(card) {
       if (!card.ex && card.stage === 'Basic' && noAbility && card.attacks.length === 1 && idx === 0) {
         top = 63.5;
       } else if (card.ex && card.stage === 'Basic' && noAbility && card.attacks.length === 2) {
-        top = idx === 0 ? 62 : 72;
+        // 2026-08-24再修：第一招top從62改成58——原本62是卡面上第一招印刷名稱列（57.94~61.70%）
+        // 「結束後」的空白區起點，沒把印刷名稱列本身涵蓋進框內，導致合併框可用高度不夠、
+        // 夢幻ex兩招合併後的文字塞不下。改成58涵蓋進印刷名稱列，讓合併框（top取兩招最小值）
+        // 多出約4%高度，底部(=第二招top+13.5)不受影響、不會更逼近弱點列。
+        top = idx === 0 ? 58 : 72;
       }
       if (top != null) patchedAttacks.push({ atk: card.attacks[idx], top });
     }

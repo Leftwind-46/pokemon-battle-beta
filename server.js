@@ -7140,19 +7140,23 @@ const TRAINER_EFFECTS = {
     ctx.needsChoice = { kind: 'pick_target', pool: 'ownAll', eligibleUids: targets.map(p => p.uid), action: 'attachEnergy', energyTypes: ['Colorless', 'Psychic'], noEndTurn: true };
     return null;
   },
-  'A3-149': (ctx, msg) => { // Ilima：己方1隻身上有傷的無色寶可夢收回手牌（若是主戰，需要板凳補位）
+  'A3-149': (ctx, msg) => { // Ilima：己方1隻身上有傷的無色寶可夢收回手牌（若是主戰，需要板凳補位——
+    // 2026-08-24修正：原本自動shift()板凳第一隻，使用者回報應該讓玩家自選要派誰上場，改用跟
+    // Parasol Lady(B3-152)/Professor Turo(B3a-073)同一套pocketEnterForcedSwitch強制換人流程）
     const target = [ctx.side.active, ...ctx.side.bench].find(p => p && p.uid === msg.target);
     if (!target || !(target.types || []).includes('Colorless') || target.curHp >= target.hp) {
       return '目標必須是身上有傷的無色寶可夢';
     }
-    if (ctx.side.active?.uid === target.uid) {
+    const wasActive = ctx.side.active?.uid === target.uid;
+    if (wasActive) {
       if (!ctx.side.bench.length) return '沒有板凳寶可夢可以補位，無法使用';
-      ctx.side.active = ctx.side.bench.shift();
+      ctx.side.active = null;
     } else {
       ctx.side.bench = ctx.side.bench.filter(p => p.uid !== target.uid);
     }
     target.curHp = target.hp; target.energy = []; target.status = null; target.poisoned = false; target.burned = false;
     ctx.side.hand.push(target);
+    if (wasActive) pocketEnterForcedSwitch(ctx.G, ctx.role, 'noEndTurn');
     return null;
   },
   'A4-157': (ctx, msg) => { // Lyra：主戰必須有傷，跟玩家指定的板凳互換
@@ -12162,7 +12166,21 @@ async function handleMessage(ws, msg) {
         let dmg = parseInt(String(borrowedAtk.damage || '0').replace(/\D+/g, ''), 10) || 0;
         const weak = (defender.weaknesses || []).find(w => (attacker.types || []).includes(w.type));
         if (weak) dmg += parseInt(String(weak.value).replace(/\D+/g, ''), 10) || 0;
+        // 2026-08-24修正：借來的招式如果本身有效果文字（例如超級阿勃梭魯ex「黑暗之爪」的
+        // 「對手公開手牌，選1張支援者棄掉」），這裡原本完全沒呼叫ATTACK_EFFECTS，只套用了
+        // 固定傷害數字，效果被靜默略過——使用者回報「用複製一切借超級阿勃梭魯ex的招式，
+        // 沒辦法正常攻擊並發動效果」。修法：比照真正攻擊流程呼叫對應的effect handler，讓它
+        // 能調整rawDamage/skipMainDamage，或設下需要玩家再選一次的needsChoice（黑暗之爪就是
+        // 這種——沿用跟一般攻擊同一套deferredKO暫停機制，見上面ctx.needsChoice那段的說明）。
+        // 跟原本一樣不重跑完整的傷害加成/減免乘法鏈，那段本來就是這個分支刻意簡化掉的範圍
+        // （見這個function開頭的註解），不在這次修正內。
+        const borrowEffectFn = defender.tool?.id !== 'B4-149' && borrowedAtk.effect && ATTACK_EFFECTS[borrowedAtk.effect];
+        const borrowCtx = { G, role, op, side, oppSide, attacker, defender, atk: borrowedAtk, rawDamage: dmg, selfDamage: 0 };
+        if (borrowEffectFn) borrowEffectFn(borrowCtx);
+        dmg = borrowCtx.skipMainDamage ? 0 : borrowCtx.rawDamage;
         defender.curHp = Math.max(0, defender.curHp - dmg);
+        if (borrowCtx.selfDamage) attacker.curHp = Math.max(0, attacker.curHp - borrowCtx.selfDamage);
+        if (borrowCtx.peekOpponentHand) send(ws, { type: 'pocket_peek', title: '對手手牌', cards: oppSide.hand, interactive: !!borrowCtx.needsChoice });
         // 夢幻ex「基因駭入」：打完之後棄掉「被借招式的那隻」身上所有能量——如果借的是棄牌區裡
         // 已經離場的寶可夢，牠身上的energy陣列本來就跟遊戲進行無關，這裡照樣清空不會有副作用；
         // 如果借的是還在場上(主戰/板凳)的寶可夢，這才是真正有意義的懲罰。能量進oppSide的
@@ -12173,11 +12191,25 @@ async function handleMessage(ws, msg) {
         }
         pocketResolveBenchKOs(G, oppSide, role);
         if (pocketCheckWin(G)) { G.pendingChoice = null; pocketBroadcastState(pRoom); return; }
-        if (oppSide.active?.uid === defender.uid && defender.curHp <= 0) {
-          pocketResolveActiveKO(G, op);
-          G.pendingChoice = null;
-          pocketBroadcastState(pRoom);
-          return;
+        {
+          const borrowedDefenderDied = oppSide.active?.uid === defender.uid && defender.curHp <= 0;
+          if (borrowCtx.needsChoice) {
+            G.phase = 'attack_choice';
+            G.pendingChoice = {
+              role, ...borrowCtx.needsChoice,
+              deferredKO: borrowedDefenderDied
+                ? { attackerDied: false, defenderDied: true, awardPointForDefender: true, attackerRole: role, defenderRole: op }
+                : null,
+            };
+            pocketBroadcastState(pRoom);
+            return;
+          }
+          if (borrowedDefenderDied) {
+            pocketResolveActiveKO(G, op);
+            G.pendingChoice = null;
+            pocketBroadcastState(pRoom);
+            return;
+          }
         }
       } else if (pending.kind === 'pick_target_multi') {
         // 「Choose N of your Benched Pokémon」——跟pick_target不同的是要選N隻「不同的」，
