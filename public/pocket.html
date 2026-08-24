@@ -1988,11 +1988,6 @@ function buildCardPatchOverlay(card) {
     const abModClass = card.stage === 'Basic' ? 'card-patch-ability-mod' : 'card-patch-ability-mod card-patch-ability-mod-evo';
     if (ab) html += `<div class="${abModClass}"><div class="cpn">特性：${zhName(ab)}</div><div class="cpe">${zhEffect(ab)}</div></div>`;
   }
-  // 2026-08-19新增：招式能量花費改動——蓋住卡圖上印刷的舊能量圖示，換成新花費的圖示
-  if (patch.attackCost) {
-    const icons = patch.attackCost.new.map(t => energyIconHtml(t, false, 'energy-icon-inline')).join('');
-    html += `<div class="card-patch-attack-cost">${icons}</div>`;
-  }
   // 2026-08-20改版：撤退費用改動——蓋住卡圖上印刷的舊撤退圖示，畫真正的無色能量圖示
   // （跟attackCost同一種畫法）。改成0時Array(0)產生空陣列，join後是空字串，框內自然
   // 什麼都不畫——使用者要求「讓撤退區域變成空白」，不要顯示「撤退0」文字
@@ -2013,9 +2008,9 @@ function buildCardPatchOverlay(card) {
   // 這兩種版型的卡就不畫圖層疊加，純靠showCardDetail下方文字列表的.attack-patched badge
   // 標記（原本的退場機制，繼續保留）。特性+招式同卡一起改的組合目前還沒有實際卡片用到，
   // 沒有可以實測的印刷座標，先不合併特性框——等真的有這種卡再量。
+  const patchedAttacks = [];
   if (patch.attackEffect?.length) {
     const noAbility = !card.abilities?.length;
-    const patched = [];
     for (const ae of patch.attackEffect) {
       const idx = (card.attacks || []).findIndex(a => a.name === ae.name);
       if (idx < 0) continue;
@@ -2025,16 +2020,39 @@ function buildCardPatchOverlay(card) {
       } else if (card.ex && card.stage === 'Basic' && noAbility && card.attacks.length === 2) {
         top = idx === 0 ? 62 : 72;
       }
-      if (top != null) patched.push({ atk: card.attacks[idx], top });
+      if (top != null) patchedAttacks.push({ atk: card.attacks[idx], top });
     }
-    if (patched.length === 1) {
-      html += `<div class="card-patch-attack-effect" style="top:${patched[0].top}%">${zhEffect(patched[0].atk)}</div>`;
-    } else if (patched.length > 1) {
-      const top = Math.min(...patched.map(p => p.top));
-      const height = Math.max(...patched.map(p => p.top)) + 13.5 - top;
-      const inner = patched.map(p => `<div class="cpn">${zhName(p.atk)}</div><div class="cpe">${zhEffect(p.atk)}</div>`).join('');
-      html += `<div class="card-patch-attack-effect card-patch-attack-effect-merged" style="top:${top}%;height:${height}%">${inner}</div>`;
-    }
+  }
+  // 2026-08-24新增：同一招同時被attackCost跟attackEffect改到時（夢幻ex「基因駭入」，能量
+  // 消耗跟效果文字一起改），不要再另外疊一個.card-patch-attack-cost——那個框的座標是校準給
+  // 尼多王那種「單招式、無特性」版型的固定位置，套在這裡完全對不上（基因駭入是第2招）。
+  // 改成把新能量圖示直接插進這一招在合併框裡的.cpn名稱列前面，因為那個框本來就會蓋住這一招
+  // 印刷的能量圖示列（見上面top/height涵蓋範圍），圖示不需要另外校準位置。
+  const costMergedIntoAttack = patch.attackCost && patchedAttacks.some(p => p.atk.name === patch.attackCost.name);
+  function attackCostIconsHtml() {
+    return patch.attackCost.new.map(t => energyIconHtml(t, false, 'energy-icon-inline')).join('');
+  }
+  if (patchedAttacks.length === 1 && !costMergedIntoAttack) {
+    // 沒有能量花費一起改時維持原本最簡單的版面——純效果文字，不額外標招式名稱
+    // （本來就只有一招，不用特別標名字，跟showCardDetail的原始行為一致，不因為重構動它）
+    html += `<div class="card-patch-attack-effect" style="top:${patchedAttacks[0].top}%">${zhEffect(patchedAttacks[0].atk)}</div>`;
+  } else if (patchedAttacks.length === 1 && costMergedIntoAttack) {
+    const p = patchedAttacks[0];
+    const inner = `<div class="cpn">${attackCostIconsHtml()} ${zhName(p.atk)}</div><div class="cpe">${zhEffect(p.atk)}</div>`;
+    html += `<div class="card-patch-attack-effect card-patch-attack-effect-merged" style="top:${p.top}%">${inner}</div>`;
+  } else if (patchedAttacks.length > 1) {
+    const top = Math.min(...patchedAttacks.map(p => p.top));
+    const height = Math.max(...patchedAttacks.map(p => p.top)) + 13.5 - top;
+    const inner = patchedAttacks.map(p => {
+      const costIcons = costMergedIntoAttack && patch.attackCost.name === p.atk.name ? `${attackCostIconsHtml()} ` : '';
+      return `<div class="cpn">${costIcons}${zhName(p.atk)}</div><div class="cpe">${zhEffect(p.atk)}</div>`;
+    }).join('');
+    html += `<div class="card-patch-attack-effect card-patch-attack-effect-merged" style="top:${top}%;height:${height}%">${inner}</div>`;
+  }
+  // 2026-08-19新增：招式能量花費改動——蓋住卡圖上印刷的舊能量圖示，換成新花費的圖示。
+  // 只在這一招沒有被上面的attackEffect圖層一起蓋到時才用這個獨立框（見costMergedIntoAttack）
+  if (patch.attackCost && !costMergedIntoAttack) {
+    html += `<div class="card-patch-attack-cost">${attackCostIconsHtml()}</div>`;
   }
   return html;
 }

@@ -3672,6 +3672,11 @@ const POCKET_CARD_OVERRIDES = {
   // 並加上打完之後棄掉被借那隻身上所有能量。實際邏輯見ATTACK_EFFECTS裡這兩個新增的key
   // （新的effect文字本身就是查表用的key，這裡只是把它們寫進卡片資料）。
   'Mew ex': {
+    // 2026-08-24修正：基因駭入改能量消耗(三無→一超二無)+拿掉「棄掉該寶可夢身上所有的能量」
+    // 那句——使用者給的新描述完整重述了整個招式敘述、沒再提到棄能量，AskUserQuestion確認過
+    // 「拿掉，完全照新描述」，不是保留舊句子的部分delta。attackCost只支援單一招式，Psyshot的
+    // 費用（一超/Psychic）跟印刷值一樣沒變，不用列進去。
+    attackCost: { name: 'Genome Hacking', cost: ['Psychic', 'Colorless', 'Colorless'] },
     attackEffect: [
       {
         name: 'Psyshot',
@@ -3680,8 +3685,8 @@ const POCKET_CARD_OVERRIDES = {
       },
       {
         name: 'Genome Hacking',
-        effect: "Choose 1 of your opponent's Pokémon in the Active Spot, on the Bench, or in the discard pile, and use 1 of its attacks as this attack. Then, discard all Energy from that Pokémon.",
-        effect_zh: '選擇對手主戰、板凳，或棄牌區裡的1隻寶可夢的1個招式，作為這個招式使用。然後，棄掉該寶可夢身上所有的能量。',
+        effect: "Choose 1 of your opponent's Pokémon in the Active Spot, on the Bench, or in the discard pile, and use 1 of its attacks as this attack.",
+        effect_zh: '選擇對手主戰、板凳，或棄牌區裡的1隻寶可夢的1個招式，作為這個招式使用。',
       },
     ],
   },
@@ -4346,6 +4351,23 @@ function pocketRunCheckup(G) {
       if (G.phase === 'forced_switch' || G.phase === 'done') return true;
     }
   }
+  // 2026-08-24修正：魔幻假面喵(Meowscarada)/太古盔甲(Armaldo)「選對手主戰或板凳1個位置」的delayedDamage
+  // 目標池本來就含板凳（見ATTACK_EFFECTS那兩條的pool:'oppAll'），但這段checkup從Mismagius時期
+  // 就只檢查endingSide.active，從沒擴充到板凳——玩家選板凳當目標時，延遲傷害/擊倒的flag確實
+  // 設上去了，但checkup永遠不會去看板凳，等於選板凳=效果直接消失，除非那隻寶可夢剛好在引爆前
+  // 被換上主戰（巧合才會生效）。使用者回報「幫我確認太古盔甲的招式會不會有問題」時發現，同一個
+  // 機制被Meowscarada先踩過但沒人發現——這裡一次補齊，掃board雙邊都是active的檢查邏輯（含
+  // pocketSafeguardImmune/delayedDamageExOrigin），板凳額外呼叫pocketResolveBenchKOs+
+  // pocketCheckWin（active那段靠pocketResolveActiveKO內部處理勝負，板凳沒有等價的單隻KO
+  // 函式，用既有的批次版本）
+  for (const p of endingSide.bench) {
+    if (p.delayedDamageUntilTurn !== G.turnNumber) continue;
+    if (!pocketSafeguardImmune(p, { ex: p.delayedDamageExOrigin })) {
+      p.curHp = Math.max(0, p.curHp - (p.delayedDamageAmount || 0));
+    }
+  }
+  pocketResolveBenchKOs(G, endingSide, otherRoleForCheckup);
+  if (pocketCheckWin(G)) return true;
   // Revenge系旗標只維持「緊接著的這一整回合」——endingSide的回合真正結束時清掉，這樣旗標從
   // 「上回合被打死」設成true，到「這回合結束」為止都是true，剛好涵蓋"your opponent's last turn"
   // 語意的那一整個回合，不會一直殘留到更之後的回合
@@ -6149,13 +6171,15 @@ const ATTACK_EFFECTS = {
   },
   // 夢幻ex「基因駭入」新效果（2026-08-23使用者新增，POCKET_CARD_OVERRIDES['Mew ex']改過的
   // 印刷文字）：目標池從原本只有對手主戰，擴大成對手主戰+板凳+棄牌區——見上面pick_move
-  // resolution新增的'oppAllZones'池。棄牌區裡的寶可夢也能被借（借完再棄光牠的能量，即使
-  // 是棄牌區裡的卡，這個動作本身沒有額外效果，只是統一走同一套discardSourceEnergy邏輯）。
-  "Choose 1 of your opponent's Pokémon in the Active Spot, on the Bench, or in the discard pile, and use 1 of its attacks as this attack. Then, discard all Energy from that Pokémon.": ctx => {
+  // resolution新增的'oppAllZones'池。2026-08-24再修：使用者給的完整新描述拿掉了「棄掉該
+  // 寶可夢身上所有的能量」那句（AskUserQuestion確認過是刻意拿掉，不是delta疊加），連帶
+  // key本身也要跟著POCKET_CARD_OVERRIDES的新effect文字換掉，否則跟Ditto那次一樣變成
+  // 查表對不上的死key——同時拿掉discardSourceEnergy，借完招式不再棄對方能量。
+  "Choose 1 of your opponent's Pokémon in the Active Spot, on the Bench, or in the discard pile, and use 1 of its attacks as this attack.": ctx => {
     ctx.rawDamage = 0;
     const pool = [ctx.oppSide.active, ...ctx.oppSide.bench, ...ctx.oppSide.discard].filter(p => p && p.category === 'Pokemon' && p.attacks?.length);
     if (!ctx.oppSide.active || !pool.length) return;
-    ctx.needsChoice = { kind: 'pick_move', pool: 'oppAllZones', discardSourceEnergy: true };
+    ctx.needsChoice = { kind: 'pick_move', pool: 'oppAllZones' };
   },
   // 夢幻ex「精神射擊」新效果（2026-08-23使用者新增）：原本這招沒有任何效果文字，純20傷害——
   // 使用者要求「加上」查看對手手牌+可選發動1張支援者卡效果，base傷害不受影響（不用歸零
