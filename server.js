@@ -3680,8 +3680,10 @@ const POCKET_CARD_OVERRIDES = {
     attackEffect: [
       {
         name: 'Psyshot',
+        // 2026-08-24修正：中文顯示文字縮短——英文effect（ATTACK_EFFECTS查表用的key）維持不變，
+        // 只改effect_zh，邏輯完全沒動，純顯示文字精簡
         effect: "You may look at your opponent's hand. If you do, you may choose a Supporter card there and use its effect (as if you played it).",
-        effect_zh: '你可以查看對手的手牌。如果你這麼做，你可以選擇其中1張支援者卡，發動該卡的效果（視為你自己使用這張卡）。',
+        effect_zh: '查看對手手牌，可以選擇其中一張支援者卡的效果發動。',
       },
       {
         name: 'Genome Hacking',
