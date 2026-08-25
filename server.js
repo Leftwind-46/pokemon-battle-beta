@@ -12037,7 +12037,13 @@ async function handleMessage(ws, msg) {
           G.pendingChoice = null;
           G.phase = 'active';
           if (pocketResolveDeferredKO(G, pRoom, deferredKO)) return;
-          pocketAdvanceTurn(G);
+          // 2026-08-25修正：使用者回報「小銀(A4-158)用完回合不應該結束」——這個oppHand分支
+          // 原本一律呼叫pocketAdvanceTurn，是為了攻擊觸發的discard/shuffleIntoDeck效果寫的
+          // （那些沒設noEndTurn，攻擊本來就該結束回合，見7469行同一個說明），但小銀是支援者卡
+          // （TRAINER_EFFECTS['A4-158']）借用同一條resolution路徑時有設noEndTurn:true，這裡卻
+          // 沒有檢查這個旗標，跟下面'ownDiscardSupporter'分支（12055行）已經正確檢查
+          // pending.noEndTurn的寫法不一致，導致支援者卡用完還是被強制結束回合。
+          if (!pending.noEndTurn) pocketAdvanceTurn(G);
           pocketBroadcastState(pRoom);
           return;
         }
