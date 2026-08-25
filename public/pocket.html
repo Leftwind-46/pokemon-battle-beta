@@ -2719,6 +2719,26 @@ function renderBoard() {
           <div class="board-name">${zhName(p)}：${zhName(m)}</div>
           <div>威力 ${m.damage || 0}</div>
         </div>`).join('');
+    } else if (pendingChoice.kind === 'pick_move' && pendingChoice.pool === 'oppAllZones') {
+      // 夢幻ex「基因駭入」（2026-08-23新增，2026-08-25補上這個分支）：跟Ditto的ownBench一樣
+      // 要多一層「哪隻寶可夢」——候選池是對手主戰+板凳+棄牌區（不是只有主戰），這裡漏掉專屬
+      // 分支、原本會落到下面泛用的pick_move分支，那個分支只讀opponent.active?.attacks（沒有
+      // 板凳/棄牌區的招式，清單本身就不完整），而且完全沒帶data-move-choice-uid——server端
+      // pick_move resolution的sourcePool(oppAllZones)一定要靠uid比對候選池裡「是哪一隻」
+      // （見server.js pending.pool==='oppAllZones'那段sourcePool.find(p=>p.uid===msg.uid)），
+      // 沒帶uid等於永遠找不到符合的來源、直接return維持pendingChoice不變——玩家點了選項卻沒有
+      // 任何反應，畫面卡住等一個永遠不會來的狀態更新。跟ownBench同一套「攤平成(寶可夢,招式)
+      // 清單」寫法，只是來源池換成對手主戰+板凳+棄牌區。
+      titleEl.textContent = '選擇要借用對手主戰、板凳，或棄牌區哪隻寶可夢的招式';
+      subEl.textContent = '';
+      const pool = [opponent.active, ...(opponent.bench || []), ...(opponent.discard || [])].filter(p => p && p.category === 'Pokemon');
+      const options = [];
+      pool.forEach(p => (p.attacks || []).forEach((m, i) => options.push({ p, m, i })));
+      optionsEl.innerHTML = options.map(({ p, m, i }) => `
+        <div class="board-slot pickable" data-move-choice-pick="${i}" data-move-choice-uid="${p.uid}" style="min-width:160px">
+          <div class="board-name">${zhName(p)}：${zhName(m)}</div>
+          <div>威力 ${m.damage || 0}</div>
+        </div>`).join('');
     } else if (pendingChoice.kind === 'pick_move') {
       // 招式借用（2026-08-07新增）：選對手主戰身上的哪一招當作這次攻擊，跟其他pendingChoice
       // 「點board slot選寶可夢」不同，這裡要列出招式清單讓玩家選——不是複用renderPokeSlot
