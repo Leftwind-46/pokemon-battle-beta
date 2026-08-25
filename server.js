@@ -4842,9 +4842,14 @@ function pocketCanPayCost(pokemon, cost, side) {
 // 數量），不同屬性各自都要至少1個；如果整條費用完全是無色（沒有任何屬性能量需求），使用者
 // 確認「仍需身上至少有1個任意屬性的能量」，不是完全免費（跟FM-008「任何屬性都可以扣」是
 // 不同的放寬方向，別搞混）
+// 2026-08-25修正：使用者澄清「只要有其中一種屬性能量就能發動，這是一開始就訂的特殊規則」——
+// 跟2026-08-23那次AskUserQuestion澄清出來的結果（借的招式如果要求2種不同顏色，例如
+// ['Fire','Water']，仍然要兩種各1個才能用，不是任一種就好）方向相反，這次改成使用者現在
+// 講的版本：只要百變怪自己身上有借來招式所需「任一種」屬性能量（.some，不是.every）就能發動，
+// 不用湊滿每一種不同顏色。全無色的招式（coloredTypes為空）維持原本「只要有任意1個能量」不變。
 function pocketCanBorrowMoveRelaxed(attacker, cost) {
   const coloredTypes = [...new Set((cost || []).filter(t => t !== 'Colorless'))];
-  if (coloredTypes.length) return coloredTypes.every(t => (attacker.energy || []).includes(t));
+  if (coloredTypes.length) return coloredTypes.some(t => (attacker.energy || []).includes(t));
   return (attacker.energy || []).length > 0;
 }
 function pocketViewFor(G, role) {
