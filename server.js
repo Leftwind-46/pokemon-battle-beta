@@ -12157,6 +12157,16 @@ async function handleMessage(ws, msg) {
         // pocketCanBorrowMoveRelaxed（只要有1個對應屬性能量，不用湊到印刷數量），不是原本的
         // pocketCanPayCost完整費用比對——這個key目前沒有其他卡共用，直接改不影響別的效果
         if (pending.checkEnergy && !pocketCanBorrowMoveRelaxed(attacker, borrowedAtk.cost || [])) {
+          // 2026-08-25修正：使用者回報「複製洛奇亞ex的招式沒有用」——原本這裡完全靜默，
+          // 玩家選完招式後畫面直接跳到對手回合，沒有任何錯誤訊息或戰鬥紀錄，看起來就像
+          // 卡住/沒反應，但其實是能量不足被正確擋下（跟paralyzed/asleep/confused/flipLock
+          // 那幾個攻擊失敗分支不同，那些都有送lastEvent讓client顯示戰鬥紀錄，這裡漏了）。
+          // 洛奇亞ex的「元素爆破」要求Fire+Water+Lightning三種不同屬性能量都要在百變怪自己
+          // 身上（不是被借的那隻身上）——這是刻意設計（pocketCanBorrowMoveRelaxed檢查的一直
+          // 都是attacker=百變怪自己，不是borrowSource），只是完全沒有回饋導致看起來像bug。
+          // 補上跟其他攻擊失敗分支一致的lastEvent，讓client的ATTACK_FAILED_REASON_ZH顯示清楚
+          // 的失敗原因。
+          G.lastEvent = { seq: ++G.eventSeq, kind: 'attackFailed', reason: 'insufficientBorrowedEnergy', attackerRole: role, attackerUid: attacker.uid };
           G.pendingChoice = null;
           G.phase = 'active';
           pocketAdvanceTurn(G);

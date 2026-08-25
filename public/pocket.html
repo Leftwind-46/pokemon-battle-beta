@@ -3609,7 +3609,7 @@ function pocketLogFindName(uid) {
   const p = pool.find(x => x && x.uid === uid);
   return p ? zhName(p) : '寶可夢';
 }
-const ATTACK_FAILED_REASON_ZH = { paralyzed: '因麻痺無法攻擊', asleep: '因睡眠攻擊失敗', confused: '混亂發作，攻擊失敗且自己受到30傷害', flipLock: '被封印效果擋下，攻擊失敗' };
+const ATTACK_FAILED_REASON_ZH = { paralyzed: '因麻痺無法攻擊', asleep: '因睡眠攻擊失敗', confused: '混亂發作，攻擊失敗且自己受到30傷害', flipLock: '被封印效果擋下，攻擊失敗', insufficientBorrowedEnergy: '自己身上沒有借用招式所需的能量，攻擊沒有任何效果' };
 function handlePocketEvent(evt) {
   if (!evt || evt.seq <= lastSeenEventSeq) return;
   lastSeenEventSeq = evt.seq;
