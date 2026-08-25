@@ -4289,6 +4289,7 @@ function pocketRunCheckup(G) {
       poke.curHp = Math.max(1, (poke.hp || 0) - preservedDamage);
       poke.boardTurn = G.turnNumber;
       poke._realAbilities = undefined;
+      poke.isFossil = false; // 2026-08-25修正：跟其餘evolve mutation點同一個殘留欄位問題（見FM-009/Rare Candy的isFossil說明），這裡漏補
       pocketApplyDoubleType(poke);
       otherSideForCheckup.deck = pocketShuffle(otherSideForCheckup.deck);
       pocketEmitCardActivation(G, otherRoleForCheckup, poke, '特性觸發：Quick Growth');
@@ -6161,6 +6162,7 @@ const ATTACK_EFFECTS = {
     ctx.attacker.boardTurn = ctx.G.turnNumber;
     ctx.side.deck = pocketShuffle(ctx.side.deck);
     ctx.attacker._realAbilities = undefined; // 2026-08-08修正：進化後身分變了，清掉舊快取讓特性正確重抓
+    ctx.attacker.isFossil = false; // 2026-08-25修正：跟其餘evolve mutation點同一個殘留欄位問題（見FM-009/Rare Candy的isFossil說明），這裡漏補
     pocketApplyDoubleType(ctx.attacker);
   },
 
@@ -7338,6 +7340,7 @@ const TRAINER_EFFECTS = {
     target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
     target.boardTurn = ctx.G.turnNumber;
     target._realAbilities = undefined; // 2026-08-08修正：進化後身分變了，清掉舊快取讓特性正確重抓
+    target.isFossil = false; // 2026-08-25修正：跟其餘evolve mutation點同一個殘留欄位問題（見FM-009/Rare Candy的isFossil說明），這裡漏補
     pocketApplyDoubleType(target);
     ctx.side.deck = pocketShuffle(ctx.side.deck);
     return null;
@@ -7878,6 +7881,7 @@ const TRAINER_EFFECTS = {
     target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
     target.boardTurn = ctx.G.turnNumber;
     target._realAbilities = undefined;
+    target.isFossil = false; // 2026-08-25修正：跟其餘evolve mutation點同一個殘留欄位問題（見FM-009/Rare Candy的isFossil說明），這裡漏補
     pocketApplyDoubleType(target);
     ctx.side.deck = pocketShuffle(ctx.side.deck);
     return null;
@@ -8661,6 +8665,7 @@ const ABILITY_EFFECTS = {
     poke.curHp = Math.max(1, (poke.hp || 0) - preservedDamage);
     poke.boardTurn = ctx.G.turnNumber;
     poke._realAbilities = undefined; // 進化後身分變了，清掉舊快取讓特性正確重抓（同Rare Candy）
+    poke.isFossil = false; // 2026-08-25修正：跟其餘evolve mutation點同一個殘留欄位問題（見FM-009/Rare Candy的isFossil說明），這裡漏補
     pocketApplyDoubleType(poke);
     return null;
   },
@@ -11158,6 +11163,7 @@ async function handleMessage(ws, msg) {
           target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
           target.boardTurn = G.turnNumber;
           target._realAbilities = undefined; // 2026-08-08修正：進化後身分變了，清掉舊快取讓特性正確重抓
+          target.isFossil = false; // 2026-08-25修正：跟其餘evolve mutation點同一個殘留欄位問題（見FM-009/Rare Candy的isFossil說明），這裡漏補
           pocketApplyDoubleType(target);
           side.deck = pocketShuffle(side.deck);
           pocketEmitCardActivation(G, role, target, '特性觸發：Buggy Evolution');
@@ -12454,6 +12460,13 @@ async function handleMessage(ws, msg) {
         target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
         target.boardTurn = G.turnNumber;
         target._realAbilities = undefined;
+        // 2026-08-25修正：使用者回報「化石進化而來的寶可夢不應該能被棄置」——這裡的target選擇
+        // 完全沒有stage/isFossil限制（跟FM-009化石復活機那個「只挑化石」的專屬版本不同），玩家
+        // 可以直接選場上還沒進化的化石卡當target，讓牠透過這張場地卡進化成真正的物種。跟其餘
+        // evolve mutation點一樣，Object.assign只會覆蓋來源物件「有」的欄位，不會清掉isFossil這個
+        // 合成欄位，漏補的話進化後client端「隨時可棄置」的化石專屬按鈕會繼續顯示（見FM-009/
+        // Rare Candy(A3-144)的isFossil說明，這是這個引擎裡第6個漏補這行的evolve mutation點）。
+        target.isFossil = false;
         pocketApplyDoubleType(target);
         side.deck = pocketShuffle(side.deck);
       } else if (stadiumId === 'FM-008') { // 化石採掘場：牌組隨機找2張化石道具卡放上板凳
