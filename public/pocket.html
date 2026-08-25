@@ -2705,11 +2705,15 @@ function renderBoard() {
         </div>`).join('');
     } else if (pendingChoice.kind === 'pick_move' && pendingChoice.pool === 'ownBench') {
       // Ditto（2026-08-08新增）：跟一般pick_move借「對手主戰」方向不同，這是借自己板凳任一隻
-      // （不含ex）的招式——要多一層「哪隻寶可夢」，攤平成(寶可夢,招式)清單，按鈕同時帶uid+moveIndex
+      // 的招式——要多一層「哪隻寶可夢」，攤平成(寶可夢,招式)清單，按鈕同時帶uid+moveIndex。
+      // 2026-08-25修正：這裡原本還留著`.filter(p => !p.ex)`排除ex——2026-08-23那次改動已經把
+      // server端兩處（ATTACK_EFFECTS的Copy a Friend handler + pick_move resolution的sourcePool）
+      // 都拿掉了ex限制，但這個client端的選項清單漏改，導致板凳上的ex寶可夢永遠不會被列進可選
+      // 招式清單——server其實接受，只是UI從來沒給玩家選它的機會，靜默功能缺口
       titleEl.textContent = '選擇要借用己方板凳哪隻寶可夢的招式';
       subEl.textContent = '若這隻寶可夢沒有足夠能量，這次攻擊將完全沒有效果';
       const options = [];
-      (you.bench || []).filter(p => !p.ex).forEach(p => (p.attacks || []).forEach((m, i) => options.push({ p, m, i })));
+      (you.bench || []).forEach(p => (p.attacks || []).forEach((m, i) => options.push({ p, m, i })));
       optionsEl.innerHTML = options.map(({ p, m, i }) => `
         <div class="board-slot pickable" data-move-choice-pick="${i}" data-move-choice-uid="${p.uid}" style="min-width:160px">
           <div class="board-name">${zhName(p)}：${zhName(m)}</div>
