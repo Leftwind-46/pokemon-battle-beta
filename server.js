@@ -4286,6 +4286,7 @@ function pocketRunCheckup(G) {
       Object.assign(poke, structuredClone(POCKET_CARDS_BY_ID[pick.c.id]));
       poke.uid = preservedUid; poke.energy = preservedEnergy;
       poke.status = null; poke.poisoned = false; poke.burned = false; // 2026-08-16應使用者要求：進化時異常狀態要清掉
+      poke.hp += pocketToolHpBonusAmount(poke); // 2026-08-25修正：跟其餘evolve mutation點同一個Tool HP加成消失問題（見Leaf Cape+Combee/Vespiquen的說明），這裡漏補
       poke.curHp = Math.max(1, (poke.hp || 0) - preservedDamage);
       poke.boardTurn = G.turnNumber;
       poke._realAbilities = undefined;
@@ -6158,6 +6159,7 @@ const ATTACK_EFFECTS = {
     Object.assign(ctx.attacker, structuredClone(POCKET_CARDS_BY_ID[pick.c.id]));
     ctx.attacker.uid = preservedUid; ctx.attacker.energy = preservedEnergy;
     ctx.attacker.status = null; ctx.attacker.poisoned = false; ctx.attacker.burned = false; // 2026-08-16應使用者要求：進化時異常狀態要清掉
+    ctx.attacker.hp += pocketToolHpBonusAmount(ctx.attacker); // 2026-08-25修正：跟其餘evolve mutation點同一個Tool HP加成消失問題（見Leaf Cape+Combee/Vespiquen的說明），這裡漏補
     ctx.attacker.curHp = Math.max(1, (ctx.attacker.hp || 0) - preservedDamage);
     ctx.attacker.boardTurn = ctx.G.turnNumber;
     ctx.side.deck = pocketShuffle(ctx.side.deck);
@@ -8662,6 +8664,7 @@ const ABILITY_EFFECTS = {
     Object.assign(poke, structuredClone(POCKET_CARDS_BY_ID[deckCard.id]));
     poke.uid = preservedUid; poke.energy = preservedEnergy;
     poke.status = null; poke.poisoned = false; poke.burned = false; // 2026-08-16應使用者要求：進化時異常狀態要清掉
+    poke.hp += pocketToolHpBonusAmount(poke); // 2026-08-25修正：跟其餘evolve mutation點同一個Tool HP加成消失問題（見Leaf Cape+Combee/Vespiquen的說明），這裡漏補
     poke.curHp = Math.max(1, (poke.hp || 0) - preservedDamage);
     poke.boardTurn = ctx.G.turnNumber;
     poke._realAbilities = undefined; // 進化後身分變了，清掉舊快取讓特性正確重抓（同Rare Candy）
