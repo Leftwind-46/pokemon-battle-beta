@@ -2897,10 +2897,13 @@ const TRAINER_NEEDS_TARGET = new Set([
   'A3-155', 'A2-154', 'A2-153', 'A2b-070', 'B1-221', 'A4a-069', 'A3-154', 'B2-149', 'A3-149', 'A4-157',
   // Lillie / Dawn / Volkner / Pokémon Center Lady / Marlon / Whitney / Mallow / Diantha / Ilima / Lyra
   // 2026-08-07新增：Pokémon Tool系統——裝備類道具卡全部需要選裝備目標，跟Potion共用同一套
-  // item-target流程（見server.js的pocketAttachTool說明）。Memory Light(A4a-068)因為需要合併
-  // 進化鏈招式，複雜度太高仍然跳過；Beastite(A3a-066)已於2026-08-08補上Ultra Beast標籤機制
+  // item-target流程（見server.js的simpleToolIds說明）。Beastite(A3a-066)已於2026-08-08補上
+  // Ultra Beast標籤機制。Memory Light(A4a-068)：2026-08-27補回這裡——原本因為「借招式要合併
+  // 進化鏈，複雜度太高」跳過選目標流程，但那段合併邏輯早就在pocketEffectiveMoves做完了，
+  // 跳過的其實只是「選own場上一隻寶可夢裝備」這步最單純的部分，害這張卡連裝都裝不上
+  // （使用者回報「A4a卡包：記憶之光 無法使用」）
   'A2-147', 'A2-148', 'A2-149', 'A3-146', 'A3-147', 'A3a-065', 'A3b-067', 'A4-153', 'A4-154',
-  'A4-155', 'A4a-067', 'B1-218', 'B1-219', 'B1-220', 'B2-147', 'B2-148', 'B2a-087',
+  'A4-155', 'A4a-067', 'A4a-068', 'B1-218', 'B1-219', 'B1-220', 'B2-147', 'B2-148', 'B2a-087',
   // 2026-08-07新增：第二批支援者/道具卡，只有下面4張需要選board目標
   'A2-150', 'A3-152', 'A3-144', 'B1a-067', // Cyrus / Lana / Rare Candy / Quick-Grow Extract
   // 2026-08-08新增：Acerola / Kiawe，選own board目標（server端再驗證是不是符合條件的指定種族）
@@ -3046,9 +3049,16 @@ const TRAINER_EFFECTS_IMPLEMENTED = new Set([
   'B2a-090', 'A2b-071', 'A2-154', 'A2-153', 'B1-224', 'A2b-070', 'B1-221', 'A4a-069', 'A3-154',
   'B2-149', 'A2-151', 'A2a-073', 'A3a-067', 'B1-225', 'A2-155', 'A2b-072', 'A1a-066', 'A3-149',
   'A4-157', 'A4a-070', 'B2-150', 'A3a-068', 'A4-159', 'B2-152', 'B2-151', 'B2a-088', 'A4-161', 'A4a-071',
-  // 2026-08-07新增：Pokémon Tool系統，17張（Memory Light跳過，理由見TRAINER_NEEDS_TARGET）
+  // 2026-08-07新增：Pokémon Tool系統，17張
+  // 2026-08-27修正：Memory Light(A4a-068)原本刻意漏掉沒放進這個清單——server.js的
+  // simpleToolIds早就有正確實作（裝備到own場上寶可夢，跟其他16張Tool卡完全同一套），
+  // 但client端這裡漏了它就會卡在computeHandCardActions最前面的
+  // TRAINER_EFFECTS_IMPLEMENTED檢查，直接顯示「⚠️這張卡的效果尚未支援」讓按鈕整個disable——
+  // 導致這張卡實際上完全無法從手牌打出（使用者回報「A4a卡包：記憶之光 無法使用」）。
+  // 借招式合併邏輯（pocketEffectiveMoves）本身早就做完且跟B3時拉比的Time Recall共用，
+  // 「複雜度太高」的顧慮只適用在那段借招邏輯，不影響這裡單純的「選一隻own寶可夢裝備」流程。
   'A2-147', 'A2-148', 'A2-149', 'A3-146', 'A3-147', 'A3a-065', 'A3b-067', 'A4-153', 'A4-154',
-  'A4-155', 'A4a-067', 'B1-218', 'B1-219', 'B1-220', 'B2-147', 'B2-148', 'B2a-087',
+  'A4-155', 'A4a-067', 'A4a-068', 'B1-218', 'B1-219', 'B1-220', 'B2-147', 'B2-148', 'B2a-087',
   // 2026-08-07新增：第二批支援者/道具卡，12張
   'A1a-068', 'A2-150', 'A2a-072', 'A2a-074', 'A3-144', 'A3-151', 'A3-152', 'B1-226',
   'B1a-067', 'B1a-068', 'B1a-069', 'B2-145',
