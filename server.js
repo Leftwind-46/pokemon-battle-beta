@@ -6878,6 +6878,23 @@ const TRAINER_EFFECTS = {
   'B2-154': (ctx) => { ctx.G.activeStadium = { id: 'B2-154', name: 'Starting Plains' }; return null; },
   // Mesagoza：場地本身只負責蓋上去，主動觸發的效果走獨立的'pocket_use_stadium'訊息（見那裡）
   'B2a-093': (ctx) => { ctx.G.activeStadium = { id: 'B2a-093', name: 'Mesagoza' }; return null; },
+  // 火箭隊監視塔（Fan Made，2026-08-27新增）：跟Starting Plains同一種「純被動場地、沒有按鈕」
+  // 模式——卡面文字沒有may/choose，是無條件持續生效的場地效果，不是Mesagoza那種按鈕觸發，
+  // 這裡只負責蓋場地卡本身，實際的特性消除邏輯在pocketSyncAbilitySuppression直接看
+  // G.activeStadium?.id === 'FM-011'
+  'FM-011': (ctx) => { ctx.G.activeStadium = { id: 'FM-011', name: "Team Rocket's Watchtower" }; return null; },
+  // 火箭隊老大的威嚴（Fan Made，2026-08-27新增）：目標固定是「對手全部寶可夢」，不用選目標。
+  // 特性消除半段跟消除香水共用同一個abilitiesLockedUntilTurn欄位，直接套在對手主戰+板凳
+  // 每一隻身上；道具卡鎖半段重用既有itemLockedUntilTurn（跟ATTACK_EFFECTS裡好幾張卡共用同一
+  // 欄位）——這張卡打出當下對手只會經過1次自己的回合，"到我方下回合開始前"跟"對手下回合"
+  // 這兩種說法在這個情境下涵蓋的範圍完全相同，所以沿用+1的既有寫法即可，不用另外+2
+  'FM-012': (ctx) => {
+    for (const p of [ctx.oppSide.active, ...ctx.oppSide.bench]) {
+      if (p) p.abilitiesLockedUntilTurn = ctx.G.turnNumber + 2;
+    }
+    ctx.oppSide.itemLockedUntilTurn = ctx.G.turnNumber + 1;
+    return null;
+  },
 
   /* ── 2026-08-06新增：道具卡（Item）第一批 ── */
   // 2026-08-06修正（使用者第二次糾正）：原本擲硬幣正面就隨機挑1隻板凳電系附加，改成玩家
@@ -7774,6 +7791,17 @@ const TRAINER_EFFECTS = {
     if (!target) return '請選擇要棄掉道具卡的寶可夢，或選擇棄掉場地卡';
     if (!target.tool) return '這隻寶可夢沒有裝備道具卡';
     pocketDiscardTool(target); // HP加成收回＋KO判定交給pocketResolveAmbientKOs（見pocketDiscardTool的說明）
+    return null;
+  },
+  // 消除香水（Fan Made，2026-08-27新增）：卡面文字「選擇一隻寶可夢」沒有限定己方/對方，
+  // 跟Field Blower(B3-147)同一種「雙方場上任一隻皆可選」的目標池，client端side:'any'已經是
+  // 通用邏輯（不用另外寫UI）。到我方下回合開始前特性消除，設abilitiesLockedUntilTurn，
+  // 實際判斷在pocketSyncAbilitySuppression
+  'FM-010': (ctx, msg) => {
+    const pool = [ctx.side.active, ...ctx.side.bench, ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean);
+    const target = pool.find(p => p.uid === msg.target);
+    if (!target) return '請選擇一隻寶可夢';
+    target.abilitiesLockedUntilTurn = ctx.G.turnNumber + 2; // 到我方下回合開始前＝跳過對手那一回合，+2
     return null;
   },
   'B3-149': (ctx) => { ctx.side.typeBoostThisTurn = { type: 'Fighting', amount: 30, exOnly: true }; return null; }, // Korrina
@@ -8744,7 +8772,14 @@ function pocketSyncAbilitySuppression(G) {
       const isAlchemyHolder = p._realAbilities?.[0]?.name === 'Power of Alchemy';
       // Prickly Powder（2026-08-08新增）：跟Power of Alchemy的封鎖條件不同方向（這個是「這隻
       // 自己被打過這招」的個體標記，不是隊伍條件），跟anyAlchemy的封鎖用同一個||短路
-      p.abilities = (p._abilitiesLockedOff || (anyAlchemy && p.stage === 'Basic' && !isAlchemyHolder)) ? [] : p._realAbilities;
+      // 消除香水/火箭隊老大的威嚴（Fan Made，2026-08-27新增）：跟_abilitiesLockedOff不同方向——
+      // 那個是「離開主戰位置」才解除的永久旗標，這個是「到我方下回合開始前」的計時旗標，
+      // 跟invulnerableUntilTurn等其餘XxxUntilTurn欄位同一種寫法，數值到了就自然失效不用手動清除
+      const turnLocked = p.abilitiesLockedUntilTurn && G.turnNumber < p.abilitiesLockedUntilTurn;
+      // 火箭隊監視塔（Fan Made，2026-08-27新增）：場地卡在場，雙方特性全數消除，跟個別旗標
+      // 不同的地方是這個不看p本身有沒有任何標記，只看場地卡本身在不在場
+      const watchtowerActive = G.activeStadium?.id === 'FM-011';
+      p.abilities = (p._abilitiesLockedOff || turnLocked || watchtowerActive || (anyAlchemy && p.stage === 'Basic' && !isAlchemyHolder)) ? [] : p._realAbilities;
     }
   }
 }
