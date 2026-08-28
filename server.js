@@ -11674,6 +11674,23 @@ async function handleMessage(ws, msg) {
         // 不擋傷害」的道具——傷害照常往下走（mainDamage計算不受影響），只是效果函式整個不執行
         const effectFn = defender.tool?.id !== 'B4-149' && atk.effect && ATTACK_EFFECTS[atk.effect];
         if (effectFn) {
+          // 比克提尼「勝利之星」（2026-08-28新增）：「你的回合中1次，在你為1隻火屬性寶可夢的
+          // 招式擲硬幣之後，可以無視結果重新擲一次」——這個引擎的擲硬幣都在effectFn裡同步算完
+          // 直接套用，沒有「擲完暫停問要不要重擲」這個中繼點，做法：effectFn跑之前先拍一份完整
+          // G快照，跑完後檢查ctx.coinFlips有沒有真的擲到硬幣，有的話把這次結果整個暫停（存進
+          // server-only的pRoom.__victoryStarPending，不放進會被廣播的G.pendingChoice）改問玩家：
+          //   - 選「維持結果」：直接接著跑pocketContinueAttackAfterEffect，用這次已經算好的ctx，
+          //     跟平常沒有Victory Star時完全同一條路徑，只是延後一個訊息才繼續。
+          //   - 選「重擲」：把G整個還原回effectFn執行前的快照（等於這次攻擊還沒發生過），標記
+          //     這隻的特性這回合用掉，重新丟一個'pocket_attack'訊息給自己（handleMessage遞迴
+          //     呼叫），從頭跑一次全新攻擊——cost/flipLock等前置判定會重跑，但都已經在快照裡
+          //     解決過，結果不變，effectFn則用全新的Math.random()重新擲。
+          // 已知簡化：如果攻擊者剛好也處於混亂狀態，重擲會連混亂的自我判定硬幣也一起重骰——
+          // 這個組合極端罕見（火屬性+持有勝利之星+混亂+這次招式又擲硬幣），投入產出比太低，
+          // 不特別處理。
+          const victoryStarHolder = [side.active, ...side.bench].find(p => p?.abilities?.[0]?.name === 'Victory Star');
+          const victoryStarEligible = !!victoryStarHolder && !side.abilitiesUsedThisTurn.includes(victoryStarHolder.uid) && (attacker.types || []).includes('Fire');
+          const preEffectSnapshot = victoryStarEligible ? structuredClone(G) : null;
           const statusSnapA = pocketSnapshotStatus(side), statusSnapB = pocketSnapshotStatus(oppSide);
           const benchSnap = pocketSnapshotBenchHp(oppSide);
           const defenderEffectSnap = pocketSnapshotDefenderEffect(defender);
@@ -11683,9 +11700,21 @@ async function handleMessage(ws, msg) {
           pocketEnforceBenchImmunity(oppSide, benchSnap);
           pocketEnforceDefenderEffectImmunity(defender, defenderEffectSnap);
           pocketEnforceHealBlock(G, healSnap);
+          if (preEffectSnapshot && ctx.coinFlips?.length) {
+            G.phase = 'attack_choice';
+            G.pendingChoice = { role, kind: 'victory_star_reflip', coinPreview: ctx.coinFlips.slice() };
+            pRoom.__victoryStarPending = { snapshot: preEffectSnapshot, ctx, atk, confusionCoinFlip, flipLockCoinFlip, attackIndex: msg.attackIndex, role };
+            pocketBroadcastState(pRoom);
+            return;
+          }
         }
       }
 
+      pocketContinueAttackAfterEffect(pRoom, G, role, op, side, oppSide, attacker, defender, atk, ctx, confusionCoinFlip, flipLockCoinFlip, ws);
+      return;
+    }
+
+    function pocketContinueAttackAfterEffect(pRoom, G, role, op, side, oppSide, attacker, defender, atk, ctx, confusionCoinFlip, flipLockCoinFlip, ws) {
       let mainDamage = 0;
       if (!ctx.skipMainDamage && ctx.rawDamage > 0) {
         mainDamage = ctx.rawDamage;
@@ -11972,7 +12001,38 @@ async function handleMessage(ws, msg) {
       const pending = G.pendingChoice;
       if (!pending || pending.role !== role) return;
       const side = G[role];
-      if (pending.kind === 'energy_distribute') {
+      if (pending.kind === 'victory_star_reflip') {
+        // 比克提尼「勝利之星」（2026-08-28新增）：見pocket_attack裡effectFn跑完後的說明。
+        // pending本身只留給client顯示用的欄位，實際要復原/續跑的資料放在pRoom.__victoryStarPending
+        // （不會被序列化廣播出去，因為ctx裡的Pokemon物件參照跟G本身的物件圖是共用的，直接塞進
+        // G.pendingChoice會讓broadcast多送一份幾乎重複的完整board資料，沒有必要）
+        const pend = pRoom.__victoryStarPending;
+        delete pRoom.__victoryStarPending;
+        if (!pend) { G.phase = 'active'; G.pendingChoice = null; pocketBroadcastState(pRoom); return; }
+        if (msg.reflip) {
+          // 重擲：整個G還原回effectFn執行前的快照（等於這次攻擊還沒發生過），標記這隻的特性
+          // 這回合用掉，然後直接重新丟一個'pocket_attack'訊息給自己（遞迴呼叫handleMessage），
+          // 從頭跑一次全新攻擊——in-place還原(delete全部key再Object.assign)是為了讓其他地方
+          // 持有的G參照（例如這個函式自己的G變數）維持同一個物件身分
+          Object.keys(G).forEach(k => delete G[k]);
+          Object.assign(G, pend.snapshot);
+          const attackSide = G[pend.role];
+          const holder = [attackSide.active, ...attackSide.bench].find(p => p?.abilities?.[0]?.name === 'Victory Star');
+          if (holder) {
+            attackSide.abilitiesUsedThisTurn.push(holder.uid);
+            pocketEmitCardActivation(G, pend.role, holder, '特性觸發：Victory Star');
+          }
+          handleMessage(ws, { type: 'pocket_attack', attackIndex: pend.attackIndex }).catch(e => console.error('Victory Star重擲 error:', e.message));
+          return;
+        }
+        // 維持結果：G從暫停當下到現在完全沒被動過（沒有其他訊息能插進來，因為G.phase='attack_choice'
+        // 擋住了），直接接著跑pocketContinueAttackAfterEffect，用原本effectFn算好的ctx繼續往下
+        G.phase = 'active';
+        G.pendingChoice = null;
+        const opRole = pend.role === 'p1' ? 'p2' : 'p1';
+        pocketContinueAttackAfterEffect(pRoom, G, pend.role, opRole, G[pend.role], G[opRole], pend.ctx.attacker, pend.ctx.defender, pend.atk, pend.ctx, pend.confusionCoinFlip, pend.flipLockCoinFlip, ws);
+        return;
+      } else if (pending.kind === 'energy_distribute') {
         if (!pending.eligibleUids.includes(msg.uid)) return;
         const pool = pending.includeActive ? [side.active, ...side.bench] : side.bench;
         const target = pool.find(p => p && p.uid === msg.uid);

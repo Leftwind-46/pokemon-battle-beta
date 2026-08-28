@@ -2616,7 +2616,17 @@ function renderBoard() {
     const optionsEl = document.getElementById('attack-choice-options');
     document.getElementById('attack-choice-skip-btn').style.display = pendingChoice.optional ? '' : 'none';
     document.getElementById('attack-choice-confirm-multi-btn').style.display = pendingChoice.kind === 'pick_target_multi_optional' ? '' : 'none';
-    if (pendingChoice.kind === 'energy_distribute') {
+    if (pendingChoice.kind === 'victory_star_reflip') {
+      // 比克提尼「勝利之星」（2026-08-28新增）：純Yes/No選擇，不是board點選，兩顆按鈕直接送出
+      // reflip:true/false，跟retreat_discard/attack_discard_energy同一種「按鈕清單」渲染方式
+      const flips = pendingChoice.coinPreview || [];
+      titleEl.textContent = '比克提尼「勝利之星」：要重擲這次的硬幣結果嗎？';
+      subEl.textContent = `這次擲出：${flips.map(h => h ? '正面' : '反面').join('、')}`;
+      optionsEl.innerHTML = `
+        <button class="btn btn-primary" onclick="wsSend({type:'pocket_attack_choice', reflip:true})">重擲</button>
+        <button class="btn btn-secondary" onclick="wsSend({type:'pocket_attack_choice', reflip:false})">維持結果</button>
+      `;
+    } else if (pendingChoice.kind === 'energy_distribute') {
       const queue = pendingChoice.energyQueue || [];
       titleEl.textContent = `分配 ${TYPE_ZH[queue[0]] || queue[0]} 能量`;
       subEl.textContent = `還剩 ${queue.length} 點能量可以分配（依序：${queue.map(t => TYPE_ZH[t] || t).join('、')}），點擊寶可夢附加（可以重複點同一隻）`;
