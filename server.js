@@ -5430,6 +5430,20 @@ const ATTACK_EFFECTS = {
       t.curHp = Math.max(0, t.curHp - 50);
     }
   },
+  // 烈空座ex（Promo-A #64/65，2026-08-28新增）：跟上面50傷害/60傷害兩個Draco Meteor同一招式
+  // 名字、同一套「隨機挑對手寶可夢N次各扣血」模式，只是印刷傷害是40——Drayden(B4-151/191)的
+  // 「加選1次」卡面文字是泛指「你的寶可夢使用的Draco Meteor」，不限定哪個傷害版本，所以這裡
+  // 沿用同一個dracoMeteorExtraThisTurn旗標
+  "1 of your opponent's Pokémon is chosen at random 4 times. For each time a Pokémon was chosen, do 40 damage to it.": ctx => {
+    ctx.rawDamage = 0;
+    const pool = [ctx.defender, ...ctx.oppSide.bench].filter(Boolean);
+    const picks = ctx.side.dracoMeteorExtraThisTurn ? 5 : 4;
+    ctx.side.dracoMeteorExtraThisTurn = false;
+    for (let i = 0; i < picks && pool.length; i++) {
+      const t = pool[Math.floor(Math.random() * pool.length)];
+      t.curHp = Math.max(0, t.curHp - 40);
+    }
+  },
   "Discard 1 {R} Energy from this Pokémon.": ctx => pocketDiscardEnergy(ctx.side, ctx.attacker, 'Fire', 1),
   "Discard 2 {P} Energy from this Pokémon.": ctx => pocketDiscardEnergy(ctx.side, ctx.attacker, 'Psychic', 2),
   "Discard 2 {R} Energy from this Pokémon.": ctx => pocketDiscardEnergy(ctx.side, ctx.attacker, 'Fire', 2),
