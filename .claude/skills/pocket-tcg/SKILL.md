@@ -384,6 +384,24 @@ B3-025 Victini's printed ability ("Once during your turn, after you flip any coi
 - **組牌頁**：`.deck-panel` 手機改 `position:static`（桌機是 `sticky` 100vh 側欄），正常接在卡池下方；新增一顆 `.deck-jump` 浮動鈕（`<a href="#deck-panel">`，`aside` 補了 `id="deck-panel"`），桌機 `display:none`。`.filters` 搜尋框整寬、4 個 select 排 2×2。
 - **驗證方式**：Chrome MCP 的 `resize_window`／AppleScript 都無法改這個自動化視窗的 `innerWidth`（鎖在 1710）。改用「暫時把 `600px`＋`880px` 兩個斷點都改成 `2000px` 讓規則在任何寬度生效 → 注入 `body{max-width:390px}` 以及對 `position:fixed` 的 `.board-overlay`/overlay 各別注入 `width:390px` → 截圖 → 改回斷點」。`dvh`/`vh` 在這個測法下會用真實視窗高度，垂直 fit 只能估算，但水平 fit／pile 橫排／拇指區／bottom sheet 都能準確看。合成 `state` 給 `renderBoard()` 用：`mk()` 造最小 Pokémon 物件（`uid/id/name/zh_name/image/hp/curHp/energy/types/stage/abilities/attacks/status/poisoned/burned/ex/evolutionStack/boardTurn`），`state={turn,turnNumber,phase,you:{...},opponent:{...}}`＋`myRole='p1'`。
 
+## `pocketEffectDamage()` — 一個統一入口治「板凳外溢/多目標傷害不套被動減傷」的老 bug 類（2026-08-29）
+
+使用者兩則回報同一根因：(1) A4 雷公自訂特性「避雷針」（`Lightning Rod`，`POCKET_CARD_OVERRIDES['Raikou'].addAbility`，己方電屬性寶可夢受攻擊 -30）擋不到「招式的附加傷害」；(2) A3 落雀（Oricorio）的 `Safeguard`（免疫對手 ex 的招式）擋不掉 Promo-A 烈空座 ex（`P-A-041/042`）的「流星群」/Draco Meteor。
+
+根因是這份 skill 早就記過的老問題（見下方 recurring-pitfalls 那條 Oricorio Safeguard 2026-08-15）：`pocketPassiveDamageReduction`（含 Safeguard 完全免疫、避雷針 -30）**只在主傷害管線**（`mainDamage` 打 `ctx.defender`，`server.js:~11795`）跑；所有「effect handler 自己直接改 `curHp`」的板凳 splash／`"does N damage to each of your opponent's Pokémon"`／隨機挑 N 次（流星群）從來沒套過減傷，Safeguard 也只有零星幾個 site 有查、Draco Meteor 兩條 handler（50/40 傷害版）**連 Safeguard 都沒查**。
+
+**修法**：新增 `pocketEffectDamage(target, targetSide, attacker, amount)`（放在 `pocketSafeguardImmune` 正下方），回傳「套用 Safeguard 完全免疫（→0）+ 固定值團隊型被動減傷後、實際該扣的血量」。**只納入可安全重複呼叫、不 mutate、不擲硬幣的固定值減傷**（目前就避雷針一個）——`Guarded Grill`/`Disguise`/`Celestial Blessing` 那種機率型／一次性的**不能**放進來，那些只該在主管線每次攻擊骰一次。把全部 ~22 個 `if (!pocketSafeguardImmune(x, ctx.attacker)) x.curHp = Math.max(0, x.curHp - N)` 改成 `x.curHp = Math.max(0, x.curHp - pocketEffectDamage(x, ctx.oppSide, ctx.attacker, N))`（免疫時回 0，`Math.max(0, cur-0)` 行為等價，不用留 `if`），兩條 Draco Meteor handler 各加一次，`pocket_attack_choice` 的 `pick_target/action:'damage'` 與 `switchInAndDamage` 分支、以及 `pocketRunCheckup` 的 delayedDamage 兩處（Mismagius/Meowscarada/Armaldo，synthetic attacker `{ex:...}`）也都改走它。
+
+**以後新增任何「繞過主管線直接改 curHp」的招式效果傷害，一律用 `pocketEffectDamage`，別再手寫 `pocketSafeguardImmune` 判斷或裸 `curHp -= N`。** 要加新的團隊型固定值減傷特性也是加進這個函式（+ 主管線的 `pocketPassiveDamageReduction`，兩邊都要）。`targetSide` 幾乎恆為 `ctx.oppSide`（招式打對手），self-damage（`pool:'ownBench'` 等）走 `isOppAttack` gate 保持原樣不減傷。驗證：抽出真函式跑 Safeguard/避雷針/兩者疊加/floor-at-0/非電屬性不保護 等 fixtures，再抽 Draco Meteor 40 handler 用 stub 過的 `Math.random` 打 4 個不同目標，確認 Safeguard 目標 0 傷害、避雷針電屬性目標 40→10。
+
+## 療癒海岸（Soothing Shore / B4-154）2026-08-29：改成雙方每回合結束都治療 + 補視覺回饋
+
+原本嚴格照卡面「that player（該回合玩家）heals」只治療 `endingSide`，而且**完全無聲**（沒 log、沒 popup、沒補血飄字），使用者以為壞了。應要求：(1) 偏離卡面，改成**每次 checkup 掃 `[endingSide, otherSideForCheckup]` 雙方**都治療（「對手回合結束時我方帶水能量的寶可夢也回血」）；(2) 只把「真的有回到血」（`curHp < hp` 且 `energy` 含 `'Water'`）的收進 `healed[]`，`G.lastEvent = { kind:'stadiumHeal', stadiumZh:'療癒海岸', heals:[{uid,amount}] }`。client `handlePocketEvent` 加 `kind==='stadiumHeal'` 分支：每隻印一行對戰記錄 + `showHealFloat`，**不跳** `card-activation-overlay` 那個 1.5 秒全螢幕彈窗（被動每回合觸發，彈窗會很煩）。已知極罕見：同一 checkup 若前面灼傷治癒/睡眠喚醒剛設過 `kind:'checkup'` 的擲硬幣 `lastEvent`，這裡會覆蓋掉那次硬幣動畫（機制結果仍正確），組合太罕見沒特別處理。
+
+## iOS Safari 手機版點不動按鈕（2026-08-29）——委派 click + 非原生互動元素
+
+使用者回報「pocket 手機 UI 用 Safari 打開按鈕無法按」。iOS Safari 規則：點一下非原生互動元素（沒有 `cursor:pointer` / 沒有行內 `onclick` 的 `<div>`）**不會產生會冒泡到委派監聽器的 `click`**，桌機/Android 沒這限制。這引擎對戰畫面的棋盤格選目標、動態生成 chip 等全靠 `#board-overlay` 上單一委派 listener（`pocket.html:3273`），且 `.board-slot` 明寫 `cursor:default` → iOS 整批點不動。修法：在 star canvas IIFE 後掛一行 `document.addEventListener('touchstart', () => {}, { passive: true })`，Safari 就會對所有元素派發 `click`。順手補 `#setup-overlay` 的 `style="display:none"`（原本是唯一沒補的 overlay，靠 `renderBoard()` 才關）。
+
 ## Memory
 
 `project_pocket_tcg.md` (auto-memory) has the full dated incident log this skill was distilled from — check it for the specific history/reasoning behind a particular mechanic if this skill's summary isn't enough context.

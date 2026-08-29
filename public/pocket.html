@@ -1011,7 +1011,7 @@
     </div>
   </div>
 
-  <div class="setup-overlay" id="setup-overlay">
+  <div class="setup-overlay" id="setup-overlay" style="display:none">
     <div class="setup-box">
       <h2>選擇出戰寶可夢</h2>
       <p class="lobby-sub">先點1隻<b>基礎寶可夢</b>當主戰，可以再點最多3隻放板凳</p>
@@ -1132,6 +1132,12 @@
   }
   resize(); draw(); addEventListener('resize',resize);
 })();
+
+/* iOS Safari：點一下非原生互動元素（沒有 cursor:pointer / onclick 的 <div>）不會產生
+   會往上冒泡到委派監聽器的 click 事件——桌機/Android 沒這限制。掛一個空的 touchstart
+   監聽在 document 上，Safari 就會對所有元素都派發 click，手機版那些委派點擊（棋盤格
+   選目標、動態生成的 chip 等）才按得動。 */
+document.addEventListener('touchstart', () => {}, { passive: true });
 
 /* ─────────────────────────────────────────
    Deck builder
@@ -3809,6 +3815,9 @@ function handlePocketEvent(evt) {
   } else if (evt.kind === 'attackFailed') {
     const name = pocketLogFindName(evt.attackerUid);
     pocketLog(`${mine ? '你' : '對手'}的${name}${ATTACK_FAILED_REASON_ZH[evt.reason] || '攻擊失敗'}`, mine ? 'log-mine' : 'log-opp');
+  } else if (evt.kind === 'stadiumHeal') {
+    // 場地卡的被動回合結束治療（療癒海岸等）——只印對戰記錄行 + 補血飄字，不跳 1.5 秒全螢幕彈窗
+    for (const h of (evt.heals || [])) pocketLog(`${evt.stadiumZh || '場地卡'}：${pocketLogFindName(h.uid)}恢復了${h.amount}點HP`);
   }
   if (evt.healUid && evt.healAmount > 0) pocketLog(`${pocketLogFindName(evt.healUid)}恢復了${evt.healAmount}點HP`);
   overlayChain = overlayChain.then(async () => {
@@ -3818,6 +3827,7 @@ function handlePocketEvent(evt) {
       if (evt.damage > 0) showDamageFloat(evt.targetUid, evt.damage);
       if (evt.selfDamage > 0) showDamageFloat(evt.attackerUid, evt.selfDamage);
     }
+    if (evt.kind === 'stadiumHeal') { for (const h of (evt.heals || [])) showHealFloat(h.uid, h.amount); }
     if (evt.healUid && evt.healAmount > 0) showHealFloat(evt.healUid, evt.healAmount);
   });
 }

@@ -4356,11 +4356,24 @@ function pocketRunCheckup(G) {
   if (G.activeStadium?.id === 'B2b-069') {
     while (endingSide.hand.length < 3 && endingSide.deck.length) endingSide.hand.push(endingSide.deck.shift());
   }
-  // Soothing Shore（2026-08-08新增場地卡）：回合結束治療endingSide身上帶水屬性能量的寶可夢各20血
+  // Soothing Shore（療癒海岸，2026-08-08新增場地卡）：回合結束治療帶水屬性能量的寶可夢各20血。
+  // 2026-08-29使用者要求偏離卡面的「that player（該回合的玩家）」——改成每次checkup雙方都治療，
+  // 也就是「對手回合結束時我方帶水能量的寶可夢也會回血」。順便補視覺回饋（原本完全無聲）：
+  // 只把「真的有回到血」的寶可夢收進healed，透過lastEvent送給client印對戰記錄行+補血飄字。
   if (G.activeStadium?.id === 'B4-154') {
-    for (const p of [endingSide.active, ...endingSide.bench].filter(Boolean)) {
-      if (p.energy.includes('Water')) p.curHp = Math.min(p.hp, p.curHp + 20);
+    const healed = [];
+    for (const healSide of [endingSide, otherSideForCheckup]) {
+      for (const p of [healSide.active, ...healSide.bench].filter(Boolean)) {
+        if (p.curHp < p.hp && (p.energy || []).includes('Water')) {
+          const amt = Math.min(p.hp - p.curHp, 20);
+          p.curHp += amt;
+          healed.push({ uid: p.uid, amount: amt });
+        }
+      }
     }
+    // 已知極少數情況：同一次checkup裡若前面灼傷治癒/睡眠喚醒剛設過kind:'checkup'的擲硬幣
+    // lastEvent，這裡會覆蓋掉那次硬幣動畫（機制結果仍正確，只是少一個動畫）——組合太罕見不特別處理。
+    if (healed.length) G.lastEvent = { seq: ++G.eventSeq, kind: 'stadiumHeal', stadiumZh: '療癒海岸', heals: healed };
   }
   // Mismagius（2026-08-08新增delayedDamage機制）：「At the end of your opponent's next turn」
   // ——攻擊當下設defender.delayedDamageUntilTurn = 攻擊時的turnNumber+1，剛好對應defender
@@ -4369,9 +4382,7 @@ function pocketRunCheckup(G) {
     // 花舞鳥「神秘守護」（2026-08-16）：延遲傷害設下當下的攻擊者到引爆時可能已經換場/被擊倒，
     // 沒辦法在這裡重新拿到真正的攻擊者物件，所以改成設下當下就把攻擊者是不是ex存成
     // delayedDamageExOrigin這個布林快照，引爆時直接讀這個快照判斷要不要免疫
-    if (!pocketSafeguardImmune(endingSide.active, { ex: endingSide.active.delayedDamageExOrigin })) {
-      endingSide.active.curHp = Math.max(0, endingSide.active.curHp - (endingSide.active.delayedDamageAmount || 0));
-    }
+    endingSide.active.curHp = Math.max(0, endingSide.active.curHp - pocketEffectDamage(endingSide.active, endingSide, { ex: endingSide.active.delayedDamageExOrigin }, endingSide.active.delayedDamageAmount || 0));
     if (endingSide.active.curHp <= 0) {
       pocketResolveActiveKO(G, endingRole);
       if (G.phase === 'forced_switch' || G.phase === 'done') return true;
@@ -4388,9 +4399,7 @@ function pocketRunCheckup(G) {
   // 函式，用既有的批次版本）
   for (const p of endingSide.bench) {
     if (p.delayedDamageUntilTurn !== G.turnNumber) continue;
-    if (!pocketSafeguardImmune(p, { ex: p.delayedDamageExOrigin })) {
-      p.curHp = Math.max(0, p.curHp - (p.delayedDamageAmount || 0));
-    }
+    p.curHp = Math.max(0, p.curHp - pocketEffectDamage(p, endingSide, { ex: p.delayedDamageExOrigin }, p.delayedDamageAmount || 0));
   }
   pocketResolveBenchKOs(G, endingSide, otherRoleForCheckup);
   if (pocketCheckWin(G)) return true;
@@ -4707,6 +4716,22 @@ function pocketPassiveDamageReduction(defender, defenderSide, attacker) {
 // 也該免疫對手ex的傷害）補上，統一在這類「直接改curHp」的地方呼叫這個函式判斷要不要跳過扣血。
 function pocketSafeguardImmune(target, attacker) {
   return target?.abilities?.[0]?.name === 'Safeguard' && !!attacker?.ex;
+}
+// 2026-08-29：「繞過主傷害管線、直接改curHp」的招式外溢／多目標傷害（板凳splash、流星群這種
+// 隨機挑N次、"does N damage to each of your opponent's Pokémon"）過去只零星檢查Safeguard、
+// 完全沒套任何被動減傷——所以A4雷公「避雷針」（電屬性隊友-30）擋不到這類附加傷害，落雀「神秘
+// 守護」也擋不掉烈空座ex的流星群（那個handler連Safeguard都沒查）。這個函式是這類site的統一
+// 傷害入口：回傳「套用Safeguard完全免疫 + 固定值團隊型被動減傷後、實際該扣的血量」。
+// 只納入「可安全重複呼叫、不會mutate、不擲硬幣」的固定值減傷（避雷針）；Guarded Grill/Disguise
+// 那種機率型／一次性的留在pocketPassiveDamageReduction、只在主管線每次攻擊骰一次，不在這裡。
+function pocketEffectDamage(target, targetSide, attacker, amount) {
+  if (!target) return 0;
+  if (pocketSafeguardImmune(target, attacker)) return 0;
+  let reduction = 0;
+  // 避雷針（A4雷公，使用者自訂）：targetSide任一位置有持有者 + target自己是電屬性 → -30（不疊加）
+  if ((target.types || []).includes('Lightning') && targetSide &&
+      [targetSide.active, ...targetSide.bench].some(p => p?.abilities?.[0]?.name === 'Lightning Rod')) reduction += 30;
+  return Math.max(0, amount - reduction);
 }
 // 被攻擊打中時（mainDamage>0，不需要死亡）觸發的被動特性——反傷給attacker、讓attacker中毒、
 // 或從能量區拿能量附加到板凳。跟pocketPassiveDamageReduction不同，這個不影響傷害數字本身，
@@ -5091,7 +5116,7 @@ const ATTACK_EFFECTS = {
   "Take a {L} Energy from your Energy Zone and attach it to 1 of your Benched  Pokémon.": ctx => { // Pachirisu：能量區拿1電能量，附給自選板凳
     if (ctx.side.bench.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownBench', eligibleUids: ctx.side.bench.map(p => p.uid), action: 'attachEnergy', energyType: 'Lightning', count: 1 };
   },
-  "This attack also does 20 damage to each of your opponent's Benched Pokémon that has any Energy attached.": ctx => { for (const p of ctx.oppSide.bench) { if (p.energy.length > 0 && !pocketSafeguardImmune(p, ctx.attacker)) p.curHp = Math.max(0, p.curHp - 20); } },
+  "This attack also does 20 damage to each of your opponent's Benched Pokémon that has any Energy attached.": ctx => { for (const p of ctx.oppSide.bench) { if (p.energy.length > 0) p.curHp = Math.max(0, p.curHp - pocketEffectDamage(p, ctx.oppSide, ctx.attacker, 20)); } },
   "Flip a coin. If heads, your opponent's Active Pokémon is now Confused.": ctx => { if (pocketFlipCoin(ctx) && ctx.defender) ctx.defender.status = 'confused'; },
   "During your next turn, this Pokémon's Overacceleration attack does +20 damage.": ctx => { ctx.attacker.moveBuffUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.moveBuffName = 'Overacceleration'; ctx.attacker.moveBuffAmount = 20; },
   "If this Pokémon moved from your Bench to the Active Spot this turn, this attack does 60 more damage.": ctx => { if (ctx.attacker.enteredActiveThisTurn === ctx.G.turnNumber) ctx.rawDamage += 60; },
@@ -5247,7 +5272,7 @@ const ATTACK_EFFECTS = {
   "This attack does 10 more damage for each {W} Energy attached to this Pokémon.": ctx => { ctx.rawDamage += ctx.attacker.energy.filter(e => e === 'Water').length * 10; },
   "If you have exactly 2, 4, or 6 cards in your hand, this attack does 30 more damage.": ctx => { if ([2, 4, 6].includes(ctx.side.hand.length)) ctx.rawDamage += 30; },
   "Prevent all damage done to this Pokémon by attacks from Basic Pokémon during your opponent's next turn.": ctx => { ctx.attacker.selfShieldUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.selfShieldAmount = Infinity; ctx.attacker.selfShieldCondition = 'basic'; },
-  "1 of your opponent's Benched Pokémon is chosen at random. This attack also does 20 damage to it.": ctx => { if (ctx.oppSide.bench.length) { const t = ctx.oppSide.bench[Math.floor(Math.random() * ctx.oppSide.bench.length)]; if (!pocketSafeguardImmune(t, ctx.attacker)) t.curHp = Math.max(0, t.curHp - 20); } },
+  "1 of your opponent's Benched Pokémon is chosen at random. This attack also does 20 damage to it.": ctx => { if (ctx.oppSide.bench.length) { const t = ctx.oppSide.bench[Math.floor(Math.random() * ctx.oppSide.bench.length)]; t.curHp = Math.max(0, t.curHp - pocketEffectDamage(t, ctx.oppSide, ctx.attacker, 20)); } },
   "If your opponent's Active Pokémon has damage on it, this attack does 30 more damage.": ctx => { if (ctx.defender && ctx.defender.curHp < ctx.defender.hp) ctx.rawDamage += 30; },
   "Discard a {L} Energy from your opponent's Active Pokémon.": ctx => { if (ctx.oppSide.active) pocketDiscardEnergy(ctx.oppSide, ctx.oppSide.active, 'Lightning', 1); },
   "During your opponent's next turn, if they attach Energy from their Energy Zone to the Defending Pokémon, that Pokémon will be Asleep.": ctx => { if (ctx.defender) { ctx.defender.sleepTrapUntilTurn = ctx.G.turnNumber + 1; } },
@@ -5256,8 +5281,8 @@ const ATTACK_EFFECTS = {
     ctx.rawDamage = 0;
     const buffed = ctx.attacker.moveBuffUntilTurn === ctx.G.turnNumber && ctx.attacker.moveBuffName === ctx.atk.name;
     const dmg = 20 + (buffed ? 20 : 0);
-    if (ctx.defender && !pocketSafeguardImmune(ctx.defender, ctx.attacker)) ctx.defender.curHp = Math.max(0, ctx.defender.curHp - dmg);
-    for (const p of ctx.oppSide.bench) { if (!pocketSafeguardImmune(p, ctx.attacker)) p.curHp = Math.max(0, p.curHp - dmg); }
+    if (ctx.defender) ctx.defender.curHp = Math.max(0, ctx.defender.curHp - pocketEffectDamage(ctx.defender, ctx.oppSide, ctx.attacker, dmg));
+    for (const p of ctx.oppSide.bench) { p.curHp = Math.max(0, p.curHp - pocketEffectDamage(p, ctx.oppSide, ctx.attacker, dmg)); }
     ctx.attacker.moveBuffUntilTurn = ctx.G.turnNumber + 1;
     ctx.attacker.moveBuffName = ctx.atk.name;
     ctx.attacker.moveBuffAmount = 20;
@@ -5377,7 +5402,7 @@ const ATTACK_EFFECTS = {
     ctx.rawDamage = 0;
     if (pool.length) { const t = pool[Math.floor(Math.random() * pool.length)]; t.curHp = Math.max(0, t.curHp - 100); }
   },
-  "If Plusle is on your Bench, this attack also does 10 damage to each of your opponent's Benched Pokémon.": ctx => { if (pocketFindOwnByName(ctx.side, ['Plusle'])) { for (const p of ctx.oppSide.bench) { if (!pocketSafeguardImmune(p, ctx.attacker)) p.curHp = Math.max(0, p.curHp - 10); } } },
+  "If Plusle is on your Bench, this attack also does 10 damage to each of your opponent's Benched Pokémon.": ctx => { if (pocketFindOwnByName(ctx.side, ['Plusle'])) { for (const p of ctx.oppSide.bench) { p.curHp = Math.max(0, p.curHp - pocketEffectDamage(p, ctx.oppSide, ctx.attacker, 10)); } } },
   "If you have 5 or more {P} Energy in play, this attack does 60 more damage.": ctx => { const n = [ctx.side.active, ...ctx.side.bench].filter(Boolean).reduce((s, p) => s + p.energy.filter(e => e === 'Psychic').length, 0); if (n >= 5) ctx.rawDamage += 60; },
   "Take 2 {P} Energy from your Energy Zone and attach it to 1 of your Benched {P} Pokémon.": ctx => { const targets = ctx.side.bench.filter(p => (p.types || []).includes('Psychic')); if (targets.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownBench', eligibleUids: targets.map(p => p.uid), action: 'attachEnergy', energyType: 'Psychic', count: 2 }; },
   "This attack does 20 more damage for each Supporter card in your discard pile.": ctx => { const n = ctx.side.discard.filter(c => c.category === 'Trainer' && c.trainerType === 'Supporter').length; ctx.rawDamage += n * 20; },
@@ -5449,7 +5474,7 @@ const ATTACK_EFFECTS = {
     ctx.side.dracoMeteorExtraThisTurn = false;
     for (let i = 0; i < picks && pool.length; i++) {
       const t = pool[Math.floor(Math.random() * pool.length)];
-      t.curHp = Math.max(0, t.curHp - 50);
+      t.curHp = Math.max(0, t.curHp - pocketEffectDamage(t, ctx.oppSide, ctx.attacker, 50));
     }
   },
   // 烈空座ex（Promo-A #64/65，2026-08-28新增）：跟上面50傷害/60傷害兩個Draco Meteor同一招式
@@ -5463,7 +5488,7 @@ const ATTACK_EFFECTS = {
     ctx.side.dracoMeteorExtraThisTurn = false;
     for (let i = 0; i < picks && pool.length; i++) {
       const t = pool[Math.floor(Math.random() * pool.length)];
-      t.curHp = Math.max(0, t.curHp - 40);
+      t.curHp = Math.max(0, t.curHp - pocketEffectDamage(t, ctx.oppSide, ctx.attacker, 40));
     }
   },
   "Discard 1 {R} Energy from this Pokémon.": ctx => pocketDiscardEnergy(ctx.side, ctx.attacker, 'Fire', 1),
@@ -5543,7 +5568,7 @@ const ATTACK_EFFECTS = {
   "This Pokémon also does 20 damage to itself.": ctx => { ctx.selfDamage = (ctx.selfDamage || 0) + 20; },
   "This Pokémon also does 50 damage to itself.": ctx => { ctx.selfDamage = (ctx.selfDamage || 0) + 50; },
   "This attack also does 10 damage to each of your opponent's Benched Pokémon.": ctx => {
-    for (const p of ctx.oppSide.bench) { if (!pocketSafeguardImmune(p, ctx.attacker)) p.curHp = Math.max(0, p.curHp - 10); }
+    for (const p of ctx.oppSide.bench) { p.curHp = Math.max(0, p.curHp - pocketEffectDamage(p, ctx.oppSide, ctx.attacker, 10)); }
   },
   // 2026-08-06修正：「1 of your Benched Pokémon」沒有寫"at random"，即使是打在自己板凳上
   // 也是玩家自選要犧牲哪一隻，不能隨機——跟needsChoice的pick_target是同一套（見pocket_attack
@@ -5637,7 +5662,7 @@ const ATTACK_EFFECTS = {
     if (ctx.oppSide.bench.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: ctx.oppSide.bench.map(p => p.uid), action: 'damage', amount: 30 };
   },
   "This attack also does 20 damage to each of your opponent's Benched Pokémon.": ctx => {
-    for (const p of ctx.oppSide.bench) { if (!pocketSafeguardImmune(p, ctx.attacker)) p.curHp = Math.max(0, p.curHp - 20); }
+    for (const p of ctx.oppSide.bench) { p.curHp = Math.max(0, p.curHp - pocketEffectDamage(p, ctx.oppSide, ctx.attacker, 20)); }
   },
   // 2026-08-11修正：這4個「does N damage to 1 of your opponent's Pokémon」（含主戰/板凳任一隻）
   // 原本用Math.random()隨機選，卡面沒有「at random」——改成跟70/60傷害版本（3531/3636行）
@@ -5854,8 +5879,8 @@ const ATTACK_EFFECTS = {
   },
   "This attack does 20 damage to each of your opponent's Pokémon.": ctx => {
     ctx.rawDamage = 0;
-    if (ctx.defender && !pocketSafeguardImmune(ctx.defender, ctx.attacker)) ctx.defender.curHp = Math.max(0, ctx.defender.curHp - 20);
-    for (const p of ctx.oppSide.bench) { if (!pocketSafeguardImmune(p, ctx.attacker)) p.curHp = Math.max(0, p.curHp - 20); }
+    if (ctx.defender) ctx.defender.curHp = Math.max(0, ctx.defender.curHp - pocketEffectDamage(ctx.defender, ctx.oppSide, ctx.attacker, 20));
+    for (const p of ctx.oppSide.bench) { p.curHp = Math.max(0, p.curHp - pocketEffectDamage(p, ctx.oppSide, ctx.attacker, 20)); }
   },
 
   /* ── 2026-08-06第二批新增：修完彎引號bug後，依出現頻率繼續補高頻效果 ── */
@@ -5920,7 +5945,7 @@ const ATTACK_EFFECTS = {
     if (ctx.attacker.energy.length + (ctx.defender?.energy.length || 0) >= 5) ctx.rawDamage += 60;
   },
   "This attack also does 30 damage to each of your opponent's Benched Pokémon that has damage on it.": ctx => {
-    for (const p of ctx.oppSide.bench) { if (p.curHp < p.hp && !pocketSafeguardImmune(p, ctx.attacker)) p.curHp = Math.max(0, p.curHp - 30); }
+    for (const p of ctx.oppSide.bench) { if (p.curHp < p.hp) p.curHp = Math.max(0, p.curHp - pocketEffectDamage(p, ctx.oppSide, ctx.attacker, 30)); }
   },
   "Take 3 {P} Energy from your Energy Zone and attach it to your {P} Pokémon in any way you like.": ctx => {
     const targets = [ctx.side.active, ...ctx.side.bench].filter(p => p && (p.types || []).includes('Psychic'));
@@ -5946,7 +5971,7 @@ const ATTACK_EFFECTS = {
   },
   "Discard 3 {W} Energy from this Pokémon. This attack also does 20 damage to each of your opponent's Benched Pokémon.": ctx => {
     pocketDiscardEnergy(ctx.side, ctx.attacker, 'Water', 3);
-    for (const p of ctx.oppSide.bench) { if (!pocketSafeguardImmune(p, ctx.attacker)) p.curHp = Math.max(0, p.curHp - 20); }
+    for (const p of ctx.oppSide.bench) { p.curHp = Math.max(0, p.curHp - pocketEffectDamage(p, ctx.oppSide, ctx.attacker, 20)); }
   },
   "Flip 2 coins. This attack does 90 damage for each heads. Your opponent's Active Pokémon is now Confused.": ctx => {
     ctx.rawDamage = pocketFlipCoins(2, ctx) * 90;
@@ -6003,8 +6028,8 @@ const ATTACK_EFFECTS = {
   "Flip 2 coins. This attack does 20 more damage for each heads.": ctx => { ctx.rawDamage += pocketFlipCoins(2, ctx) * 20; },
   "This attack does 10 damage to each of your opponent's Pokémon.": ctx => {
     ctx.rawDamage = 0;
-    if (ctx.defender && !pocketSafeguardImmune(ctx.defender, ctx.attacker)) ctx.defender.curHp = Math.max(0, ctx.defender.curHp - 10);
-    for (const p of ctx.oppSide.bench) { if (!pocketSafeguardImmune(p, ctx.attacker)) p.curHp = Math.max(0, p.curHp - 10); }
+    if (ctx.defender) ctx.defender.curHp = Math.max(0, ctx.defender.curHp - pocketEffectDamage(ctx.defender, ctx.oppSide, ctx.attacker, 10));
+    for (const p of ctx.oppSide.bench) { p.curHp = Math.max(0, p.curHp - pocketEffectDamage(p, ctx.oppSide, ctx.attacker, 10)); }
   },
   "Flip a coin for each Pokémon you have in play. This attack does 20 damage for each heads.": ctx => {
     const n = 1 + ctx.side.bench.length;
@@ -6333,11 +6358,11 @@ const ATTACK_EFFECTS = {
   "If your opponent's Active Pokémon is Confused, this attack does 40 more damage.": ctx => { if (ctx.defender?.status === 'confused') ctx.rawDamage += 40; },
   "If this Pokémon's remaining HP is 110 or less, this attack does 80 more damage.": ctx => { if (ctx.attacker.curHp <= 110) ctx.rawDamage += 80; },
   "If Electivire is on your Bench, this attack also does 20 damage to each of your opponent's Benched Pokémon.": ctx => {
-    if (pocketFindOwnByName(ctx.side, ['Electivire'])) for (const p of ctx.oppSide.bench) { if (!pocketSafeguardImmune(p, ctx.attacker)) p.curHp = Math.max(0, p.curHp - 20); }
+    if (pocketFindOwnByName(ctx.side, ['Electivire'])) for (const p of ctx.oppSide.bench) { p.curHp = Math.max(0, p.curHp - pocketEffectDamage(p, ctx.oppSide, ctx.attacker, 20)); }
   },
   "Flip 3 coins. This attack also does 20 damage for each heads to each of your opponent's Benched Pokémon.": ctx => {
     const heads = [1, 2, 3].filter(() => pocketFlipCoin(ctx)).length;
-    if (heads) for (const p of ctx.oppSide.bench) { if (!pocketSafeguardImmune(p, ctx.attacker)) p.curHp = Math.max(0, p.curHp - heads * 20); }
+    if (heads) for (const p of ctx.oppSide.bench) { p.curHp = Math.max(0, p.curHp - pocketEffectDamage(p, ctx.oppSide, ctx.attacker, heads * 20)); }
   },
   "If any of your Pokémon were Knocked Out by damage from an attack during your opponent's last turn, your opponent's Active Pokémon is now Paralyzed.": ctx => {
     if (ctx.side.lostToAttackLastOppTurn && ctx.defender) ctx.defender.status = 'paralyzed';
@@ -6376,7 +6401,7 @@ const ATTACK_EFFECTS = {
     // 自己板凳不受神秘守護保護（Safeguard只擋「對手ex的攻擊」，自己板凳的持有者跟attacker同隊，
     // attacker不是牠的「對手」），只有oppSide.bench要檢查
     for (const p of ctx.side.bench) p.curHp = Math.max(0, p.curHp - 50);
-    for (const p of ctx.oppSide.bench) { if (!pocketSafeguardImmune(p, ctx.attacker)) p.curHp = Math.max(0, p.curHp - 50); }
+    for (const p of ctx.oppSide.bench) { p.curHp = Math.max(0, p.curHp - pocketEffectDamage(p, ctx.oppSide, ctx.attacker, 50)); }
   },
   "Take a {W} and a {L} Energy from your Energy Zone and attach them to this Pokémon.": ctx => {
     ctx.attacker.energy.push('Water');
@@ -6537,7 +6562,7 @@ const ATTACK_EFFECTS = {
   // 波盪水「席捲巨浪」：卡面文字沒有「random」字眼，2026-08-15應使用者回報改成玩家自選要棄哪個
   // 能量——比照retreat_discard「多種能量時才暫停問玩家」的慣例，只有1種能量就不用問直接棄
   "Discard an Energy from this Pokémon, and this attack also does 20 damage to each of your opponent's Benched Pokémon.": ctx => {
-    for (const p of ctx.oppSide.bench) { if (!pocketSafeguardImmune(p, ctx.attacker)) p.curHp = Math.max(0, p.curHp - 20); }
+    for (const p of ctx.oppSide.bench) { p.curHp = Math.max(0, p.curHp - pocketEffectDamage(p, ctx.oppSide, ctx.attacker, 20)); }
     if (ctx.attacker.energy.length) {
       if (new Set(ctx.attacker.energy).size > 1) {
         ctx.needsChoice = { kind: 'attack_discard_energy', remaining: 1 };
@@ -6658,7 +6683,7 @@ const ATTACK_EFFECTS = {
   "If your opponent's Active Pokémon is a {F} Pokémon, this attack does 70 more damage.": ctx => { if ((ctx.defender?.types || []).includes('Fighting')) ctx.rawDamage += 70; },
   "Discard 3 {W} Energy from this Pokémon, and this attack does 50 damage to each of your opponent's Pokémon.": ctx => {
     pocketDiscardEnergy(ctx.side, ctx.attacker, 'Water', 3);
-    for (const p of [ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean)) { if (!pocketSafeguardImmune(p, ctx.attacker)) p.curHp = Math.max(0, p.curHp - 50); }
+    for (const p of [ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean)) { p.curHp = Math.max(0, p.curHp - pocketEffectDamage(p, ctx.oppSide, ctx.attacker, 50)); }
     ctx.rawDamage = 0;
   },
   "Heal 10 damage from each of your Benched Pokémon.": ctx => { for (const p of ctx.side.bench) p.curHp = Math.min(p.hp, p.curHp + 10); },
@@ -12234,7 +12259,7 @@ async function handleMessage(ws, msg) {
             if (oppSide.active) { oppSide.active.status = null; oppSide.active.poisoned = false; oppSide.active.burned = false; oppSide.bench.push(oppSide.active); }
             oppSide.active = target;
           }
-          if (!pocketSafeguardImmune(target, side.active)) target.curHp = Math.max(0, target.curHp - pending.amount);
+          target.curHp = Math.max(0, target.curHp - pocketEffectDamage(target, oppSide, side.active, pending.amount));
           pocketResolveBenchKOs(G, oppSide, role);
           if (target.curHp <= 0) pocketResolveActiveKO(G, op);
           if (pocketCheckWin(G)) { G.pendingChoice = null; pocketBroadcastState(pRoom); return; }
@@ -12247,8 +12272,11 @@ async function handleMessage(ws, msg) {
           // pocket_attack那個handler會固定加這個key，其餘來源不會）判斷這次選擇是不是真的來自
           // 攻擊，不是訓練師卡/特性效果。同時只有pool==='oppAll'時target才是對手的寶可夢——自己
           // 這一側的target（'ownAll'/'ownBench'，自傷效果）攻擊者跟target同隊，不算「對手的ex」
-          const immune = pending.pool === 'oppAll' && pending.deferredKO !== undefined && pocketSafeguardImmune(target, side.active);
-          if (!immune) target.curHp = Math.max(0, target.curHp - amount);
+          // 是不是真的來自攻擊、且打的是對手的寶可夢——是的話走pocketEffectDamage（Safeguard完全
+          // 免疫 + 避雷針等固定值減傷）；否則（訓練師卡/特性/自傷）照原樣直接扣
+          const isOppAttack = pending.pool === 'oppAll' && pending.deferredKO !== undefined;
+          const dealt = isOppAttack ? pocketEffectDamage(target, oppSide, side.active, amount) : amount;
+          target.curHp = Math.max(0, target.curHp - dealt);
           // 這個分支的傷害延遲到玩家選完目標才真的套用，跟一般攻擊在pocket_attack當下就結算
           // 不一樣——原本的pocketResolveBenchKOs/pocketResolveActiveKO/pocketCheckWin是攻擊當下
           // 就跑過一次，這裡打的傷害那次還沒發生，所以要自己再補一次KO跟勝負判定，不然打死
