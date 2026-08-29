@@ -233,8 +233,15 @@ try {
     const ov = OV[name];
     const printings = pocketCards.filter(c => c.name === name);
     if (!printings.length) { overrideProblems.push(`override key '${name}' matches no card name in pocket-cards.json`); continue; }
-    if (ov.attackCost && !printings.some(c => (c.attacks || []).some(a => a.name === ov.attackCost.name))) {
-      overrideProblems.push(`${name}: attackCost.name "${ov.attackCost.name}" not found on any printing`);
+    if (ov.attackCost) {
+      // 2026-08-29擴充：attackCost現在可以是單一物件（Nidoking/Mew ex既有寫法）或陣列
+      // （帝牙盧卡ex一次改兩招）——這裡兩種形狀都要檢查
+      const costList = Array.isArray(ov.attackCost) ? ov.attackCost : [ov.attackCost];
+      for (const ac of costList) {
+        if (!printings.some(c => (c.attacks || []).some(a => a.name === ac.name))) {
+          overrideProblems.push(`${name}: attackCost.name "${ac.name}" not found on any printing`);
+        }
+      }
     }
     if (ov.attackEffect) {
       for (const ae of ov.attackEffect) {

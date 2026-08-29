@@ -2011,12 +2011,20 @@ function buildCardPatchOverlay(card) {
   }
   // 2026-08-19新增：招式能量花費改動——蓋住卡圖上印刷的舊能量圖示，換成新花費的圖示。
   // 如果這一招同時被上面的遮蓋框涵蓋到（例如基因駭入，遮蓋範圍本來就含能量圖示列），不用
-  // 再疊一個獨立框，避免蓋兩層；否則用.card-patch-attack-cost這個獨立位置（校準給尼多王那種
-  // 單招式、無特性版型，只有沒跟attackEffect疊在一起改的招式才會走到這裡）
-  const costCoveredByEffectMask = patch.attackCost && patchedAttacks.some(p => p.name === patch.attackCost.name);
-  if (patch.attackCost && !costCoveredByEffectMask) {
-    const icons = patch.attackCost.new.map(t => energyIconHtml(t, false, 'energy-icon-inline')).join('');
-    html += `<div class="card-patch-attack-cost">${icons}</div>`;
+  // 再疊一個獨立框，避免蓋兩層；否則用.card-patch-attack-cost這個獨立位置——但這個位置只
+  // 校準過尼多王那種「單招式、無特性」版型，2026-08-29帝牙盧卡ex兩招都改cost時發現：
+  // 多招式卡沒有對應校準座標，硬套會位置對不上，所以只在card.attacks.length===1時才疊這個框，
+  // 其餘（例如帝牙盧卡ex的金屬渦輪）沒有圖層可疊，退回文字列表顯示（見attackEffect那段同一種
+  // 「未校準版型不硬疊」的原則）
+  // 2026-08-29新增：patch.attackCost從單一物件改成陣列（跟attackEffect同一種擴充理由——
+  // 一張卡可能不只1招要改cost），這裡改成迴圈處理
+  if (patch.attackCost?.length) {
+    for (const ac of patch.attackCost) {
+      const coveredByEffectMask = patchedAttacks.some(p => p.name === ac.name);
+      if (coveredByEffectMask || card.attacks?.length !== 1) continue;
+      const icons = ac.new.map(t => energyIconHtml(t, false, 'energy-icon-inline')).join('');
+      html += `<div class="card-patch-attack-cost">${icons}</div>`;
+    }
   }
   return html;
 }
@@ -2033,7 +2041,13 @@ function showCardDetail(card, actions) {
     // 列表裡標記出「被改過的那一招」本身：金色邊框+「⚠️已修改」徽章，跟has-patch同一套配色
     // (#ffca28)。使用者回報「圖片沒標示修改的部分」——效果文字本身其實已經是正確的新文字
     // （load-time就mutate進card.attacks[i].effect了），缺的只是「哪一招被改過」這個視覺提示。
-    const patchedAttackNames = new Set((card._patch?.attackEffect || []).map(ae => ae.name));
+    // 2026-08-29修正：原本只看attackEffect，純改cost沒改效果文字的招式（例如帝牙盧卡ex的
+    // 金屬渦輪）不會被標記——這張卡剛好又沒有校準過的圖層座標可疊（見上面buildCardPatchOverlay
+    // 的card.attacks.length===1限制），變成完全沒有視覺提示，連文字列表都不標——一併補上
+    const patchedAttackNames = new Set([
+      ...(card._patch?.attackEffect || []).map(ae => ae.name),
+      ...(card._patch?.attackCost || []).map(ac => ac.name),
+    ]);
     html += (card.attacks || []).map(a => `
       <div class="detail-attack${patchedAttackNames.has(a.name) ? ' attack-patched' : ''}">
         <div class="dname"><span>${zhName(a)}${patchedAttackNames.has(a.name) ? ' <span class="attack-patched-badge">⚠️已修改</span>' : ''}</span><span>${(a.cost || []).map(t => energyIconHtml(t, true)).join('')} ${a.damage || ''}</span></div>

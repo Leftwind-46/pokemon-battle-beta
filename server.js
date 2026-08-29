@@ -3700,6 +3700,21 @@ const POCKET_CARD_OVERRIDES = {
     effect: 'Take a {C} Energy and a {P} Energy from your Energy Zone and attach them to your Mew or Mew ex in play.',
     effect_zh: '從能量區各拿1個無色能量和1個超能力能量，附加在場上的夢幻或夢幻ex身上。',
   },
+  // 帝牙盧卡ex（A2，2026-08-29使用者自訂調整）：兩招能量需求都改，第二招（重量衝擊）額外
+  // 加上「對手下回合，這隻受到的招式傷害-50」——效果原文直接沿用既有的
+  // "During your opponent's next turn, this Pokémon takes −50 damage from attacks."(注意是
+  // U+2212減號，不是一般連字號)，已經有現成handler(selfShieldUntilTurn/Amount)可以重用，
+  // 不用新寫。attackCost是陣列（一次改兩招，2026-08-29把這個欄位從單一物件擴充成陣列，
+  // 向後相容既有的Nidoking/Mew ex單物件寫法）
+  'Dialga ex': {
+    attackCost: [
+      { name: 'Metallic Turbo', cost: ['Metal'] },
+      { name: 'Heavy Impact', cost: ['Colorless', 'Colorless', 'Colorless'] },
+    ],
+    attackEffect: [
+      { name: 'Heavy Impact', effect: "During your opponent's next turn, this Pokémon takes −50 damage from attacks.", effect_zh: '在對手的下個回合，這隻寶可夢受到的招式傷害-50。' },
+    ],
+  },
 };
 for (const c of POCKET_CARDS) {
   const ov = POCKET_CARD_OVERRIDES[c.name];
@@ -3720,11 +3735,18 @@ for (const c of POCKET_CARDS) {
   // 對應名字的那個招式物件）。這裡只負責算出patch.attackCost這筆資料——疊圖層本身（蓋住
   // 卡圖上印刷的舊能量符號）在client端public/pocket.html的buildCardPatchOverlay()裡，
   // 見.card-patch-attack-cost（使用者當時回報「圖案上的部分沒修到」才補上，純文字顯示不夠）
+  // 2026-08-29擴充：一張卡可能要同時改兩招的能量需求（帝牙盧卡ex兩招都改）——跟attackEffect
+  // 同一種「陣列化」擴充，但保留單一物件寫法的向後相容（Nidoking/Mew ex既有的兩筆都還是
+  // 單一物件），呼叫端不用改
   if (ov.attackCost) {
-    const atk = (c.attacks || []).find(a => a.name === ov.attackCost.name);
-    if (atk && JSON.stringify(atk.cost) !== JSON.stringify(ov.attackCost.cost)) {
-      patch.attackCost = { name: atk.name, old: atk.cost, new: ov.attackCost.cost };
-      atk.cost = ov.attackCost.cost;
+    const costList = Array.isArray(ov.attackCost) ? ov.attackCost : [ov.attackCost];
+    for (const ac of costList) {
+      const atk = (c.attacks || []).find(a => a.name === ac.name);
+      if (atk && JSON.stringify(atk.cost) !== JSON.stringify(ac.cost)) {
+        patch.attackCost = patch.attackCost || [];
+        patch.attackCost.push({ name: atk.name, old: atk.cost, new: ac.cost });
+        atk.cost = ac.cost;
+      }
     }
   }
   // 2026-08-19新增：改一張卡「已經有」的特性效果文字（跟addAbility不同——addAbility是給
