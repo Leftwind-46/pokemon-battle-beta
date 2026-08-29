@@ -4728,9 +4728,17 @@ function pocketEffectDamage(target, targetSide, attacker, amount) {
   if (!target) return 0;
   if (pocketSafeguardImmune(target, attacker)) return 0;
   let reduction = 0;
-  // 避雷針（A4雷公，使用者自訂）：targetSide任一位置有持有者 + target自己是電屬性 → -30（不疊加）
-  if ((target.types || []).includes('Lightning') && targetSide &&
-      [targetSide.active, ...targetSide.bench].some(p => p?.abilities?.[0]?.name === 'Lightning Rod')) reduction += 30;
+  if (targetSide) {
+    const teamAbilities = [targetSide.active, ...targetSide.bench].map(p => p?.abilities?.[0]?.name);
+    // 避雷針（A4雷公，使用者自訂）：targetSide任一位置有持有者 + target自己是電屬性 → -30（不疊加）
+    if ((target.types || []).includes('Lightning') && teamAbilities.includes('Lightning Rod')) reduction += 30;
+    // GUARD（Unown）：跟pocketPassiveDamageReduction同一個判斷，全隊-10
+    if (teamAbilities.includes('GUARD') && pocketUnownConditionMet(targetSide, 'GUARD')) reduction += 10;
+    // 尼多后「護駕」（使用者自訂）：target是Nidoqueen本人時，逐隻在場的Escort持有者各疊-20
+    if (target.name === 'Nidoqueen') {
+      reduction += [targetSide.active, ...targetSide.bench].filter(p => p?.abilities?.[0]?.name === 'Escort').length * 20;
+    }
+  }
   return Math.max(0, amount - reduction);
 }
 // 被攻擊打中時（mainDamage>0，不需要死亡）觸發的被動特性——反傷給attacker、讓attacker中毒、
@@ -5110,7 +5118,7 @@ const ATTACK_EFFECTS = {
     ctx.rawDamage = 0;
     if (pool.length) {
       const t = pool[Math.floor(Math.random() * pool.length)];
-      t.curHp = Math.max(0, t.curHp - 30);
+      t.curHp = Math.max(0, t.curHp - pocketEffectDamage(t, ctx.oppSide, ctx.attacker, 30));
     }
   },
   "Take a {L} Energy from your Energy Zone and attach it to 1 of your Benched  Pokémon.": ctx => { // Pachirisu：能量區拿1電能量，附給自選板凳
@@ -5186,7 +5194,8 @@ const ATTACK_EFFECTS = {
       const pool = [ctx.side.active, ...ctx.side.bench, ctx.oppSide.active, ...ctx.oppSide.bench].filter(p => p && p !== ctx.attacker);
       if (!pool.length) break;
       const t = pool[Math.floor(Math.random() * pool.length)];
-      t.curHp = Math.max(0, t.curHp - 50);
+      const tSide = (t === ctx.side.active || ctx.side.bench.includes(t)) ? ctx.side : ctx.oppSide;
+      t.curHp = Math.max(0, t.curHp - pocketEffectDamage(t, tSide, ctx.attacker, 50));
     }
   },
   "Flip a coin. If tails, discard 2 random Energy from this Pokémon.": ctx => { if (!pocketFlipCoin(ctx)) { for (let i = 0; i < 2 && ctx.attacker.energy.length; i++) { const [t] = ctx.attacker.energy.splice(Math.floor(Math.random() * ctx.attacker.energy.length), 1); ctx.side.discardEnergy.push(t); } } },
@@ -5387,7 +5396,7 @@ const ATTACK_EFFECTS = {
     ctx.rawDamage = 0;
     if (!ctx.defender) return;
     if (pocketFlipCoin(ctx)) {
-      ctx.defender.curHp = Math.max(0, ctx.defender.curHp - 70);
+      ctx.defender.curHp = Math.max(0, ctx.defender.curHp - pocketEffectDamage(ctx.defender, ctx.oppSide, ctx.attacker, 70));
     } else {
       ctx.defender.curHp = Math.min(ctx.defender.hp, ctx.defender.curHp + 30);
     }
@@ -5400,7 +5409,11 @@ const ATTACK_EFFECTS = {
   "1 other Pokémon (either yours or your opponent's) is chosen at random 1 time. Do 100 damage to the chosen Pokémon.": ctx => { // Zapdos：雙方任一位置隨機挑1隻，100傷害（排除攻擊者自己——卡面文字是"1 OTHER Pokémon"）
     const pool = [ctx.side.active, ...ctx.side.bench, ctx.oppSide.active, ...ctx.oppSide.bench].filter(p => p && p !== ctx.attacker);
     ctx.rawDamage = 0;
-    if (pool.length) { const t = pool[Math.floor(Math.random() * pool.length)]; t.curHp = Math.max(0, t.curHp - 100); }
+    if (pool.length) {
+      const t = pool[Math.floor(Math.random() * pool.length)];
+      const tSide = (t === ctx.side.active || ctx.side.bench.includes(t)) ? ctx.side : ctx.oppSide;
+      t.curHp = Math.max(0, t.curHp - pocketEffectDamage(t, tSide, ctx.attacker, 100));
+    }
   },
   "If Plusle is on your Bench, this attack also does 10 damage to each of your opponent's Benched Pokémon.": ctx => { if (pocketFindOwnByName(ctx.side, ['Plusle'])) { for (const p of ctx.oppSide.bench) { p.curHp = Math.max(0, p.curHp - pocketEffectDamage(p, ctx.oppSide, ctx.attacker, 10)); } } },
   "If you have 5 or more {P} Energy in play, this attack does 60 more damage.": ctx => { const n = [ctx.side.active, ...ctx.side.bench].filter(Boolean).reduce((s, p) => s + p.energy.filter(e => e === 'Psychic').length, 0); if (n >= 5) ctx.rawDamage += 60; },
@@ -5459,7 +5472,7 @@ const ATTACK_EFFECTS = {
       const pool = [ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean);
       if (!pool.length) break;
       const t = pool[Math.floor(Math.random() * pool.length)];
-      t.curHp = Math.max(0, t.curHp - 40);
+      t.curHp = Math.max(0, t.curHp - pocketEffectDamage(t, ctx.oppSide, ctx.attacker, 40));
     }
   },
   // Dragonite「流星群」：跟其他隨機打對手場上寶可夢的效果（30damage那兩條）同一種寫法——
@@ -5867,14 +5880,14 @@ const ATTACK_EFFECTS = {
     const pool = [ctx.defender, ...ctx.oppSide.bench].filter(Boolean);
     for (let i = 0; i < 3 && pool.length; i++) {
       const t = pool[Math.floor(Math.random() * pool.length)];
-      t.curHp = Math.max(0, t.curHp - 50);
+      t.curHp = Math.max(0, t.curHp - pocketEffectDamage(t, ctx.oppSide, ctx.attacker, 50));
     }
   },
   "1 of your opponent's Benched Pokémon is chosen at random 3 times. For each time a Pokémon was chosen, also do 20 damage to it.": ctx => {
     if (!ctx.oppSide.bench.length) return;
     for (let i = 0; i < 3; i++) {
       const t = ctx.oppSide.bench[Math.floor(Math.random() * ctx.oppSide.bench.length)];
-      t.curHp = Math.max(0, t.curHp - 20);
+      t.curHp = Math.max(0, t.curHp - pocketEffectDamage(t, ctx.oppSide, ctx.attacker, 20));
     }
   },
   "This attack does 20 damage to each of your opponent's Pokémon.": ctx => {
@@ -6350,7 +6363,7 @@ const ATTACK_EFFECTS = {
     const pool = [ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean);
     for (let i = 0; i < n && pool.length; i++) {
       const t = pool[Math.floor(Math.random() * pool.length)];
-      t.curHp = Math.max(0, t.curHp - 40);
+      t.curHp = Math.max(0, t.curHp - pocketEffectDamage(t, ctx.oppSide, ctx.attacker, 40));
     }
   },
 
@@ -6440,7 +6453,7 @@ const ATTACK_EFFECTS = {
   "1 of your opponent's Pokémon is chosen at random. Do 160 damage to it.": ctx => {
     ctx.rawDamage = 0;
     const pool = [ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean);
-    if (pool.length) { const t = pool[Math.floor(Math.random() * pool.length)]; t.curHp = Math.max(0, t.curHp - 160); }
+    if (pool.length) { const t = pool[Math.floor(Math.random() * pool.length)]; t.curHp = Math.max(0, t.curHp - pocketEffectDamage(t, ctx.oppSide, ctx.attacker, 160)); }
   },
   "If a Stadium is in play, your opponent's Active Pokémon is now Burned.": ctx => { if (ctx.G.activeStadium && ctx.defender) ctx.defender.burned = true; },
   "Flip a coin. If heads, take 2 {R} Energy from your Energy Zone and attach it to this Pokémon.": ctx => { if (pocketFlipCoin(ctx)) ctx.attacker.energy.push('Fire', 'Fire'); },
@@ -6746,7 +6759,7 @@ const ATTACK_EFFECTS = {
     const pool = [ctx.defender, ...ctx.oppSide.bench].filter(Boolean);
     const picks = ctx.side.dracoMeteorExtraThisTurn ? 4 : 3;
     ctx.side.dracoMeteorExtraThisTurn = false;
-    for (let i = 0; i < picks && pool.length; i++) { const t = pool[Math.floor(Math.random() * pool.length)]; t.curHp = Math.max(0, t.curHp - 60); }
+    for (let i = 0; i < picks && pool.length; i++) { const t = pool[Math.floor(Math.random() * pool.length)]; t.curHp = Math.max(0, t.curHp - pocketEffectDamage(t, ctx.oppSide, ctx.attacker, 60)); }
   },
   "Flip 2 coins. If both of them are heads, this attack does 100 more damage.": ctx => { if (pocketFlipCoin(ctx) && pocketFlipCoin(ctx)) ctx.rawDamage += 100; },
   // 簡化：真實規則玩家可以自選怎麼分配，這個引擎沒有「多來源多去向」的能量搬移UI——
@@ -7125,12 +7138,14 @@ const TRAINER_EFFECTS = {
     }
     return null;
   },
-  'A2b-070': (ctx, msg) => { // Pokémon Center Lady：治療己方1隻30血+清除全部異常狀態
+  'A2b-070': (ctx, msg) => { // Pokémon Center Lady：治療己方1隻30血+解除全部特殊狀態（含中毒/灼傷）
     const target = pocketFindOwn(ctx.side, msg.target);
     if (!target) return '請選擇目標寶可夢';
     const before = target.curHp;
     target.curHp = Math.min(target.hp, target.curHp + 30);
-    target.status = null;
+    // 卡面「recovers from all Special Conditions」——2026-08-13狀態改雙軸後，中毒/灼傷是獨立布林，
+    // 只清status漏掉這兩個（原本就是這次要修的bug）
+    target.status = null; target.poisoned = false; target.burned = false;
     ctx.healUid = target.uid; ctx.healAmount = target.curHp - before;
     return null;
   },
