@@ -110,7 +110,7 @@
   .btn-danger:hover { background:rgba(239,83,80,0.2); }
   .btn-row { display:flex; gap:0.5rem; }
   .btn-row .btn { flex:1; }
-  .deck-jump { display:none; } /* 手機版才顯示的「跳去牌組」浮動鈕，見末端 @media 區塊 */
+  .deck-jump-wrap { display:none; } /* 手機版才顯示的浮動鈕（跳牌組／跳最上），見末端 @media 區塊 */
 
   .save-toast { position:fixed; bottom:1.2rem; left:50%; transform:translateX(-50%) translateY(20px); background:#1b2040; border:1px solid var(--border); color:var(--text); padding:0.6rem 1.2rem; border-radius:999px; font-size:0.85rem; opacity:0; transition:all .25s; z-index:50; pointer-events:none; }
   .save-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
@@ -604,11 +604,14 @@
     .deck-list { max-height:44dvh; }
     .deck-code-row .btn-row .btn { font-size:0.74rem; }
 
-    /* 手機上跳去牌組面板的浮動小鈕（桌機隱藏） */
-    .deck-jump { position:fixed; right:12px; bottom:calc(14px + env(safe-area-inset-bottom)); z-index:46;
-      display:flex; align-items:center; gap:0.3rem; text-decoration:none;
-      background:linear-gradient(135deg,#f8d030,#f05030); color:#fff; font-weight:800; font-size:0.8rem;
-      padding:0.55rem 0.95rem; border-radius:999px; box-shadow:0 4px 16px rgba(0,0,0,0.5); }
+    /* 手機上的浮動鈕組（桌機隱藏）：右下角直向兩顆——上「↑ 最上」、下「🧩 牌組 ↓」 */
+    .deck-jump-wrap { display:flex; flex-direction:column; align-items:flex-end; gap:0.4rem;
+      position:fixed; right:12px; bottom:calc(14px + env(safe-area-inset-bottom)); z-index:46; }
+    .deck-jump { display:flex; align-items:center; gap:0.3rem; text-decoration:none;
+      color:#fff; font-weight:800; font-size:0.8rem; padding:0.55rem 0.95rem; border-radius:999px;
+      background:linear-gradient(135deg,#f8d030,#f05030); box-shadow:0 4px 16px rgba(0,0,0,0.5); }
+    .deck-jump.deck-jump-top { background:rgba(16,19,43,0.94); border:1px solid var(--border);
+      color:var(--text); font-weight:700; }
 
     /* ── 收藏頁 / 開包 / 大廳 / 選擇彈窗：全部改成由下往上的 bottom sheet ── */
     .collection-overlay, .pack-overlay, .lobby-overlay, .peek-overlay { align-items:flex-end; padding:0; }
@@ -711,7 +714,7 @@
 <body>
 <canvas id="stars"></canvas>
 
-<div class="page">
+<div class="page" id="top">
   <header class="top">
     <div>
       <h1>Pokémon TCG Pocket 對戰</h1>
@@ -791,7 +794,10 @@
       <button class="btn btn-secondary" id="goto-lobby-btn" onclick="openLobby()" disabled style="width:100%">🔗 前往連線對戰</button>
     </aside>
   </div>
-  <a href="#deck-panel" class="deck-jump" aria-label="跳到牌組">🧩 牌組 ↓</a>
+  <div class="deck-jump-wrap">
+    <a href="#top" class="deck-jump deck-jump-top" aria-label="跳到最上方">↑ 最上</a>
+    <a href="#deck-panel" class="deck-jump" aria-label="跳到牌組">🧩 牌組 ↓</a>
+  </div>
 
   <div class="collection-overlay" id="collection-overlay" style="display:none">
     <div class="collection-box">
