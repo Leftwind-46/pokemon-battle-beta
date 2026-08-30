@@ -3664,6 +3664,12 @@ const POCKET_CARD_OVERRIDES = {
   // 各自的招式名字，不會互相污染（Ditto這個name在POCKET_CARDS裡同時對應這兩張不同印刷卡，
   // 但招式名字不同，find(a => a.name === ae.name)自然只會命中卡片自己真的有的那個招式）
   'Ditto': {
+    // 2026-08-30使用者自訂調整：A1「複製一切」/B1a「複製夥伴」的能量消耗都從一無改成兩無。
+    // 兩個招式名字不同，按名字比對只會各自命中該張卡自己的招式（跟下面attackEffect同理）
+    attackCost: [
+      { name: 'Copy Anything', cost: ['Colorless', 'Colorless'] },
+      { name: 'Copy a Friend', cost: ['Colorless', 'Colorless'] },
+    ],
     attackEffect: [
       {
         name: 'Copy Anything',
