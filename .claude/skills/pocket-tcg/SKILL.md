@@ -431,6 +431,8 @@ B3-025 Victini's printed ability ("Once during your turn, after you flip any coi
 
 **踩過的坑（2026-08-31 修）**：組牌頁「支援者的協助」的卡片挑選器第一版重用了 `openDiscardTargetPicker`，但那個 `#discard-target-picker-overlay` DOM 塞在 `#board-overlay` 裡（組牌頁是 `display:none`），overlay 被父層吃掉 → 點按鈕沒反應（跟 `card-detail-panel` 當年同一個坑）。改成獨立頂層 overlay `#supp-picker-overlay`（`.setup-overlay`+`.grid`+`.card-tile`、有搜尋、按 `name` 去重）。**任何組牌頁要用的 overlay 都必須放在頂層，不能塞進 `#board-overlay`。**
 
+**再一輪（2026-08-31，同日）**：使用者反映組牌頁的技能設定 inline 區塊把牌組列表擠出畫面。改成 `#skill-config-btn`（顯示 `✨ 玩家技能設定（N/3）`）開頂層 modal `#skill-config-overlay`（`.setup-box.skill-modal-box`）。手機處理：`.setup-box.skill-modal-box { max-width:520px }` 桌機收窄；但這個 `#id .class` 特異度(0,2,0)會蓋掉末端 `@media(max-width:600px)` 裡 `.setup-box{max-width:none}`(0,1,0) 的全寬 bottom sheet，所以**必須在那個 media block 內另外加一條 `.setup-box.skill-modal-box { max-width:none }`**（同特異度、靠 source order 在後面贏）。`#supp-picker-overlay` 的 box 也一起換成 `.skill-modal-box`（拿掉原本的 inline `width`——inline width 會贏過 media query，害手機不能全寬，正是 mobile skill 文件記過的坑）。z-index：skill-config 118 < supp-picker 122，選完卡回到 config modal。瀏覽器實測過桌機 modal + 牌組列表可見、supp-picker 疊在上面選卡、模擬 mobile rules 確認 box 變 `max-width:none` 全寬。
+
 **驗證**：`scripts/pocket-extract` 沒用到（純新增，不動既有表）。實測用 2-client WS（`PORT=3999 node server.js` + `ws`）跑完整 lobby→submit(skills)→setup→發動：energy_infusion（火焰鳥ex 選熱能爆破 `[Fire,Colorless,Colorless]` → 灌 `[Fire,Water,Water]`）、terrain_tactics（deck 裡的修行場地 → `activeStadium` 設好）、supporter_help（sideboard 博士的研究 → 手牌 +2、卡進棄牌堆）、once-per-battle 第二次被擋、條件不足不消耗。**踩到的雷**：scratch server 跨多次測試會累積 stale 房間/斷線 socket 導致後續連線 setup 卡住——每輪測試前 `kill` 重開一個乾淨的 `PORT=3999` server。
 
 ## Memory

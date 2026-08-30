@@ -547,7 +547,8 @@
   @keyframes skillBurst { 0% { transform:scale(0.2); opacity:0; } 25% { opacity:1; } 100% { transform:scale(2.6); opacity:0; } }
   @keyframes skillNameIn { 0% { transform:scale(0.6) translateY(10px); opacity:0; } 30% { transform:scale(1) translateY(0); opacity:1; } 80% { opacity:1; } 100% { opacity:0; } }
 
-  .skill-config { margin-bottom:0.6rem; }
+  /* 組牌頁的技能設定 / 支援者挑選彈窗：桌機收窄一點，手機由末端 @media 退回全寬 bottom sheet */
+  .setup-box.skill-modal-box { max-width:520px; }
   .skill-cfg-row { display:flex; gap:0.5rem; align-items:flex-start; background:var(--surface); border:1px solid var(--border);
     border-radius:8px; padding:0.5rem 0.6rem; margin-bottom:0.35rem; cursor:pointer; }
   .skill-cfg-row.on { border-color:#7c6eff; background:rgba(124,110,255,0.12); }
@@ -649,6 +650,8 @@
     .collection-box, .pack-box, .lobby-box, .peek-box, .setup-box {
       width:100%; max-width:none; border-radius:18px 18px 0 0; max-height:90dvh;
       padding:1.2rem 0.95rem calc(1.2rem + env(safe-area-inset-bottom)); }
+    .setup-box.skill-modal-box { max-width:none; } /* 蓋掉桌機的 520px 收窄，手機要全寬 bottom sheet */
+    #supp-picker-grid { max-height:50dvh; }
     .collection-box, .pack-box { padding-top:1rem; }
     .grid#collection-grid, .grid#dex-grid, .grid#pack-set-picker-grid {
       grid-template-columns:repeat(auto-fill,minmax(88px,1fr)); }
@@ -815,15 +818,7 @@
         <div class="lobby-sub" style="margin-bottom:0.3rem">能量區會出現的屬性（可自選，至少選1種）</div>
         <div class="energy-type-chips" id="energy-type-chips"></div>
       </div>
-      <div class="skill-config" id="skill-config">
-        <div class="lobby-sub" style="margin-bottom:0.3rem">玩家技能（最多選 3 個，整場戰鬥只能發動 1 次；沒設定就沒有技能）</div>
-        <div id="skill-config-list"></div>
-        <div id="supporter-help-config" style="display:none;margin-top:0.4rem">
-          <div class="lobby-sub" style="margin-bottom:0.3rem">「支援者的協助」牌組外支援者卡（最多 3 張，可留空）</div>
-          <div id="supporter-help-cards" class="skill-supp-cards"></div>
-          <button class="btn btn-secondary" style="font-size:0.74rem;padding:0.35rem 0.7rem" onclick="openSupporterHelpPicker()">＋ 選擇支援者卡</button>
-        </div>
-      </div>
+      <button class="btn btn-secondary" id="skill-config-btn" style="width:100%" onclick="openSkillConfig()">✨ 玩家技能設定（0/3）</button>
       <div class="deck-list" id="deck-list"></div>
       <div class="btn-row">
         <button class="btn btn-secondary" onclick="clearDeck()">清空</button>
@@ -1170,11 +1165,26 @@
   <div id="card-detail-body"></div>
 </div>
 
-<!-- 玩家技能：組牌頁「支援者的協助」的牌組外支援者卡挑選器（2026-08-31）——放頂層，不能塞進
-     #board-overlay（那個在組牌頁是 display:none，overlay 會被父層吃掉，跟 card-detail-panel
-     同一個坑）。有搜尋、按卡名去重（同名不同印刷只顯示一張）。 -->
-<div class="setup-overlay" id="supp-picker-overlay" style="display:none;position:fixed;z-index:120">
-  <div class="setup-box" style="max-width:560px;width:min(94vw,560px)">
+<!-- 玩家技能：組牌頁的技能設定彈窗（2026-08-31）——改成彈窗，不再佔用 .deck-panel 版面把牌組列表擠掉。
+     所有組牌頁要用的 overlay 都必須放頂層，不能塞進 #board-overlay（組牌頁是 display:none 會被吃掉）。 -->
+<div class="setup-overlay" id="skill-config-overlay" style="display:none;position:fixed;z-index:118">
+  <div class="setup-box skill-modal-box" style="text-align:left">
+    <h2 style="text-align:center">✨ 玩家技能設定</h2>
+    <p class="lobby-sub" style="margin-bottom:0.5rem">最多選 3 個，整場戰鬥只能發動 1 次；沒設定就沒有技能。</p>
+    <div id="skill-config-list"></div>
+    <div id="supporter-help-config" style="display:none;margin-top:0.4rem">
+      <div class="lobby-sub" style="margin-bottom:0.3rem">「支援者的協助」牌組外支援者卡（最多 3 張，可留空）</div>
+      <div id="supporter-help-cards" class="skill-supp-cards"></div>
+      <button class="btn btn-secondary" style="font-size:0.74rem;padding:0.35rem 0.7rem" onclick="openSupporterHelpPicker()">＋ 選擇支援者卡</button>
+    </div>
+    <button class="btn btn-primary" style="margin-top:0.9rem;width:100%" onclick="closeSkillConfig()">完成</button>
+  </div>
+</div>
+
+<!-- 玩家技能：「支援者的協助」的牌組外支援者卡挑選器（2026-08-31）——有搜尋、按卡名去重。
+     z-index 比 skill-config-overlay 高，疊在它上面選完再回去。 -->
+<div class="setup-overlay" id="supp-picker-overlay" style="display:none;position:fixed;z-index:122">
+  <div class="setup-box skill-modal-box">
     <h2>選擇牌組外支援者卡</h2>
     <input id="supp-picker-search" placeholder="搜尋卡名…" oninput="renderSuppPicker()"
       style="width:100%;padding:0.5rem 0.7rem;margin-bottom:0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:0.85rem">
@@ -1394,7 +1404,11 @@ function sanitizeDeckSkills(raw) {
   if (Array.isArray(raw.supporterCards)) out.supporterCards = [...new Set(raw.supporterCards.filter(id => cardById[id] && cardById[id].trainerType === 'Supporter'))].slice(0, 3);
   return out;
 }
+function openSkillConfig() { renderSkillConfig(); document.getElementById('skill-config-overlay').style.display = 'flex'; }
+function closeSkillConfig() { document.getElementById('skill-config-overlay').style.display = 'none'; }
 function renderSkillConfig() {
+  const btn = document.getElementById('skill-config-btn');
+  if (btn) btn.textContent = `✨ 玩家技能設定（${deckSkills.list.length}/3）`;
   const list = document.getElementById('skill-config-list');
   if (!list) return;
   list.innerHTML = PLAYER_SKILL_IDS.map(id => {
