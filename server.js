@@ -3553,6 +3553,16 @@ const POCKET_CARD_OVERRIDES = {
       effect_zh: '在這隻寶可夢放到場上的那個回合結束時，從能量區取出1個{L}能量附加到這隻寶可夢身上。',
     },
   },
+  // 2026-08-30使用者自訂調整：B1-184伊布「加速進化」拿掉「只要這隻在主戰位置」限制，
+  // 板凳上的伊布也能在第一個回合／剛上場那回合進化（見pocket_evolve的boostedEvolution判斷，
+  // 從 target === side.active && ... 改成只看特性名字）
+  'Eevee': {
+    modifyAbility: {
+      name: 'Boosted Evolution',
+      effect: 'This Pokémon can evolve during your first turn or the turn you play it.',
+      effect_zh: '這隻寶可夢可以在你的第一個回合或牠上場的那個回合進化。',
+    },
+  },
   // 2026-08-19使用者自訂調整：夏南改名電次，原本限定Electivire/Luxray兩個指名種族，
   // 改成任何電屬性寶可夢都能選（見TRAINER_EFFECTS['A2-153']的target.types檢查）
   'Volkner': {
@@ -11478,9 +11488,10 @@ async function handleMessage(ws, msg) {
       const gibleAwaken = target.abilities?.[0]?.name === '覺醒';
       const evolveOk = gibleAwaken ? handCard.name === 'Garchomp' : handCard.evolveFrom === (veeveeVolve ? 'Eevee' : target.name);
       if (!evolveOk) { send(ws, { type: 'error', message: '進化對象不符' }); return; }
-      // Boosted Evolution：卡面限定「in the Active Spot」，持有者在主戰位置時可以在自己第一
-      // 回合/剛上場那回合就進化——跳過一般的「這回合不能進化」門檻，板凳上的不生效
-      const boostedEvolution = target === side.active && target.abilities?.[0]?.name === 'Boosted Evolution';
+      // Boosted Evolution：可以在自己第一回合/剛上場那回合就進化——跳過一般的「這回合不能
+      // 進化」門檻。原本卡面限定「in the Active Spot」，2026-08-30使用者拿掉這個限制
+      // （POCKET_CARD_OVERRIDES['Eevee'].modifyAbility同步改了文字），板凳上的伊布也生效
+      const boostedEvolution = target.abilities?.[0]?.name === 'Boosted Evolution';
       if (!boostedEvolution && target.boardTurn >= G.turnNumber) { send(ws, { type: 'error', message: '這隻寶可夢這回合不能進化' }); return; }
       // Primeval Law：卡面「Your opponent can't play any Pokémon from their hand to evolve
       // their Active Pokémon」——只擋「對手」進化「主戰位置」，board上只要有Aerodactyl ex在
