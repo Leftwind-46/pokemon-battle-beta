@@ -4038,8 +4038,8 @@ function buildPocketG(pRoom) {
     // （例如攻擊→on-hit特性→KO→KO觸發特性），單一欄位會被後面的直接覆蓋掉，client永遠看
     // 不到中間那些。client端用seq判斷「哪些是還沒播放過的」，依序播放，不是只看最後一個。
     cardEventSeq: 0, cardActivations: [],
-    p1: pocketFreshSide(p1, pRoom.p1Deck, pRoom.p1EnergyTypes),
-    p2: pocketFreshSide(p2, pRoom.p2Deck, pRoom.p2EnergyTypes),
+    p1: pocketFreshSide(p1, pRoom.p1Deck, pRoom.p1EnergyTypes, pRoom.p1Skills),
+    p2: pocketFreshSide(p2, pRoom.p2Deck, pRoom.p2EnergyTypes, pRoom.p2Skills),
   };
 }
 // label是給玩家看的中文簡短說明（例如「使用特性」「使用道具卡」「特性觸發」），card可以是
@@ -4061,9 +4061,12 @@ function pocketEmitToolActivation(G, role, tool, label) {
   const full = POCKET_CARDS_BY_ID[tool.id];
   pocketEmitCardActivation(G, role, full || tool, label);
 }
-function pocketFreshSide(drawn, deckIds, energyTypesOverride) {
+function pocketFreshSide(drawn, deckIds, energyTypesOverride, skillsCfg) {
   return {
     ...drawn, active: null, bench: [], discard: [], points: 0, pendingEnergy: null, previewEnergy: null,
+    // 玩家技能（2026-08-30新增）：list=這副牌組設定的技能id（≤3），supporterCards=「支援者的協助」
+    // 設定的牌組外支援者卡id（≤3），used=整場是否已經發動過（整場只能1次，不是每種各1次）
+    skills: { list: (skillsCfg && skillsCfg.list) || [], supporterCards: (skillsCfg && skillsCfg.supporterCards) || [], used: false },
     // 2026-08-08新增：真實規則裡任何被棄置的能量（不管來源是招式成本、攻擊者自傷、或場地卡
     // 效果）都會進到一個共用、可被「從棄牌堆拿能量」類效果撿回的能量棄牌區——這個引擎原本
     // 完全沒有這個概念，只把「殘留在被擊倒寶可夢卡身上的能量」當作棄牌堆能量來源。Rainbow
@@ -4960,12 +4963,18 @@ function pocketViewFor(G, role) {
       // （不只擋Barry自己，這次順便補齊整條effectiveCost鏈的client鏡射，見pocket.html的
       // pocketEffectiveAttackCostClient）
       namedCostDiscountThisTurn: G[role].namedCostDiscountThisTurn || null,
+      // 玩家技能（2026-08-30新增）：自己看得到完整設定（含支援者的協助的3張牌組外卡）+ 是否已用掉
+      skills: { list: G[role].skills?.list || [], supporterCards: G[role].skills?.supporterCards || [], used: !!G[role].skills?.used },
     },
     // 2026-08-15新增：對手當前能量區（pendingEnergy，這回合可以拿去裝的那顆能量）是公開資訊，
     // 跟牌庫/棄牌堆一樣雙方都看得到——真實遊戲畫面上對手的能量區本來就是可見的。previewEnergy
     // （下回合才會產生的能量）刻意不送給對手——只有本人自己看得到自己的下一顆能量預覽，這是
     // 既有設計（見you.previewEnergy旁的說明），不是這次要補的缺口。
-    opponent: { ...pub(G[op]), handCount: G[op].hand.length, pendingEnergy: G[op].pendingEnergy },
+    opponent: {
+      ...pub(G[op]), handCount: G[op].hand.length, pendingEnergy: G[op].pendingEnergy,
+      // 對手的技能：只公開「設定了哪些技能」+「用掉了沒」，不公開牌組外支援者卡清單
+      skills: { list: G[op].skills?.list || [], used: !!G[op].skills?.used },
+    },
   };
 }
 /* ── 找own場上（主戰+板凳）某隻寶可夢，供訓練師卡/特性指定目標用 ── */
@@ -9653,8 +9662,8 @@ async function pocketValidateOwnedDeck(userId, deckIds) {
 
 app.get('/api/pocket/decks', requireAuth, async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT id, name, card_ids, energy_types, updated_at FROM pocket_decks WHERE user_id = $1 ORDER BY updated_at DESC', [req.user.id]);
-    res.json({ decks: rows.map(r => ({ id: r.id, name: r.name, cardIds: r.card_ids, energyTypes: r.energy_types || null, updatedAt: r.updated_at })) });
+    const { rows } = await pool.query('SELECT id, name, card_ids, energy_types, skills, updated_at FROM pocket_decks WHERE user_id = $1 ORDER BY updated_at DESC', [req.user.id]);
+    res.json({ decks: rows.map(r => ({ id: r.id, name: r.name, cardIds: r.card_ids, energyTypes: r.energy_types || null, skills: r.skills || null, updatedAt: r.updated_at })) });
   } catch (e) {
     console.error('pocket decks fetch error:', e.message);
     res.status(503).json({ error: 'db_error' });
@@ -9670,11 +9679,12 @@ app.post('/api/pocket/decks', requireAuth, async (req, res) => {
     if (Number(countRows[0].count) >= 20) return res.status(400).json({ error: 'deck_limit', message: '最多只能儲存 20 副牌組' });
     const deckName = (typeof name === 'string' && name.trim()) ? name.trim().slice(0, 30) : '未命名牌組';
     const energyTypes = pocketValidateEnergyTypes(req.body?.energyTypes);
+    const skills = pocketSanitizeDeckSkills(req.body?.skills);
     const { rows } = await pool.query(
-      'INSERT INTO pocket_decks (user_id, name, card_ids, energy_types) VALUES ($1, $2, $3, $4) RETURNING id, name, card_ids, energy_types, updated_at',
-      [req.user.id, deckName, cardIds, energyTypes]
+      'INSERT INTO pocket_decks (user_id, name, card_ids, energy_types, skills) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, card_ids, energy_types, skills, updated_at',
+      [req.user.id, deckName, cardIds, energyTypes, JSON.stringify(skills)]
     );
-    res.json({ deck: { id: rows[0].id, name: rows[0].name, cardIds: rows[0].card_ids, energyTypes: rows[0].energy_types || null, updatedAt: rows[0].updated_at } });
+    res.json({ deck: { id: rows[0].id, name: rows[0].name, cardIds: rows[0].card_ids, energyTypes: rows[0].energy_types || null, skills: rows[0].skills || null, updatedAt: rows[0].updated_at } });
   } catch (e) {
     console.error('pocket deck create error:', e.message);
     res.status(503).json({ error: 'db_error' });
@@ -9688,13 +9698,14 @@ app.put('/api/pocket/decks/:id', requireAuth, async (req, res) => {
     if (err) return res.status(400).json({ error: 'invalid_deck', message: err });
     const deckName = (typeof name === 'string' && name.trim()) ? name.trim().slice(0, 30) : '未命名牌組';
     const energyTypes = pocketValidateEnergyTypes(req.body?.energyTypes);
+    const skills = pocketSanitizeDeckSkills(req.body?.skills);
     const { rows, rowCount } = await pool.query(
-      `UPDATE pocket_decks SET name = $1, card_ids = $2, energy_types = $3, updated_at = NOW()
-       WHERE id = $4 AND user_id = $5 RETURNING id, name, card_ids, energy_types, updated_at`,
-      [deckName, cardIds, energyTypes, req.params.id, req.user.id]
+      `UPDATE pocket_decks SET name = $1, card_ids = $2, energy_types = $3, skills = $4, updated_at = NOW()
+       WHERE id = $5 AND user_id = $6 RETURNING id, name, card_ids, energy_types, skills, updated_at`,
+      [deckName, cardIds, energyTypes, JSON.stringify(skills), req.params.id, req.user.id]
     );
     if (!rowCount) return res.status(404).json({ error: 'not_found' });
-    res.json({ deck: { id: rows[0].id, name: rows[0].name, cardIds: rows[0].card_ids, energyTypes: rows[0].energy_types || null, updatedAt: rows[0].updated_at } });
+    res.json({ deck: { id: rows[0].id, name: rows[0].name, cardIds: rows[0].card_ids, energyTypes: rows[0].energy_types || null, skills: rows[0].skills || null, updatedAt: rows[0].updated_at } });
   } catch (e) {
     console.error('pocket deck update error:', e.message);
     res.status(503).json({ error: 'db_error' });
@@ -11069,6 +11080,67 @@ function resolveAttackExchangeSrv(room, G, role, op, attacker, defender, atk, at
   broadcast(room, { type: 'update', state: G, log, actor: role, atkType: atk.type }); return;
 }
 
+/* ─────────────────────────────────────────
+   玩家技能系統（2026-08-30新增）
+   - 組牌時每副牌組最多設定3種技能（沒設定就沒得用）
+   - 每場戰鬥整場只能發動「1次」（不是每種各1次），發動前client端會先跳確認框
+   - 有的技能有發動條件，不符合時回傳錯誤字串、不算發動、不消耗那唯一一次機會
+   - 發動流程用 G.phase='skill_choice' + G.pendingChoice.kind='player_skill' 這套獨立
+     的暫停/續跑（跟攻擊的 attack_choice 分開，避免互相污染）；支援者的協助那條若被借的
+     支援者卡自己又設了 needsChoice，才會接回既有的 attack_choice 流程收尾
+───────────────────────────────────────── */
+const PLAYER_SKILLS = {
+  energy_infusion: {
+    name_zh: '能量灌注',
+    desc_zh: '選擇場上一隻寶可夢，選一個牠的招式，從能量區抽取該招式所需要的所有能量附加到牠身上（無色欄位可自選屬性，不限牌組設定）。',
+  },
+  terrain_tactics: {
+    name_zh: '地形戰術',
+    desc_zh: '從你的牌組或棄牌區選一張場地卡，直接放到場上發動。牌組與棄牌區都沒有場地卡時無法發動。',
+  },
+  supporter_help: {
+    name_zh: '支援者的協助',
+    desc_zh: '從你設定的3張「牌組外支援者卡」選一張發動；若沒有設定，改從自己的牌組或棄牌區選一張支援者卡發動。此發動不受「一回合只能用一張支援者卡」限制。',
+  },
+};
+const PLAYER_SKILL_IDS = Object.keys(PLAYER_SKILLS);
+// 能量灌注：已知目標+招式後，若還有無色欄位沒選就暫停問下一個屬性，全部選完就真的灌注
+function pocketSkillEnergyInfusionStep(pRoom, G, side, pending) {
+  const target = pocketFindOwn(side, pending.targetUid);
+  if (!target || !target.attacks || !target.attacks[pending.attackIndex]) {
+    G.phase = 'active'; G.pendingChoice = null; pocketBroadcastState(pRoom); return;
+  }
+  const cost = target.attacks[pending.attackIndex].cost || [];
+  const colorlessTotal = cost.filter(c => c === 'Colorless').length;
+  if ((pending.colorlessChosen || []).length < colorlessTotal) {
+    pending.step = 'energy_type';
+    pending.colorlessTotal = colorlessTotal;
+    pending.colorlessDone = (pending.colorlessChosen || []).length;
+    pocketBroadcastState(pRoom);
+    return;
+  }
+  let ci = 0;
+  const conjured = cost.map(c => (c === 'Colorless' ? pending.colorlessChosen[ci++] : c));
+  target.energy.push(...conjured);
+  pocketEmitCardActivation(G, pending.role, target, '玩家技能：能量灌注');
+  G.phase = 'active'; G.pendingChoice = null;
+  pocketBroadcastState(pRoom);
+}
+// 把 raw 的技能設定清乾淨：最多3個合法技能id + 最多3張真實存在的支援者卡id
+function pocketSanitizeDeckSkills(raw) {
+  const out = { list: [], supporterCards: [] };
+  if (!raw || typeof raw !== 'object') return out;
+  if (Array.isArray(raw.list)) {
+    out.list = [...new Set(raw.list.filter(id => PLAYER_SKILL_IDS.includes(id)))].slice(0, 3);
+  }
+  if (Array.isArray(raw.supporterCards)) {
+    out.supporterCards = [...new Set(raw.supporterCards.filter(
+      id => POCKET_CARDS_BY_ID[id] && POCKET_CARDS_BY_ID[id].trainerType === 'Supporter'
+    ))].slice(0, 3);
+  }
+  return out;
+}
+
 async function handleMessage(ws, msg) {
     const { type } = msg;
 
@@ -11153,8 +11225,9 @@ async function handleMessage(ws, msg) {
       // 玩家自選能量種類（見pocketValidateEnergyTypes）——驗證不過或沒傳就是null，
       // pocketFreshSide收到null會照舊退回自動偵測，不會整個提交失敗
       const energyTypes = pocketValidateEnergyTypes(msg.energyTypes);
-      if (pRole === 'p1') { pRoom.p1Deck = msg.deck; pRoom.p1EnergyTypes = energyTypes; pRoom.p1Ready = true; }
-      else                { pRoom.p2Deck = msg.deck; pRoom.p2EnergyTypes = energyTypes; pRoom.p2Ready = true; }
+      const deckSkills = pocketSanitizeDeckSkills(msg.skills);
+      if (pRole === 'p1') { pRoom.p1Deck = msg.deck; pRoom.p1EnergyTypes = energyTypes; pRoom.p1Skills = deckSkills; pRoom.p1Ready = true; }
+      else                { pRoom.p2Deck = msg.deck; pRoom.p2EnergyTypes = energyTypes; pRoom.p2Skills = deckSkills; pRoom.p2Ready = true; }
       send(pRoom[pRole === 'p1' ? 'p2' : 'p1'], { type: 'pocket_opponent_ready' });
       if (pRoom.p1Ready && pRoom.p2Ready) {
         pRoom.firstPlayer = Math.random() < 0.5 ? 'p1' : 'p2';
@@ -11418,6 +11491,198 @@ async function handleMessage(ws, msg) {
       // endTurnAfter是同一個convention，這裡是第一次在訓練師卡流程用到
       if (ctx.endTurnAfter) { pocketAdvanceTurn(G); pocketBroadcastState(pRoom); return; }
       pocketBroadcastState(pRoom);
+      return;
+    }
+
+    /* ── 玩家技能：發動 ── */
+    if (type === 'pocket_use_skill') {
+      const pRoom = pocketRooms.get(ws.pocketRoomCode);
+      if (!pRoom?.G || pRoom.G.phase !== 'active') return;
+      const G = pRoom.G; const role = ws.pocketRole; const op = role === 'p1' ? 'p2' : 'p1';
+      if (G.turn !== role) return;
+      const side = G[role]; const oppSide = G[op];
+      const skillId = msg.skillId;
+      if (!side.skills || !side.skills.list.includes(skillId)) { send(ws, { type: 'error', message: '這副牌組沒有設定這個技能' }); return; }
+      if (side.skills.used) { send(ws, { type: 'error', message: '這場戰鬥已經發動過技能了（整場只能發動1次）' }); return; }
+      if (G.pendingChoice) return;
+      const animate = () => { G.lastEvent = { seq: ++G.eventSeq, kind: 'playerSkill', skillZh: PLAYER_SKILLS[skillId].name_zh, role }; };
+
+      if (skillId === 'energy_infusion') {
+        const board = [side.active, ...side.bench].filter(Boolean);
+        if (!board.length) { send(ws, { type: 'error', message: '場上沒有寶可夢可以灌注' }); return; }
+        side.skills.used = true; animate();
+        G.phase = 'skill_choice';
+        G.pendingChoice = { role, kind: 'player_skill', skillId, step: 'target', eligibleUids: board.map(p => p.uid) };
+        pocketBroadcastState(pRoom);
+        return;
+      }
+
+      if (skillId === 'terrain_tactics') {
+        const opts = [];
+        for (const zone of ['deck', 'discard']) {
+          (side[zone] || []).forEach(c => {
+            if (c && c.category === 'Trainer' && c.trainerType === 'Stadium') {
+              opts.push({ uid: c.uid, id: c.id, zh_name: c.zh_name || c.name_zh || c.name, image: c.image, zone });
+            }
+          });
+        }
+        if (!opts.length) { send(ws, { type: 'error', message: '牌組與棄牌區都沒有場地卡，無法發動「地形戰術」' }); return; }
+        side.skills.used = true; animate();
+        G.phase = 'skill_choice';
+        G.pendingChoice = { role, kind: 'player_skill', skillId, step: 'pick', options: opts };
+        pocketBroadcastState(pRoom);
+        return;
+      }
+
+      if (skillId === 'supporter_help') {
+        let opts, source;
+        if ((side.skills.supporterCards || []).length) {
+          source = 'sideboard';
+          opts = side.skills.supporterCards.map(id => {
+            const c = POCKET_CARDS_BY_ID[id];
+            return { key: id, id, zh_name: c.zh_name || c.name_zh || c.name, image: c.image };
+          });
+        } else {
+          source = 'pile';
+          opts = [];
+          for (const zone of ['deck', 'discard']) {
+            (side[zone] || []).forEach(c => {
+              if (c && c.category === 'Trainer' && c.trainerType === 'Supporter') {
+                opts.push({ key: c.uid, id: c.id, zh_name: c.zh_name || c.name_zh || c.name, image: c.image, zone });
+              }
+            });
+          }
+          if (!opts.length) { send(ws, { type: 'error', message: '牌組與棄牌區都沒有支援者卡，無法發動「支援者的協助」' }); return; }
+        }
+        side.skills.used = true; animate();
+        G.phase = 'skill_choice';
+        G.pendingChoice = { role, kind: 'player_skill', skillId, step: 'pick', source, options: opts };
+        pocketBroadcastState(pRoom);
+        return;
+      }
+
+      send(ws, { type: 'error', message: '未知的技能' });
+      return;
+    }
+
+    /* ── 玩家技能：暫停後的逐步選擇（跟 pocket_attack_choice 分開的獨立流程） ── */
+    if (type === 'pocket_skill_choice') {
+      const pRoom = pocketRooms.get(ws.pocketRoomCode);
+      if (!pRoom?.G || pRoom.G.phase !== 'skill_choice') return;
+      const G = pRoom.G; const role = ws.pocketRole; const op = role === 'p1' ? 'p2' : 'p1';
+      const pending = G.pendingChoice;
+      if (!pending || pending.kind !== 'player_skill' || pending.role !== role) return;
+      const side = G[role]; const oppSide = G[op];
+      const finish = () => { G.phase = 'active'; G.pendingChoice = null; pocketBroadcastState(pRoom); };
+
+      // ═══ 能量灌注 ═══
+      if (pending.skillId === 'energy_infusion') {
+        if (pending.step === 'target') {
+          if (!pending.eligibleUids.includes(msg.uid)) return;
+          const target = pocketFindOwn(side, msg.uid);
+          if (!target) return;
+          const costAttacks = (target.attacks || []).map((a, i) => ({ i, a })).filter(x => (x.a.cost || []).length);
+          if (!costAttacks.length) { send(ws, { type: 'error', message: '這隻寶可夢沒有需要能量的招式，請改選其他隻' }); return; }
+          pending.targetUid = msg.uid;
+          pending.colorlessChosen = [];
+          if (costAttacks.length === 1) { pending.attackIndex = costAttacks[0].i; pocketSkillEnergyInfusionStep(pRoom, G, side, pending); return; }
+          pending.step = 'attack';
+          pending.attackOptions = costAttacks.map(x => ({ index: x.i, name_zh: x.a.zh_name || x.a.name_zh || x.a.name, cost: x.a.cost }));
+          pocketBroadcastState(pRoom);
+          return;
+        }
+        if (pending.step === 'attack') {
+          const opt = (pending.attackOptions || []).find(o => o.index === msg.attackIndex);
+          if (!opt) return;
+          pending.attackIndex = msg.attackIndex;
+          pending.colorlessChosen = [];
+          pocketSkillEnergyInfusionStep(pRoom, G, side, pending);
+          return;
+        }
+        if (pending.step === 'energy_type') {
+          if (!POCKET_ENERGY_TYPE_LIST.includes(msg.energyType)) return;
+          pending.colorlessChosen.push(msg.energyType);
+          pocketSkillEnergyInfusionStep(pRoom, G, side, pending);
+          return;
+        }
+        return;
+      }
+
+      // ═══ 地形戰術 ═══
+      if (pending.skillId === 'terrain_tactics') {
+        if (pending.step !== 'pick') return;
+        if (!(pending.options || []).some(o => o.uid === msg.uid)) return;
+        let card = null;
+        for (const zone of ['deck', 'discard']) {
+          const idx = side[zone].findIndex(c => c && c.uid === msg.uid);
+          if (idx >= 0) { card = side[zone].splice(idx, 1)[0]; if (zone === 'deck') side.deck = pocketShuffle(side.deck); break; }
+        }
+        if (!card) { finish(); return; }
+        G.activeStadium = { id: card.id, name: card.name };
+        const handler = TRAINER_EFFECTS[card.effectId || card.id];
+        if (handler) { try { handler({ G, role, op, side, oppSide, pRoom }); } catch (e) {} }
+        G.p1.stadiumUsedThisTurn = false; G.p2.stadiumUsedThisTurn = false;
+        pocketEmitCardActivation(G, role, card, '玩家技能：地形戰術');
+        finish();
+        return;
+      }
+
+      // ═══ 支援者的協助 ═══
+      if (pending.skillId === 'supporter_help') {
+        if (pending.step !== 'pick') return;
+        const opt = (pending.options || []).find(o => o.key === msg.key);
+        if (!opt) return;
+        const cardId = opt.id;
+        const baseCard = POCKET_CARDS_BY_ID[cardId];
+        const handler = TRAINER_EFFECTS[(baseCard && baseCard.effectId) || cardId];
+        if (!handler) { side.skills.used = false; send(ws, { type: 'error', message: '這張支援者卡的效果尚未實作，技能未消耗' }); finish(); return; }
+        // 取出來源卡實體
+        let sourceCard = null, sourceZone = null;
+        if (pending.source === 'pile') {
+          for (const zone of ['deck', 'discard']) {
+            const idx = side[zone].findIndex(c => c && c.uid === msg.key);
+            if (idx >= 0) { sourceCard = side[zone].splice(idx, 1)[0]; sourceZone = zone; if (zone === 'deck') side.deck = pocketShuffle(side.deck); break; }
+          }
+          if (!sourceCard) { finish(); return; }
+        } else {
+          sourceCard = makePocketInstance(cardId);
+        }
+        const ctx = { G, role, op, side, oppSide, pRoom };
+        const statusSnapA = pocketSnapshotStatus(side), statusSnapB = pocketSnapshotStatus(oppSide);
+        const benchSnap = pocketSnapshotBenchHp(oppSide);
+        const healSnap = pocketSnapshotAllHp(G);
+        const err = handler(ctx, {}); // 不帶 msg.target
+        if (err) {
+          // 需要指定目標之類的——退還技能、把卡放回原處，讓玩家重新發動改選別張
+          side.skills.used = false;
+          if (pending.source === 'pile' && sourceCard && sourceZone) { side[sourceZone].push(sourceCard); if (sourceZone === 'deck') side.deck = pocketShuffle(side.deck); }
+          send(ws, { type: 'error', message: err + '（此技能未消耗，可重新發動）' });
+          finish();
+          return;
+        }
+        pocketEnforceStatusImmunity(side, statusSnapA); pocketEnforceStatusImmunity(oppSide, statusSnapB);
+        pocketEnforceBenchImmunity(oppSide, benchSnap);
+        pocketEnforceHealBlock(G, healSnap);
+        pocketResolveBenchKOs(G, side, op); pocketResolveBenchKOs(G, oppSide, role);
+        side.discard.push(sourceCard);
+        pocketEmitCardActivation(G, role, sourceCard, '玩家技能：支援者的協助');
+        if (ctx.coinFlips?.length || ctx.healUid) {
+          G.lastEvent = { seq: ++G.eventSeq, kind: 'trainer', coinFlips: ctx.coinFlips || null, healUid: ctx.healUid || null, healAmount: ctx.healAmount || 0 };
+        }
+        if (ctx.peekHand) send(ws, { type: 'pocket_peek', title: '對手手牌', cards: ctx.peekHand, interactive: !!ctx.needsChoice });
+        if (ctx.peekDeck) send(ws, { type: 'pocket_peek', title: '牌庫頂3張', cards: ctx.peekDeck });
+        if (ctx.needsChoice) {
+          // 被借的支援者卡自己又需要選目標——接回既有的 attack_choice 流程收尾
+          G.phase = 'attack_choice';
+          G.pendingChoice = { role, ...ctx.needsChoice };
+          pocketBroadcastState(pRoom);
+          return;
+        }
+        if (ctx.endTurnAfter) { pocketAdvanceTurn(G); pocketBroadcastState(pRoom); return; }
+        finish();
+        return;
+      }
+
       return;
     }
 
@@ -13542,6 +13807,8 @@ async function initDB() {
     // 牌組手動自選能量種類（見pocketValidateEnergyTypes）——NULL代表沒有自訂，戰鬥開始時
     // 退回pocketDeckEnergyTypes自動偵測，不是每副舊牌組都要補值
     await pool.query(`ALTER TABLE pocket_decks ADD COLUMN IF NOT EXISTS energy_types TEXT[]`);
+    // 玩家技能設定（2026-08-30新增）——{list:[技能id...], supporterCards:[卡id...]}，NULL代表沒設定
+    await pool.query(`ALTER TABLE pocket_decks ADD COLUMN IF NOT EXISTS skills JSONB`);
     // 每日5包免費開包額度——跟claim-daily-coins同一套「用DATE欄位lazy重置，交給Postgres
     // CURRENT_DATE比對，不要把DATE讀回JS再轉字串比較」的手法（那邊的註解記錄了時區bug教訓）
     await pool.query(`ALTER TABLE pets ADD COLUMN IF NOT EXISTS pocket_free_packs_date DATE`);

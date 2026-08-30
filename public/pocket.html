@@ -536,6 +536,36 @@
   .card-activation-label { margin-top:0.2rem; font-size:0.95rem; color:#7986cb; }
   @keyframes cardActivationPop { 0% { transform:scale(0.7); opacity:0; } 100% { transform:scale(1); opacity:1; } }
 
+  /* ── 玩家技能（2026-08-30新增） ── */
+  .skill-fx-overlay { position:fixed; inset:0; z-index:97; display:flex; align-items:center; justify-content:center;
+    flex-direction:column; gap:0.8rem; background:radial-gradient(circle at center, rgba(124,110,255,0.28), rgba(0,0,0,0.55)); pointer-events:none; }
+  .skill-fx-burst { width:120px; height:120px; border-radius:50%;
+    background:radial-gradient(circle, #fff 0%, #b9a8ff 35%, rgba(124,110,255,0) 70%);
+    animation:skillBurst 0.9s ease-out forwards; }
+  .skill-fx-name { font-size:1.5rem; font-weight:900; letter-spacing:0.15em; color:#fff;
+    text-shadow:0 0 18px #7c6eff, 0 2px 8px rgba(0,0,0,0.6); animation:skillNameIn 0.9s ease-out forwards; }
+  @keyframes skillBurst { 0% { transform:scale(0.2); opacity:0; } 25% { opacity:1; } 100% { transform:scale(2.6); opacity:0; } }
+  @keyframes skillNameIn { 0% { transform:scale(0.6) translateY(10px); opacity:0; } 30% { transform:scale(1) translateY(0); opacity:1; } 80% { opacity:1; } 100% { opacity:0; } }
+
+  .skill-config { margin-bottom:0.6rem; }
+  .skill-cfg-row { display:flex; gap:0.5rem; align-items:flex-start; background:var(--surface); border:1px solid var(--border);
+    border-radius:8px; padding:0.5rem 0.6rem; margin-bottom:0.35rem; cursor:pointer; }
+  .skill-cfg-row.on { border-color:#7c6eff; background:rgba(124,110,255,0.12); }
+  .skill-cfg-row .box { flex:none; width:18px; height:18px; border-radius:5px; border:1.5px solid var(--border);
+    display:flex; align-items:center; justify-content:center; font-size:0.7rem; margin-top:1px; }
+  .skill-cfg-row.on .box { background:#7c6eff; border-color:#7c6eff; color:#fff; }
+  .skill-cfg-row .txt b { font-size:0.8rem; }
+  .skill-cfg-row .txt div { font-size:0.66rem; color:var(--muted); margin-top:0.15rem; line-height:1.3; }
+  .skill-supp-cards { display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:0.35rem; }
+  .skill-supp-cards .chip { display:flex; align-items:center; gap:0.3rem; background:var(--surface); border:1px solid var(--border);
+    border-radius:999px; padding:0.2rem 0.5rem 0.2rem 0.3rem; font-size:0.7rem; }
+  .skill-supp-cards .chip img { width:20px; height:28px; border-radius:3px; object-fit:cover; }
+  .skill-supp-cards .chip button { background:none; border:none; color:#ff8a80; cursor:pointer; font-size:0.85rem; line-height:1; }
+  .skill-panel-item { text-align:left; background:var(--surface); border:1px solid var(--border); border-radius:10px;
+    padding:0.6rem 0.7rem; margin-bottom:0.5rem; }
+  .skill-panel-item b { font-size:0.9rem; }
+  .skill-panel-item p { font-size:0.72rem; color:var(--muted); margin:0.25rem 0 0.5rem; line-height:1.4; }
+
   /* ── 傷害飄字 + 受擊震動 ── */
   .dmg-float { position:fixed; z-index:66; font-weight:900; font-size:1.4rem; color:#ff5252; text-shadow:0 2px 6px rgba(0,0,0,0.6);
     pointer-events:none; animation:dmgFloat 1s ease-out forwards; }
@@ -785,6 +815,15 @@
         <div class="lobby-sub" style="margin-bottom:0.3rem">能量區會出現的屬性（可自選，至少選1種）</div>
         <div class="energy-type-chips" id="energy-type-chips"></div>
       </div>
+      <div class="skill-config" id="skill-config">
+        <div class="lobby-sub" style="margin-bottom:0.3rem">玩家技能（最多選 3 個，整場戰鬥只能發動 1 次；沒設定就沒有技能）</div>
+        <div id="skill-config-list"></div>
+        <div id="supporter-help-config" style="display:none;margin-top:0.4rem">
+          <div class="lobby-sub" style="margin-bottom:0.3rem">「支援者的協助」牌組外支援者卡（最多 3 張，可留空）</div>
+          <div id="supporter-help-cards" class="skill-supp-cards"></div>
+          <button class="btn btn-secondary" style="font-size:0.74rem;padding:0.35rem 0.7rem" onclick="openSupporterHelpPicker()">＋ 選擇支援者卡</button>
+        </div>
+      </div>
       <div class="deck-list" id="deck-list"></div>
       <div class="btn-row">
         <button class="btn btn-secondary" onclick="clearDeck()">清空</button>
@@ -988,6 +1027,7 @@
       <div class="turn-controls">
         <button class="btn btn-secondary" id="cancel-action-btn" onclick="cancelAction()" style="display:none">取消</button>
         <button class="btn btn-secondary" id="stadium-trigger-btn" onclick="triggerStadiumEffect()" style="display:none">場地卡：擲硬幣抽卡</button>
+        <button class="btn btn-secondary" id="skill-btn" onclick="openSkillPanel()" style="display:none">✨ 玩家技能</button>
         <button class="btn btn-primary" id="end-turn-btn" onclick="endTurn()">結束回合</button>
         <button class="btn btn-danger" id="surrender-btn" onclick="surrender()">投降</button>
       </div>
@@ -1010,6 +1050,23 @@
       <div class="card-activation-label" id="card-activation-label"></div>
     </div>
   </div>
+
+  <!-- 玩家技能：發動動畫（2026-08-30新增） -->
+  <div class="skill-fx-overlay" id="skill-fx-overlay" style="display:none">
+    <div class="skill-fx-burst"></div>
+    <div class="skill-fx-name" id="skill-fx-name"></div>
+  </div>
+
+  <!-- 玩家技能：清單 / 發動面板（2026-08-30新增） -->
+  <div class="setup-overlay" id="skill-panel-overlay" style="display:none">
+    <div class="setup-box">
+      <h2>✨ 玩家技能</h2>
+      <p class="lobby-sub" id="skill-panel-sub"></p>
+      <div id="skill-panel-list"></div>
+      <button class="btn btn-secondary" style="margin-top:0.6rem" onclick="closeSkillPanel()">關閉</button>
+    </div>
+  </div>
+
 
   <div class="setup-overlay" id="setup-overlay" style="display:none">
     <div class="setup-box">
@@ -1265,6 +1322,24 @@ const POCKET_ENERGY_TYPE_LIST = ['Fire', 'Water', 'Lightning', 'Psychic', 'Fight
 let deckEnergyTypes = [];
 let energyTypesManuallySet = false;
 
+// ── 玩家技能（2026-08-30新增）：跟 server.js 的 PLAYER_SKILLS 同一份 ──
+const PLAYER_SKILLS = {
+  energy_infusion: {
+    name_zh: '能量灌注',
+    desc_zh: '選擇場上一隻寶可夢，選一個牠的招式，從能量區抽取該招式所需要的所有能量附加到牠身上（無色欄位可自選屬性，不限牌組設定）。',
+  },
+  terrain_tactics: {
+    name_zh: '地形戰術',
+    desc_zh: '從你的牌組或棄牌區選一張場地卡，直接放到場上發動。牌組與棄牌區都沒有場地卡時無法發動。',
+  },
+  supporter_help: {
+    name_zh: '支援者的協助',
+    desc_zh: '從你設定的3張「牌組外支援者卡」選一張發動；若沒有設定，改從自己的牌組或棄牌區選一張支援者卡發動。不受「一回合只能用一張支援者卡」限制。',
+  },
+};
+const PLAYER_SKILL_IDS = Object.keys(PLAYER_SKILLS);
+let deckSkills = { list: [], supporterCards: [] }; // 這副牌組設定的技能（≤3）+ 支援者的協助的牌組外卡（≤3）
+
 function autoDeckEnergyTypes() {
   const set = new Set();
   deck.forEach(id => {
@@ -1295,6 +1370,58 @@ function renderEnergyTypePicker() {
       ${energyIconHtml(t, true)}<span>${TYPE_ZH[t] || t}</span>
     </div>`;
   }).join('');
+  renderSkillConfig();
+}
+
+// ── 玩家技能：組牌設定 ──
+function sanitizeDeckSkills(raw) {
+  const out = { list: [], supporterCards: [] };
+  if (!raw || typeof raw !== 'object') return out;
+  if (Array.isArray(raw.list)) out.list = [...new Set(raw.list.filter(id => PLAYER_SKILL_IDS.includes(id)))].slice(0, 3);
+  if (Array.isArray(raw.supporterCards)) out.supporterCards = [...new Set(raw.supporterCards.filter(id => cardById[id] && cardById[id].trainerType === 'Supporter'))].slice(0, 3);
+  return out;
+}
+function renderSkillConfig() {
+  const list = document.getElementById('skill-config-list');
+  if (!list) return;
+  list.innerHTML = PLAYER_SKILL_IDS.map(id => {
+    const s = PLAYER_SKILLS[id];
+    const on = deckSkills.list.includes(id);
+    const full = !on && deckSkills.list.length >= 3;
+    return `<div class="skill-cfg-row ${on ? 'on' : ''}" style="${full ? 'opacity:0.45;cursor:not-allowed' : ''}" onclick="${full ? '' : `toggleDeckSkill('${id}')`}">
+      <div class="box">${on ? '✓' : ''}</div>
+      <div class="txt"><b>${s.name_zh}</b><div>${s.desc_zh}</div></div>
+    </div>`;
+  }).join('');
+  const suppCfg = document.getElementById('supporter-help-config');
+  suppCfg.style.display = deckSkills.list.includes('supporter_help') ? '' : 'none';
+  const cards = document.getElementById('supporter-help-cards');
+  cards.innerHTML = deckSkills.supporterCards.length
+    ? deckSkills.supporterCards.map(cid => {
+        const c = cardById[cid] || {};
+        return `<span class="chip"><img src="${pocketThumbUrl(c.image)}" alt="">${zhName(c)}<button onclick="removeSupporterHelpCard('${cid}')">✕</button></span>`;
+      }).join('')
+    : '<span class="lobby-sub">（未設定，將改從牌組／棄牌區選）</span>';
+}
+function toggleDeckSkill(id) {
+  if (deckSkills.list.includes(id)) deckSkills.list = deckSkills.list.filter(x => x !== id);
+  else if (deckSkills.list.length < 3) deckSkills.list.push(id);
+  renderSkillConfig();
+}
+function removeSupporterHelpCard(cid) {
+  deckSkills.supporterCards = deckSkills.supporterCards.filter(x => x !== cid);
+  renderSkillConfig();
+}
+function openSupporterHelpPicker() {
+  if (deckSkills.supporterCards.length >= 3) { alert('最多只能設定 3 張'); return; }
+  const supporters = ALL_CARDS
+    .filter(c => c.category === 'Trainer' && c.trainerType === 'Supporter' && !deckSkills.supporterCards.includes(c.id))
+    .sort((a, b) => (a.set || '').localeCompare(b.set || '') || zhName(a).localeCompare(zhName(b)))
+    .map(c => ({ ...c, uid: c.id }));
+  openDiscardTargetPicker('選擇一張牌組外支援者卡', supporters, (cid) => {
+    if (!deckSkills.supporterCards.includes(cid) && deckSkills.supporterCards.length < 3) deckSkills.supporterCards.push(cid);
+    renderSkillConfig();
+  });
 }
 
 async function loadCards() {
@@ -1404,6 +1531,7 @@ function startNewDeck() {
   deck = [];
   deckEnergyTypes = [];
   energyTypesManuallySet = false;
+  deckSkills = { list: [], supporterCards: [] };
   document.getElementById('deck-name-input').value = '';
   renderPool(); renderDeck(); renderDeckListChips(); renderEnergyTypePicker();
 }
@@ -1475,6 +1603,7 @@ function importDeckCode() {
     if (have < need) missing.push({ name: zhName(card), need, have: ownedCounts[id] || 0 });
   }
   currentDeckId = null;
+  deckSkills = { list: [], supporterCards: [] }; // 牌組代碼不含技能設定，匯入視同新牌組
   deck = newDeck.slice(0, DECK_SIZE); // 防呆：格式正常但被竄改超過20張的代碼，裁到上限
   if (decoded.energyTypes.length) {
     deckEnergyTypes = decoded.energyTypes.filter(t => POCKET_ENERGY_TYPE_LIST.includes(t));
@@ -1508,6 +1637,7 @@ function loadDeckIntoEditor(deckId) {
     deckEnergyTypes = autoDeckEnergyTypes();
     energyTypesManuallySet = false;
   }
+  deckSkills = sanitizeDeckSkills(d.skills);
   document.getElementById('deck-name-input').value = d.name;
   renderPool(); renderDeck(); renderDeckListChips(); renderEnergyTypePicker();
 }
@@ -1552,8 +1682,9 @@ async function saveDeck() {
   const name = document.getElementById('deck-name-input').value.trim() || '未命名牌組';
   const toast = document.getElementById('save-toast');
   try {
+    const skills = sanitizeDeckSkills(deckSkills);
     if (pocketIsLoggedIn()) {
-      const body = JSON.stringify({ name, cardIds: deck, energyTypes: deckEnergyTypes });
+      const body = JSON.stringify({ name, cardIds: deck, energyTypes: deckEnergyTypes, skills });
       const data = currentDeckId
         ? await pocketApiFetch(`/api/pocket/decks/${currentDeckId}`, { method: 'PUT', body })
         : await pocketApiFetch('/api/pocket/decks', { method: 'POST', body });
@@ -1562,11 +1693,11 @@ async function saveDeck() {
     } else {
       if (currentDeckId) {
         const d = savedDecks.find(x => x.id === currentDeckId);
-        if (d) { d.name = name; d.cardIds = [...deck]; d.energyTypes = [...deckEnergyTypes]; }
+        if (d) { d.name = name; d.cardIds = [...deck]; d.energyTypes = [...deckEnergyTypes]; d.skills = skills; }
       } else {
         if (savedDecks.length >= MAX_SAVED_DECKS) { toast.textContent = '最多只能儲存 20 副牌組'; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 1800); return; }
         currentDeckId = 'g' + Date.now();
-        savedDecks.push({ id: currentDeckId, name, cardIds: [...deck], energyTypes: [...deckEnergyTypes] });
+        savedDecks.push({ id: currentDeckId, name, cardIds: [...deck], energyTypes: [...deckEnergyTypes], skills });
       }
       saveGuestDecks();
     }
@@ -1995,12 +2126,12 @@ function handleWsMsg(msg) {
       break;
     case 'pocket_joined':
       myRole = msg.role;
-      wsSend({ type: 'pocket_submit_deck', deck, energyTypes: deckEnergyTypes });
+      wsSend({ type: 'pocket_submit_deck', deck, energyTypes: deckEnergyTypes, skills: sanitizeDeckSkills(deckSkills) });
       lobbyShowStep('ready');
       document.getElementById('ready-status').textContent = '已送出牌組，等待對手...';
       break;
     case 'pocket_opponent_joined':
-      wsSend({ type: 'pocket_submit_deck', deck, energyTypes: deckEnergyTypes });
+      wsSend({ type: 'pocket_submit_deck', deck, energyTypes: deckEnergyTypes, skills: sanitizeDeckSkills(deckSkills) });
       lobbyShowStep('ready');
       document.getElementById('ready-status').textContent = '對手已加入，已送出牌組，等待對手送出...';
       break;
@@ -2709,6 +2840,17 @@ function renderBoard() {
   stadiumBtn.textContent = STADIUM_TRIGGER_LABEL[state.activeStadium?.id] || '場地卡效果';
   document.getElementById('cancel-action-btn').style.display = selectedAction ? '' : 'none';
 
+  // 玩家技能按鈕：這副牌組有設定技能就一直顯示（也是查看清單的入口），已用過就標記
+  const skillBtn = document.getElementById('skill-btn');
+  const mySkills = you.skills?.list || [];
+  if (mySkills.length) {
+    skillBtn.style.display = '';
+    skillBtn.textContent = you.skills.used ? '✨ 技能（已用）' : '✨ 玩家技能';
+    skillBtn.classList.toggle('btn-secondary', true);
+  } else {
+    skillBtn.style.display = 'none';
+  }
+
   // 抽卡動畫：比對這次render跟上次的手牌張數，多出來的張數視為「剛抽到」，從牌庫堆飛到手牌區
   // ——純靠state diff判斷，不需要server額外組事件（抽牌本身發生的時機點太多：回合開始/
   // Professor's Research/Poké Ball...，用diff比逐一在每個抽牌呼叫點插event簡單很多）
@@ -2768,10 +2910,12 @@ function renderBoard() {
     document.getElementById('switch-wait-title').textContent = pendingSwitchIsKO ? '對手的寶可夢倒下了' : '對手正在換人';
   }
 
-  // attack_choice overlay——招式效果需要玩家自選目標時暫停在這裡（見server.js的pendingChoice）
+  // attack_choice overlay——招式效果需要玩家自選目標時暫停在這裡（見server.js的pendingChoice）。
+  // 玩家技能的逐步選擇（phase==='skill_choice'）共用同一個 overlay，見底下 kind==='player_skill' 分支
   const pendingChoice = state.pendingChoice;
-  const needMyChoice = phase === 'attack_choice' && pendingChoice?.role === myRole;
-  const needOppChoice = phase === 'attack_choice' && pendingChoice && pendingChoice.role !== myRole;
+  const choicePhase = phase === 'attack_choice' || phase === 'skill_choice';
+  const needMyChoice = choicePhase && pendingChoice?.role === myRole;
+  const needOppChoice = choicePhase && pendingChoice && pendingChoice.role !== myRole;
   document.getElementById('attack-choice-overlay').style.display = needMyChoice ? 'flex' : 'none';
   document.getElementById('attack-choice-wait-overlay').style.display = needOppChoice ? 'flex' : 'none';
   if (needMyChoice) {
@@ -2780,7 +2924,37 @@ function renderBoard() {
     const optionsEl = document.getElementById('attack-choice-options');
     document.getElementById('attack-choice-skip-btn').style.display = pendingChoice.optional ? '' : 'none';
     document.getElementById('attack-choice-confirm-multi-btn').style.display = pendingChoice.kind === 'pick_target_multi_optional' ? '' : 'none';
-    if (pendingChoice.kind === 'victory_star_reflip') {
+    if (pendingChoice.kind === 'player_skill') {
+      subEl.textContent = '';
+      if (pendingChoice.step === 'target') {
+        titleEl.textContent = '能量灌注：選擇要灌注的寶可夢';
+        const pool = [you.active, ...(you.bench || [])].filter(p => p && pendingChoice.eligibleUids.includes(p.uid));
+        optionsEl.innerHTML = pool.map(p => renderPokeSlot(p, { pickable: true, dataset: { 'skill-pick': '1' } })).join('');
+      } else if (pendingChoice.step === 'attack') {
+        titleEl.textContent = '能量灌注：選擇要灌注哪一個招式';
+        optionsEl.innerHTML = (pendingChoice.attackOptions || []).map(o =>
+          `<button class="btn btn-secondary" style="display:flex;align-items:center;gap:0.4rem;justify-content:center;flex-wrap:wrap"
+             onclick="wsSend({type:'pocket_skill_choice', attackIndex:${o.index}})">
+             <span>${o.name_zh}</span><span>${(o.cost || []).map(t => energyIconHtml(t, true)).join('')}</span>
+           </button>`).join('');
+      } else if (pendingChoice.step === 'energy_type') {
+        titleEl.textContent = `能量灌注：無色能量欄位要放哪種屬性？（第 ${(pendingChoice.colorlessDone || 0) + 1} / ${pendingChoice.colorlessTotal} 個）`;
+        optionsEl.innerHTML = POCKET_ENERGY_TYPE_LIST.map(t =>
+          `<button class="btn btn-secondary" style="display:flex;align-items:center;gap:0.4rem;justify-content:center"
+             onclick="wsSend({type:'pocket_skill_choice', energyType:'${t}'})">${energyIconHtml(t)}${TYPE_ZH[t] || t}</button>`).join('');
+      } else if (pendingChoice.step === 'pick') {
+        titleEl.textContent = pendingChoice.skillId === 'terrain_tactics'
+          ? '地形戰術：選擇要放到場上的場地卡' : '支援者的協助：選擇要發動的支援者卡';
+        subEl.textContent = pendingChoice.skillId === 'supporter_help' && pendingChoice.source === 'pile'
+          ? '（來自你的牌組／棄牌區）' : '';
+        optionsEl.innerHTML = (pendingChoice.options || []).map(o => {
+          const key = o.key != null ? o.key : o.uid;
+          return `<div style="text-align:center;font-size:0.65rem;cursor:pointer" onclick="wsSend({type:'pocket_skill_choice', ${o.key != null ? `key:'${key}'` : `uid:'${key}'`}})">
+            <img src="${pocketThumbUrl(o.image)}" loading="lazy" alt="${o.zh_name}" style="width:78px;border-radius:6px"><div>${o.zh_name}</div>
+          </div>`;
+        }).join('');
+      }
+    } else if (pendingChoice.kind === 'victory_star_reflip') {
       // 比克提尼「勝利之星」（2026-08-28新增）：純Yes/No選擇，不是board點選，兩顆按鈕直接送出
       // reflip:true/false，跟retreat_discard/attack_discard_energy同一種「按鈕清單」渲染方式
       const flips = pendingChoice.coinPreview || [];
@@ -3327,6 +3501,9 @@ document.getElementById('board-overlay').addEventListener('click', e => {
   const switchSlot = e.target.closest('.board-slot[data-switch-pick]');
   if (switchSlot) { wsSend({ type: 'pocket_choose_active', target: switchSlot.dataset.uid }); return; }
 
+  const skillPickSlot = e.target.closest('.board-slot[data-skill-pick]');
+  if (skillPickSlot) { wsSend({ type: 'pocket_skill_choice', uid: skillPickSlot.dataset.uid }); return; }
+
   const choiceSlot = e.target.closest('.board-slot[data-attack-choice-pick]');
   if (choiceSlot) { wsSend({ type: 'pocket_attack_choice', uid: choiceSlot.dataset.uid }); return; }
   const moveChoiceSlot = e.target.closest('.board-slot[data-move-choice-pick]');
@@ -3818,9 +3995,13 @@ function handlePocketEvent(evt) {
   } else if (evt.kind === 'stadiumHeal') {
     // 場地卡的被動回合結束治療（療癒海岸等）——只印對戰記錄行 + 補血飄字，不跳 1.5 秒全螢幕彈窗
     for (const h of (evt.heals || [])) pocketLog(`${evt.stadiumZh || '場地卡'}：${pocketLogFindName(h.uid)}恢復了${h.amount}點HP`);
+  } else if (evt.kind === 'playerSkill') {
+    const meSkill = evt.role === myRole;
+    pocketLog(`${meSkill ? '你' : '對手'}發動了玩家技能【${evt.skillZh || '技能'}】`, meSkill ? 'log-mine' : 'log-opp');
   }
   if (evt.healUid && evt.healAmount > 0) pocketLog(`${pocketLogFindName(evt.healUid)}恢復了${evt.healAmount}點HP`);
   overlayChain = overlayChain.then(async () => {
+    if (evt.kind === 'playerSkill') await playSkillFx(evt.skillZh || '技能');
     if (evt.coinFlips && evt.coinFlips.length) await playCoinFlipAnim(evt.coinFlips);
     if (evt.kind === 'attack') {
       if (evt.damage > 0 || evt.selfDamage > 0) playAttackVfx(evt.attackerRole, evt.atkType, evt.targetUid);
@@ -3830,6 +4011,53 @@ function handlePocketEvent(evt) {
     if (evt.kind === 'stadiumHeal') { for (const h of (evt.heals || [])) showHealFloat(h.uid, h.amount); }
     if (evt.healUid && evt.healAmount > 0) showHealFloat(evt.healUid, evt.healAmount);
   });
+}
+
+// ── 玩家技能：發動動畫 + 清單/發動面板（2026-08-30新增） ──
+function playSkillFx(name) {
+  return new Promise(resolve => {
+    const ov = document.getElementById('skill-fx-overlay');
+    document.getElementById('skill-fx-name').textContent = name;
+    // reflow 讓動畫每次都重播
+    ov.style.display = 'flex';
+    ov.querySelector('.skill-fx-burst').style.animation = 'none';
+    ov.querySelector('.skill-fx-name').style.animation = 'none';
+    void ov.offsetWidth;
+    ov.querySelector('.skill-fx-burst').style.animation = '';
+    ov.querySelector('.skill-fx-name').style.animation = '';
+    setTimeout(() => { ov.style.display = 'none'; resolve(); }, 1000);
+  });
+}
+function openSkillPanel() {
+  renderSkillPanel();
+  document.getElementById('skill-panel-overlay').style.display = 'flex';
+}
+function closeSkillPanel() { document.getElementById('skill-panel-overlay').style.display = 'none'; }
+function renderSkillPanel() {
+  const you = state?.you || {};
+  const list = you.skills?.list || [];
+  const used = !!you.skills?.used;
+  const myTurn = state?.turn === myRole;
+  const canAct = myTurn && state?.phase === 'active' && !used && !state?.pendingChoice;
+  const sub = document.getElementById('skill-panel-sub');
+  sub.textContent = used ? '本場戰鬥的技能已經發動過了（整場只能發動 1 次）。'
+    : canAct ? '選一個技能發動（整場戰鬥只能發動 1 次）。'
+    : '現在無法發動（需輪到自己、且沒有其他待處理的選擇）。可先查看技能內容。';
+  document.getElementById('skill-panel-list').innerHTML = list.map(id => {
+    const s = PLAYER_SKILLS[id] || { name_zh: id, desc_zh: '' };
+    return `<div class="skill-panel-item">
+      <b>${s.name_zh}</b>
+      <p>${s.desc_zh}</p>
+      <button class="btn btn-primary" style="font-size:0.78rem;padding:0.4rem 0.9rem" ${canAct ? '' : 'disabled'} onclick="confirmUseSkill('${id}')">發動</button>
+    </div>`;
+  }).join('') || '<p class="lobby-sub">這副牌組沒有設定技能。</p>';
+}
+function confirmUseSkill(id) {
+  const s = PLAYER_SKILLS[id];
+  if (!s) return;
+  if (!confirm(`確定要發動玩家技能【${s.name_zh}】嗎？\n整場戰鬥只能發動 1 次。`)) return;
+  closeSkillPanel();
+  wsSend({ type: 'pocket_use_skill', skillId: id });
 }
 
 // ── 卡牌發動顯示（2026-08-08新增）：跟handlePocketEvent的lastEvent(單一最新事件)不同，

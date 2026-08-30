@@ -410,6 +410,27 @@ B3-025 Victini's printed ability ("Once during your turn, after you flip any coi
 
 使用者回報「pocket 手機 UI 用 Safari 打開按鈕無法按」。iOS Safari 規則：點一下非原生互動元素（沒有 `cursor:pointer` / 沒有行內 `onclick` 的 `<div>`）**不會產生會冒泡到委派監聽器的 `click`**，桌機/Android 沒這限制。這引擎對戰畫面的棋盤格選目標、動態生成 chip 等全靠 `#board-overlay` 上單一委派 listener（`pocket.html:3273`），且 `.board-slot` 明寫 `cursor:default` → iOS 整批點不動。修法：在 star canvas IIFE 後掛一行 `document.addEventListener('touchstart', () => {}, { passive: true })`，Safari 就會對所有元素派發 `click`。順手補 `#setup-overlay` 的 `style="display:none"`（原本是唯一沒補的 overlay，靠 `renderBoard()` 才關）。
 
+## 玩家技能系統（Player Skills，2026-08-30新增）
+
+組牌時每副牌組可設定 ≤3 個「玩家技能」，戰鬥中透過 `✨ 玩家技能` 按鈕（`#skill-btn`，在 `.turn-controls`）挑一個發動，**整場戰鬥只能發動 1 次**（不是每種各 1 次），發動前 client 端 `confirm()` 確認、發動時跳 `#skill-fx-overlay` 動畫（`playSkillFx`）。沒設定技能的牌組按鈕不顯示。
+
+**資料流**：
+- 設定存 `deckSkills = {list:[skillId...], supporterCards:[cardId...]}`（`supporterCards` 只給「支援者的協助」用，是牌組**外**的支援者卡，不限收藏擁有）。DB：`pocket_decks.skills JSONB`（`ALTER TABLE ... ADD COLUMN IF NOT EXISTS skills JSONB`）；訪客：`savedDecks[i].skills`。API POST/PUT/GET 都帶 `skills`，`pocketSanitizeDeckSkills()` 清洗（≤3 合法 id、≤3 真實 Supporter 卡 id）。client 有 `sanitizeDeckSkills()` 鏡射。
+- `pocket_submit_deck` 帶 `skills` → `pRoom.p{1,2}Skills` → `pocketFreshSide(drawn, deckIds, energyTypes, skillsCfg)` → `side.skills = {list, supporterCards, used:false}`。
+- `pocketViewFor`：`you.skills`（完整 list+supporterCards+used）、`opponent.skills`（只 list+used，不洩漏牌組外卡）。
+
+**發動流程**（跟攻擊的 `attack_choice` 分開的獨立 `phase='skill_choice'` + `pendingChoice.kind='player_skill'`）：
+- `pocket_use_skill {skillId}`：guard（自己回合/`phase==='active'`/`!side.skills.used`/`list.includes`/`!G.pendingChoice`）→ 各技能自己的**條件檢查**（不符 → `send error`、**不設 used、不消耗**）→ 過了就 `side.skills.used=true` + `animate()`（`G.lastEvent={kind:'playerSkill',skillZh,role}`，client `handlePocketEvent` 播 `playSkillFx` + log）+ 設 `G.pendingChoice`。
+- `pocket_skill_choice`（新 handler，鏡射 `pocket_attack_choice` 的形狀）：依 `pending.skillId` + `pending.step` 跑迷你狀態機。
+- client：`attack-choice-overlay` 共用（`choicePhase = attack_choice || skill_choice`），加 `kind==='player_skill'` 分支渲染 target/attack/energy_type/pick 各步；board 點 target 用 `data-skill-pick` → `pocket_skill_choice {uid}`。
+
+**三個技能**：
+1. **能量灌注 `energy_infusion`**：`step:'target'`（選場上寶可夢，`data-skill-pick`）→ 有 >1 個帶 cost 的招式才 `step:'attack'`（按鈕列）→ 每個 `'Colorless'` 欄位 `step:'energy_type'`（9 種屬性按鈕，可選牌組沒設定的）→ resolve：`target.energy.push(...conjured)`，typed 欄位灌該屬性、colorless 欄位灌玩家選的。helper `pocketSkillEnergyInfusionStep()`。**條件**：場上要有寶可夢、且選的那隻要有帶 cost 的招式（沒有就擋在 target 步、不消耗）。
+2. **地形戰術 `terrain_tactics`**：`step:'pick'`（列出 `deck`+`discard` 裡所有 Stadium，卡圖清單）→ resolve：從來源區移除（deck 來的洗牌）、`G.activeStadium={id,name}`、呼叫該場地卡的 `TRAINER_EFFECTS` handler（大多只是再設一次 activeStadium，no-op 但一致）、重置雙方 `stadiumUsedThisTurn`。**條件**：deck+discard 至少 1 張 Stadium。
+3. **支援者的協助 `supporter_help`**：`source='sideboard'`（`side.skills.supporterCards` 非空，用設定的卡 id）或 `source='pile'`（列 deck+discard 的 Supporter）→ `step:'pick'` → resolve：跑該支援者的 `TRAINER_EFFECTS` handler（比照 `pocket_play_supporter` 的 snapshot/enforce 包法，**但不碰 `supporterUsedThisTurn`**——不受一回合一張限制）；來源卡（pile 的實體 / sideboard 的 `makePocketInstance(id)`）用完進 `discard`。若 handler 回傳錯字串（**需要 `msg.target` 的那類支援者，如小茜/莉莉艾等 `TRAINER_NEEDS_TARGET`**）→ **退還 `used=false`、卡放回原處、send error（「…此技能未消耗，可重新發動」）**，讓玩家改選別張。若 handler 自己設了 `ctx.needsChoice` → 交回既有的 `attack_choice` 流程收尾（`G.phase='attack_choice'`；draw/search/reveal 類、或自帶 needsChoice 的支援者都 OK）。**已知 v1 限制**：需要同訊息夾帶 board target 的支援者卡不支援（會走退還路徑）。
+
+**驗證**：`scripts/pocket-extract` 沒用到（純新增，不動既有表）。實測用 2-client WS（`PORT=3999 node server.js` + `ws`）跑完整 lobby→submit(skills)→setup→發動：energy_infusion（火焰鳥ex 選熱能爆破 `[Fire,Colorless,Colorless]` → 灌 `[Fire,Water,Water]`）、terrain_tactics（deck 裡的修行場地 → `activeStadium` 設好）、supporter_help（sideboard 博士的研究 → 手牌 +2、卡進棄牌堆）、once-per-battle 第二次被擋、條件不足不消耗。**踩到的雷**：scratch server 跨多次測試會累積 stale 房間/斷線 socket 導致後續連線 setup 卡住——每輪測試前 `kill` 重開一個乾淨的 `PORT=3999` server。
+
 ## Memory
 
 `project_pocket_tcg.md` (auto-memory) has the full dated incident log this skill was distilled from — check it for the specific history/reasoning behind a particular mechanic if this skill's summary isn't enough context.
