@@ -1170,6 +1170,19 @@
   <div id="card-detail-body"></div>
 </div>
 
+<!-- 玩家技能：組牌頁「支援者的協助」的牌組外支援者卡挑選器（2026-08-31）——放頂層，不能塞進
+     #board-overlay（那個在組牌頁是 display:none，overlay 會被父層吃掉，跟 card-detail-panel
+     同一個坑）。有搜尋、按卡名去重（同名不同印刷只顯示一張）。 -->
+<div class="setup-overlay" id="supp-picker-overlay" style="display:none;position:fixed;z-index:120">
+  <div class="setup-box" style="max-width:560px;width:min(94vw,560px)">
+    <h2>選擇牌組外支援者卡</h2>
+    <input id="supp-picker-search" placeholder="搜尋卡名…" oninput="renderSuppPicker()"
+      style="width:100%;padding:0.5rem 0.7rem;margin-bottom:0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:0.85rem">
+    <div id="supp-picker-grid" class="grid" style="max-height:56vh;overflow-y:auto"></div>
+    <button class="btn btn-secondary" style="margin-top:0.6rem" onclick="closeSuppPicker()">取消</button>
+  </div>
+</div>
+
 <script>
 /* ─────────────────────────────────────────
    STAR CANVAS
@@ -1414,14 +1427,32 @@ function removeSupporterHelpCard(cid) {
 }
 function openSupporterHelpPicker() {
   if (deckSkills.supporterCards.length >= 3) { alert('最多只能設定 3 張'); return; }
-  const supporters = ALL_CARDS
+  const s = document.getElementById('supp-picker-search');
+  if (s) s.value = '';
+  renderSuppPicker();
+  document.getElementById('supp-picker-overlay').style.display = 'flex';
+}
+function closeSuppPicker() { document.getElementById('supp-picker-overlay').style.display = 'none'; }
+function renderSuppPicker() {
+  const grid = document.getElementById('supp-picker-grid');
+  if (!grid) return;
+  const q = (document.getElementById('supp-picker-search')?.value || '').trim().toLowerCase();
+  const seen = new Set();
+  const list = ALL_CARDS
     .filter(c => c.category === 'Trainer' && c.trainerType === 'Supporter' && !deckSkills.supporterCards.includes(c.id))
-    .sort((a, b) => (a.set || '').localeCompare(b.set || '') || zhName(a).localeCompare(zhName(b)))
-    .map(c => ({ ...c, uid: c.id }));
-  openDiscardTargetPicker('選擇一張牌組外支援者卡', supporters, (cid) => {
-    if (!deckSkills.supporterCards.includes(cid) && deckSkills.supporterCards.length < 3) deckSkills.supporterCards.push(cid);
-    renderSkillConfig();
-  });
+    .filter(c => { if (seen.has(c.name)) return false; seen.add(c.name); return true; }) // 同名不同印刷只留一張
+    .filter(c => !q || (c.name || '').toLowerCase().includes(q) || zhName(c).includes(q))
+    .sort((a, b) => (a.set || '').localeCompare(b.set || '') || zhName(a).localeCompare(zhName(b)));
+  grid.innerHTML = list.map(c =>
+    `<div class="card-tile" onclick="pickSupporterHelpCard('${c.id}')" title="${zhName(c)}">
+      <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${zhName(c)}">
+      <div class="name">${zhName(c)}</div><div class="meta">${c.set || ''}</div>
+    </div>`).join('') || '<div class="lobby-sub">找不到符合的支援者卡</div>';
+}
+function pickSupporterHelpCard(cid) {
+  if (!deckSkills.supporterCards.includes(cid) && deckSkills.supporterCards.length < 3) deckSkills.supporterCards.push(cid);
+  closeSuppPicker();
+  renderSkillConfig();
 }
 
 async function loadCards() {
