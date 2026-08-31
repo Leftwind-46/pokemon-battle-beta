@@ -12910,7 +12910,11 @@ async function handleMessage(ws, msg) {
         if (side.stadiumUsedThisTurn) { send(ws, { type: 'error', message: '這回合已經用過場地卡效果了' }); return; }
         const target = [side.active, ...side.bench].find(p => p && p.uid === msg.target);
         if (!target) { send(ws, { type: 'error', message: '請選擇場上的1隻寶可夢' }); return; }
-        const candidates = side.deck.map((c, i) => ({ c, i })).filter(({ c }) => c.category === 'Pokemon' && c.evolveFrom === target.name);
+        // Veevee 'volve（A3b伊布ex）：evolveFrom比對對象從「Eevee ex」改成「Eevee」，跟pocket_evolve
+        // 手動進化那條同一套特例（卡面雖然寫「從手牌打出」，這張Fan Made場地卡就放寬到也能觸發）
+        const veeveeVolve = target.name === 'Eevee ex' && target.abilities?.[0]?.name === "Veevee 'volve";
+        const evolveFromName = veeveeVolve ? 'Eevee' : target.name;
+        const candidates = side.deck.map((c, i) => ({ c, i })).filter(({ c }) => c.category === 'Pokemon' && c.evolveFrom === evolveFromName);
         if (!candidates.length) { send(ws, { type: 'error', message: '牌組沒有能讓這隻寶可夢進化的寶可夢' }); return; }
         side.stadiumUsedThisTurn = true;
         const pick = candidates[Math.floor(Math.random() * candidates.length)];
