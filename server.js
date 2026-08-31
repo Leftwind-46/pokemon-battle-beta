@@ -4331,7 +4331,7 @@ function pocketRunCheckup(G) {
       poke.hp += pocketToolHpBonusAmount(poke); // 2026-08-25修正：跟其餘evolve mutation點同一個Tool HP加成消失問題（見Leaf Cape+Combee/Vespiquen的說明），這裡漏補
       poke.curHp = Math.max(1, (poke.hp || 0) - preservedDamage);
       poke.boardTurn = G.turnNumber;
-      poke._realAbilities = undefined;
+      poke._realAbilities = undefined; poke._hpBonus = 0;
       poke.isFossil = false; // 2026-08-25修正：跟其餘evolve mutation點同一個殘留欄位問題（見FM-009/Rare Candy的isFossil說明），這裡漏補
       pocketApplyDoubleType(poke);
       otherSideForCheckup.deck = pocketShuffle(otherSideForCheckup.deck);
@@ -5273,7 +5273,7 @@ const ATTACK_EFFECTS = {
     // 2026-08-08修正：退化後身分變了，pocketSyncAbilitySuppression快取的_realAbilities還是
     // 退化「前」那個物種的特性，要清掉讓它在下次sync時重新抓——不然退化後的正確特性會被
     // 舊快取蓋掉（見同一批修正的完整說明）
-    defender._realAbilities = undefined;
+    defender._realAbilities = undefined; defender._hpBonus = 0;
     pocketApplyDoubleType(defender);
   },
   "Put 1 random Poliwag from your deck onto your Bench.": ctx => {
@@ -6264,7 +6264,7 @@ const ATTACK_EFFECTS = {
     ctx.attacker.curHp = Math.max(1, (ctx.attacker.hp || 0) - preservedDamage);
     ctx.attacker.boardTurn = ctx.G.turnNumber;
     ctx.side.deck = pocketShuffle(ctx.side.deck);
-    ctx.attacker._realAbilities = undefined; // 2026-08-08修正：進化後身分變了，清掉舊快取讓特性正確重抓
+    ctx.attacker._realAbilities = undefined; ctx.attacker._hpBonus = 0; // 2026-08-08修正：進化後身分變了，清掉舊快取讓特性正確重抓
     ctx.attacker.isFossil = false; // 2026-08-25修正：跟其餘evolve mutation點同一個殘留欄位問題（見FM-009/Rare Candy的isFossil說明），這裡漏補
     pocketApplyDoubleType(ctx.attacker);
   },
@@ -7412,7 +7412,7 @@ const TRAINER_EFFECTS = {
     target.hp += pocketToolHpBonusAmount(target); // Object.assign後hp已是純base值(不含Tool加成)，直接加回新加成即可，不能算delta
     target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
     target.boardTurn = ctx.G.turnNumber;
-    target._realAbilities = undefined; // 2026-08-08修正：進化後身分變了，清掉舊快取讓特性正確重抓
+    target._realAbilities = undefined; target._hpBonus = 0; // 2026-08-08修正：進化後身分變了，清掉舊快取讓特性正確重抓
     // 2026-08-13修正：化石寶可夢(target.stage==='Basic'讓化石本來就是合法目標)用糖果跳階進化
     // 成真正的物種後（例如舊珀→化石翼龍），target.isFossil這個合成欄位是makePocketFossilInstance
     // 塞的、Object.assign只會覆蓋來源物件「有」的欄位，不會清掉來源沒有的舊欄位，導致進化後
@@ -7461,7 +7461,7 @@ const TRAINER_EFFECTS = {
     target.hp += pocketToolHpBonusAmount(target); // Object.assign後hp已是純base值(不含Tool加成)，直接加回新加成即可，不能算delta
     target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
     target.boardTurn = ctx.G.turnNumber;
-    target._realAbilities = undefined; // 2026-08-08修正：進化後身分變了，清掉舊快取讓特性正確重抓
+    target._realAbilities = undefined; target._hpBonus = 0; // 2026-08-08修正：進化後身分變了，清掉舊快取讓特性正確重抓
     target.isFossil = false; // 2026-08-25修正：跟其餘evolve mutation點同一個殘留欄位問題（見FM-009/Rare Candy的isFossil說明），這裡漏補
     pocketApplyDoubleType(target);
     ctx.side.deck = pocketShuffle(ctx.side.deck);
@@ -7652,7 +7652,7 @@ const TRAINER_EFFECTS = {
       target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
       target.boardTurn = ctx.G.turnNumber;
       target.isFossil = false; // 進化成真正物種，不再是化石
-      target._realAbilities = undefined;
+      target._realAbilities = undefined; target._hpBonus = 0;
       pocketApplyDoubleType(target);
       anyEvolved = true;
     }
@@ -8018,7 +8018,7 @@ const TRAINER_EFFECTS = {
     target.hp += pocketToolHpBonusAmount(target); // Object.assign後hp已是純base值(不含Tool加成)，直接加回新加成即可，不能算delta
     target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
     target.boardTurn = ctx.G.turnNumber;
-    target._realAbilities = undefined;
+    target._realAbilities = undefined; target._hpBonus = 0;
     target.isFossil = false; // 2026-08-25修正：跟其餘evolve mutation點同一個殘留欄位問題（見FM-009/Rare Candy的isFossil說明），這裡漏補
     pocketApplyDoubleType(target);
     ctx.side.deck = pocketShuffle(ctx.side.deck);
@@ -8803,7 +8803,7 @@ const ABILITY_EFFECTS = {
     poke.hp += pocketToolHpBonusAmount(poke); // 2026-08-25修正：跟其餘evolve mutation點同一個Tool HP加成消失問題（見Leaf Cape+Combee/Vespiquen的說明），這裡漏補
     poke.curHp = Math.max(1, (poke.hp || 0) - preservedDamage);
     poke.boardTurn = ctx.G.turnNumber;
-    poke._realAbilities = undefined; // 進化後身分變了，清掉舊快取讓特性正確重抓（同Rare Candy）
+    poke._realAbilities = undefined; poke._hpBonus = 0; // 進化後身分變了，清掉舊快取讓特性正確重抓（同Rare Candy）
     poke.isFossil = false; // 2026-08-25修正：跟其餘evolve mutation點同一個殘留欄位問題（見FM-009/Rare Candy的isFossil說明），這裡漏補
     pocketApplyDoubleType(poke);
     return null;
@@ -8910,7 +8910,10 @@ function pocketSyncHpBonuses(G) {
       if ((p.types || []).includes('Grass') && [side.active, ...side.bench].some(q => q?.abilities?.[0]?.name === 'Toughness Aroma')) bonus += 20;
       if (p.abilities?.[0]?.name === 'Infinite Increase') bonus += p.energy.filter(e => e === 'Psychic').length * 30;
       if (G.activeStadium?.id === 'B2-154' && p.stage === 'Basic') bonus += 20;
-      // 玩家技能「伊布家族」：發動方場上的伊布家族寶可夢 HP+50（整場持續）
+      // 玩家技能「伊布家族」：發動方場上的伊布家族寶可夢 HP+50（整場持續）。進化時 Object.assign
+      // 把 hp 重設回新物種印刷值、但 _hpBonus 舊值會殘留（進化後伊布家族仍成立卻讀到 oldBonus===bonus
+      // 直接跳過、+50 沒補上）——所以每個 identity-swap 點都在 _realAbilities 旁一起 _hpBonus = 0，
+      // 讓這裡從 0 重新套用（Toughness Aroma/Starting Plains 同理受惠）
       if (side.eeveeFamilyBuff && pocketIsEeveeFamily(p)) bonus += 50;
       const oldBonus = p._hpBonus || 0;
       if (bonus !== oldBonus) {
@@ -11122,6 +11125,47 @@ function pocketIsEeveeFamily(card) {
   return !!card && card.category === 'Pokemon' &&
     (card.name === 'Eevee' || card.name === 'Eevee ex' || card.evolveFrom === 'Eevee');
 }
+
+// 「從能量區為寶可夢附加能量」的觸發型效果——原本只寫在 pocket_attach_energy（每回合手動附加）
+// 那一段，但卡面（電磁屏障 Electromagnetic Wall 等）寫的是「每當…從能量區附加能量」，支援者/
+// 道具/招式/玩家技能「能量灌注」等「Take a {X} Energy from your Energy Zone and attach」也算，
+// 2026-08-31 抽成共用函式，讓那幾個 needsChoice 解析點也一起呼叫。
+// 回傳 true = 造成了 KO 進 forced_switch/done，呼叫端要 broadcast + return，別再往下跑收尾。
+function pocketRunEnergyAttachTriggers(G, side, sourceRole, target, attachedTypes) {
+  if (!target || !attachedTypes || !attachedTypes.length) return false;
+  const opRole = sourceRole === 'p1' ? 'p2' : 'p1';
+  const oppSide = G[opRole];
+  pocketApplySoothingCure(side);
+  const ab = target.abilities?.[0]?.name;
+  if (ab === 'Lunar Plumage' && attachedTypes.includes('Psychic')) {
+    target.curHp = Math.min(target.hp, target.curHp + 20);
+    pocketEmitCardActivation(G, sourceRole, target, '特性觸發：Lunar Plumage');
+  }
+  if (ab === 'Nightmare Aura' && attachedTypes.includes('Darkness') && oppSide.active) {
+    oppSide.active.curHp = Math.max(0, oppSide.active.curHp - 20);
+    pocketEmitCardActivation(G, sourceRole, target, '特性觸發：Nightmare Aura');
+    if (oppSide.active.curHp <= 0) pocketResolveActiveKO(G, opRole, true, false);
+  }
+  if ((ab === 'Comatose' || ab === 'Snoozing Habit') && target.uid === side.active?.uid && target.status == null) {
+    target.status = 'asleep';
+    pocketEmitCardActivation(G, sourceRole, target, `特性觸發：${ab}`);
+  }
+  if (target.sleepTrapUntilTurn === G.turnNumber && target.status == null) {
+    target.status = 'asleep';
+    pocketEmitCardActivation(G, opRole, target, 'Gothitelle陷阱生效');
+  }
+  // 電磁屏障：對手主戰持有時，每附加 1 點能量就對該寶可夢造成 20（卡面「an Energy」是單數，
+  // 多點能量分次附加＝分次觸發，這裡用 attachedTypes.length 一次結算等效）
+  if (oppSide.active?.abilities?.[0]?.name === 'Electromagnetic Wall') {
+    for (let i = 0; i < attachedTypes.length; i++) target.curHp = Math.max(0, target.curHp - 20);
+    pocketEmitCardActivation(G, opRole, oppSide.active, '特性觸發：Electromagnetic Wall');
+    if (target.curHp <= 0) {
+      if (target.uid === side.active?.uid) pocketResolveActiveKO(G, sourceRole, true, false);
+      else pocketResolveBenchKOs(G, side, opRole);
+    }
+  }
+  return G.phase === 'forced_switch' || G.phase === 'done';
+}
 // 能量灌注：已知目標+招式後，若還有無色欄位沒選就暫停問下一個屬性，全部選完就真的灌注
 function pocketSkillEnergyInfusionStep(pRoom, G, side, pending) {
   const target = pocketFindOwn(side, pending.targetUid);
@@ -11141,7 +11185,9 @@ function pocketSkillEnergyInfusionStep(pRoom, G, side, pending) {
   const conjured = cost.map(c => (c === 'Colorless' ? pending.colorlessChosen[ci++] : c));
   target.energy.push(...conjured);
   pocketEmitCardActivation(G, pending.role, target, '玩家技能：能量灌注');
-  G.phase = 'active'; G.pendingChoice = null;
+  pocketRunEnergyAttachTriggers(G, side, pending.role, target, conjured); // 電磁屏障等「從能量區附加」觸發
+  G.pendingChoice = null;
+  if (G.phase !== 'forced_switch' && G.phase !== 'done') G.phase = 'active';
   pocketBroadcastState(pRoom);
 }
 // 把 raw 的技能設定清乾淨：最多3個合法技能id + 最多3張真實存在的支援者卡id
@@ -11318,52 +11364,11 @@ async function handleMessage(ws, msg) {
       target.energy.push(attachedType);
       side.pendingEnergy = null;
       side.energyAttachedThisTurn = true;
-      // Flower Shield/Soothing Wind：剛附加能量後，target可能剛好新符合「附有能量」的資格，
-      // 立刻檢查要不要治癒既有的異常狀態（見pocketApplySoothingCure定義處的說明）
-      pocketApplySoothingCure(side);
-      // 附加能量觸發型特性（2026-08-07新增，跟按鈕觸發/進化觸發/上場觸發都不同的第五種類型）：
-      // Lunar Plumage(治療自己20)/Nightmare Aura(打對方主戰20)只在附加的能量剛好符合屬性時
-      // 才觸發；Comatose/Snoozing Habit是「只要在主戰位置附加任何能量就陷入睡眠」；
-      // Electromagnetic Wall是「對手」的特性——輪到我方附加能量時要檢查oppSide.active
       const targetAbility = target.abilities?.[0]?.name;
-      if (targetAbility === 'Lunar Plumage' && attachedType === 'Psychic') {
-        target.curHp = Math.min(target.hp, target.curHp + 20);
-        pocketEmitCardActivation(G, role, target, '特性觸發：Lunar Plumage');
-      }
-      if (targetAbility === 'Nightmare Aura' && attachedType === 'Darkness' && oppSide.active) {
-        oppSide.active.curHp = Math.max(0, oppSide.active.curHp - 20);
-        pocketEmitCardActivation(G, role, target, '特性觸發：Nightmare Aura');
-        if (oppSide.active.curHp <= 0) {
-          // 2026-08-16應使用者回報修正：附加能量不是攻擊，這裡擊倒對手不該連帶結束回合（跟
-          // pocket_use_ability handler、pocketResolveAmbientKOs同一個道理），endsTurn=false
-          pocketResolveActiveKO(G, op, true, false);
-          if (G.phase === 'forced_switch' || G.phase === 'done') { pocketBroadcastState(pRoom); return; }
-        }
-      }
-      if ((targetAbility === 'Comatose' || targetAbility === 'Snoozing Habit') && target.uid === side.active?.uid && target.status == null) {
-        target.status = 'asleep';
-        pocketEmitCardActivation(G, role, target, `特性觸發：${targetAbility}`);
-      }
-      // Gothitelle（2026-08-08新增）：招式效果種在對手主戰身上的「下回合附加能量到牠身上就
-      // 睡著」陷阱——跟Comatose/Snoozing Habit（常駐特性、任何能量都觸發）方向類似，但這是
-      // 招式種的限時debuff，且限定被種的那隻pokemon instance（不是「主戰位置」這個抽象概念）
-      if (target.sleepTrapUntilTurn === G.turnNumber && target.status == null) {
-        target.status = 'asleep';
-        pocketEmitCardActivation(G, op, target, 'Gothitelle陷阱生效');
-      }
-      if (oppSide.active?.abilities?.[0]?.name === 'Electromagnetic Wall') {
-        target.curHp = Math.max(0, target.curHp - 20);
-        pocketEmitCardActivation(G, op, oppSide.active, '特性觸發：Electromagnetic Wall');
-        if (target.curHp <= 0) {
-          if (target.uid === side.active?.uid) {
-            // 同上：附加能量不是攻擊，Electromagnetic Wall擊倒也不該結束回合
-            pocketResolveActiveKO(G, role, true, false);
-            if (G.phase === 'forced_switch' || G.phase === 'done') { pocketBroadcastState(pRoom); return; }
-          } else {
-            pocketResolveBenchKOs(G, side, op);
-          }
-        }
-      }
+      // 附加能量觸發型效果（Soothing cure / Lunar Plumage / Nightmare Aura / Comatose / Gothitelle
+      // 陷阱 / 電磁屏障）統一走 pocketRunEnergyAttachTriggers——同一份邏輯也在支援者等「從能量區
+      // 附加」的 needsChoice 解析點呼叫（2026-08-31 使用者回報電磁屏障對支援者填能沒反應）
+      if (pocketRunEnergyAttachTriggers(G, side, role, target, [attachedType])) { pocketBroadcastState(pRoom); return; }
       // Buggy Evolution（2026-08-08新增）：跟"Put a random card from your deck that evolves
       // from this Pokémon..."這個既有招式效果（3805行）同一套進化mutation邏輯，只是觸發時機
       // 換成「被附加能量的當下」、目標固定是target（不是ctx.attacker），沒有獨立抽成共用函式
@@ -11383,7 +11388,7 @@ async function handleMessage(ws, msg) {
           target.hp += pocketToolHpBonusAmount(target); // Object.assign後hp已是純base值(不含Tool加成)，直接加回新加成即可，不能算delta
           target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
           target.boardTurn = G.turnNumber;
-          target._realAbilities = undefined; // 2026-08-08修正：進化後身分變了，清掉舊快取讓特性正確重抓
+          target._realAbilities = undefined; target._hpBonus = 0; // 2026-08-08修正：進化後身分變了，清掉舊快取讓特性正確重抓
           target.isFossil = false; // 2026-08-25修正：跟其餘evolve mutation點同一個殘留欄位問題（見FM-009/Rare Candy的isFossil說明），這裡漏補
           pocketApplyDoubleType(target);
           side.deck = pocketShuffle(side.deck);
@@ -11824,7 +11829,7 @@ async function handleMessage(ws, msg) {
       // 特性資料（很可能是null/沒有特性），下次broadcast時sync函式會用這份舊快取覆蓋掉剛
       // Object.assign上去的正確特性——清成undefined讓sync函式下次判斷「第一次見到」重新抓取，
       // 這是使用者回報「忍蛙/三首惡龍明明有特性卻沒得按」的根因，不是按鈕清單漏寫
-      target._realAbilities = undefined;
+      target._realAbilities = undefined; target._hpBonus = 0;
       // 2026-08-13修正：化石寶可夢(name例如「舊珀」)可以走一般進化正常升成對應物種（例如化石
       // 翼龍evolveFrom==='Old Amber'），同一個isFossil殘留問題——見同一批A3-144糖果的說明
       target.isFossil = false;
@@ -12417,7 +12422,9 @@ async function handleMessage(ws, msg) {
         const pool = pending.includeActive ? [side.active, ...side.bench] : side.bench;
         const target = pool.find(p => p && p.uid === msg.uid);
         if (!target) return;
-        target.energy.push(pending.energyQueue.shift());
+        const distType = pending.energyQueue.shift();
+        target.energy.push(distType);
+        if (pocketRunEnergyAttachTriggers(G, side, role, target, [distType])) { G.pendingChoice = null; pocketBroadcastState(pRoom); return; }
         if (pending.energyQueue.length > 0) { pocketBroadcastState(pRoom); return; }
       } else if (pending.kind === 'bench_switch') {
         // 2026-08-07擴充：加了可選的eligibleUids篩選（例如「跟1隻電系板凳互換」這種限定屬性的
@@ -12564,8 +12571,11 @@ async function handleMessage(ws, msg) {
           // energyTypes（2026-08-23新增，新秀探險家用）：一次給好幾種「不同」屬性各1個，
           // 跟原本energyType+count（同一種屬性重複N次）是互斥的兩種寫法，既有call site都只
           // 設energyType沒設energyTypes，行為完全不變
-          if (pending.energyTypes) { for (const t of pending.energyTypes) target.energy.push(t); }
-          else { for (let i = 0; i < (pending.count || 1); i++) target.energy.push(pending.energyType); }
+          const attached = [];
+          if (pending.energyTypes) { for (const t of pending.energyTypes) { target.energy.push(t); attached.push(t); } }
+          else { for (let i = 0; i < (pending.count || 1); i++) { target.energy.push(pending.energyType); attached.push(pending.energyType); } }
+          // 支援者/道具等「從能量區為寶可夢附加能量」也要觸發電磁屏障等（2026-08-31）
+          if (pocketRunEnergyAttachTriggers(G, side, role, target, attached)) { G.pendingChoice = null; pocketBroadcastState(pRoom); return; }
         } else if (pending.action === 'moveAllEnergyFromAttacker') {
           // Swanna/Mismagius（2026-08-08新增）：把攻擊者(side.active，此刻還沒變過)身上全部
           // （或篩選特定屬性，見energyFilter）能量移給玩家選的板凳寶可夢
@@ -12964,7 +12974,7 @@ async function handleMessage(ws, msg) {
         target.hp += pocketToolHpBonusAmount(target);
         target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
         target.boardTurn = G.turnNumber;
-        target._realAbilities = undefined;
+        target._realAbilities = undefined; target._hpBonus = 0;
         // 2026-08-25修正：使用者回報「化石進化而來的寶可夢不應該能被棄置」——這裡的target選擇
         // 完全沒有stage/isFossil限制（跟FM-009化石復活機那個「只挑化石」的專屬版本不同），玩家
         // 可以直接選場上還沒進化的化石卡當target，讓牠透過這張場地卡進化成真正的物種。跟其餘
