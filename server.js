@@ -4067,6 +4067,7 @@ function pocketFreshSide(drawn, deckIds, energyTypesOverride, skillsCfg) {
     // 玩家技能（2026-08-30新增）：list=這副牌組設定的技能id（≤3），supporterCards=「支援者的協助」
     // 設定的牌組外支援者卡id（≤3），used=整場是否已經發動過（整場只能1次，不是每種各1次）
     skills: { list: (skillsCfg && skillsCfg.list) || [], supporterCards: (skillsCfg && skillsCfg.supporterCards) || [], used: false },
+    eeveeFamilyBuff: false, // 玩家技能「伊布家族」發動後為 true（整場持續）
     // 2026-08-08新增：真實規則裡任何被棄置的能量（不管來源是招式成本、攻擊者自傷、或場地卡
     // 效果）都會進到一個共用、可被「從棄牌堆拿能量」類效果撿回的能量棄牌區——這個引擎原本
     // 完全沒有這個概念，只把「殘留在被擊倒寶可夢卡身上的能量」當作棄牌堆能量來源。Rainbow
@@ -4965,6 +4966,7 @@ function pocketViewFor(G, role) {
       namedCostDiscountThisTurn: G[role].namedCostDiscountThisTurn || null,
       // 玩家技能（2026-08-30新增）：自己看得到完整設定（含支援者的協助的3張牌組外卡）+ 是否已用掉
       skills: { list: G[role].skills?.list || [], supporterCards: G[role].skills?.supporterCards || [], used: !!G[role].skills?.used },
+      eeveeFamilyBuff: !!G[role].eeveeFamilyBuff, // 「伊布家族」技能已發動——client 算招式費用要跟著全無色
     },
     // 2026-08-15新增：對手當前能量區（pendingEnergy，這回合可以拿去裝的那顆能量）是公開資訊，
     // 跟牌庫/棄牌堆一樣雙方都看得到——真實遊戲畫面上對手的能量區本來就是可見的。previewEnergy
@@ -7595,6 +7597,11 @@ const TRAINER_EFFECTS = {
     ctx.needsChoice = { kind: 'energy_distribute', energyQueue: types, eligibleUids: pool.map(p => p.uid), includeActive: true };
     return null;
   },
+  'FM-013': (ctx) => { // 寶可夢中心（Fan Made場地卡，2026-08-31新增）：跟其餘場地卡一樣蓋場地+按鈕觸發，
+    // 實際「從棄牌區拿最多2張加入手牌」邏輯在pocket_use_stadium的stadiumId==='FM-013'分支
+    ctx.G.activeStadium = { id: 'FM-013', name: '寶可夢中心' };
+    return null;
+  },
   'FM-007': (ctx, msg) => { // 憤怒之湖（Fan Made場地卡，2026-08-18新增，2026-08-18改版）：
     // 打出當下純粹只是蓋場地，不做任何選擇/進化——使用者回報原本「打出時立刻要選寶可夢」感覺
     // 很怪，改成跟Mesagoza等5張同一種模式：場上出現按鈕，玩家想用的時候才點，走獨立的
@@ -8903,6 +8910,8 @@ function pocketSyncHpBonuses(G) {
       if ((p.types || []).includes('Grass') && [side.active, ...side.bench].some(q => q?.abilities?.[0]?.name === 'Toughness Aroma')) bonus += 20;
       if (p.abilities?.[0]?.name === 'Infinite Increase') bonus += p.energy.filter(e => e === 'Psychic').length * 30;
       if (G.activeStadium?.id === 'B2-154' && p.stage === 'Basic') bonus += 20;
+      // 玩家技能「伊布家族」：發動方場上的伊布家族寶可夢 HP+50（整場持續）
+      if (side.eeveeFamilyBuff && pocketIsEeveeFamily(p)) bonus += 50;
       const oldBonus = p._hpBonus || 0;
       if (bonus !== oldBonus) {
         const delta = bonus - oldBonus;
@@ -11102,8 +11111,17 @@ const PLAYER_SKILLS = {
     name_zh: '支援者的協助',
     desc_zh: '從你設定的3張「牌組外支援者卡」選一張發動；若沒有設定，改從自己的牌組或棄牌區選一張支援者卡發動。此發動不受「一回合只能用一張支援者卡」限制。',
   },
+  eevee_family: {
+    name_zh: '伊布家族',
+    desc_zh: '只有當牌組裡的寶可夢全部都是伊布、伊布ex 與牠們的進化型時才能發動。發動後，你的伊布與其進化型（場上、手牌、牌組）招式所需的能量屬性全部變成無色，且 HP +50（整場持續）。',
+  },
 };
 const PLAYER_SKILL_IDS = Object.keys(PLAYER_SKILLS);
+// 伊布家族：伊布、伊布ex、以及所有「evolveFrom === 'Eevee'」的進化型（含各自的ex版本）
+function pocketIsEeveeFamily(card) {
+  return !!card && card.category === 'Pokemon' &&
+    (card.name === 'Eevee' || card.name === 'Eevee ex' || card.evolveFrom === 'Eevee');
+}
 // 能量灌注：已知目標+招式後，若還有無色欄位沒選就暫停問下一個屬性，全部選完就真的灌注
 function pocketSkillEnergyInfusionStep(pRoom, G, side, pending) {
   const target = pocketFindOwn(side, pending.targetUid);
@@ -11561,6 +11579,22 @@ async function handleMessage(ws, msg) {
         return;
       }
 
+      if (skillId === 'eevee_family') {
+        // 條件：自己所有區域（場上/手牌/牌組/棄牌區）的寶可夢卡全部都是伊布家族
+        const allPokemon = [side.active, ...side.bench, ...side.hand, ...side.deck, ...side.discard]
+          .filter(c => c && c.category === 'Pokemon');
+        if (!allPokemon.length || !allPokemon.every(pocketIsEeveeFamily)) {
+          send(ws, { type: 'error', message: '牌組裡有非伊布家族的寶可夢，無法發動「伊布家族」' });
+          return;
+        }
+        side.skills.used = true;
+        side.eeveeFamilyBuff = true; // HP+50 走 pocketSyncHpBonuses；招式能量全無色走 effectiveCost
+        animate();
+        // 沒有選擇流程，直接生效（HP 在下一次 pocketSyncHpBonuses / broadcast 補上）
+        pocketBroadcastState(pRoom);
+        return;
+      }
+
       send(ws, { type: 'error', message: '未知的技能' });
       return;
     }
@@ -11937,6 +11971,8 @@ async function handleMessage(ws, msg) {
       const oppActiveCostAbility = oppSide.active?.abilities?.[0]?.name;
       const extraCost = (oppActiveCostAbility === 'Sticky Membrane' || oppActiveCostAbility === 'Guard Dog Visage') ? ['Colorless'] : [];
       let effectiveCost = [...(atk.cost || []), ...extraCost];
+      // 玩家技能「伊布家族」：發動方的伊布家族寶可夢，招式所需能量屬性全部視為無色（數量不變）
+      if (side.eeveeFamilyBuff && pocketIsEeveeFamily(attacker)) effectiveCost = effectiveCost.map(() => 'Colorless');
       // Future System（2026-08-08新增，之前因為找不到「哪些算Future Pokémon」的資料一度skip，
       // 後來確認這是SV系列固定的準古神獸清單才補上）：持有者在場（不限主戰/板凳），己方
       // Future Pokémon攻擊消耗-1無色能量，跟Vigor Link同一種「移除1個Colorless」寫法
@@ -12954,6 +12990,17 @@ async function handleMessage(ws, msg) {
           pocketSummonToBench(side, makePocketFossilInstance(fossilCard.id), G.turnNumber);
         }
         side.deck = pocketShuffle(side.deck);
+      } else if (stadiumId === 'FM-013') { // 寶可夢中心：從自己棄牌區把最多2張卡加入手牌，每回合1次
+        if (side.stadiumUsedThisTurn) { send(ws, { type: 'error', message: '這回合已經用過場地卡效果了' }); return; }
+        const uids = Array.isArray(msg.cardUids) ? [...new Set(msg.cardUids)].slice(0, 2) : [];
+        const moved = [];
+        for (const uid of uids) {
+          const idx = side.discard.findIndex(c => c && c.uid === uid);
+          if (idx >= 0) moved.push(side.discard.splice(idx, 1)[0]);
+        }
+        if (!moved.length) { send(ws, { type: 'error', message: '沒有從棄牌區選到任何卡' }); return; }
+        side.hand.push(...moved);
+        side.stadiumUsedThisTurn = true;
       } else {
         return;
       }

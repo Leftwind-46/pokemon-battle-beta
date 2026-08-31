@@ -1121,6 +1121,19 @@
     </div>
   </div>
 
+  <!-- 寶可夢中心（FM-013）：從棄牌區選最多2張加入手牌（toggle 多選 + 確認） -->
+  <div class="setup-overlay" id="pc-center-overlay" style="display:none">
+    <div class="setup-box">
+      <h2>寶可夢中心：從棄牌區選最多 2 張加入手牌</h2>
+      <p class="lobby-sub" id="pc-center-sub"></p>
+      <div class="peek-list" id="pc-center-list" style="max-height:56vh;overflow-y:auto"></div>
+      <div style="display:flex;gap:0.5rem;margin-top:0.7rem">
+        <button class="btn btn-primary" style="flex:1" onclick="pcCenterConfirm()">確認加入手牌</button>
+        <button class="btn btn-secondary" onclick="closePcCenterPicker()">取消</button>
+      </div>
+    </div>
+  </div>
+
   <div class="setup-overlay" id="gameover-overlay" style="display:none">
     <div class="setup-box">
       <h2 id="gameover-title"></h2>
@@ -1359,8 +1372,16 @@ const PLAYER_SKILLS = {
     name_zh: '支援者的協助',
     desc_zh: '從你設定的3張「牌組外支援者卡」選一張發動；若沒有設定，改從自己的牌組或棄牌區選一張支援者卡發動。不受「一回合只能用一張支援者卡」限制。',
   },
+  eevee_family: {
+    name_zh: '伊布家族',
+    desc_zh: '只有當牌組裡的寶可夢全部都是伊布、伊布ex 與牠們的進化型時才能發動。發動後，你的伊布與其進化型（場上、手牌、牌組）招式所需的能量屬性全部變成無色，且 HP +50（整場持續）。',
+  },
 };
 const PLAYER_SKILL_IDS = Object.keys(PLAYER_SKILLS);
+function pocketIsEeveeFamily(card) {
+  return !!card && card.category === 'Pokemon' &&
+    (card.name === 'Eevee' || card.name === 'Eevee ex' || card.evolveFrom === 'Eevee');
+}
 let deckSkills = { list: [], supporterCards: [] }; // 這副牌組設定的技能（≤3）+ 支援者的協助的牌組外卡（≤3）
 
 function autoDeckEnergyTypes() {
@@ -2877,11 +2898,11 @@ function renderBoard() {
   // 共4張同句型場地卡）：只有場上剛好是這幾張場地卡其中一張、輪到我、這回合還沒用過時才顯示
   // 2026-08-18新增：憤怒之湖（FM-007）改版加入這個set——跟其餘5張一樣打出後只蓋場地，
   // 按鈕點了才觸發（原本是打出當下就要選寶可夢進化，使用者回報體驗很怪，改成這個模式）
-  const STADIUM_TRIGGER_IDS = new Set(['B2a-093', 'B3-153', 'B3a-074', 'B3b-069', 'B4-155', 'FM-007', 'FM-008']);
+  const STADIUM_TRIGGER_IDS = new Set(['B2a-093', 'B3-153', 'B3a-074', 'B3b-069', 'B4-155', 'FM-007', 'FM-008', 'FM-013']);
   const stadiumBtn = document.getElementById('stadium-trigger-btn');
   stadiumBtn.style.display =
     (myTurn && phase === 'active' && STADIUM_TRIGGER_IDS.has(state.activeStadium?.id) && !you.stadiumUsedThisTurn) ? '' : 'none';
-  const STADIUM_TRIGGER_LABEL = { 'B2a-093': '場地卡：擲硬幣抽卡', 'B3-153': '場地卡：抽草屬性基礎寶可夢', 'B3a-074': '場地卡：洗回基礎寶可夢並抽牌', 'B3b-069': '場地卡：交換道具卡', 'B4-155': '場地卡：重新產生能量', 'FM-007': '場地卡：選寶可夢進化', 'FM-008': '場地卡：搜尋化石道具卡' };
+  const STADIUM_TRIGGER_LABEL = { 'B2a-093': '場地卡：擲硬幣抽卡', 'B3-153': '場地卡：抽草屬性基礎寶可夢', 'B3a-074': '場地卡：洗回基礎寶可夢並抽牌', 'B3b-069': '場地卡：交換道具卡', 'B4-155': '場地卡：重新產生能量', 'FM-007': '場地卡：選寶可夢進化', 'FM-008': '場地卡：搜尋化石道具卡', 'FM-013': '場地卡：從棄牌區拿回卡片' };
   stadiumBtn.textContent = STADIUM_TRIGGER_LABEL[state.activeStadium?.id] || '場地卡效果';
   document.getElementById('cancel-action-btn').style.display = selectedAction ? '' : 'none';
 
@@ -3246,6 +3267,8 @@ function pocketEffectiveAttackCostClient(attacker, atk, side, oppSide, state) {
   const oppAbility = oppSide?.active?.abilities?.[0]?.name;
   const extraCost = (oppAbility === 'Sticky Membrane' || oppAbility === 'Guard Dog Visage') ? ['Colorless'] : [];
   let cost = [...(atk.cost || []), ...extraCost];
+  // 玩家技能「伊布家族」：發動方的伊布家族寶可夢招式能量全部視為無色
+  if (side?.eeveeFamilyBuff && pocketIsEeveeFamily(attacker)) cost = cost.map(() => 'Colorless');
   if (FUTURE_POKEMON_NAMES.has(attacker.name) && [side?.active, ...(side?.bench || [])].some(p => p?.abilities?.[0]?.name === 'Future System')) {
     let removed = false;
     cost = cost.filter(c => { if (!removed && c === 'Colorless') { removed = true; return false; } return true; });
@@ -3492,6 +3515,8 @@ const TRAINER_EFFECTS_IMPLEMENTED = new Set([
   // 2026-08-27新增：消除香水（FM-010，道具卡）/火箭隊監視塔（FM-011，場地卡）/
   // 火箭隊老大的威嚴（FM-012，支援者卡），Fan Made
   'FM-010', 'FM-011', 'FM-012',
+  // 2026-08-31新增：寶可夢中心（FM-013，場地卡）
+  'FM-013',
 ]);
 
 // event delegation：own board (active/bench) 點擊
@@ -3871,7 +3896,35 @@ function triggerStadiumEffect() {
     });
     return;
   }
+  if (stadiumId === 'FM-013') {
+    // 寶可夢中心：從棄牌區選最多2張加入手牌——「最多」是可選數量，用 toggle 多選 + 確認
+    if (!(state.you.discard || []).length) { flashActionHint('棄牌區沒有卡片'); return; }
+    pcCenterSel = new Set();
+    renderPcCenterPicker();
+    document.getElementById('pc-center-overlay').style.display = 'flex';
+    return;
+  }
   wsSend({ type: 'pocket_use_stadium' });
+}
+let pcCenterSel = new Set();
+function renderPcCenterPicker() {
+  const discard = state?.you?.discard || [];
+  document.getElementById('pc-center-sub').textContent = `已選 ${pcCenterSel.size} / 2（點卡片切換選取）`;
+  document.getElementById('pc-center-list').innerHTML = discard.map(c => `
+    <div style="text-align:center;font-size:0.65rem;cursor:pointer;border-radius:8px;padding:2px;${pcCenterSel.has(c.uid) ? 'outline:3px solid #7c6eff' : ''}" onclick="pcCenterToggle('${c.uid}')">
+      <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${zhName(c)}"><div>${zhName(c)}</div>
+    </div>`).join('') || '<div class="lobby-sub">棄牌區沒有卡片</div>';
+}
+function pcCenterToggle(uid) {
+  if (pcCenterSel.has(uid)) pcCenterSel.delete(uid);
+  else if (pcCenterSel.size < 2) pcCenterSel.add(uid);
+  renderPcCenterPicker();
+}
+function closePcCenterPicker() { document.getElementById('pc-center-overlay').style.display = 'none'; }
+function pcCenterConfirm() {
+  if (!pcCenterSel.size) { flashActionHint('請至少選 1 張，或按取消'); return; }
+  closePcCenterPicker();
+  wsSend({ type: 'pocket_use_stadium', cardUids: [...pcCenterSel] });
 }
 
 let peekCards = []; // 2026-08-08新增：showPeek目前顯示的卡片清單，供點擊放大用index查回原始卡片物件
