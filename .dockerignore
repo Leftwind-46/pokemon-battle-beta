@@ -1,0 +1,10 @@
+.git
+node_modules
+npm-debug.log
+.DS_Store
+.claude
+CHANGELOG.md
+*.xlsx
+*.csv
+refernce files
+週排行榜＿徽章
