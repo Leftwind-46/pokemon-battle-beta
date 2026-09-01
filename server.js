@@ -3731,6 +3731,20 @@ const POCKET_CARD_OVERRIDES = {
       { name: 'Heavy Impact', effect: "During your opponent's next turn, this Pokémon takes −50 damage from attacks.", effect_zh: '在對手的下個回合，這隻寶可夢受到的招式傷害-50。' },
     ],
   },
+  // 2026-09-01使用者自訂調整（Trainer/Tool卡，用頂層effect/effect_zh，套用到 B2-148 + 跨系列
+  // 重印 B2b-117）：金屬核心壁壘從「常駐 -50（限鋼屬性）+ 對手回合結束棄置」整個改成
+  // 「被對手招式打中時 -80（不限屬性）然後棄掉」的一次性盾。實際邏輯見 pocketToolDamageReduction
+  // 的 B2-148 分支（改 80、拿掉鋼屬性判斷）+ pocket_attack 的 mcbPreDmg 棄置段 + 移除 checkup 棄置。
+  'Metal Core Barrier': {
+    effect: "When the Pokémon this card is attached to is hit by damage from an opponent's Pokémon's attack, that damage is reduced by 80. Then, discard this card.",
+    effect_zh: '裝備這張卡的寶可夢受到對手寶可夢招式的傷害時，該傷害減少80點，然後棄掉這張卡。',
+  },
+  // 2026-09-01使用者自訂調整：吃剩的東西（A3b-067）回合結束治療 10→50。實際邏輯見
+  // pocketRunCheckup 裡 tool?.id === 'A3b-067' 那段（已改 50），這裡只同步卡面文字。
+  'Leftovers': {
+    effect: 'At the end of your turn, if the Pokémon this card is attached to is in the Active Spot, heal 50 damage from that Pokémon.',
+    effect_zh: '在你回合結束時，如果這張卡裝備的寶可夢在主戰位置，就為該寶可夢治療50點傷害。',
+  },
 };
 for (const c of POCKET_CARDS) {
   const ov = POCKET_CARD_OVERRIDES[c.name];
@@ -4280,8 +4294,8 @@ function pocketRunCheckup(G) {
   // 回合結束觸發型Tool（2026-08-07新增）：Leftovers只在主戰位置生效，Lum Berry/Sitrus Berry
   // 沒有位置限制（"the Pokémon this card is attached to"沒有寫"in the Active Spot"），要檢查
   // endingSide全部在場寶可夢（主戰+板凳），不只active一隻
-  if (endingSide.active?.tool?.id === 'A3b-067' && endingSide.active.curHp > 0) { // Leftovers
-    endingSide.active.curHp = Math.min(endingSide.active.hp, endingSide.active.curHp + 10);
+  if (endingSide.active?.tool?.id === 'A3b-067' && endingSide.active.curHp > 0) { // Leftovers（2026-09-01使用者調整：10→50）
+    endingSide.active.curHp = Math.min(endingSide.active.hp, endingSide.active.curHp + 50);
   }
   [endingSide.active, ...endingSide.bench].filter(Boolean).forEach(p => {
     if (p.tool?.id === 'A2-149' && (p.status != null || p.poisoned || p.burned)) { // Lum Berry：解除異常狀態後棄置自己
@@ -4357,11 +4371,9 @@ function pocketRunCheckup(G) {
   if ([endingSide.active, ...endingSide.bench].some(p => p?.abilities?.[0]?.name === 'Blessed Salt')) {
     for (const p of [endingSide.active, ...endingSide.bench].filter(Boolean)) p.curHp = Math.min(p.hp, p.curHp + 10);
   }
-  // Metal Core Barrier：「在你對手回合結束時棄置」——持有者在otherSideForCheckup那邊
-  // （endingRole的回合正要結束，對otherSideForCheckup來說這一刻正好就是「對手回合結束」）
-  [otherSideForCheckup.active, ...otherSideForCheckup.bench].filter(Boolean).forEach(p => {
-    if (p.tool?.id === 'B2-148') p.tool = null;
-  });
+  // Metal Core Barrier（B2-148）：2026-09-01使用者改版——不再是「對手回合結束就棄置」，
+  // 改成「被對手招式打中時 -80 傷害然後棄掉」（一次性）。棄置邏輯搬到 pocket_attack 的
+  // mainDamage 結算處，這裡的 checkup 棄置整段移除。
   // Deceptive Needle（2026-08-08新增）：惡屬性裝備者在主戰位置時，回合結束對對手主戰造成10傷害
   if (endingSide.active?.tool?.id === 'B4-148' && (endingSide.active.types || []).includes('Darkness') && otherSideForCheckup.active) {
     otherSideForCheckup.active.curHp = Math.max(0, otherSideForCheckup.active.curHp - 10);
@@ -8079,7 +8091,9 @@ function pocketToolDamageReduction(defender) {
   const toolId = defender.tool?.id;
   if (toolId === 'A4-153' && (defender.types || []).includes('Metal')) return 10;
   if (toolId === 'B1-219' && (defender.retreat || 0) >= 3) return 20;
-  if (toolId === 'B2-148' && (defender.types || []).includes('Metal')) return 50;
+  // Metal Core Barrier（2026-09-01使用者改版）：不再限定鋼屬性、減傷 50→80，且是一次性
+  // （打中就棄掉，棄置在 pocket_attack 的 mainDamage 結算處處理）
+  if (toolId === 'B2-148') return 80;
   return 0;
 }
 // Ultra Beast標籤（2026-08-08新增）：卡池資料沒有這個分類欄位，改用官方11隻Ultra Beast的
@@ -12195,6 +12209,9 @@ async function handleMessage(ws, msg) {
         // Kommo-o（2026-08-08新增）：跟dmgDebuffUntilTurn方向相反，這是「自己下回合被攻擊時+N傷害」
         // 的自我犧牲型debuff，掛在defender（承受這次攻擊的一方）身上
         if (defender.selfVulnUntilTurn === G.turnNumber) mainDamage += defender.selfVulnAmount;
+        // 金屬核心壁壘（B2-148）用：擋掉前這次招式對裝備者的「傷害成分」是否 >0，決定要不要
+        // 觸發那張一次性 -80 並棄掉（純效果/0 傷害招式不消耗這面盾）
+        const mcbPreDmg = mainDamage;
         if (!ctx.ignoreDefenderEffects) {
           // 被動特性：Fur Coat/Thick Fat/Resilience Link這類「自己減傷/免疫」，Infinity代表完全免疫
           // Tool：Steel Apron/Heavy Helmet/Metal Core Barrier這類固定減傷，跟被動特性的減傷加總扣
@@ -12218,6 +12235,12 @@ async function handleMessage(ws, msg) {
           mainDamage = (passiveReduction === Infinity || selfShield === Infinity) ? 0 : Math.max(0, mainDamage - totalReduction);
         }
         defender.curHp = Math.max(0, (defender.curHp ?? defender.hp ?? 0) - mainDamage);
+        // 金屬核心壁壘（B2-148，2026-09-01使用者改版）：被對手招式打中（有傷害成分）就把
+        // -80 這面盾用掉並棄置這張卡。ctx.ignoreDefenderEffects 時上面沒扣減傷，這面盾也不算觸發。
+        if (!ctx.ignoreDefenderEffects && defender.tool?.id === 'B2-148' && mcbPreDmg > 0) {
+          defender.tool = null;
+          pocketEmitToolActivation(G, op, { id: 'B2-148' }, '金屬核心壁壘：減傷 80 後棄置');
+        }
         // Alolan Sandslash/Togedemaru/Turtonator/Chesnaught（2026-08-08新增retaliate機制）：
         // 「下回合被攻擊打中時反傷N給攻擊者」，時效綁定在defender身上，跟pocketPassiveOnHit的
         // 特性反傷不同來源（那是常駐特性，這是招式種下的限時debuff），兩者互不衝突可疊加

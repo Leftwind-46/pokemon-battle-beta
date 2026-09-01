@@ -2535,7 +2535,8 @@ function pocketClientDamageReduction(defender, defenderSide, attacker) {
   const toolId = defender.tool?.id;
   if (toolId === 'A4-153' && (defender.types || []).includes('Metal')) { amount += 10; sources.push('道具 -10'); }
   if (toolId === 'B1-219' && (defender.retreat || 0) >= 3) { amount += 20; sources.push('道具 -20'); }
-  if (toolId === 'B2-148' && (defender.types || []).includes('Metal')) { amount += 50; sources.push('道具 -50'); }
+  // 金屬核心壁壘（B2-148，2026-09-01使用者改版）：不限鋼屬性、-50→-80、一次性（打中就棄）
+  if (toolId === 'B2-148') { amount += 80; sources.push('道具 -80（一次性）'); }
   return { amount, sources };
 }
 // 機率型防禦特性（每次攻擊當下才擲硬幣，這裡只顯示「有這個可能性」，不預先擲）+ Disguise
