@@ -12778,6 +12778,14 @@ async function handleMessage(ws, msg) {
         const borrowCtx = { G, role, op, side, oppSide, attacker, defender, atk: borrowedAtk, rawDamage: dmg, selfDamage: 0 };
         if (borrowEffectFn) borrowEffectFn(borrowCtx);
         dmg = borrowCtx.skipMainDamage ? 0 : borrowCtx.rawDamage;
+        // 金屬核心壁壘（B2-148）：這個 pick_move 借招流程刻意跳過完整減傷鏈（見本 else if 開頭
+        // 註解），但使用者要求「百變怪借來的招式也要觸發金屬核心壁壘」——單獨把這面「一次性
+        // -80 盾」補進來（其餘 Tool/被動特性減傷維持簡化不套）。有傷害成分才消耗這面盾。
+        if (defender.tool?.id === 'B2-148' && dmg > 0) {
+          dmg = Math.max(0, dmg - 80);
+          defender.tool = null;
+          pocketEmitToolActivation(G, op, { id: 'B2-148' }, '金屬核心壁壘：減傷 80 後棄置');
+        }
         defender.curHp = Math.max(0, defender.curHp - dmg);
         if (borrowCtx.selfDamage) attacker.curHp = Math.max(0, attacker.curHp - borrowCtx.selfDamage);
         if (borrowCtx.peekOpponentHand) send(ws, { type: 'pocket_peek', title: '對手手牌', cards: oppSide.hand, interactive: !!borrowCtx.needsChoice });
