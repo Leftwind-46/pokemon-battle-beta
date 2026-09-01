@@ -4771,7 +4771,16 @@ function pocketEffectDamage(target, targetSide, attacker, amount) {
       reduction += [targetSide.active, ...targetSide.bench].filter(p => p?.abilities?.[0]?.name === 'Escort').length * 20;
     }
   }
-  return Math.max(0, amount - reduction);
+  let dealt = Math.max(0, amount - reduction);
+  // 金屬核心壁壘（B2-148，2026-09-01使用者改版 + 補洞）：一次性 -80、被有傷害成分的「招式」
+  // 打中就用掉並棄置。這個 helper 是所有「繞過主傷害管線」的招式傷害（板凳 splash / 流星群 /
+  // pick_target action:'damage' / switchInAndDamage / 延遲傷害）唯一共同入口，統一在這裡補。
+  // 沒有 G 參照可以 emit 道具棄置動畫，只能靜默把 target.tool 設 null（呼叫端 broadcast 會反映）。
+  if (target.tool?.id === 'B2-148' && dealt > 0) {
+    dealt = Math.max(0, dealt - 80);
+    target.tool = null;
+  }
+  return dealt;
 }
 // 被攻擊打中時（mainDamage>0，不需要死亡）觸發的被動特性——反傷給attacker、讓attacker中毒、
 // 或從能量區拿能量附加到板凳。跟pocketPassiveDamageReduction不同，這個不影響傷害數字本身，
