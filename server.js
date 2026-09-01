@@ -11118,6 +11118,10 @@ const PLAYER_SKILLS = {
     name_zh: '伊布家族',
     desc_zh: '只有當牌組裡的寶可夢全部都是伊布、伊布ex 與牠們的進化型時才能發動。發動後，你的伊布與其進化型（場上、手牌、牌組）招式所需的能量屬性全部變成無色，且 HP +50（整場持續）。',
   },
+  jungle_overlord: {
+    name_zh: '叢林霸主',
+    desc_zh: '當你的手牌或牌組裡有君主蛇時才能發動。把手牌或牌組裡的一張君主蛇直接放到板凳上（板凳需有空位）。',
+  },
 };
 const PLAYER_SKILL_IDS = Object.keys(PLAYER_SKILLS);
 // 伊布家族：伊布、伊布ex、以及所有「evolveFrom === 'Eevee'」的進化型（含各自的ex版本）
@@ -11584,6 +11588,23 @@ async function handleMessage(ws, msg) {
         return;
       }
 
+      if (skillId === 'jungle_overlord') {
+        if (side.bench.length >= 3) { send(ws, { type: 'error', message: '板凳沒有空位，無法發動「叢林霸主」' }); return; }
+        const handSerp = side.hand.filter(c => c && c.category === 'Pokemon' && c.name === 'Serperior');
+        const deckHasSerp = side.deck.some(c => c && c.category === 'Pokemon' && c.name === 'Serperior');
+        if (!handSerp.length && !deckHasSerp) { send(ws, { type: 'error', message: '手牌與牌組裡都沒有君主蛇，無法發動「叢林霸主」' }); return; }
+        const opts = handSerp.map(c => ({ key: c.uid, from: 'hand', zh_name: c.zh_name || c.name_zh || '君主蛇', image: c.image }));
+        if (deckHasSerp) {
+          const img = (POCKET_CARDS_BY_ID['A1a-006'] || {}).image;
+          opts.push({ key: '__deck__', from: 'deck', zh_name: '牌組裡的君主蛇（隨機1張）', image: img });
+        }
+        side.skills.used = true; animate();
+        G.phase = 'skill_choice';
+        G.pendingChoice = { role, kind: 'player_skill', skillId, step: 'pick', options: opts };
+        pocketBroadcastState(pRoom);
+        return;
+      }
+
       if (skillId === 'eevee_family') {
         // 條件：自己所有區域（場上/手牌/牌組/棄牌區）的寶可夢卡全部都是伊布家族
         const allPokemon = [side.active, ...side.bench, ...side.hand, ...side.deck, ...side.discard]
@@ -11662,6 +11683,30 @@ async function handleMessage(ws, msg) {
         if (handler) { try { handler({ G, role, op, side, oppSide, pRoom }); } catch (e) {} }
         G.p1.stadiumUsedThisTurn = false; G.p2.stadiumUsedThisTurn = false;
         pocketEmitCardActivation(G, role, card, '玩家技能：地形戰術');
+        finish();
+        return;
+      }
+
+      // ═══ 叢林霸主 ═══
+      if (pending.skillId === 'jungle_overlord') {
+        if (pending.step !== 'pick') return;
+        if (side.bench.length >= 3) { finish(); return; } // 選的期間板凳被填滿的保險
+        const opt = (pending.options || []).find(o => o.key === msg.key);
+        if (!opt) return;
+        let card = null;
+        if (opt.from === 'hand') {
+          const idx = side.hand.findIndex(c => c && c.uid === msg.key && c.name === 'Serperior');
+          if (idx >= 0) card = side.hand.splice(idx, 1)[0];
+        } else {
+          const idxs = side.deck.map((c, i) => (c && c.category === 'Pokemon' && c.name === 'Serperior') ? i : -1).filter(i => i >= 0);
+          if (idxs.length) {
+            card = side.deck.splice(idxs[Math.floor(Math.random() * idxs.length)], 1)[0];
+            side.deck = pocketShuffle(side.deck);
+          }
+        }
+        if (!card) { finish(); return; }
+        pocketSummonToBench(side, card, G.turnNumber);
+        pocketEmitCardActivation(G, role, card, '玩家技能：叢林霸主');
         finish();
         return;
       }

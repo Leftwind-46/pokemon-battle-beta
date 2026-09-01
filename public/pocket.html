@@ -1376,6 +1376,10 @@ const PLAYER_SKILLS = {
     name_zh: '伊布家族',
     desc_zh: '只有當牌組裡的寶可夢全部都是伊布、伊布ex 與牠們的進化型時才能發動。發動後，你的伊布與其進化型（場上、手牌、牌組）招式所需的能量屬性全部變成無色，且 HP +50（整場持續）。',
   },
+  jungle_overlord: {
+    name_zh: '叢林霸主',
+    desc_zh: '當你的手牌或牌組裡有君主蛇時才能發動。把手牌或牌組裡的一張君主蛇直接放到板凳上（板凳需有空位）。',
+  },
 };
 const PLAYER_SKILL_IDS = Object.keys(PLAYER_SKILLS);
 function pocketIsEeveeFamily(card) {
@@ -3010,7 +3014,10 @@ function renderBoard() {
              onclick="wsSend({type:'pocket_skill_choice', energyType:'${t}'})">${energyIconHtml(t)}${TYPE_ZH[t] || t}</button>`).join('');
       } else if (pendingChoice.step === 'pick') {
         titleEl.textContent = pendingChoice.skillId === 'terrain_tactics'
-          ? '地形戰術：選擇要放到場上的場地卡' : '支援者的協助：選擇要發動的支援者卡';
+          ? '地形戰術：選擇要放到場上的場地卡'
+          : pendingChoice.skillId === 'jungle_overlord'
+          ? '叢林霸主：選擇要放到板凳的君主蛇'
+          : '支援者的協助：選擇要發動的支援者卡';
         subEl.textContent = pendingChoice.skillId === 'supporter_help' && pendingChoice.source === 'pile'
           ? '（來自你的牌組／棄牌區）' : '';
         optionsEl.innerHTML = (pendingChoice.options || []).map(o => {
