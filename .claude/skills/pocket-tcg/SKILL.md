@@ -189,6 +189,15 @@ User asked for a way to paste in a friend's deck code and quickly build the same
 
 按鈕觸發（pattern b）場地卡：`每回合可以發動一次，從你的棄牌區將最多兩張卡加入手牌`。`TRAINER_EFFECTS['FM-013']` 只設 `activeStadium`；實際邏輯在 `pocket_use_stadium` 的 `stadiumId === 'FM-013'` 分支（讀 `msg.cardUids`（≤2、去重）→ 從 `side.discard` splice 進 `side.hand` → 設 `stadiumUsedThisTurn`；選 0 張回 error 不消耗）。client 端 `STADIUM_TRIGGER_IDS`/`STADIUM_TRIGGER_LABEL`/`TRAINER_EFFECTS_IMPLEMENTED` 各加 `'FM-013'`；`triggerStadiumEffect()` 的 FM-013 分支開 `#pc-center-overlay`（toggle 多選 ≤2 + 「確認加入手牌」，`pcCenterSel` Set），確認送 `{type:'pocket_use_stadium', cardUids:[...]}`。「最多兩張」= 可選數量所以用 toggle 多選不是逐張單選。圖 `refernce files/寶可夢中心.png` → `sips -s format jpeg` → `public/fan-cards/pokemon-center.jpg`。
 
+## FM-014 退化噴霧Z (Devolution Spray Z, Fan Made Item, 2026-09-02)
+
+`選擇一張進化過的寶可夢（雙方皆可），將牠身上階級最高的進化卡放回該寶可夢持有者的手牌，使其退化。` 使用者 AskUserQuestion 確認：**雙方**場上進化過的寶可夢都能選，退化卡一律回**那隻的控制者**手牌（不是固定回使用者手牌）。
+
+- 共用 `pocketDevolve(target, ownerSide)`（`pocketPushEvolutionStack` 後面 ~L3980）——同一支函式也重構掉了 Celebi「時光之葉」的 inline 退化碼。內容：`evolutionStack` 彈最上面一階（沒 stack 才 fallback 用 `evolveFrom` 名字查印刷版）、`ownerSide.hand.push(makePocketInstance(target.id))`（現行卡含新 uid 放回手牌，不然 `pocket_evolve` 用 uid 找不到、無法再進化——見下方時光之葉那條）、`Object.assign(target, structuredClone(prevCard))` 後把 uid/energy/tool 塞回、傷害以 delta 保留並 `Math.max(1,…)`、`_realAbilities=undefined; _hpBonus=0`、`pocketApplyDoubleType`。回傳 `true`=有退化。Basic / 無 `evolveFrom` → 回 `false`。
+- `TRAINER_EFFECTS['FM-014']`（放在 `'FM-010'` 消除香水後面）：先在 `[side.active,...side.bench]` 找 `msg.target` uid，找到 `ownerSide=side`；否則在 `[oppSide.active,...oppSide.bench]` 找、`ownerSide=oppSide`。驗證非 Basic（回 `'這隻寶可夢沒有進化過，無法退化'`），呼叫 `pocketDevolve`。退化只換階級不離場，主戰不會變空，不用 forced_switch。
+- client：`'FM-014'` 加進 `TRAINER_NEEDS_TARGET`、`TRAINER_EFFECTS_IMPLEMENTED`，`TRAINER_TARGET_SIDE['FM-014']='any'`（跟 Field Blower B3-147 / 消除香水 FM-010 同一套 any-side 目標池，client item-target 點雙方 board 的邏輯已通用，不用另寫 UI）。
+- 圖 `refernce files/退化噴霧Ｚ.png` → `sips -s format jpeg` → `public/fan-cards/devolution-spray-z.jpg`。data 裡 `effect`（英）+`effect_zh`（中）都給（比 FM-013 只給中文 `effect` 好，符合真實卡慣例）。
+
 ## Fossil-card pack (化石採掘場/化石復活機, Fan Made) + Hiker (A4-161) 2-choice rework (2026-08-22)
 
 Two new Fan Made cards (`FM-008` Stadium, `FM-009` Item) plus a full-replacement override of the real card Hiker (A4-161), all shipped in one session.

@@ -3394,6 +3394,8 @@ const TRAINER_NEEDS_TARGET = new Set([
   // 跟Field Blower同一種any-side目標池。火箭隊監視塔（FM-011，場地卡）/火箭隊老大的威嚴
   // （FM-012，固定套用對手全部寶可夢）都不用選目標，不列在這裡
   'FM-010',
+  // 2026-09-02新增：退化噴霧Z（FM-014）——選一隻進化過的寶可夢（雙方皆可），同any-side目標池
+  'FM-014',
 ]);
 const TRAINER_NEEDS_DISCARD_TARGET = new Set(['A1a-064']); // Pokémon Flute：目標是對手棄牌堆的卡，不是board上的寶可夢
 // 2026-08-08新增：TRAINER_NEEDS_TARGET裡目標池在哪一側，預設'own'（沒列出的都是選自己場上）。
@@ -3402,6 +3404,7 @@ const TRAINER_NEEDS_DISCARD_TARGET = new Set(['A1a-064']); // Pokémon Flute：�
 // （點對手board完全不會觸發任何handler），跟ABILITY_NEEDS_TARGET的'opp'是同一種problem/修法。
 const TRAINER_TARGET_SIDE = {
   'FM-010': 'any', // 消除香水：雙方場上任一隻皆可選，同Field Blower
+  'FM-014': 'any', // 退化噴霧Z：進化過的寶可夢雙方皆可選，退化卡回該隻控制者手牌
   'A2-150': 'opp', 'A3-152': 'opp',
   // 2026-08-08再接續：Psychic(B4-150)目標是對手板凳；Field Blower(B3-147)雙方場上任一隻皆可選
   'B4-150': 'opp', 'B3-147': 'any',
@@ -3568,6 +3571,8 @@ const TRAINER_EFFECTS_IMPLEMENTED = new Set([
   'FM-010', 'FM-011', 'FM-012',
   // 2026-08-31新增：寶可夢中心（FM-013，場地卡）
   'FM-013',
+  // 2026-09-02新增：退化噴霧Z（FM-014，道具卡）
+  'FM-014',
 ]);
 
 // event delegation：own board (active/bench) 點擊

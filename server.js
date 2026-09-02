@@ -3974,6 +3974,30 @@ function pocketPushEvolutionStack(target) {
   snapshot.uid = `stk${pocketUidCounter++}`;
   target.evolutionStack = [...(target.evolutionStack || []), snapshot];
 }
+// 退化一隻進化過的寶可夢（Celebi「時光之葉」/ 退化噴霧Z FM-014 共用）：把牠身上階級最高的
+// 進化卡（evolutionStack 最上面那張的物種、含新 uid 的乾淨手牌實例）放回 ownerSide 手牌，
+// board 上這隻換成上一階，傷害/能量/uid/裝備的道具都保留。回傳 true = 有成功退化。
+function pocketDevolve(target, ownerSide) {
+  if (!target || target.stage === 'Basic' || !target.evolveFrom) return false;
+  const stack = target.evolutionStack || [];
+  const prevCard = stack.length ? stack[stack.length - 1]
+    : POCKET_CARDS.find(c => c.category === 'Pokemon' && c.name === target.evolveFrom);
+  if (!prevCard) return false;
+  const remainingStack = stack.slice(0, -1);
+  // 放回手牌一律用 makePocketInstance（含新 uid），不然 pocket_evolve 用 uid 找不到、無法再進化
+  ownerSide.hand.push(makePocketInstance(target.id));
+  const preservedDamage = (target.hp || 0) - (target.curHp ?? target.hp ?? 0);
+  const preservedEnergy = target.energy;
+  const preservedUid = target.uid;
+  const preservedTool = target.tool;
+  Object.assign(target, structuredClone(prevCard));
+  target.uid = preservedUid; target.energy = preservedEnergy; target.tool = preservedTool;
+  target.evolutionStack = remainingStack;
+  target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
+  target._realAbilities = undefined; target._hpBonus = 0; // 退化後身分變了，清特性快取 + HP 加成快取
+  pocketApplyDoubleType(target);
+  return true;
+}
 // 寶可夢離場進棄牌堆時（擊倒/Guzzlord棄置對手主戰），疊在下方的進化前卡片要一起進去——
 // 真實規則整疊視為同一隻寶可夢，不是只有最上面那張。用共用函式取代所有直接discard.push(dead)，
 // 避免漏掉哪個call site。清空evolutionStack是保險（poke物件理論上不會再被用到，但避免萬一
@@ -5284,37 +5308,10 @@ const ATTACK_EFFECTS = {
     while (ctx.side.hand.length < target && ctx.side.deck.length) ctx.side.hand.push(ctx.side.deck.shift());
   },
   "If your opponent's Active Pokémon is an evolved Pokémon, devolve it by putting the highest Stage Evolution card on it into your opponent's hand.": ctx => { // Celebi：對手主戰是進化寶可夢時，退化（把現在這張卡放回對手手牌，board換成上一階）
-    const defender = ctx.defender;
-    if (!defender || defender.stage === 'Basic' || !defender.evolveFrom) return;
-    // 2026-08-22修正：改成從evolutionStack彈出最上面那張（真正「牠是從哪張進化上來的」），
-    // 不是重新用evolveFrom名字查一張全新印刷版——如果進化鏈超過1階（例如三階進化的Stage2
-    // 退化成Stage1），退化後底下應該還留著更早的階段（Stage1底下還留著原本的Basic），不是
-    // 直接歸零。牌組裡沒有evolutionStack（理論上不該發生，進化過的寶可夢一定有）才退回舊的
-    // 名字查詢當保底。
-    const stack = defender.evolutionStack || [];
-    const prevCard = stack.length ? stack[stack.length - 1] : POCKET_CARDS.find(c => c.category === 'Pokemon' && c.name === defender.evolveFrom);
-    if (!prevCard) return;
-    const remainingStack = stack.slice(0, -1);
-    // 2026-09-02修正：放回對手手牌的必須用 makePocketInstance 建一張含新 uid 的乾淨卡片實例——
-    // 原本用 structuredClone(POCKET_CARDS_BY_ID[...]) 是「目錄卡」，沒有 uid，對手之後想拿它
-    // 重新進化時 pocket_evolve 用 `c.uid === msg.handUid` 找不到 → 靜默 return、evolve 失敗
-    // （使用者回報「被 A4a 時拉比退化的寶可夢無法進化」）。跟 Pokémon Flute/Sabrina 那批
-    // 「放回手牌用 makePocketInstance」是同一個既有慣例，這處當初漏補。
-    const currentFormCard = makePocketInstance(defender.id);
-    ctx.oppSide.hand.push(currentFormCard);
-    const preservedDamage = (defender.hp || 0) - (defender.curHp ?? defender.hp ?? 0);
-    const preservedEnergy = defender.energy;
-    const preservedUid = defender.uid;
-    const preservedTool = defender.tool;
-    Object.assign(defender, structuredClone(prevCard));
-    defender.uid = preservedUid; defender.energy = preservedEnergy; defender.tool = preservedTool;
-    defender.evolutionStack = remainingStack;
-    defender.curHp = Math.max(1, (defender.hp || 0) - preservedDamage);
-    // 2026-08-08修正：退化後身分變了，pocketSyncAbilitySuppression快取的_realAbilities還是
-    // 退化「前」那個物種的特性，要清掉讓它在下次sync時重新抓——不然退化後的正確特性會被
-    // 舊快取蓋掉（見同一批修正的完整說明）
-    defender._realAbilities = undefined; defender._hpBonus = 0;
-    pocketApplyDoubleType(defender);
+    // 退化邏輯統一走 pocketDevolve（跟退化噴霧Z FM-014 共用）——含 makePocketInstance 建新 uid
+    // 的手牌實例（不然退化後 pocket_evolve 用 uid 找不到、無法再進化）、evolutionStack 逐階
+    // 彈出、傷害/能量/道具保留、_realAbilities/_hpBonus 快取清除等所有細節。
+    pocketDevolve(ctx.defender, ctx.oppSide);
   },
   "Put 1 random Poliwag from your deck onto your Bench.": ctx => {
     if (ctx.side.bench.length >= 3) return;
@@ -7952,6 +7949,23 @@ const TRAINER_EFFECTS = {
     const target = pool.find(p => p.uid === msg.target);
     if (!target) return '請選擇一隻寶可夢';
     target.abilitiesLockedUntilTurn = ctx.G.turnNumber + 2; // 到我方下回合開始前＝跳過對手那一回合，+2
+    return null;
+  },
+  // 退化噴霧Z（Fan Made物品卡，2026-09-02新增）：選一隻進化過的寶可夢（雙方皆可選，client
+  // TRAINER_TARGET_SIDE='any'），把牠身上階級最高的進化卡放回「該寶可夢持有者」的手牌使其退化。
+  // 退化細節（makePocketInstance新uid、evolutionStack逐階彈出、傷害/能量/道具保留、快取清除）
+  // 統一走pocketDevolve，跟Celebi「時光之葉」共用。使用者確認過：對手的進化寶可夢也能選，
+  // 退化卡一律回到「那隻的控制者」手牌，不是固定回使用者手牌。
+  'FM-014': (ctx, msg) => {
+    let target = [ctx.side.active, ...ctx.side.bench].filter(Boolean).find(p => p.uid === msg.target);
+    let ownerSide = ctx.side;
+    if (!target) {
+      target = [ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean).find(p => p.uid === msg.target);
+      ownerSide = ctx.oppSide;
+    }
+    if (!target) return '請選擇一隻進化過的寶可夢';
+    if (target.stage === 'Basic' || !target.evolveFrom) return '這隻寶可夢沒有進化過，無法退化';
+    if (!pocketDevolve(target, ownerSide)) return '這隻寶可夢無法退化';
     return null;
   },
   'B3-149': (ctx) => { ctx.side.typeBoostThisTurn = { type: 'Fighting', amount: 30, exOnly: true }; return null; }, // Korrina
