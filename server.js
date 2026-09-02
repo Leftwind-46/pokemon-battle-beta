@@ -4905,10 +4905,23 @@ function pocketFlipCoins(n, ctx) {
   for (let i = 0; i < n; i++) if (pocketFlipCoin(ctx)) h++;
   return h;
 }
-// side參數（2026-08-08新增，選填，向後相容）：Jungle Totem用——「己方場上有Serperior時，
-// 身上每點草能量在付費判定上算2點」，真實規則"provides Energy"只限定用在付費用途，跟其他
-// 招式效果讀的"attached Energy"（實際附加數量）是分開兩個概念，所以只改這個函式，不用動
-// 任何數energy數量的招式效果（那些讀的是真實附加數量，不受這個特性影響）
+// Jungle Totem（君主蛇 A1a-006）：己方場上有持有者、且 pokemon 自己是草屬性時，
+// 牠身上每個草能量「提供 2 個草能量」。2026-09-02 修正：這不只影響付費判定——真實規則
+// （時拉比 ex + 君主蛇是 Mythical Island meta 組合）「for each Energy attached」/「for each
+// {G} Energy attached」這類數能量的招式效果也要把每個草能量算 2。抽成共用旗標函式。
+function pocketJungleTotemActive(pokemon, side) {
+  return !!side && (pokemon.types || []).includes('Grass') &&
+    [side.active, ...side.bench].some(p => p?.abilities?.[0]?.name === 'Jungle Totem');
+}
+// 依 Jungle Totem 算「有效能量數」：全部能量各算 1（草能量在 JT 生效時算 2）
+function pocketEffectiveEnergyCount(pokemon, side, grassOnly) {
+  const jt = pocketJungleTotemActive(pokemon, side);
+  return (pokemon.energy || []).reduce((s, e) => {
+    if (grassOnly && e !== 'Grass') return s;
+    return s + (jt && e === 'Grass' ? 2 : 1);
+  }, 0);
+}
+// side參數（2026-08-08新增，選填，向後相容）：Jungle Totem 付費判定用——身上每個草能量算 2 點
 function pocketCanPayCost(pokemon, cost, side) {
   const need = {};
   let colorlessNeed = 0;
@@ -5088,7 +5101,8 @@ const ATTACK_EFFECTS = {
   },
   "Flip a coin. If heads, discard a random card from your opponent's hand.": ctx => { if (pocketFlipCoin(ctx) && ctx.oppSide.hand.length) ctx.oppSide.hand.splice(Math.floor(Math.random() * ctx.oppSide.hand.length), 1); },
   "If this Pokémon has at least 3 extra {G} Energy attached, this attack does 70 more damage.": ctx => { // Dhelmise：至少3點「額外」草能量（超出招式本身花費）+70
-    const have = ctx.attacker.energy.filter(e => e === 'Grass').length;
+    // Jungle Totem（君主蛇）生效時，草能量每個「提供」2個 → 有效草能量翻倍（跟時拉比 ex 同一套 ruling）
+    const have = pocketEffectiveEnergyCount(ctx.attacker, ctx.side, true);
     const need = (ctx.atk.cost || []).filter(t => t === 'Grass').length;
     if (have - need >= 3) ctx.rawDamage += 70;
   },
@@ -5281,7 +5295,12 @@ const ATTACK_EFFECTS = {
     const prevCard = stack.length ? stack[stack.length - 1] : POCKET_CARDS.find(c => c.category === 'Pokemon' && c.name === defender.evolveFrom);
     if (!prevCard) return;
     const remainingStack = stack.slice(0, -1);
-    const currentFormCard = structuredClone(POCKET_CARDS_BY_ID[defender.id]);
+    // 2026-09-02修正：放回對手手牌的必須用 makePocketInstance 建一張含新 uid 的乾淨卡片實例——
+    // 原本用 structuredClone(POCKET_CARDS_BY_ID[...]) 是「目錄卡」，沒有 uid，對手之後想拿它
+    // 重新進化時 pocket_evolve 用 `c.uid === msg.handUid` 找不到 → 靜默 return、evolve 失敗
+    // （使用者回報「被 A4a 時拉比退化的寶可夢無法進化」）。跟 Pokémon Flute/Sabrina 那批
+    // 「放回手牌用 makePocketInstance」是同一個既有慣例，這處當初漏補。
+    const currentFormCard = makePocketInstance(defender.id);
     ctx.oppSide.hand.push(currentFormCard);
     const preservedDamage = (defender.hp || 0) - (defender.curHp ?? defender.hp ?? 0);
     const preservedEnergy = defender.energy;
@@ -5976,7 +5995,8 @@ const ATTACK_EFFECTS = {
     if (idxs.length) { const i = idxs[Math.floor(Math.random() * idxs.length)]; ctx.side.hand.push(ctx.side.deck.splice(i, 1)[0]); }
   },
   "Flip a coin for each Energy attached to this Pokémon. This attack does 50 damage for each heads.": ctx => {
-    ctx.rawDamage = pocketFlipCoins(ctx.attacker.energy.length, ctx) * 50;
+    // 時拉比 ex「盛開之力」：Jungle Totem（君主蛇）生效時，草能量每個算 2 個 → 擲更多硬幣
+    ctx.rawDamage = pocketFlipCoins(pocketEffectiveEnergyCount(ctx.attacker, ctx.side), ctx) * 50;
   },
   "Discard a random Energy from among the Energy attached to all Pokémon (both yours and your opponent's).": ctx => {
     pocketDiscardRandomEnergyInPlay(ctx.G, 1);
@@ -6359,7 +6379,8 @@ const ATTACK_EFFECTS = {
     ctx.attacker.energy = [];
   },
   "This attack does 20 more damage for each {G} Energy attached to this Pokémon.": ctx => {
-    ctx.rawDamage += ctx.attacker.energy.filter(e => e === 'Grass').length * 20;
+    // Jungle Totem（君主蛇）生效時，草能量每個算 2（跟時拉比 ex 同一套 ruling）
+    ctx.rawDamage += pocketEffectiveEnergyCount(ctx.attacker, ctx.side, true) * 20;
   },
   "This attack does 20 damage for each Energy attached to all of your opponent's Pokémon.": ctx => {
     const n = [ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean).reduce((sum, p) => sum + p.energy.length, 0);
