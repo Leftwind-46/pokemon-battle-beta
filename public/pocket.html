@@ -90,6 +90,10 @@
     border:1.5px solid var(--border); background:var(--surface); cursor:pointer; font-size:0.72rem; opacity:0.4; transition:opacity .15s, border-color .15s; }
   .energy-type-chip.on { opacity:1; border-color:rgba(255,255,255,0.4); }
   .energy-type-chip .energy-icon { width:14px; height:14px; }
+  .deck-sort-row { display:flex; align-items:center; gap:0.4rem; margin:0.4rem 0 0.15rem; }
+  .deck-sort-row .lobby-sub { flex-shrink:0; }
+  .deck-sort-row select { flex:1; min-width:0; font-size:0.78rem; padding:0.35rem 0.5rem; border-radius:8px;
+    border:1px solid var(--border); background:var(--surface); color:var(--text); }
   .deck-list { display:flex; flex-direction:column; gap:0.35rem; flex:1; overflow-y:auto; }
   .deck-row { display:flex; align-items:center; gap:0.5rem; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:0.4rem 0.5rem; font-size:0.78rem; cursor:pointer; }
   .deck-row img { width:28px; height:39px; border-radius:4px; object-fit:cover; background:#111; }
@@ -819,6 +823,16 @@
         <div class="energy-type-chips" id="energy-type-chips"></div>
       </div>
       <button class="btn btn-secondary" id="skill-config-btn" style="width:100%" onclick="openSkillConfig()">✨ 玩家技能設定（0/3）</button>
+      <div class="deck-sort-row">
+        <span class="lobby-sub">牌組排序</span>
+        <select id="deck-sort" onchange="renderDeck()">
+          <option value="added">加入順序</option>
+          <option value="type">類別 / 屬性</option>
+          <option value="name">名稱（A→Z）</option>
+          <option value="hp-desc">HP（高→低）</option>
+          <option value="count-desc">張數（多→少）</option>
+        </select>
+      </div>
       <div class="deck-list" id="deck-list"></div>
       <div class="btn-row">
         <button class="btn btn-secondary" onclick="clearDeck()">清空</button>
@@ -2007,6 +2021,34 @@ function closePackSetPicker() { document.getElementById('pack-set-picker-overlay
 function pocketRarityRank(card) {
   return POCKET_DISMANTLE_SHARDS_CLIENT[card.rarity] || 0;
 }
+// 牌組列表排序（2026-09-02新增）——只排顯示用的 groups，不動 deck 陣列本身
+function pocketSortDeckGroups(groups, key) {
+  const arr = groups.slice();
+  const card = g => cardById[g.id] || {};
+  const nm = g => zhName(card(g));
+  const byName = (a, b) => nm(a).localeCompare(nm(b), 'zh-Hant');
+  const stageRank = s => (s === 'Basic' ? 0 : s === 'Stage1' ? 1 : s === 'Stage2' ? 2 : 3);
+  const catRank = c => (c.category === 'Pokemon' ? 0 : 1);
+  const ttRank = c => ({ Supporter: 0, Item: 1, Tool: 2, Stadium: 3 }[c.trainerType] ?? 4);
+  switch (key) {
+    case 'name': return arr.sort(byName);
+    case 'hp-desc': return arr.sort((a, b) => (card(b).hp || -1) - (card(a).hp || -1) || byName(a, b));
+    case 'count-desc': return arr.sort((a, b) => b.count - a.count || byName(a, b));
+    case 'type': return arr.sort((a, b) => {
+      const ca = card(a), cb = card(b);
+      if (catRank(ca) !== catRank(cb)) return catRank(ca) - catRank(cb);
+      if (ca.category === 'Pokemon') {
+        const ta = (ca.types || [])[0] || 'zzz', tb = (cb.types || [])[0] || 'zzz';
+        if (ta !== tb) return (TYPE_ZH[ta] || ta).localeCompare(TYPE_ZH[tb] || tb, 'zh-Hant');
+        if (stageRank(ca.stage) !== stageRank(cb.stage)) return stageRank(ca.stage) - stageRank(cb.stage);
+      } else if (ttRank(ca) !== ttRank(cb)) {
+        return ttRank(ca) - ttRank(cb);
+      }
+      return byName(a, b);
+    });
+    default: return arr; // 'added'：維持加入順序
+  }
+}
 function pocketSortPool(cards, sortKey) {
   const arr = cards.slice();
   switch (sortKey) {
@@ -2074,7 +2116,7 @@ function renderDeck() {
   document.getElementById('goto-lobby-btn').disabled = !v.valid;
   document.getElementById('delete-deck-btn').style.display = currentDeckId ? '' : 'none';
 
-  // group by id, preserve first-seen order
+  // group by id, preserve first-seen order（排序只影響顯示，deck 陣列本身不動）
   const groups = [];
   const seen = {};
   deck.forEach(id => {
@@ -2087,7 +2129,8 @@ function renderDeck() {
     list.innerHTML = '<div class="deck-empty">從左邊卡池點擊卡片加入牌組</div>';
     return;
   }
-  list.innerHTML = groups.map(g => {
+  const sortedGroups = pocketSortDeckGroups(groups, document.getElementById('deck-sort')?.value || 'added');
+  list.innerHTML = sortedGroups.map(g => {
     const c = cardById[g.id];
     return `
       <div class="deck-row" onclick="showCardDetail(cardById['${g.id}'], computeDeckStepperActions(cardById['${g.id}']))">
