@@ -9634,14 +9634,18 @@ for (const s of POCKET_SETS) {
   POCKET_PACK_POOL_BY_SET[s.id] = POCKET_CARDS_BASE.filter(c => c.set === s.id && !c.id.startsWith('P-A-'));
   POCKET_CHASE_POOL_BY_SET[s.id] = POCKET_CHASE_CARDS.filter(c => c.set === s.id);
 }
-// 每張卡獨立骰：95%從該系列基礎卡池（依鑽石數加權，普卡機率高）、5%從該系列2星以上「追逐卡池」抽
-// （追逐卡池內部再依星等加權，Crown最稀有）。5張/包，平均每包0.25張追逐卡，約每4包抽到1張。
-// 系列本身沒有追逐卡（例如卡片全部都是基礎鑽石等級）時，5%那球會自動退回基礎池，不會抽出undefined。
-function pocketRollPackCard(setId) {
+// 2026-09-03改版：卡牌全部開放直接使用（見pocketValidateOwnedDeck），開包的定位改成「抽高版本
+// （Star/Crown）卡面 + 回收金幣」——每個卡槽 5% 抽該系列追逐池的高版本卡，其餘 95% 本來會抽到
+// 的鑽石等級普卡改成「依稀有度發金幣」，不再進收藏。金幣進 pets.coins（跟寵物養成/商城共用）。
+const POCKET_PACK_GOLD_BY_RARITY = { 'One Diamond': 3, 'Two Diamond': 6, 'Three Diamond': 12, 'Four Diamond': 25, 'None': 3 };
+// 每個卡槽獨立骰：回傳 { card:id }（抽到高版本卡）或 { gold:n, rarity }（普卡槽轉金幣）。
+// 系列本身沒有追逐卡時，5% 那球退回普卡池，一樣轉金幣。
+function pocketRollPackSlot(setId) {
   const chasePool = POCKET_CHASE_POOL_BY_SET[setId] || [];
   const basePool = POCKET_PACK_POOL_BY_SET[setId] || [];
-  if (chasePool.length && Math.random() < 0.05) return pocketWeightedPick(chasePool, c => POCKET_CHASE_WEIGHT[c.rarity] || 1).id;
-  return pocketWeightedPick(basePool, c => POCKET_PACK_WEIGHT[c.rarity] || 20).id;
+  if (chasePool.length && Math.random() < 0.05) return { card: pocketWeightedPick(chasePool, c => POCKET_CHASE_WEIGHT[c.rarity] || 1).id };
+  const c = pocketWeightedPick(basePool, c => POCKET_PACK_WEIGHT[c.rarity] || 20);
+  return { gold: POCKET_PACK_GOLD_BY_RARITY[c?.rarity] ?? 3, rarity: c?.rarity || 'None' };
 }
 // 保底機制（2026-08-06新增）：連續100包都沒抽到2星以上卡片時，第100包強制保底出1張。
 // pityCounter是「距離上次抽到2星以上卡片，已經開了幾包」的計數，存在pets.pocket_pity_counter，
@@ -9651,17 +9655,20 @@ function pocketRollPackCard(setId) {
 // 2026-08-06：保底計數是玩家帳號全域共用（不分系列），不是「每系列各自計100包」——玩家
 // 選哪個系列開包不影響保底進度的累積，比較貼近玩家對「保底」的直覺理解（開好開滿都算數）。
 function pocketRollPackWithPity(setId, pityCounter) {
-  const cardIds = Array.from({ length: 5 }, () => pocketRollPackCard(setId));
-  const hasHighRarity = cardIds.some(id => POCKET_HIGH_RARITIES.has(POCKET_CARDS_BY_ID[id]?.rarity));
+  const slots = Array.from({ length: 5 }, () => pocketRollPackSlot(setId));
+  let hasHighRarity = slots.some(s => s.card); // 抽到卡的槽必然是追逐池的高版本卡
   let counter = pityCounter + 1;
   let pityTriggered = false;
   const chasePool = POCKET_CHASE_POOL_BY_SET[setId] || [];
   if (!hasHighRarity && counter >= 100 && chasePool.length) {
-    cardIds[cardIds.length - 1] = pocketWeightedPick(chasePool, c => POCKET_CHASE_WEIGHT[c.rarity] || 1).id;
+    slots[slots.length - 1] = { card: pocketWeightedPick(chasePool, c => POCKET_CHASE_WEIGHT[c.rarity] || 1).id };
     pityTriggered = true;
+    hasHighRarity = true;
   }
-  if (hasHighRarity || pityTriggered) counter = 0;
-  return { cardIds, pityTriggered, counter };
+  if (hasHighRarity) counter = 0;
+  const cardIds = slots.filter(s => s.card).map(s => s.card);
+  const gold = slots.reduce((sum, s) => sum + (s.gold || 0), 0);
+  return { cardIds, gold, pityTriggered, counter };
 }
 
 // 2026-08-06改版：原本只curate了7張最常用的Promo-A卡自動發放，其餘93張完全沒有取得管道
@@ -9800,7 +9807,7 @@ app.post('/api/pocket/open-pack', requireAuth, async (req, res) => {
     if (!petCheck.length) return res.status(400).json({ error: 'no_pet', message: '請先到「我的寶可夢」選一隻起始寶可夢，開包用的金幣/每日免費額度都是共用同一套系統' });
     let pity = petCheck[0].pocket_pity_counter || 0;
     const pulledIds = [];
-    let freeUsedCount = 0, paidUsedCount = 0, pityHits = 0;
+    let freeUsedCount = 0, paidUsedCount = 0, pityHits = 0, goldFromPacks = 0;
     // 10連抽逐包結算（沿用單抽同一套atomic免費額度/扣款邏輯），金幣不夠時提早停止而不是整批擋下——
     // 玩家已經付出的免費額度/金幣一律照樣發卡，只是實際開包數會少於要求的10包，client端要處理這個落差
     for (let i = 0; i < count; i++) {
@@ -9824,10 +9831,11 @@ app.post('/api/pocket/open-pack', requireAuth, async (req, res) => {
         }
         paidUsedCount++;
       }
-      const { cardIds, pityTriggered, counter } = pocketRollPackWithPity(setId, pity);
+      const { cardIds, gold, pityTriggered, counter } = pocketRollPackWithPity(setId, pity);
       pity = counter;
       if (pityTriggered) pityHits++;
       pulledIds.push(...cardIds);
+      goldFromPacks += gold;
     }
     for (const cardId of pulledIds) {
       await pool.query(
@@ -9836,13 +9844,17 @@ app.post('/api/pocket/open-pack', requireAuth, async (req, res) => {
         [req.user.id, cardId]
       );
     }
+    // 普卡槽回收的金幣進 pets.coins（跟寵物養成/商城共用同一個錢包）
+    if (goldFromPacks > 0) {
+      await pool.query('UPDATE pets SET coins = coins + $1 WHERE user_id = $2', [goldFromPacks, req.user.id]);
+    }
     await pool.query('UPDATE pets SET pocket_pity_counter = $1 WHERE user_id = $2', [pity, req.user.id]);
     const { rows } = await pool.query('SELECT coins, pocket_free_packs_used FROM pets WHERE user_id = $1', [req.user.id]);
     res.json({
       cards: pulledIds.map(id => POCKET_CARDS_BY_ID[id]),
       set: setId,
       packsOpened: freeUsedCount + paidUsedCount, usedFree: freeUsedCount > 0, freeUsedCount, paidUsedCount,
-      pityHits, pityCounter: pity,
+      pityHits, pityCounter: pity, goldFromPacks,
       coins: rows[0]?.coins, freePacksUsedToday: rows[0]?.pocket_free_packs_used,
     });
   } catch (e) {
@@ -9854,18 +9866,9 @@ app.post('/api/pocket/open-pack', requireAuth, async (req, res) => {
 // 驗證要存的牌組是不是真的能組出來：20張、同張卡最多2張、擁有量要夠、至少1張基礎寶可夢——
 // 跟validatePocketDeck（對戰用，只驗證卡池存不存在+基本規則）分開，這裡多一層「擁有量」檢查
 async function pocketValidateOwnedDeck(userId, deckIds) {
-  const basicErr = validatePocketDeck(deckIds);
-  if (basicErr) return basicErr;
-  const { rows } = await pool.query('SELECT card_id, count FROM pocket_collection WHERE user_id = $1', [userId]);
-  const owned = Object.fromEntries(rows.map(r => [r.card_id, r.count]));
-  const needed = {};
-  for (const id of deckIds) needed[id] = (needed[id] || 0) + 1;
-  for (const id in needed) {
-    if ((owned[id] || 0) < needed[id]) {
-      return `${POCKET_CARDS_BY_ID[id]?.name || id} 擁有數量不足（需要${needed[id]}張，只有${owned[id] || 0}張）`;
-    }
-  }
-  return null;
+  // 2026-09-03：卡牌全部開放直接使用——不再檢查 pocket_collection 擁有量，只留 20張/同卡≤2張/
+  // 至少1張基礎寶可夢 這類基本規則（validatePocketDeck）。保留函式簽章讓呼叫端不用動。
+  return validatePocketDeck(deckIds);
 }
 
 app.get('/api/pocket/decks', requireAuth, async (req, res) => {

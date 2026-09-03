@@ -1729,7 +1729,8 @@ function loadDeckIntoEditor(deckId) {
 function countInDeck(id) {
   return deck.filter(x => x === id).length;
 }
-function ownedCap(id) { return Math.min(MAX_COPIES, ownedCounts[id] || 0); }
+// 2026-09-03：卡牌全部開放直接使用——同一張卡上限固定 MAX_COPIES，不再受 ownedCounts 限制
+function ownedCap(id) { return MAX_COPIES; }
 
 function addCard(id) {
   const card = cardById[id];
@@ -1975,15 +1976,21 @@ async function openPackFlow(count = 1, setId = 'A1') {
     if (shortOnGold) parts.push(`⚠️ 金幣不足，只開了 ${data.packsOpened}/${count} 包`);
     else if (count > 1) parts.push(`十連抽完成（${data.freeUsedCount} 包免費 + ${data.paidUsedCount} 包付費）`);
     else parts.push(data.usedFree ? `今日免費開包（${data.freePacksUsedToday}/5）` : '花費 50 金幣開包');
-    if (data.pityHits > 0) parts.push(`✨ 保底觸發 ${data.pityHits} 次`);
+    if (data.goldFromPacks > 0) parts.push(`🪙 回收 ${data.goldFromPacks} 金幣`);
+    if (data.cards.length) parts.push(`✨ 高版本卡 ×${data.cards.length}`);
+    if (data.pityHits > 0) parts.push(`保底觸發 ${data.pityHits} 次`);
     parts.push(`保底進度 ${data.pityCounter}/100`);
     document.getElementById('pack-title').textContent = parts.join('　');
     const row = document.getElementById('pack-reveal-row');
-    row.innerHTML = data.cards.map((c, i) => `
-      <div class="pack-reveal-card ${POCKET_HIGH_RARITIES.has(c.rarity) ? 'chase' : ''}" style="animation-delay:${Math.min(i, 20) * 0.08}s">
-        <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${zhName(c)}">
-        <div class="n">${zhName(c)}${POCKET_HIGH_RARITIES.has(c.rarity) ? ' ✨' : ''}</div>
-      </div>`).join('');
+    if (data.cards.length) {
+      row.innerHTML = data.cards.map((c, i) => `
+        <div class="pack-reveal-card ${POCKET_HIGH_RARITIES.has(c.rarity) ? 'chase' : ''}" style="animation-delay:${Math.min(i, 20) * 0.08}s">
+          <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${zhName(c)}">
+          <div class="n">${zhName(c)}${POCKET_HIGH_RARITIES.has(c.rarity) ? ' ✨' : ''}</div>
+        </div>`).join('');
+    } else {
+      row.innerHTML = `<div style="text-align:center;padding:1.4rem 0.6rem;font-size:1.4rem">🪙 <b>+${data.goldFromPacks}</b> 金幣<div style="font-size:0.8rem;opacity:0.7;margin-top:0.4rem">這次沒有抽到高版本卡</div></div>`;
+    }
     document.getElementById('pack-result-actions').style.display = 'flex';
     // 金幣已經不夠了，「再抽一次」按下去只會立刻重複同一句金幣不足訊息——直接不給這個選項，
     // 避免看起來像是在鼓勵一次注定失敗的操作
@@ -2062,17 +2069,35 @@ function pocketSortPool(cards, sortKey) {
     default: return arr;
   }
 }
+// 2026-09-03：卡牌全部開放使用——組牌頁卡池改成「每張卡一個 tile」（依 name+set 去重），
+// 顯示玩家擁有的最高稀有度版本；一張都沒有就顯示最低（基礎鑽石）版本。全部都能加進牌組。
+function pocketBuildDeckPool() {
+  const groups = new Map(); // 'name||set' -> [card,...]
+  for (const c of ALL_CARDS) {
+    const k = c.name + '||' + c.set;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(c);
+  }
+  const pool = [];
+  for (const variants of groups.values()) {
+    const owned = variants.filter(c => (ownedCounts[c.id] || 0) > 0);
+    const rep = owned.length
+      ? owned.reduce((a, b) => pocketRarityRank(b) > pocketRarityRank(a) ? b : a)   // 擁有的最高版本
+      : variants.reduce((a, b) => pocketRarityRank(b) < pocketRarityRank(a) ? b : a); // 都沒有 → 最低（基礎）版本
+    pool.push(rep);
+  }
+  return pool;
+}
 function renderPool() {
   const q = document.getElementById('q').value.trim().toLowerCase();
   const cat = document.getElementById('cat').value;
   const type = document.getElementById('type').value;
   const set = document.getElementById('set').value;
   const sortKey = document.getElementById('sort').value;
-  // 2026-08-05：卡池不再是全部ALL_CARDS，只顯示自己擁有至少1張的卡——組牌只能用抽到的卡牌
-  const ownedPool = ALL_CARDS.filter(c => (ownedCounts[c.id] || 0) > 0);
+  const fullPool = pocketBuildDeckPool();
   // 2026-08-22修正：搜尋原本只比對c.name（英文），中文卡名（zhName(c)）完全搜不到——改成
   // 英文/中文任一邊符合就算，中文不用轉小寫（toLowerCase對中文字元是no-op，直接比對即可）
-  let filtered = ownedPool.filter(c => {
+  let filtered = fullPool.filter(c => {
     if (q && !c.name.toLowerCase().includes(q) && !zhName(c).includes(q)) return false;
     if (cat && c.category !== cat) return false;
     if (type && !(c.types || []).includes(type)) return false;
@@ -2080,21 +2105,21 @@ function renderPool() {
     return true;
   });
   filtered = pocketSortPool(filtered, sortKey);
-  document.getElementById('pool-count').textContent = `顯示 ${filtered.length} / 擁有 ${ownedPool.length} 種`;
+  document.getElementById('pool-count').textContent = `顯示 ${filtered.length} / 全部 ${fullPool.length} 種`;
 
   const grid = document.getElementById('grid');
   grid.innerHTML = filtered.map(c => {
     const n = countInDeck(c.id);
-    const cap = ownedCap(c.id);
-    const maxed = n >= cap || deck.length >= DECK_SIZE;
+    const maxed = n >= MAX_COPIES || deck.length >= DECK_SIZE;
+    const ownN = ownedCounts[c.id] || 0;
     const typeDots = (c.types || []).map(t => `<span class="type-dot" style="background:${TYPE_COLOR[t] || '#888'}"></span>`).join('');
     const metaLine = c.category === 'Pokemon'
       ? `${typeDots}${TYPE_ZH[c.types?.[0]] || ''} · ${c.stage === 'Basic' ? '基礎' : c.stage === 'Stage1' ? '第1階' : '第2階'}${c.ex ? ' · EX' : ''} · HP${c.hp}`
       : trainerTypeZh(c);
     return `
-      <div class="card-tile ${maxed && n < cap ? 'maxed' : ''}" onclick="showCardDetail(cardById['${c.id}'], computeDeckStepperActions(cardById['${c.id}']))" title="擁有${ownedCounts[c.id]}張 · ${c.setName || c.set} · 點擊查看詳情">
+      <div class="card-tile ${maxed && n < MAX_COPIES ? 'maxed' : ''}" onclick="showCardDetail(cardById['${c.id}'], computeDeckStepperActions(cardById['${c.id}']))" title="${ownN > 0 ? '已擁有 ' + ownN + ' 張 · ' : ''}${c.setName || c.set} · 點擊查看詳情">
         <div class="set-badge">${c.set}</div>
-        ${n > 0 ? `<div class="count-badge">${n}/${ownedCounts[c.id]}</div>` : `<div class="count-badge" style="opacity:0.5">×${ownedCounts[c.id]}</div>`}
+        ${n > 0 ? `<div class="count-badge">${n}/${MAX_COPIES}</div>` : (ownN > 0 ? `<div class="count-badge" style="opacity:0.5">✓${ownN}</div>` : '')}
         <img src="${pocketThumbUrl(c.image)}" loading="lazy" alt="${zhName(c)}">
         <div class="name">${zhName(c)}</div>
         <div class="meta">${metaLine}</div>
