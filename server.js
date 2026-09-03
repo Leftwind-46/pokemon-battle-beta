@@ -4515,6 +4515,7 @@ function pocketStartNextTurn(G) {
   side.usedSweetsRelayThisTurn = false;
   side.stadiumUsedThisTurn = false; // Mesagoza（2026-08-08新增）
   side.irisBonusThisTurn = false; // Iris（2026-08-08新增）
+  side.luxuryCoinUsedThisTurn = false; // 賽富豪「豪華硬幣」（B4a-051，2026-09-03）：每回合最多重擲1次訓練師卡硬幣
   side.dracoMeteorExtraThisTurn = false; // Drayden（2026-08-08新增，沒被用到的話也要在回合結束後失效）
   // 回合開始觸發型被動特性：Strange Singing——隨機把一隻{P}寶可夢從牌庫放進手牌（"put...into
   // your hand"沒有寫"you may"，是強制觸發，不用暫停等玩家確認）
@@ -8194,9 +8195,15 @@ const TRAINER_EFFECTS = {
   'B4-154': (ctx) => { ctx.G.activeStadium = { id: 'B4-154', name: 'Soothing Shore' }; return null; },
   'B4-155': (ctx) => { ctx.G.activeStadium = { id: 'B4-155', name: 'Rainbow Cave' }; return null; },
 
-  /* ── B4a「火箭隊的野望」訓練師卡 2026-09-03 ──
-     火箭隊的老大（B4a-071）需要「看對手手牌→自選任意數量基礎寶可夢放上對手板凳」的多選流程，
-     現有 choice 基礎建設沒有 oppHand 多選 + 放板凳 action，暫不實作，維持「尚未支援」。 */
+  /* ── B4a「火箭隊的野望」訓練師卡 2026-09-03 ── */
+  'B4a-071': (ctx) => { // 火箭隊的老大（支援者）：看對手手牌，選任意數量基礎寶可夢放上對手板凳
+    ctx.peekHand = ctx.oppSide.hand;
+    const eligible = ctx.oppSide.hand.filter(c => c.category === 'Pokemon' && c.stage === 'Basic').map(c => c.uid);
+    if ((3 - ctx.oppSide.bench.length) > 0 && eligible.length) {
+      ctx.needsChoice = { kind: 'oppHand_to_oppBench', eligibleUids: eligible, optional: true, noEndTurn: true };
+    }
+    return null;
+  },
   'B4a-067': (ctx) => { // 火箭隊的盜竊機（物品）：從對手棄牌區隨機拿1張物品卡（自己除外）進手牌
     const items = ctx.oppSide.discard.filter(c => c.category === 'Trainer' && c.trainerType === 'Item' && c.name !== "Team Rocket's Thieving Machine");
     if (!items.length) return '對手的棄牌區沒有可拿的物品卡';
@@ -11666,6 +11673,14 @@ async function handleMessage(ws, msg) {
       const statusSnapA = pocketSnapshotStatus(side), statusSnapB = pocketSnapshotStatus(oppSide);
       const benchSnap = pocketSnapshotBenchHp(oppSide);
       const healSnap = pocketSnapshotAllHp(G);
+      // 賽富豪「豪華硬幣」（B4a-051，2026-09-03）：「你的回合中1次，因你的訓練師卡效果擲硬幣後，
+      // 可以無視結果重新擲」——跟比克提尼「勝利之星」完全同一套做法：handler 跑之前拍一份完整 G
+      // 快照，跑完後若真的擲了硬幣就暫停問玩家；選「重擲」＝還原快照＋標記用掉＋重新丟一次
+      // pocket_play_item/supporter 訊息（遞迴，全新 RNG，且因 luxuryCoinUsedThisTurn 已 true 不會
+      // 再問第二次）。快照只在真的有可用持有者時才拍，避免每次出牌都 structuredClone。
+      const luxuryCoinAvail = !side.luxuryCoinUsedThisTurn &&
+        [side.active, ...side.bench].some(p => p?.abilities?.[0]?.name === 'Luxury Coin');
+      const luxuryCoinSnapshot = luxuryCoinAvail ? structuredClone(G) : null;
       const err = handler(ctx, msg);
       if (err) { send(ws, { type: 'error', message: err }); return; }
       // 2026-08-12修正：場地卡的主動觸發效果(pocket_use_stadium，Mesagoza等5張)用stadiumUsedThisTurn
@@ -11689,6 +11704,15 @@ async function handleMessage(ws, msg) {
       // 就好，不用動到client。同一批順便補上補血飄字（Potion/Erika）。
       if (ctx.coinFlips?.length || ctx.healUid) {
         G.lastEvent = { seq: ++G.eventSeq, kind: 'trainer', coinFlips: ctx.coinFlips || null, healUid: ctx.healUid || null, healAmount: ctx.healAmount || 0 };
+      }
+      // 賚富豪「豪華硬幣」：這張訓練師卡真的擲了硬幣、且沒有接著要玩家選目標/揭露手牌/結束回合
+      // 的後續，就暫停問要不要重擲（見上面 luxuryCoinSnapshot 的說明）。
+      if (luxuryCoinSnapshot && ctx.coinFlips?.length && !ctx.needsChoice && !ctx.peekHand && !ctx.endTurnAfter) {
+        G.phase = 'attack_choice';
+        G.pendingChoice = { role, kind: 'luxury_coin_reflip', coinPreview: ctx.coinFlips.slice() };
+        pRoom.__luxuryCoinPending = { snapshot: luxuryCoinSnapshot, handUid: card.uid, isSupporter, role };
+        pocketBroadcastState(pRoom);
+        return;
       }
       // 2026-08-08修正：跟pocket_attack的peekOpponentHand同一個bug，interactive旗標讓client
       // 端在後面接著needsChoice互動選擇時跳過唯讀showPeek彈窗（例如Silver：揭露對手手牌+選1張
@@ -12670,6 +12694,45 @@ async function handleMessage(ws, msg) {
         const opRole = pend.role === 'p1' ? 'p2' : 'p1';
         pocketContinueAttackAfterEffect(pRoom, G, pend.role, opRole, G[pend.role], G[opRole], pend.ctx.attacker, pend.ctx.defender, pend.atk, pend.ctx, pend.confusionCoinFlip, pend.flipLockCoinFlip, ws);
         return;
+      } else if (pending.kind === 'luxury_coin_reflip') {
+        // 賚富豪「豪華硬幣」（B4a-051，2026-09-03）：見 pocket_play_item/supporter 裡的說明，
+        // 跟 victory_star_reflip 同一套「還原快照 + 重新遞迴丟訊息」做法。
+        const pend = pRoom.__luxuryCoinPending;
+        delete pRoom.__luxuryCoinPending;
+        if (!pend) { G.phase = 'active'; G.pendingChoice = null; pocketBroadcastState(pRoom); return; }
+        if (msg.reflip) {
+          Object.keys(G).forEach(k => delete G[k]);
+          Object.assign(G, pend.snapshot);
+          const aSide = G[pend.role];
+          aSide.luxuryCoinUsedThisTurn = true; // 用掉了，重擲後不會再問第二次
+          const holder = [aSide.active, ...aSide.bench].find(p => p?.abilities?.[0]?.name === 'Luxury Coin');
+          if (holder) pocketEmitCardActivation(G, pend.role, holder, '特性觸發：Luxury Coin');
+          handleMessage(ws, { type: pend.isSupporter ? 'pocket_play_supporter' : 'pocket_play_item', handUid: pend.handUid })
+            .catch(e => console.error('Luxury Coin重擲 error:', e.message));
+          return;
+        }
+        // 維持結果：卡片早已進棄牌堆、lastEvent 也發過了，G 從暫停到現在沒被動過，直接放行
+        G.phase = 'active';
+        G.pendingChoice = null;
+        pocketBroadcastState(pRoom);
+        return;
+      } else if (pending.kind === 'oppHand_to_oppBench') {
+        // 火箭隊的老大（B4a-071）：看對手手牌，選任意數量基礎寶可夢放上對手板凳（板凳空位為上限）。
+        // 跟 pick_target_multi_optional（暴鯉龍）同一種「本地多選、一次送整批 msg.uids」模式。
+        const oppRole = role === 'p1' ? 'p2' : 'p1';
+        const oppSideB = G[oppRole];
+        const uids = Array.isArray(msg.uids) ? [...new Set(msg.uids)] : [];
+        const valid = uids.filter(u => pending.eligibleUids.includes(u));
+        let cap = 3 - oppSideB.bench.length;
+        for (const u of valid) {
+          if (cap <= 0) break;
+          const idx = oppSideB.hand.findIndex(c => c.uid === u && c.category === 'Pokemon' && c.stage === 'Basic');
+          if (idx < 0) continue;
+          const [c] = oppSideB.hand.splice(idx, 1);
+          pocketSummonToBench(oppSideB, c, G.turnNumber);
+          cap--;
+        }
+        // 落到下面共用收尾（noEndTurn 已設，支援者卡不結束回合）
       } else if (pending.kind === 'energy_distribute') {
         if (!pending.eligibleUids.includes(msg.uid)) return;
         const pool = pending.includeActive ? [side.active, ...side.bench] : side.bench;

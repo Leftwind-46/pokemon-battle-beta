@@ -3039,7 +3039,7 @@ function renderBoard() {
     const subEl = document.getElementById('attack-choice-sub');
     const optionsEl = document.getElementById('attack-choice-options');
     document.getElementById('attack-choice-skip-btn').style.display = pendingChoice.optional ? '' : 'none';
-    document.getElementById('attack-choice-confirm-multi-btn').style.display = pendingChoice.kind === 'pick_target_multi_optional' ? '' : 'none';
+    document.getElementById('attack-choice-confirm-multi-btn').style.display = (pendingChoice.kind === 'pick_target_multi_optional' || pendingChoice.kind === 'oppHand_to_oppBench') ? '' : 'none';
     if (pendingChoice.kind === 'player_skill') {
       subEl.textContent = '';
       if (pendingChoice.step === 'target') {
@@ -3083,6 +3083,30 @@ function renderBoard() {
         <button class="btn btn-primary" onclick="wsSend({type:'pocket_attack_choice', reflip:true})">重擲</button>
         <button class="btn btn-secondary" onclick="wsSend({type:'pocket_attack_choice', reflip:false})">維持結果</button>
       `;
+    } else if (pendingChoice.kind === 'luxury_coin_reflip') {
+      // 賽富豪「豪華硬幣」（B4a-051，2026-09-03）：跟 victory_star_reflip 完全一樣的 Yes/No
+      const flips = pendingChoice.coinPreview || [];
+      titleEl.textContent = '賽富豪「豪華硬幣」：要重新擲這張訓練師卡的硬幣嗎？';
+      subEl.textContent = `這次擲出：${flips.map(h => h ? '正面' : '反面').join('、')}`;
+      optionsEl.innerHTML = `
+        <button class="btn btn-primary" onclick="wsSend({type:'pocket_attack_choice', reflip:true})">重擲</button>
+        <button class="btn btn-secondary" onclick="wsSend({type:'pocket_attack_choice', reflip:false})">維持結果</button>
+      `;
+    } else if (pendingChoice.kind === 'oppHand_to_oppBench') {
+      // 火箭隊的老大（B4a-071）：從對手公開的手牌多選基礎寶可夢放上對手板凳。跟
+      // pick_target_multi_optional 同一套本地多選 + 「確認」按鈕，清單來源用 lastPeekedCards
+      multiOptionalSelected = new Set([...multiOptionalSelected].filter(u => pendingChoice.eligibleUids.includes(u)));
+      const benchSpace = 3 - ((opponent.bench || []).length);
+      titleEl.textContent = '火箭隊的老大：選擇要放上對手板凳的基礎寶可夢（可不選）';
+      subEl.textContent = `已選 ${multiOptionalSelected.size} 隻，對手板凳剩 ${benchSpace} 個空位，點卡片切換選取`;
+      const eligible = lastPeekedCards.filter(c => pendingChoice.eligibleUids.includes(c.uid));
+      optionsEl.innerHTML = eligible.map(c => `
+        <div onclick="toggleMultiOptionalPick('${c.uid}')" style="cursor:pointer;border-radius:10px;padding:2px;${multiOptionalSelected.has(c.uid) ? 'outline:3px solid #4caf50' : ''}">
+          <div class="board-slot" style="min-width:120px">
+            <img src="${pocketThumbUrl(c.image)}" alt="${zhName(c)}">
+            <div class="board-name">${zhName(c)}</div>
+          </div>
+        </div>`).join('');
     } else if (pendingChoice.kind === 'energy_distribute') {
       const queue = pendingChoice.energyQueue || [];
       titleEl.textContent = `分配 ${TYPE_ZH[queue[0]] || queue[0]} 能量`;
