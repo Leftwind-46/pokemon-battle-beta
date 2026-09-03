@@ -3921,12 +3921,19 @@ function pocketToolHpBonusAmount(poke) {
 // （"Before doing damage..."）交給pocket_attack handler本來就有的攻擊後curHp<=0檢查；
 // 非攻擊的Trainer卡路徑（A3-151/B3-147）則交給pocketBroadcastState裡的pocketResolveAmbientKOs
 // 統一收尾（endsTurn=false，不是攻擊/中毒造成的KO，不該連帶結束回合）。
-function pocketDiscardTool(p) {
+// 2026-09-04：Tool 卡是「附在寶可夢身上、在場上」的實體卡（p.tool 現在是完整卡片物件，不是
+// 打出當下就進棄牌區的 {id,name}）。被移除（Field Blower / Guzma / 招式棄裝備 / 特性）時，
+// 這張 Tool 卡才進「持有者」的棄牌區——用 G 掃雙方 board 找出 p 屬於哪一側。
+function pocketDiscardTool(G, p) {
   if (!p.tool) return 0;
   const bonus = pocketToolHpBonusAmount(p);
   if (bonus > 0) {
     p.hp = Math.max(10, p.hp - bonus);
     p.curHp = Math.max(0, p.curHp - bonus);
+  }
+  if (p.tool.uid) {
+    const ownerRole = ['p1', 'p2'].find(r => G[r] && [G[r].active, ...(G[r].bench || [])].some(x => x && x.uid === p.uid));
+    if (ownerRole) G[ownerRole].discard.push(p.tool);
   }
   p.tool = null;
   return bonus;
@@ -4007,7 +4014,18 @@ function pocketDevolve(target, ownerSide) {
 function pocketDiscardWithStack(discardArr, poke) {
   discardArr.push(poke);
   if (poke.evolutionStack?.length) discardArr.push(...poke.evolutionStack);
+  if (poke.tool?.uid) { discardArr.push(poke.tool); poke.tool = null; } // 2026-09-04：離場時身上的 Tool 卡一起進棄牌區
   poke.evolutionStack = [];
+}
+// 2026-09-04：場地卡是「在場地區、在場上」的實體卡（G._stadiumCard），被新場地卡取代 or 被
+// 效果移除（Field Blower / "Discard a Stadium in play."）時，才進「當初打出它的玩家」的棄牌區。
+function pocketClearActiveStadium(G) {
+  if (G._stadiumCard) {
+    (G[G._stadiumOwner] || G.p1).discard.push(G._stadiumCard);
+    G._stadiumCard = null;
+    G._stadiumOwner = null;
+  }
+  G.activeStadium = null;
 }
 // 由特性/訓練師卡（道具、場地卡）從牌組把寶可夢直接召喚到板凳時，統一走這個函式——2026-08-23
 // 使用者要求：「由寶可夢特性、或是訓練家卡牌（道具、場地卡）召喚到場上的寶可夢，當回合不能
@@ -4328,10 +4346,12 @@ function pocketRunCheckup(G) {
       p.status = null;
       p.poisoned = false;
       p.burned = false;
+      if (p.tool.uid) endingSide.discard.push(p.tool);
       p.tool = null;
     }
     if (p.tool?.id === 'B1-218' && p.curHp > 0 && p.curHp <= p.hp / 2) { // Sitrus Berry：HP過半才觸發，回復後棄置自己
       p.curHp = Math.min(p.hp, p.curHp + 30);
+      if (p.tool.uid) endingSide.discard.push(p.tool);
       p.tool = null;
     }
   });
@@ -4598,6 +4618,7 @@ function pocketResolveActiveKO(G, koRole, awardPoint = true, endsTurn = true) {
       // 2026-08-22新增：Rescue Scarf只救回「最上面那張」，疊在下方的進化前卡片不算被救回，
       // 一樣要進棄牌堆（跟真實規則一致：Tool只作用在牠附著的那張卡，不影響底下疊層）
       if (dead.evolutionStack?.length) { koSide.discard.push(...dead.evolutionStack); dead.evolutionStack = []; }
+      if (dead.tool?.uid) koSide.discard.push(dead.tool); // 2026-09-04：Rescue Scarf 自己（跟其他 Tool 一樣）用掉後進棄牌區
       Object.assign(dead, {
         curHp: dead.hp, energy: [], tool: null, status: null, boardTurn: null,
         cantAttackUntilTurn: 0, cantRetreatUntilTurn: 0, dmgDebuffUntilTurn: 0, dmgDebuffAmount: 0,
@@ -4809,6 +4830,7 @@ function pocketEffectDamage(target, targetSide, attacker, amount) {
   // 沒有 G 參照可以 emit 道具棄置動畫，只能靜默把 target.tool 設 null（呼叫端 broadcast 會反映）。
   if (target.tool?.id === 'B2-148' && dealt > 0) {
     dealt = Math.max(0, dealt - 80);
+    if (target.tool.uid) targetSide.discard.push(target.tool);
     target.tool = null;
   }
   return dealt;
@@ -5185,6 +5207,7 @@ const ATTACK_EFFECTS = {
     // 2026-08-22新增：只有最上面這張卡回手牌，疊在下方的進化前卡片不算被放回手牌，一樣要
     // 進棄牌堆（跟Rescue Scarf同一種「Tool/效果只作用在最上層那張，底下疊層不受影響」處理）
     if (p.evolutionStack?.length) { ctx.oppSide.discard.push(...p.evolutionStack); p.evolutionStack = []; }
+    if (p.tool?.uid) ctx.oppSide.discard.push(p.tool); // 2026-09-04：離場時身上的 Tool 卡進棄牌區（不跟著回手牌）
     p.curHp = p.hp; p.energy = []; p.status = null; p.poisoned = false; p.burned = false; p.boardTurn = null; p.tool = null;
     p.cantAttackUntilTurn = 0; p.cantRetreatUntilTurn = 0; p.dmgDebuffUntilTurn = 0; p.dmgDebuffAmount = 0;
     ctx.oppSide.hand.push(p);
@@ -5277,7 +5300,7 @@ const ATTACK_EFFECTS = {
     if (ctx.oppSide.active?.attacks?.length) ctx.needsChoice = { kind: 'pick_move', checkEnergy: false };
   },
   "This attack does 40 damage for each time your Pokémon used Sweets Relay during this game.": ctx => { ctx.rawDamage += (ctx.side.sweetsRelayUseCount || 0) * 40; },
-  "Discard all Pokémon Tools from your opponent's Active Pokémon.": ctx => { if (ctx.oppSide.active) ctx.oppSide.active.tool = null; },
+  "Discard all Pokémon Tools from your opponent's Active Pokémon.": ctx => { const p = ctx.oppSide.active; if (p?.tool) { if (p.tool.uid) ctx.oppSide.discard.push(p.tool); p.tool = null; } },
   "During your opponent's next turn, if this Pokémon is damaged by an attack, do 30 damage to the Attacking Pokémon.": ctx => { ctx.defender && (ctx.defender.retaliateUntilTurn = ctx.G.turnNumber + 1, ctx.defender.retaliateAmount = 30); },
   "Flip a coin. If tails, this attack does nothing. If heads, your opponent's Active Pokémon is now Paralyzed.": ctx => { if (!pocketFlipCoin(ctx)) { ctx.rawDamage = 0; return; } if (ctx.defender) ctx.defender.status = 'paralyzed'; },
   "This attack does 20 damage for each of your Benched Pokémon.": ctx => { ctx.rawDamage += ctx.side.bench.length * 20; },
@@ -5437,6 +5460,7 @@ const ATTACK_EFFECTS = {
     // 2026-08-22新增：只有最上面這張卡洗回牌庫，疊在下方的進化前卡片一樣要進棄牌堆（見
     // Fan Rotom同一批修正的說明）
     if (p.evolutionStack?.length) { ctx.side.discard.push(...p.evolutionStack); p.evolutionStack = []; }
+    if (p.tool?.uid) ctx.side.discard.push(p.tool); // 2026-09-04：離場時身上的 Tool 卡進棄牌區
     p.curHp = p.hp; p.energy = []; p.status = null; p.poisoned = false; p.burned = false; p.boardTurn = null; p.tool = null;
     p.cantAttackUntilTurn = 0; p.cantRetreatUntilTurn = 0; p.dmgDebuffUntilTurn = 0; p.dmgDebuffAmount = 0;
     ctx.side.deck.push(p);
@@ -5490,7 +5514,7 @@ const ATTACK_EFFECTS = {
   "If you have 5 or more {P} Energy in play, this attack does 60 more damage.": ctx => { const n = [ctx.side.active, ...ctx.side.bench].filter(Boolean).reduce((s, p) => s + p.energy.filter(e => e === 'Psychic').length, 0); if (n >= 5) ctx.rawDamage += 60; },
   "Take 2 {P} Energy from your Energy Zone and attach it to 1 of your Benched {P} Pokémon.": ctx => { const targets = ctx.side.bench.filter(p => (p.types || []).includes('Psychic')); if (targets.length) ctx.needsChoice = { kind: 'pick_target', pool: 'ownBench', eligibleUids: targets.map(p => p.uid), action: 'attachEnergy', energyType: 'Psychic', count: 2 }; },
   "This attack does 20 more damage for each Supporter card in your discard pile.": ctx => { const n = ctx.side.discard.filter(c => c.category === 'Trainer' && c.trainerType === 'Supporter').length; ctx.rawDamage += n * 20; },
-  "Discard a Stadium in play.": ctx => { ctx.G.activeStadium = null; },
+  "Discard a Stadium in play.": ctx => { pocketClearActiveStadium(ctx.G); },
   "If this Pokémon has any {P} Energy attached, this attack does 50 more damage.": ctx => { if (ctx.attacker.energy.some(e => e === 'Psychic')) ctx.rawDamage += 50; },
   "Flip a coin. If heads, during your opponent's next turn, this Pokémon takes −100 damage from attacks.": ctx => { if (pocketFlipCoin(ctx)) { ctx.attacker.selfShieldUntilTurn = ctx.G.turnNumber + 1; ctx.attacker.selfShieldAmount = 100; ctx.attacker.selfShieldCondition = null; } },
   "If this Pokémon has more Energy attached than your opponent's Active Pokémon, this attack does 50 more damage.": ctx => { if (ctx.attacker.energy.length > (ctx.oppSide.active?.energy.length || 0)) ctx.rawDamage += 50; },
@@ -6173,7 +6197,7 @@ const ATTACK_EFFECTS = {
   "Before doing damage, discard all Pokémon Tools from your opponent's Active Pokémon.": ctx => {
     const p = ctx.defender;
     if (!p?.tool) return;
-    pocketDiscardTool(p); // KO判定交給pocket_attack handler本來就有的攻擊後curHp<=0檢查，這裡不用自己判斷
+    pocketDiscardTool(ctx.G, p); // KO判定交給pocket_attack handler本來就有的攻擊後curHp<=0檢查，這裡不用自己判斷
   },
   "Discard a random Pokémon Tool card from your opponent's hand.": ctx => {
     const idxs = ctx.oppSide.hand.map((c, i) => (c.category === 'Trainer' && c.trainerType === 'Tool') ? i : -1).filter(i => i >= 0);
@@ -6754,6 +6778,7 @@ const ATTACK_EFFECTS = {
     // 沒有uid/curHp/energy等instance欄位——之後被抽到手牌會因為uid缺失完全點不到（跟Professor
     // Turo同一類bug，見makePocketInstance才是正確建立「一張全新卡片實例」的方式）
     ctx.side.discardEnergy.push(...ctx.attacker.energy); // 洗回牌庫前，身上的能量照真實規則進棄牌堆，不是憑空消失
+    if (ctx.attacker.tool?.uid) ctx.side.discard.push(ctx.attacker.tool); // 2026-09-04：離場時身上的 Tool 卡進棄牌區
     ctx.attacker.energy = []; ctx.attacker.tool = null; ctx.attacker.status = null; ctx.attacker.poisoned = false; ctx.attacker.burned = false;
     ctx.side.deck = pocketShuffle([...ctx.side.deck, makePocketInstance(ctx.attacker.id)]);
     ctx.side.active = null;
@@ -6795,7 +6820,7 @@ const ATTACK_EFFECTS = {
   "If you have the same number of cards in your hand as your opponent, this attack does 40 more damage.": ctx => { if (ctx.side.hand.length === ctx.oppSide.hand.length) ctx.rawDamage += 40; },
   "Before doing damage, shuffle all Pokémon Tools from each of your opponent's Pokémon into their deck.": ctx => {
     for (const p of [ctx.oppSide.active, ...ctx.oppSide.bench]) {
-      if (p?.tool) { ctx.oppSide.deck.push(makePocketInstance(p.tool.id)); p.tool = null; } // 2026-08-11修正：補uid，理由同上
+      if (p?.tool) { ctx.oppSide.deck.push(p.tool.uid ? p.tool : makePocketInstance(p.tool.id)); p.tool = null; } // 2026-09-04：Tool 已是實體卡，直接洗回牌庫
     }
     ctx.oppSide.deck = pocketShuffle(ctx.oppSide.deck);
   },
@@ -7535,7 +7560,7 @@ const TRAINER_EFFECTS = {
     return null;
   },
   'A3-151': (ctx) => { // Guzma：棄置對手全部寶可夢身上裝備的Tool——HP加成要一併收回，KO判定交給pocketBroadcastState裡的pocketResolveAmbientKOs統一處理
-    [ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean).forEach(p => pocketDiscardTool(p));
+    [ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean).forEach(p => pocketDiscardTool(ctx.G, p));
     return null;
   },
   'A3-152': (ctx, msg) => { // Lana：需要己方場上有Araquanid，換上對手任一板凳寶可夢當主戰(不限身上有傷)
@@ -8002,14 +8027,14 @@ const TRAINER_EFFECTS = {
   'B3-147': (ctx, msg) => { // Field Blower：棄掉任一寶可夢身上的道具卡，或棄掉場地卡（msg.target='stadium'代表選場地）
     if (msg.target === 'stadium') {
       if (!ctx.G.activeStadium) return '場上沒有場地卡';
-      ctx.G.activeStadium = null;
+      pocketClearActiveStadium(ctx.G);
       return null;
     }
     const pool = [ctx.side.active, ...ctx.side.bench, ctx.oppSide.active, ...ctx.oppSide.bench].filter(Boolean);
     const target = pool.find(p => p.uid === msg.target);
     if (!target) return '請選擇要棄掉道具卡的寶可夢，或選擇棄掉場地卡';
     if (!target.tool) return '這隻寶可夢沒有裝備道具卡';
-    pocketDiscardTool(target); // HP加成收回＋KO判定交給pocketResolveAmbientKOs（見pocketDiscardTool的說明）
+    pocketDiscardTool(ctx.G, target); // HP加成收回＋KO判定交給pocketResolveAmbientKOs（見pocketDiscardTool的說明）
     return null;
   },
   // 消除香水（Fan Made，2026-08-27新增）：卡面文字「選擇一隻寶可夢」沒有限定己方/對方，
@@ -8116,7 +8141,7 @@ const TRAINER_EFFECTS = {
   'B3b-066': (ctx) => { // Elesa：雙方場上全部寶可夢的道具卡都放回持有者手牌
     for (const r of ['p1', 'p2']) {
       for (const p of [ctx.G[r].active, ...ctx.G[r].bench]) {
-        if (p?.tool) { ctx.G[r].hand.push(makePocketInstance(p.tool.id)); p.tool = null; } // 2026-08-11修正：補uid，理由同上
+        if (p?.tool) { ctx.G[r].hand.push(p.tool.uid ? p.tool : makePocketInstance(p.tool.id)); p.tool = null; } // 2026-09-04：Tool 已是實體卡，直接放回手牌
       }
     }
     return null;
@@ -8798,11 +8823,11 @@ const ABILITY_EFFECTS = {
   'Dismantling Keys': (ctx, poke) => { // 必須在板凳上才能用，棄掉對手主戰的工具卡+棄掉自己
     if (!ctx.side.bench.some(p => p.uid === poke.uid)) return '必須在板凳上才能使用這個特性';
     if (!ctx.oppSide.active?.tool) return '對手主戰沒有裝備寶可夢工具卡';
+    if (ctx.oppSide.active.tool.uid) ctx.oppSide.discard.push(ctx.oppSide.active.tool);
     ctx.oppSide.active.tool = null;
     const idx = ctx.side.bench.findIndex(p => p.uid === poke.uid);
     ctx.side.bench.splice(idx, 1);
-    poke.tool = null;
-    pocketDiscardWithStack(ctx.side.discard, poke);
+    pocketDiscardWithStack(ctx.side.discard, poke); // poke 自己身上若有 Tool，這函式會一併棄置
     return null;
   },
   // 2026-08-08再接續：Shadow Void——「as often as you like」，跟其他特性不同，這個名字被
@@ -11688,18 +11713,40 @@ async function handleMessage(ws, msg) {
       const luxuryCoinSnapshot = luxuryCoinAvail ? structuredClone(G) : null;
       const err = handler(ctx, msg);
       if (err) { send(ws, { type: 'error', message: err }); return; }
+      const isStadium = card.trainerType === 'Stadium';
+      const isTool = card.trainerType === 'Tool';
+      // 2026-09-04：Tool 卡是「附在寶可夢身上、在場上」的實體卡——handler 剛剛把 target.tool 設成
+      // 輕量的 {id,name}，這裡換成完整卡片物件（保留 energyType 等額外欄位），移除時才有實體卡
+      // 可以進棄牌區（見 pocketDiscardTool / pocketDiscardWithStack）。
+      if (isTool) {
+        const tp = [side.active, ...side.bench].find(p => p && p.uid === msg.target);
+        if (tp && tp.tool && !tp.tool.uid) {
+          const et = tp.tool.energyType;
+          tp.tool = card;
+          if (et !== undefined) card.energyType = et;
+        }
+      }
       // 2026-08-12修正：場地卡的主動觸發效果(pocket_use_stadium，Mesagoza等5張)用stadiumUsedThisTurn
       // 卡「每回合1次」，這個旗標原本只在回合開始重置（見pocketAdvanceTurn），沒有隨「換上一張不同
       // 的新場地卡」重置——導致這回合已經觸發過舊場地效果後，換上完全不同的新場地卡，新場地卡的
       // 觸發按鈕仍然被視為「已用過」而擋住，明明是全新的一張卡（使用者回報「放上新場地應該要能發
       // 效果」）。場地卡是雙方共用的單一實體，這裡直接重置雙方旗標，不分是誰打出這張新場地卡。
-      if (card.trainerType === 'Stadium') { G.p1.stadiumUsedThisTurn = false; G.p2.stadiumUsedThisTurn = false; }
+      if (isStadium) {
+        // 2026-09-04：這張新場地卡留在場地區（G._stadiumCard）；被它取代的舊場地卡進「當初打出
+        // 它的玩家」的棄牌區。不在打出當下就把新場地卡丟進棄牌區。
+        if (G._stadiumCard && G._stadiumCard.uid !== card.uid) (G[G._stadiumOwner] || side).discard.push(G._stadiumCard);
+        G._stadiumCard = card;
+        G._stadiumOwner = role;
+        G.p1.stadiumUsedThisTurn = false; G.p2.stadiumUsedThisTurn = false;
+      }
       pocketEnforceStatusImmunity(side, statusSnapA); pocketEnforceStatusImmunity(oppSide, statusSnapB);
       pocketEnforceBenchImmunity(oppSide, benchSnap);
       pocketEnforceHealBlock(G, healSnap);
       side.hand = side.hand.filter(c => c.uid !== card.uid);
-      // Lucky Ice Pop（2026-08-07新增）：真的有回到血且硬幣正面時，這張卡直接回手牌而不進棄牌堆
-      if (ctx.keepInHand) side.hand.push(card); else side.discard.push(card);
+      // Lucky Ice Pop（2026-08-07新增）：真的有回到血且硬幣正面時，這張卡直接回手牌而不進棄牌堆。
+      // 場地卡/道具卡是「在場上」的實體卡，不在打出當下進棄牌區（見 G._stadiumCard / poke.tool）。
+      if (ctx.keepInHand) side.hand.push(card);
+      else if (!isStadium && !isTool) side.discard.push(card);
       if (isSupporter) side.supporterUsedThisTurn = true;
       pocketEmitCardActivation(G, role, card, isSupporter ? '使用支援者卡' : '使用道具卡');
       // 2026-08-05修正：訓練師卡效果裡的擲硬幣（例如小霞連續丟到反面為止）原本完全沒有組
@@ -11896,9 +11943,13 @@ async function handleMessage(ws, msg) {
           if (idx >= 0) { card = side[zone].splice(idx, 1)[0]; if (zone === 'deck') side.deck = pocketShuffle(side.deck); break; }
         }
         if (!card) { finish(); return; }
-        G.activeStadium = { id: card.id, name: card.name };
         const handler = TRAINER_EFFECTS[card.effectId || card.id];
         if (handler) { try { handler({ G, role, op, side, oppSide, pRoom }); } catch (e) {} }
+        else G.activeStadium = { id: card.id, name: card.name };
+        // 2026-09-04：地形戰術放上的場地卡也是「在場地區」的實體卡——取代掉的舊場地卡進其持有者棄牌區
+        if (G._stadiumCard && G._stadiumCard.uid !== card.uid) (G[G._stadiumOwner] || side).discard.push(G._stadiumCard);
+        G._stadiumCard = card;
+        G._stadiumOwner = role;
         G.p1.stadiumUsedThisTurn = false; G.p2.stadiumUsedThisTurn = false;
         pocketEmitCardActivation(G, role, card, '玩家技能：地形戰術');
         finish();
@@ -12443,6 +12494,7 @@ async function handleMessage(ws, msg) {
         // 金屬核心壁壘（B2-148，2026-09-01使用者改版）：被對手招式打中（有傷害成分）就把
         // -80 這面盾用掉並棄置這張卡。ctx.ignoreDefenderEffects 時上面沒扣減傷，這面盾也不算觸發。
         if (!ctx.ignoreDefenderEffects && defender.tool?.id === 'B2-148' && mcbPreDmg > 0) {
+          if (defender.tool.uid) G[op].discard.push(defender.tool);
           defender.tool = null;
           pocketEmitToolActivation(G, op, { id: 'B2-148' }, '金屬核心壁壘：減傷 80 後棄置');
         }
@@ -13036,6 +13088,7 @@ async function handleMessage(ws, msg) {
         // -80 盾」補進來（其餘 Tool/被動特性減傷維持簡化不套）。有傷害成分才消耗這面盾。
         if (defender.tool?.id === 'B2-148' && dmg > 0) {
           dmg = Math.max(0, dmg - 80);
+          if (defender.tool.uid) G[op].discard.push(defender.tool);
           defender.tool = null;
           pocketEmitToolActivation(G, op, { id: 'B2-148' }, '金屬核心壁壘：減傷 80 後棄置');
         }

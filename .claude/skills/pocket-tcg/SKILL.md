@@ -235,6 +235,28 @@ The 21st set. Full worked example of the "add a real set" pipeline (prior big im
 - `importDeckCode`：`ownedCap` 迴圈換成 group-cap 迴圈（`inGroup < MAX_COPIES`），`missing`（擁有量不足）報告改成 `overCap`（代碼裡同卡超過 2 張被裁）。
 - deck-list（右側牌組列表）維持依 id 分組顯示——混用兩種卡面的同一張卡會顯示成兩列（各自的縮圖），可接受（就是要讓玩家看到用了哪些卡面）。
 
+## 2026-09-04: 場地卡／寶可夢道具卡改成「在場上的實體卡」，被替換/移除時才進棄牌區
+
+使用者回報：打出場地卡/道具卡後應該留在場上（場地區／附在寶可夢身上），只有被新場地卡取代、或寶可夢被擊倒／道具被移除時才進棄牌區——照真實 TCG 規則。**舊實作是打出當下就 `side.discard.push(card)`**，場上只留輕量 `{id,name}` 參照。
+
+**Stadium**：
+- `G._stadiumCard`（完整卡片，含 uid）+ `G._stadiumOwner`（role）——新增的內部欄位，**不進 `pocketViewFor` 廣播**（底線前綴，`pub()` 沒帶）。`G.activeStadium` 維持 `{id,name}` 不變，所有 `G.activeStadium?.id === 'X'` 效果判斷、client 渲染都不用改。
+- `pocket_play_item` 的 `isStadium` 分支：舊 `_stadiumCard` 若 uid 不同 → `push` 進 `G[G._stadiumOwner].discard`；`G._stadiumCard = card; G._stadiumOwner = role`；**跳過** `side.discard.push(card)`（`else if (!isStadium && !isTool)`）。
+- `pocketClearActiveStadium(G)`（新 helper，放 `pocketDiscardWithStack` 後面）：`G._stadiumCard` push 進其持有者棄牌區、清空、`G.activeStadium = null`。取代 Pocket 的 2 個 `activeStadium = null` 點：`"Discard a Stadium in play."` ATTACK_EFFECTS、Field Blower（B3-147）的 `msg.target === 'stadium'` 分支。**主戰鬥引擎（<L3477）的 `activeStadium = null` 不要動**。
+- 玩家技能「地形戰術」（`terrain_tactics` 解析，`pocket_skill_choice`）也放場地卡 → 同樣管 `_stadiumCard`/`_owner`、舊的進棄牌區。
+
+**Tool**：
+- `poke.tool` 現在是**完整卡片物件**（含 uid），不是 `{id,name}`。`pocket_play_item` 的 `isTool` 分支：handler 剛設完 `target.tool = {id,name}`，這裡偵測 `!tp.tool.uid` 就換成 `tp.tool = card`（保留 `energyType` 給彩虹能量 FM-005）。跳過 `side.discard.push(card)`。
+- client 完全不用改：`p.tool?.id` / `p.tool.energyType` 都還在（完整卡片是 superset），`zhName(p.tool)` 現在能拿到中文名（🔧岩石頭盔 而非 Rocky Helmet）算 bonus。
+- `pocketDiscardTool(G, p)`（**簽章多了 `G`**，3 個 call site 都改成傳 `ctx.G`：Xurkitree "Before doing damage discard tools"、Guzma A3-151、Field Blower B3-147）：掃 `['p1','p2']` 找 `p` 在哪一側 → `G[ownerRole].discard.push(p.tool)`。
+- `pocketDiscardWithStack(discardArr, poke)`：多一行 `if (poke.tool?.uid) { discardArr.push(poke.tool); poke.tool = null; }`——KO 進棄牌區時 Tool 卡一起進。所有 KO 路徑（`pocketResolveActiveKO`/`pocketResolveBenchKOs`/`pocketResolveMutualKO`）都經這個函式。Rescue Scarf（A4-155）救回手牌那個分支不經此函式，另外補 `if (dead.tool?.uid) koSide.discard.push(dead.tool)`。
+- 其餘手動 `p.tool = null` 的移除點都補上「先 `discard.push(p.tool)`（`if (p.tool.uid)`）」：Lum/Sitrus Berry checkup（→`endingSide.discard`）、`pocketEffectDamage` MCB（→`targetSide.discard`）、Fan Rotom 洗回手牌（→`oppSide.discard`，Tool 不跟著回手牌）、Liepard 洗回牌庫（→`side.discard`）、自我洗回牌庫的招式（→`side.discard`）、"Discard all Pokémon Tools from opp's Active"、Dismantling Keys、MCB 主管線 + pick_move（→`G[op].discard`）。
+- Tool「洗回牌庫／放回手牌」的效果（Elesa B3b-066、"shuffle all Tools into deck"）：`p.tool.uid ? p.tool : makePocketInstance(p.tool.id)`——實體卡直接用，不再無腦建新實例。
+
+**沒動**：手牌/牌庫裡的 Tool 卡（Slowking 棄手牌 Tool、Traveling Merchant 從牌庫拿 Tool）——那些本來就是正常 hand/deck 實例，跟 board 上的 `poke.tool` 是兩回事。
+
+驗證：`pocketDiscardTool`/`pocketDiscardWithStack`/`pocketClearActiveStadium` 抽出來單測 9 個 assertion；2-client E2E 實測「打場地→不進棄牌區」「打第二張場地→第一張進持有者棄牌區、第二張不進」「附道具→完整卡帶 uid、不進棄牌區」；瀏覽器實測 `renderPokeSlot` 吃完整卡片 `p.tool` 正常、tool badge 顯示中文名、retreat mirror 不報錯。
+
 ## Fossil-card pack (化石採掘場/化石復活機, Fan Made) + Hiker (A4-161) 2-choice rework (2026-08-22)
 
 Two new Fan Made cards (`FM-008` Stadium, `FM-009` Item) plus a full-replacement override of the real card Hiker (A4-161), all shipped in one session.
