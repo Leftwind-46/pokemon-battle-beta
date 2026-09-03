@@ -228,6 +228,13 @@ The 21st set. Full worked example of the "add a real set" pipeline (prior big im
 - `openPackFlow`：response 現在 `data.cards` 常常是空的（0~5 張高版本）+ `data.goldFromPacks`。標題列加「🪙 回收 N 金幣」；reveal row 沒有卡時改顯示大字「🪙 +N 金幣 / 這次沒有抽到高版本卡」。`loadCollection()` 開包後照舊呼叫 → `refreshCoinDisplay()` 會重抓 `/api/pet` 更新 `#coin-amount`。
 - 訪客：`ownedCap` 固定值已讓訪客也全開放；訪客本來就不能開包（按鈕隱藏），沒有金幣流。
 
+**卡面版本挑選器（同日追加）**：玩家可以在牌組編輯的卡片詳情面板裡挑「要放進牌組的卡面版本」。
+- **關鍵：2 張上限改成依「同一張卡」計，不是依 id 計。** 同 `name+set`、稀有度不同 = 同一張卡，合計 ≤ `MAX_COPIES`（2）。`deck` 陣列存的還是各版本各自的 id（卡面才顯示對）。改了 3 處：server `validatePocketDeck`（`counts[card.name+'||'+card.set]` 而非 `counts[id]`）、client `addCard`（`pocketGroupCountInDeck(id) >= MAX_COPIES`）、`computeDeckStepperActions`（`count` 用 group 合計）。**這是既有規則的收緊**（以前 `[TwoStar, TwoStar, Crown]` 三張同卡會過），但實務上不影響既有牌組——以前玩家在組牌頁看不到/用不到多個印刷版。跨系列同名（A1 皮卡丘 + A3 皮卡丘）不受影響，仍各自算 2。
+- client 新增：`pocketCardGroupKey(id)`、`pocketGroupCountInDeck(id)`、`pocketOwnedVersions(id)`（同 name+set、`ownedCounts>0`、依 `pocketRarityRank` 低→高排序）、`pocketRemoveCardFromGroup(id)`（「－」優先移除選中版本，沒有就移除同卡最後一張任一版本）、`pocketPickCardVersion(i)`。
+- `showCardDetail` 的 `stepper` 區塊：`stepper.versions.length > 1` 時渲染 `.version-picker`（縮圖列，選中的 `#ffca28` 框）。點縮圖 → `showCardDetail(v, computeDeckStepperActions(v))` 用那個版本重繪面板（不用額外 state，「當前選中版本」就是面板現在顯示的 `card.id`）。`＋` 加選中版本 id、`－` 走 `pocketRemoveCardFromGroup`。CSS `.version-picker`/`.version-opt`/`.version-opt.selected` 放在 `.evo-stack-*` 後面。
+- `importDeckCode`：`ownedCap` 迴圈換成 group-cap 迴圈（`inGroup < MAX_COPIES`），`missing`（擁有量不足）報告改成 `overCap`（代碼裡同卡超過 2 張被裁）。
+- deck-list（右側牌組列表）維持依 id 分組顯示——混用兩種卡面的同一張卡會顯示成兩列（各自的縮圖），可接受（就是要讓玩家看到用了哪些卡面）。
+
 ## Fossil-card pack (化石採掘場/化石復活機, Fan Made) + Hiker (A4-161) 2-choice rework (2026-08-22)
 
 Two new Fan Made cards (`FM-008` Stadium, `FM-009` Item) plus a full-replacement override of the real card Hiker (A4-161), all shipped in one session.

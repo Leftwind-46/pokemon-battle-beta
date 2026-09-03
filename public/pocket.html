@@ -495,6 +495,12 @@
   .evo-stack-item { flex:none; width:52px; text-align:center; cursor:pointer; font-size:0.62rem; color:var(--muted); }
   .evo-stack-item img { width:100%; border-radius:5px; aspect-ratio:5/7; object-fit:cover; background:#111; display:block; }
   .evo-stack-item span { display:block; margin-top:0.2rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  /* 2026-09-03：組牌頁卡片詳情裡的「卡面版本」挑選器 */
+  .version-picker { display:flex; gap:0.5rem; overflow-x:auto; padding:0.2rem 0 0.4rem; margin-bottom:0.4rem; }
+  .version-opt { flex:none; width:56px; text-align:center; cursor:pointer; font-size:0.6rem; color:var(--muted); border:2px solid transparent; border-radius:7px; padding:2px; }
+  .version-opt img { width:100%; border-radius:4px; aspect-ratio:5/7; object-fit:cover; background:#111; display:block; }
+  .version-opt span { display:block; margin-top:0.15rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .version-opt.selected { border-color:#ffca28; color:#ffe08a; }
   .board-slot img.zoomable, .hand-fan img { cursor:pointer; }
 
   /* ── 屬性攻擊特效層 ── */
@@ -1677,14 +1683,17 @@ function importDeckCode() {
   const requestedCounts = {};
   for (const id of decoded.ids) requestedCounts[id] = (requestedCounts[id] || 0) + 1;
   const newDeck = [];
-  const missing = []; // 有這張卡但張數不夠
+  const overCap = []; // 代碼裡同一張卡（含不同卡面版本）超過 2 張，多的被裁掉
   const unknown = [];  // 目前卡池完全找不到這個id（可能是代碼打錯或卡池版本不同）
   for (const [id, need] of Object.entries(requestedCounts)) {
     const card = cardById[id];
     if (!card) { unknown.push(id); continue; }
-    const have = ownedCap(id);
-    for (let i = 0; i < have && i < need; i++) newDeck.push(id);
-    if (have < need) missing.push({ name: zhName(card), need, have: ownedCounts[id] || 0 });
+    // 2026-09-03：卡牌全開放使用——不再看擁有量，只受「同一張卡（含各卡面版本）合計 ≤ 2」限制
+    const key = card.name + '||' + card.set;
+    let inGroup = newDeck.filter(x => pocketCardGroupKey(x) === key).length;
+    let added = 0;
+    for (let i = 0; i < need && inGroup < MAX_COPIES; i++) { newDeck.push(id); inGroup++; added++; }
+    if (added < need) overCap.push({ name: zhName(card), need, added });
   }
   currentDeckId = null;
   deckSkills = { list: [], supporterCards: [] }; // 牌組代碼不含技能設定，匯入視同新牌組
@@ -1699,10 +1708,10 @@ function importDeckCode() {
   document.getElementById('deck-name-input').value = '';
   input.value = '';
   renderPool(); renderDeck(); renderDeckListChips(); renderEnergyTypePicker();
-  if (missing.length || unknown.length) {
-    let report = `已套用 ${deck.length}/20 張（依照你目前的收藏）。以下卡片你還沒收藏齊全：\n\n`;
-    report += missing.map(m => `${m.name}：需要 ${m.need} 張，你有 ${m.have} 張`).join('\n');
-    if (unknown.length) report += `${missing.length ? '\n' : ''}\n有 ${unknown.length} 張卡在目前卡池找不到（代碼可能有誤，或來自不同版本的卡池）`;
+  if (overCap.length || unknown.length) {
+    let report = `已套用 ${deck.length}/20 張。\n\n`;
+    if (overCap.length) report += overCap.map(m => `${m.name}：代碼有 ${m.need} 張，同一張卡最多 2 張，已裁成 ${m.added} 張`).join('\n');
+    if (unknown.length) report += `${overCap.length ? '\n' : ''}\n有 ${unknown.length} 張卡在目前卡池找不到（代碼可能有誤，或來自不同版本的卡池）`;
     alert(report);
   } else {
     pocketToast(`已匯入 ${deck.length}/20 張！`);
@@ -1731,12 +1740,27 @@ function countInDeck(id) {
 }
 // 2026-09-03：卡牌全部開放直接使用——同一張卡上限固定 MAX_COPIES，不再受 ownedCounts 限制
 function ownedCap(id) { return MAX_COPIES; }
+// 2026-09-03：同一張卡的不同「卡面版本」（同 name+set、稀有度不同）在牌組上限規則裡算同一張，
+// 合計 ≤ MAX_COPIES。deck 陣列存的還是各版本各自的 id（讓卡面顯示正確）。
+function pocketCardGroupKey(id) { const c = cardById[id]; return c ? c.name + '||' + c.set : id; }
+function pocketGroupCountInDeck(id) {
+  const k = pocketCardGroupKey(id);
+  return deck.filter(x => pocketCardGroupKey(x) === k).length;
+}
+// 玩家擁有的、跟這張卡同一張的所有卡面版本（依稀有度低→高排序），給卡面版本挑選器用
+function pocketOwnedVersions(id) {
+  const c = cardById[id];
+  if (!c) return [];
+  return ALL_CARDS
+    .filter(v => v.name === c.name && v.set === c.set && (ownedCounts[v.id] || 0) > 0)
+    .sort((a, b) => pocketRarityRank(a) - pocketRarityRank(b));
+}
 
 function addCard(id) {
   const card = cardById[id];
   if (!card) return;
   if (deck.length >= DECK_SIZE) return;
-  if (countInDeck(id) >= ownedCap(id)) return;
+  if (pocketGroupCountInDeck(id) >= MAX_COPIES) return;
   deck.push(id);
   syncEnergyTypesIfAuto();
   renderPool();
@@ -1747,6 +1771,20 @@ function addCard(id) {
 function removeCard(id) {
   const idx = deck.lastIndexOf(id);
   if (idx >= 0) deck.splice(idx, 1);
+  syncEnergyTypesIfAuto();
+  renderPool();
+  renderDeck();
+  renderEnergyTypePicker();
+}
+// 版本挑選器的「－」：優先移除當前選中的版本；牌組裡沒有那個版本就移除同一張卡的最後一張（任一版本）
+function pocketRemoveCardFromGroup(id) {
+  let idx = deck.lastIndexOf(id);
+  if (idx < 0) {
+    const k = pocketCardGroupKey(id);
+    for (let i = deck.length - 1; i >= 0; i--) { if (pocketCardGroupKey(deck[i]) === k) { idx = i; break; } }
+  }
+  if (idx < 0) return;
+  deck.splice(idx, 1);
   syncEnergyTypesIfAuto();
   renderPool();
   renderDeck();
@@ -2176,9 +2214,10 @@ function computeDeckStepperActions(card) {
   return [{
     stepper: true,
     cardId: card.id,
-    count: countInDeck(card.id),
-    cap: ownedCap(card.id),
+    count: pocketGroupCountInDeck(card.id),   // 合計所有卡面版本
+    cap: MAX_COPIES,
     deckFull: deck.length >= DECK_SIZE,
+    versions: pocketOwnedVersions(card.id),   // 給卡面版本挑選器
   }];
 }
 
@@ -2497,6 +2536,16 @@ function showCardDetail(card, actions) {
   const stepper = actions && actions[0] && actions[0].stepper ? actions[0] : null;
   if (stepper) {
     window.__detailStepper = stepper;
+    // 2026-09-03：擁有超過1個卡面版本時，讓玩家點選要放進牌組的版本（＋/－會針對選中的版本）
+    if (stepper.versions && stepper.versions.length > 1) {
+      window.__detailVersions = stepper.versions;
+      html += `<div class="detail-stepper-hint" style="text-align:left;margin:0.6rem 0 0.2rem">卡面版本（點選要放進牌組的版本）</div>
+        <div class="version-picker">${stepper.versions.map((v, i) => `
+          <div class="version-opt${v.id === stepper.cardId ? ' selected' : ''}" onclick="pocketPickCardVersion(${i})" title="${v.rarity || ''}">
+            <img src="${pocketThumbUrl(v.image)}" loading="lazy" alt="${zhName(v)}">
+            <span>${v.rarity || ''}</span>
+          </div>`).join('')}</div>`;
+    }
     const atCap = stepper.count >= stepper.cap || stepper.deckFull;
     html += `<div class="detail-actions detail-stepper">
       <button class="btn btn-secondary stepper-btn" ${stepper.count <= 0 ? 'disabled' : ''} onclick="pocketDetailStepperAction('minus')">－</button>
@@ -2519,9 +2568,15 @@ function pocketDetailStepperAction(dir) {
   if (!s) return;
   const card = cardById[s.cardId];
   if (!card) return;
-  if (dir === 'minus') { if (s.count <= 0) return; removeCard(s.cardId); }
+  if (dir === 'minus') { if (s.count <= 0) return; pocketRemoveCardFromGroup(s.cardId); }
   else { if (s.count >= s.cap || s.deckFull) return; addCard(s.cardId); }
   showCardDetail(card, computeDeckStepperActions(card));
+}
+// 卡面版本挑選器：點縮圖 → 用那個版本重繪詳情面板（＋/－之後就針對這個版本的 id）
+function pocketPickCardVersion(i) {
+  const v = window.__detailVersions?.[i];
+  if (!v) return;
+  showCardDetail(v, computeDeckStepperActions(v));
 }
 function pocketDetailAction(i) {
   const a = window.__detailActions?.[i];

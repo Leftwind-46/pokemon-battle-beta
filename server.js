@@ -3828,8 +3828,10 @@ function validatePocketDeck(deckIds) {
   for (const id of deckIds) {
     const card = POCKET_CARDS_BY_ID[id];
     if (!card) return '牌組包含不存在的卡片';
-    counts[id] = (counts[id] || 0) + 1;
-    if (counts[id] > 2) return `${card.name} 最多只能放 2 張`;
+    // 2026-09-03：同一張卡的不同卡面版本（同 name+set、稀有度不同）算同一張，合計 ≤ 2
+    const key = card.name + '||' + card.set;
+    counts[key] = (counts[key] || 0) + 1;
+    if (counts[key] > 2) return `${card.name} 最多只能放 2 張`;
   }
   const hasBasic = deckIds.some(id => {
     const c = POCKET_CARDS_BY_ID[id];
