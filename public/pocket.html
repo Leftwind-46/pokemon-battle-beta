@@ -2780,6 +2780,8 @@ const ABILITY_NAMES_SUPPORTED = new Set([
   // ABILITY_EFFECTS已經有對應handler（使用者回報：尼多娜多了特性但對戰時沒有按鈕）。
   // Fighting Spirit（尼多力諾）不用加——那是回合結束checkup自動觸發，不是按鈕型。
   'Attraction',
+  // 2026-09-03新增：B4a「火箭隊的野望」按鈕型特性（每回合1次、主戰位置時）
+  'Evil Inspiration', 'Spy Ops',
 ]);
 // 2026-08-08再接續：跟ABILITY_NAMES_SUPPORTED是「能不能用」的AND條件——只有進化/上場的那個
 // 回合才顯示按鈕（見renderPokeSlot的evolveTurnOnly判斷），使用者反映Ignition原本完全沒有
@@ -2946,11 +2948,11 @@ function renderBoard() {
   // 共4張同句型場地卡）：只有場上剛好是這幾張場地卡其中一張、輪到我、這回合還沒用過時才顯示
   // 2026-08-18新增：憤怒之湖（FM-007）改版加入這個set——跟其餘5張一樣打出後只蓋場地，
   // 按鈕點了才觸發（原本是打出當下就要選寶可夢進化，使用者回報體驗很怪，改成這個模式）
-  const STADIUM_TRIGGER_IDS = new Set(['B2a-093', 'B3-153', 'B3a-074', 'B3b-069', 'B4-155', 'FM-007', 'FM-008', 'FM-013']);
+  const STADIUM_TRIGGER_IDS = new Set(['B2a-093', 'B3-153', 'B3a-074', 'B3b-069', 'B4-155', 'FM-007', 'FM-008', 'FM-013', 'B4a-072']);
   const stadiumBtn = document.getElementById('stadium-trigger-btn');
   stadiumBtn.style.display =
     (myTurn && phase === 'active' && STADIUM_TRIGGER_IDS.has(state.activeStadium?.id) && !you.stadiumUsedThisTurn) ? '' : 'none';
-  const STADIUM_TRIGGER_LABEL = { 'B2a-093': '場地卡：擲硬幣抽卡', 'B3-153': '場地卡：抽草屬性基礎寶可夢', 'B3a-074': '場地卡：洗回基礎寶可夢並抽牌', 'B3b-069': '場地卡：交換道具卡', 'B4-155': '場地卡：重新產生能量', 'FM-007': '場地卡：選寶可夢進化', 'FM-008': '場地卡：搜尋化石道具卡', 'FM-013': '場地卡：從棄牌區拿回卡片' };
+  const STADIUM_TRIGGER_LABEL = { 'B2a-093': '場地卡：擲硬幣抽卡', 'B3-153': '場地卡：抽草屬性基礎寶可夢', 'B3a-074': '場地卡：洗回基礎寶可夢並抽牌', 'B3b-069': '場地卡：交換道具卡', 'B4-155': '場地卡：重新產生能量', 'FM-007': '場地卡：選寶可夢進化', 'FM-008': '場地卡：搜尋化石道具卡', 'FM-013': '場地卡：從棄牌區拿回卡片', 'B4a-072': '場地卡：擲3次硬幣抽滿7張' };
   stadiumBtn.textContent = STADIUM_TRIGGER_LABEL[state.activeStadium?.id] || '場地卡效果';
   document.getElementById('cancel-action-btn').style.display = selectedAction ? '' : 'none';
 
@@ -3573,6 +3575,8 @@ const TRAINER_EFFECTS_IMPLEMENTED = new Set([
   'FM-013',
   // 2026-09-02新增：退化噴霧Z（FM-014，道具卡）
   'FM-014',
+  // 2026-09-03新增：B4a「火箭隊的野望」訓練師卡（B4a-071 火箭隊的老大需要 oppHand 多選流程，暫未支援）
+  'B4a-067', 'B4a-068', 'B4a-069', 'B4a-070', 'B4a-072',
 ]);
 
 // event delegation：own board (active/bench) 點擊

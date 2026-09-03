@@ -4478,6 +4478,10 @@ function pocketStartNextTurn(G) {
   G.turn = endingRole === 'p1' ? 'p2' : 'p1';
   G.turnNumber++;
   const side = G[G.turn];
+  // 洗翠幽尾玄魚「魂之反擊」（B4a-018）：需要知道「對手上個回合得了幾分」。在這位玩家的回合
+  // 開始這一刻記錄他當下的分數，等對手下個回合用招式時算 points - pointsAtMyTurnStart 就是
+  // 「對手（=這位玩家）在他上個回合得到的分數」。
+  side.pointsAtMyTurnStart = side.points;
   // 2026-08-08修正：Pocket TCG沒有「牌庫抽完直接落敗」這條規則（跟紙牌版TCG不同），
   // 牌庫空的時候單純不抽牌繼續進行，不判定勝負
   if (side.deck.length > 0) side.hand.push(side.deck.shift());
@@ -6851,6 +6855,71 @@ const ATTACK_EFFECTS = {
   // an Evolution Pokémon, this attack does 40 more damage.」同一種stage!=='Basic'判斷，只是
   // 額外傷害改成60，中文key的理由跟上面兩張同一批Fan Made卡一致
   "若對手的戰鬥寶可夢為進化寶可夢，則增加60點傷害。": ctx => { if (ctx.defender && ctx.defender.stage !== 'Basic') ctx.rawDamage += 60; },
+
+  /* ── B4a「火箭隊的野望」(Team Rocket's Ambition) 招式效果 2026-09-03 ── */
+  "If Volbeat is in your discard pile, this attack does 60 more damage.": ctx => { // 甜甜螢 Ire-Fly
+    if (ctx.side.discard.some(c => c.name === 'Volbeat')) ctx.rawDamage += 60;
+  },
+  "This attack does 50 more damage for each Special Condition affecting your opponent's Active Pokémon.": ctx => { // 火箭隊的鴨嘴火獸 Derisive Roasting
+    if (!ctx.defender) return;
+    const n = ['asleep', 'burned', 'confused', 'paralyzed', 'poisoned'].filter(s => pocketHasCondition(ctx.defender, s)).length;
+    ctx.rawDamage += n * 50;
+  },
+  "Flip 3 coins. For each heads, produce a {R} Energy from your Energy Zone and attach it to this Pokémon.": ctx => { // 火箭隊的火焰鳥ex Heat Charged
+    const h = pocketFlipCoins(3, ctx);
+    for (let i = 0; i < h; i++) ctx.attacker.energy.push('Fire');
+  },
+  "If this Pokémon has more Energy attached than your opponent's Active Pokémon, this attack does 40 more damage.": ctx => { // 火箭隊的拉普拉斯 Ruthless Whirlpool（既有有「50 more」版，這裡是40）
+    if (ctx.attacker.energy.length > (ctx.oppSide.active?.energy.length || 0)) ctx.rawDamage += 40;
+  },
+  "This attack also does 50 damage to 1 of your opponent's Benched Pokémon that has damage on it.": ctx => { // 火箭隊的閃電鳥ex Thunderclaw（附加傷害，主傷害走 damage 欄位）
+    const el = ctx.oppSide.bench.filter(p => p.curHp < p.hp);
+    if (el.length) ctx.needsChoice = { kind: 'pick_target', pool: 'oppAll', eligibleUids: el.map(p => p.uid), action: 'damage', amount: 50 };
+  },
+  "This attack does 20 damage for each card in your hand.": ctx => { ctx.rawDamage = 20 * (ctx.side.hand?.length || 0); }, // 火箭隊的呆呆王ex Hand Kinesis
+  "This attack does 50 more damage for each point your opponent got during their last turn.": ctx => { // 洗翠幽尾玄魚 Soul Counter（pointsAtMyTurnStart 在 pocketStartNextTurn 記錄）
+    const gained = (ctx.oppSide.points || 0) - (ctx.oppSide.pointsAtMyTurnStart || 0);
+    if (gained > 0) ctx.rawDamage += gained * 50;
+  },
+  "This attack does 40 more damage for each of your opponent's Benched Pokémon.": ctx => { ctx.rawDamage += 40 * ctx.oppSide.bench.length; }, // 火箭隊的貓老大 Dangerous Rogue
+  "If your opponent's Active Pokémon has \"Team Rocket\" in its name, this attack does 70 more damage.": ctx => { // 嘎啦嘎啦 Punish
+    if ((ctx.defender?.name || '').includes("Team Rocket")) ctx.rawDamage += 70;
+  },
+  "This attack does 10 more damage for each Energy in your opponent's Active Pokémon's Retreat Cost.": ctx => { // 火箭隊的阿柏怪 Shadow Seeker（既有有「40 more」版，這裡是10）
+    ctx.rawDamage += 10 * (ctx.defender?.retreat || 0);
+  },
+  "If your opponent's Active Pokémon is Poisoned, heal 60 damage from this Pokémon.": ctx => { // 火箭隊的臭臭泥 Poison Absorption
+    if (ctx.defender && pocketHasCondition(ctx.defender, 'poisoned')) {
+      const before = ctx.attacker.curHp;
+      ctx.attacker.curHp = Math.min(ctx.attacker.hp, ctx.attacker.curHp + 60);
+      ctx.healUid = ctx.attacker.uid; ctx.healAmount = ctx.attacker.curHp - before;
+    }
+  },
+  "During your opponent's next turn, attacks used by the Defending Pokémon cost 2 {C} more, and its Retreat Cost is 2 {C} more.": ctx => { // 火箭隊的巨鍛匠 Pile-Driving Hammer（既有有「1 {C} more」版）
+    if (ctx.defender) {
+      ctx.defender.costIncreaseUntilTurn = ctx.G.turnNumber + 1; ctx.defender.costIncreaseAmount = 2;
+      ctx.defender.retreatIncreaseUntilTurn = ctx.G.turnNumber + 1; ctx.defender.retreatIncreaseAmount = 2;
+    }
+  },
+  "If this Pokémon has damage on it, this attack does −100 damage.": ctx => { // 帝王拿波 Draconic Slam（"140-"）
+    if (ctx.attacker.curHp < ctx.attacker.hp) ctx.rawDamage = Math.max(0, ctx.rawDamage - 100);
+  },
+  "Flip a coin for each Pokémon you have in play. This attack does 30 damage for each heads.": ctx => { // 火箭隊的狃拉 Group Beatdown（既有有 ×20 版）
+    ctx.rawDamage = pocketFlipCoins(1 + ctx.side.bench.length, ctx) * 30;
+  },
+  "Flip a coin until you get tails. This attack does 30 damage for each heads.": ctx => { // 多麗米亞 Continuous Steps（既有有 ×20/×40 版）
+    let h = 0;
+    while (pocketFlipCoin(ctx) && h < 50) h++;
+    ctx.rawDamage += h * 30;
+  },
+  "Put a random Item card from your discard pile into your hand.": ctx => { // 火箭隊的呆呆獸 Scavenge（卡面明寫 random）
+    const items = ctx.side.discard.filter(c => c.category === 'Trainer' && c.trainerType === 'Item');
+    if (items.length) {
+      const pick = items[Math.floor(Math.random() * items.length)];
+      ctx.side.discard.splice(ctx.side.discard.indexOf(pick), 1);
+      ctx.side.hand.push(pick);
+    }
+  },
 };
 // 場上所有寶可夢（雙方主戰+板凳）裡隨機選n次、每次隨機丟掉1點能量——「both yours and your
 // opponent's」代表池子橫跨雙方場面，不是各自獨立各丟一次，且身上沒能量的寶可夢不會被選中
@@ -8124,6 +8193,42 @@ const TRAINER_EFFECTS = {
   },
   'B4-154': (ctx) => { ctx.G.activeStadium = { id: 'B4-154', name: 'Soothing Shore' }; return null; },
   'B4-155': (ctx) => { ctx.G.activeStadium = { id: 'B4-155', name: 'Rainbow Cave' }; return null; },
+
+  /* ── B4a「火箭隊的野望」訓練師卡 2026-09-03 ──
+     火箭隊的老大（B4a-071）需要「看對手手牌→自選任意數量基礎寶可夢放上對手板凳」的多選流程，
+     現有 choice 基礎建設沒有 oppHand 多選 + 放板凳 action，暫不實作，維持「尚未支援」。 */
+  'B4a-067': (ctx) => { // 火箭隊的盜竊機（物品）：從對手棄牌區隨機拿1張物品卡（自己除外）進手牌
+    const items = ctx.oppSide.discard.filter(c => c.category === 'Trainer' && c.trainerType === 'Item' && c.name !== "Team Rocket's Thieving Machine");
+    if (!items.length) return '對手的棄牌區沒有可拿的物品卡';
+    const pick = items[Math.floor(Math.random() * items.length)];
+    ctx.oppSide.discard.splice(ctx.oppSide.discard.indexOf(pick), 1);
+    ctx.side.hand.push(pick);
+    return null;
+  },
+  'B4a-068': (ctx) => { // 火箭隊的黏黏火箭筒（物品）：對手主戰撤退能量+1，到對手下回合結束
+    if (!ctx.oppSide.active) return '對手沒有主戰寶可夢';
+    ctx.oppSide.active.retreatIncreaseUntilTurn = ctx.G.turnNumber + 1;
+    ctx.oppSide.active.retreatIncreaseAmount = Math.max(1, ctx.oppSide.active.retreatIncreaseAmount || 0);
+    return null;
+  },
+  'B4a-069': (ctx) => { // 火箭隊的研究員（支援者）：擲硬幣直到反面，每正面從牌組拿1隻名字含"Team Rocket"的隨機寶可夢進手牌
+    let heads = 0;
+    while (pocketFlipCoin(ctx) && heads < 30) heads++;
+    for (let i = 0; i < heads; i++) {
+      const idxs = ctx.side.deck.map((c, j) => (c.category === 'Pokemon' && (c.name || '').includes('Team Rocket')) ? j : -1).filter(j => j >= 0);
+      if (!idxs.length) break;
+      const j = idxs[Math.floor(Math.random() * idxs.length)];
+      ctx.side.hand.push(ctx.side.deck.splice(j, 1)[0]);
+    }
+    ctx.side.deck = pocketShuffle(ctx.side.deck);
+    return null;
+  },
+  'B4a-070': (ctx) => { // 火箭隊的完美計畫（支援者）：對手主戰混亂；擲硬幣，反面則自己主戰也混亂
+    if (ctx.oppSide.active) ctx.oppSide.active.status = 'confused';
+    if (!pocketFlipCoin(ctx) && ctx.side.active) ctx.side.active.status = 'confused';
+    return null;
+  },
+  'B4a-072': (ctx) => { ctx.G.activeStadium = { id: 'B4a-072', name: 'Arcade' }; return null; }, // 電玩遊樂場（場地）：實際效果在 pocket_use_stadium 的 B4a-072 分支
 };
 
 // ── Pokémon Tool 被動效果 hook（跟pocketPassive*系列的特性被動是同一套設計理念，只是
@@ -8375,6 +8480,19 @@ const ABILITY_EFFECTS = {
   'Gas Leak': (ctx, poke) => { // Weezing：只有在主戰位置時，每回合1次讓對方主戰中毒
     if (ctx.side.active?.uid !== poke.uid) return 'Weezing必須在主戰位置才能使用特性';
     if (ctx.oppSide.active) ctx.oppSide.active.poisoned = true;
+    return null;
+  },
+  // B4a（2026-09-03）：按鈕觸發、每回合1次
+  'Evil Inspiration': (ctx, poke) => { // 火箭隊的呆呆王ex：在主戰位置時抽1張卡
+    if (ctx.side.active?.uid !== poke.uid) return '呆呆王必須在主戰位置才能使用特性';
+    if (!ctx.side.deck.length) return '牌組已經沒有卡了';
+    ctx.side.hand.push(ctx.side.deck.shift());
+    return null;
+  },
+  'Spy Ops': (ctx, poke) => { // 火箭隊的變隱龍：查看對手手牌中的1張隨機卡（卡面明寫 random）
+    if (!ctx.oppSide.hand.length) return '對手手牌是空的';
+    const card = ctx.oppSide.hand[Math.floor(Math.random() * ctx.oppSide.hand.length)];
+    ctx.peekHand = [card];
     return null;
   },
 
@@ -8914,6 +9032,17 @@ const EVOLVE_TRIGGER_ABILITIES = {
     ctx.oppSide.deck = pocketShuffle([...ctx.oppSide.deck, ...ctx.oppSide.hand]);
     ctx.oppSide.hand = ctx.oppSide.deck.splice(0, Math.min(drawCount, ctx.oppSide.deck.length));
   },
+  // B4a（2026-09-03）：進化觸發、純上位效果，比照本表既有慣例自動觸發不用額外UI
+  'Boiler Smog': (ctx) => { // 火箭隊的雙彈瓦斯ex：進化時讓對手主戰中毒+灼傷
+    if (ctx.oppSide.active) { ctx.oppSide.active.poisoned = true; ctx.oppSide.active.burned = true; }
+  },
+  'Thieving Incisors': (ctx, poke) => { // 火箭隊的拉達ex：進化時把對手主戰1個隨機能量移到自己身上（卡面明寫 random）
+    const opp = ctx.oppSide.active;
+    if (opp?.energy.length) {
+      const [t] = opp.energy.splice(Math.floor(Math.random() * opp.energy.length), 1);
+      poke.energy.push(t);
+    }
+  },
 };
 // Power of Alchemy（2026-08-08新增）：「Basic Pokémon in play (both yours and your opponent's)
 // have no Abilities」——這個引擎裡`poke.abilities?.[0]?.name`這種讀法分散在33處，改成統一經過
@@ -8967,6 +9096,8 @@ function pocketSyncHpBonuses(G) {
       let bonus = 0;
       if ((p.types || []).includes('Grass') && [side.active, ...side.bench].some(q => q?.abilities?.[0]?.name === 'Toughness Aroma')) bonus += 20;
       if (p.abilities?.[0]?.name === 'Infinite Increase') bonus += p.energy.filter(e => e === 'Psychic').length * 30;
+      if (p.abilities?.[0]?.name === 'Regal Bloom') bonus += p.energy.filter(e => e === 'Grass').length * 30; // 君主蛇（B4a-005）：每個{G}能量+30HP
+
       if (G.activeStadium?.id === 'B2-154' && p.stage === 'Basic') bonus += 20;
       // 玩家技能「伊布家族」：發動方場上的伊布家族寶可夢 HP+50（整場持續）。進化時 Object.assign
       // 把 hp 重設回新物種印刷值、但 _hpBonus 舊值會殘留（進化後伊布家族仍成立卻讀到 oldBonus===bonus
@@ -11873,6 +12004,7 @@ async function handleMessage(ws, msg) {
         G.lastEvent = { seq: ++G.eventSeq, kind: 'ability', coinFlips: abilityCtx.coinFlips || null, healUid: abilityCtx.healUid || null, healAmount: abilityCtx.healAmount || 0 };
       }
       if (abilityCtx.peekDeck) send(ws, { type: 'pocket_peek', title: '牌庫頂1張', cards: abilityCtx.peekDeck });
+      if (abilityCtx.peekHand) send(ws, { type: 'pocket_peek', title: '對手手牌', cards: abilityCtx.peekHand }); // Spy Ops（B4a）
       // Broken-Space Bellow文字寫明「用了這個特性，你的回合結束」——跟一般特性用完還能繼續行動不同
       if (abilityCtx.endTurnAfter) { pocketAdvanceTurn(G); pocketBroadcastState(pRoom); return; }
       pocketBroadcastState(pRoom);
@@ -12427,6 +12559,15 @@ async function handleMessage(ws, msg) {
           // 跟Fade into Darkness同一種「被擊倒時擲硬幣擋對手得分」機制，只是卡名不同
           awardPointForDefender = false;
           pocketEmitCardActivation(G, op, defender, '特性觸發：Shattering Crystal');
+        } else if (defAbility === 'Destiny Burst') { // 火箭隊的頑皮雷彈（B4a-020）：主戰被招式擊倒時反打進攻者70
+          attacker.curHp = Math.max(0, attacker.curHp - 70);
+          pocketEmitCardActivation(G, op, defender, '特性觸發：Destiny Burst');
+        }
+        // 烈咬陸鯊「音速潛行」（B4a-054）：用自己的招式擊倒對手時，下回合完全免疫傷害+效果——
+        // 跟上面 Illusive Trickery 完全相同的機制，只是卡名/species不同
+        if (attacker.abilities?.[0]?.name === 'Mach Stealth') {
+          attacker.invulnerableUntilTurn = G.turnNumber + 1;
+          pocketEmitCardActivation(G, role, attacker, '特性觸發：Mach Stealth');
         }
         // Illusive Trickery：跟上面幾個「defender被KO時defender自己的特性觸發」方向不同，
         // 這是「attacker用自己的招式擊倒對手」時attacker自己的特性——沿用既有invulnerableUntilTurn
@@ -13131,6 +13272,14 @@ async function handleMessage(ws, msg) {
         if (!moved.length) { send(ws, { type: 'error', message: '沒有從棄牌區選到任何卡' }); return; }
         side.hand.push(...moved);
         side.stadiumUsedThisTurn = true;
+      } else if (stadiumId === 'B4a-072') { // 電玩遊樂場：每位玩家每回合1次，擲3次硬幣，全正面則抽到手牌7張
+        if (side.stadiumUsedThisTurn) { send(ws, { type: 'error', message: '這回合已經用過場地卡效果了' }); return; }
+        side.stadiumUsedThisTurn = true;
+        const flips = [pocketFlipCoin({ G, role }), pocketFlipCoin({ G, role }), pocketFlipCoin({ G, role })];
+        G.lastEvent = { seq: ++G.eventSeq, kind: 'stadium', coinFlips: flips };
+        if (flips.every(Boolean)) {
+          while (side.hand.length < 7 && side.deck.length) side.hand.push(side.deck.shift());
+        }
       } else {
         return;
       }
