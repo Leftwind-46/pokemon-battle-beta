@@ -4002,7 +4002,10 @@ function pocketDevolve(target, ownerSide) {
   Object.assign(target, structuredClone(prevCard));
   target.uid = preservedUid; target.energy = preservedEnergy; target.tool = preservedTool;
   target.evolutionStack = remainingStack;
-  target.curHp = Math.max(1, (target.hp || 0) - preservedDamage);
+  // 2026-09-04：退化後 HP 上限降低——若原本受到的傷害超過退化後的上限，curHp 可以 ≤ 0（＝被擊倒），
+  // 不再 clamp 到 1 硬留一口氣。實際 KO 收尾：Celebi「時光之葉」走 pocket_attack 的 defenderDied
+  // 判定，退化噴霧Z（FM-014）走 pocketBroadcastState 裡的 pocketResolveAmbientKOs。
+  target.curHp = (target.hp || 0) - preservedDamage;
   target._realAbilities = undefined; target._hpBonus = 0; // 退化後身分變了，清特性快取 + HP 加成快取
   pocketApplyDoubleType(target);
   return true;
@@ -13378,6 +13381,25 @@ async function handleMessage(ws, msg) {
         target.isFossil = false;
         pocketApplyDoubleType(target);
         side.deck = pocketShuffle(side.deck);
+        // 2026-09-04：憤怒之湖也是「進化」——進化觸發型特性（盜賊門牙/鍋爐濃煙/Healing Ripples/
+        // Search for Friends 等）要跟從手牌進化(pocket_evolve)一樣觸發（使用者回報：用憤怒之湖
+        // 進化出拉達ex，盜賊門牙沒發動）。這個 else-if 分支自己收尾（emit + broadcast + return），
+        // 不落到下面共用的 pocketEmitCardActivation。
+        pocketEmitCardActivation(G, role, POCKET_CARDS_BY_ID['FM-007'], '場地卡效果觸發');
+        const evoAbility = target.abilities?.[0]?.name;
+        if (evoAbility && EVOLVE_TRIGGER_ABILITIES[evoAbility]) {
+          const evoCtx = { G, role, op: role === 'p1' ? 'p2' : 'p1', side, oppSide: G[role === 'p1' ? 'p2' : 'p1'] };
+          EVOLVE_TRIGGER_ABILITIES[evoAbility](evoCtx, target);
+          pocketEmitCardActivation(G, role, target, `特性觸發：${evoAbility}`);
+          if (evoCtx.needsChoice) {
+            G.phase = 'attack_choice';
+            G.pendingChoice = { role, ...evoCtx.needsChoice };
+            pocketBroadcastState(pRoom);
+            return;
+          }
+        }
+        pocketBroadcastState(pRoom);
+        return;
       } else if (stadiumId === 'FM-008') { // 化石採掘場：牌組隨機找2張化石道具卡放上板凳
         // 2026-08-22修正：原本打出當下就立刻生效，使用者要求改成跟其餘場地卡一樣按鈕觸發，
         // 邏輯從TRAINER_EFFECTS['FM-008']原封不動搬過來，一樣用stadiumUsedThisTurn卡「每回合1次」
