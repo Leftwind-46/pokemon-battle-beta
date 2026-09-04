@@ -3152,6 +3152,13 @@ function renderBoard() {
             <img src="${pocketThumbUrl(o.image)}" loading="lazy" alt="${o.zh_name}" style="width:78px;border-radius:6px"><div>${o.zh_name}</div>
           </div>`;
         }).join('');
+      } else if (pendingChoice.step === 'supp_target') {
+        // 2026-09-04新增：借用的支援者卡（電次/小霞/莉莉艾…）需要玩家指定 board 目標才能發動——
+        // 選卡之後多這一步，跟energy_infusion的step:'target'同一套renderPokeSlot+data-skill-pick
+        titleEl.textContent = '支援者的協助：選擇這張卡的目標寶可夢';
+        const pool = (pendingChoice.targetSide === 'opp' ? [opponent.active, ...(opponent.bench || [])] : [you.active, ...(you.bench || [])])
+          .filter(p => p && (pendingChoice.eligibleUids || []).includes(p.uid));
+        optionsEl.innerHTML = pool.map(p => renderPokeSlot(p, { pickable: true, dataset: { 'skill-pick': '1' } })).join('');
       }
     } else if (pendingChoice.kind === 'victory_star_reflip') {
       // 比克提尼「勝利之星」（2026-08-28新增）：純Yes/No選擇，不是board點選，兩顆按鈕直接送出

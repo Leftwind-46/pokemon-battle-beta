@@ -11465,6 +11465,73 @@ function pocketSanitizeDeckSkills(raw) {
   return out;
 }
 
+// 「支援者的協助」技能借用的支援者卡裡，有一批 handler 會同步讀 msg.target（發動時就得指定
+// board 目標，如電次/小霞/莉莉艾/寶可夢中心小姐…），不帶目標就直接回錯誤字串。原本這個技能
+// 一律用 handler(ctx, {}) 跑，這批卡永遠走退還路徑＝「選了卻沒發動」（使用者回報電次）。
+// 下表 = public/pocket.html 的 TRAINER_NEEDS_TARGET 裡 trainerType==='Supporter' 的項目，
+// value 取自 TRAINER_TARGET_SIDE（預設 'own'）。兩邊清單要手動保持同步。
+// key 用「canonical id」（高星版重印會指向 effectId），查表時一律 (baseCard.effectId || id)。
+const SUPPORTER_HELP_TARGET_SIDE = {
+  'A1-219': 'own', 'A1-220': 'own', 'A1-224': 'own', 'A2-153': 'own', 'A2-154': 'own',
+  'A2b-070': 'own', 'A3-148': 'own', 'A3-149': 'own', 'A3-150': 'own', 'A3-154': 'own',
+  'A3-155': 'own', 'A3a-069': 'own', 'A4-157': 'own', 'A4a-069': 'own', 'B1-221': 'own',
+  'B2-149': 'own', 'B3-152': 'own', 'B3a-073': 'own', 'B3b-068': 'own', 'B4-152': 'own',
+  'B4-153': 'own',
+  'A2-150': 'opp', 'A3-152': 'opp', 'B4-150': 'opp',
+};
+
+// 「支援者的協助」：真正跑被借的支援者卡 handler（取出來源卡實體 → 包 snapshot/enforce →
+// discard → needsChoice/endTurn/finish）。從「選卡」步驟（不需目標）與「選目標」步驟共用。
+// msgForHandler：不需目標時傳 {}，需目標時傳 { target: <uid> }。
+function pocketRunBorrowedSupporter(pRoom, G, role, op, side, oppSide, pending, pickKey, cardId, msgForHandler, ws, finish) {
+  const baseCard = POCKET_CARDS_BY_ID[cardId];
+  const handler = TRAINER_EFFECTS[(baseCard && baseCard.effectId) || cardId];
+  if (!handler) { side.skills.used = false; send(ws, { type: 'error', message: '這張支援者卡的效果尚未實作，技能未消耗' }); finish(); return; }
+  let sourceCard = null, sourceZone = null;
+  if (pending.source === 'pile') {
+    for (const zone of ['deck', 'discard']) {
+      const idx = side[zone].findIndex(c => c && c.uid === pickKey);
+      if (idx >= 0) { sourceCard = side[zone].splice(idx, 1)[0]; sourceZone = zone; if (zone === 'deck') side.deck = pocketShuffle(side.deck); break; }
+    }
+    if (!sourceCard) { finish(); return; }
+  } else {
+    sourceCard = makePocketInstance(cardId);
+  }
+  const ctx = { G, role, op, side, oppSide, pRoom };
+  const statusSnapA = pocketSnapshotStatus(side), statusSnapB = pocketSnapshotStatus(oppSide);
+  const benchSnap = pocketSnapshotBenchHp(oppSide);
+  const healSnap = pocketSnapshotAllHp(G);
+  const err = handler(ctx, msgForHandler);
+  if (err) {
+    // 需要指定目標之類的——退還技能、把卡放回原處，讓玩家重新發動改選別張
+    side.skills.used = false;
+    if (pending.source === 'pile' && sourceCard && sourceZone) { side[sourceZone].push(sourceCard); if (sourceZone === 'deck') side.deck = pocketShuffle(side.deck); }
+    send(ws, { type: 'error', message: err + '（此技能未消耗，可重新發動）' });
+    finish();
+    return;
+  }
+  pocketEnforceStatusImmunity(side, statusSnapA); pocketEnforceStatusImmunity(oppSide, statusSnapB);
+  pocketEnforceBenchImmunity(oppSide, benchSnap);
+  pocketEnforceHealBlock(G, healSnap);
+  pocketResolveBenchKOs(G, side, op); pocketResolveBenchKOs(G, oppSide, role);
+  side.discard.push(sourceCard);
+  pocketEmitCardActivation(G, role, sourceCard, '玩家技能：支援者的協助');
+  if (ctx.coinFlips?.length || ctx.healUid) {
+    G.lastEvent = { seq: ++G.eventSeq, kind: 'trainer', coinFlips: ctx.coinFlips || null, healUid: ctx.healUid || null, healAmount: ctx.healAmount || 0 };
+  }
+  if (ctx.peekHand) send(ws, { type: 'pocket_peek', title: '對手手牌', cards: ctx.peekHand, interactive: !!ctx.needsChoice });
+  if (ctx.peekDeck) send(ws, { type: 'pocket_peek', title: '牌庫頂3張', cards: ctx.peekDeck });
+  if (ctx.needsChoice) {
+    // 被借的支援者卡自己又需要選目標——接回既有的 attack_choice 流程收尾
+    G.phase = 'attack_choice';
+    G.pendingChoice = { role, ...ctx.needsChoice };
+    pocketBroadcastState(pRoom);
+    return;
+  }
+  if (ctx.endTurnAfter) { pocketAdvanceTurn(G); pocketBroadcastState(pRoom); return; }
+  finish();
+}
+
 async function handleMessage(ws, msg) {
     const { type } = msg;
 
@@ -12012,57 +12079,41 @@ async function handleMessage(ws, msg) {
 
       // ═══ 支援者的協助 ═══
       if (pending.skillId === 'supporter_help') {
-        if (pending.step !== 'pick') return;
-        const opt = (pending.options || []).find(o => o.key === msg.key);
-        if (!opt) return;
-        const cardId = opt.id;
-        const baseCard = POCKET_CARDS_BY_ID[cardId];
-        const handler = TRAINER_EFFECTS[(baseCard && baseCard.effectId) || cardId];
-        if (!handler) { side.skills.used = false; send(ws, { type: 'error', message: '這張支援者卡的效果尚未實作，技能未消耗' }); finish(); return; }
-        // 取出來源卡實體
-        let sourceCard = null, sourceZone = null;
-        if (pending.source === 'pile') {
-          for (const zone of ['deck', 'discard']) {
-            const idx = side[zone].findIndex(c => c && c.uid === msg.key);
-            if (idx >= 0) { sourceCard = side[zone].splice(idx, 1)[0]; sourceZone = zone; if (zone === 'deck') side.deck = pocketShuffle(side.deck); break; }
+        // step 'pick'：選要借哪張支援者卡。若該卡 handler 需要 board 目標，轉 step 'supp_target'
+        // 多問一步；否則直接跑 handler(ctx, {})。
+        if (pending.step === 'pick') {
+          const opt = (pending.options || []).find(o => o.key === msg.key);
+          if (!opt) return;
+          const cardId = opt.id;
+          const baseCard = POCKET_CARDS_BY_ID[cardId];
+          const canonId = (baseCard && baseCard.effectId) || cardId;
+          if (!TRAINER_EFFECTS[canonId]) { side.skills.used = false; send(ws, { type: 'error', message: '這張支援者卡的效果尚未實作，技能未消耗' }); finish(); return; }
+          const targetSide = SUPPORTER_HELP_TARGET_SIDE[canonId];
+          if (targetSide) {
+            const pool = (targetSide === 'opp' ? [oppSide.active, ...oppSide.bench] : [side.active, ...side.bench]).filter(Boolean);
+            if (!pool.length) {
+              side.skills.used = false;
+              send(ws, { type: 'error', message: (targetSide === 'opp' ? '對手' : '你') + '場上沒有可指定的目標寶可夢（此技能未消耗，可重新發動）' });
+              finish();
+              return;
+            }
+            pending.step = 'supp_target';
+            pending.pickedKey = msg.key;
+            pending.pickedCardId = cardId;
+            pending.targetSide = targetSide;
+            pending.eligibleUids = pool.map(p => p.uid);
+            pocketBroadcastState(pRoom);
+            return;
           }
-          if (!sourceCard) { finish(); return; }
-        } else {
-          sourceCard = makePocketInstance(cardId);
-        }
-        const ctx = { G, role, op, side, oppSide, pRoom };
-        const statusSnapA = pocketSnapshotStatus(side), statusSnapB = pocketSnapshotStatus(oppSide);
-        const benchSnap = pocketSnapshotBenchHp(oppSide);
-        const healSnap = pocketSnapshotAllHp(G);
-        const err = handler(ctx, {}); // 不帶 msg.target
-        if (err) {
-          // 需要指定目標之類的——退還技能、把卡放回原處，讓玩家重新發動改選別張
-          side.skills.used = false;
-          if (pending.source === 'pile' && sourceCard && sourceZone) { side[sourceZone].push(sourceCard); if (sourceZone === 'deck') side.deck = pocketShuffle(side.deck); }
-          send(ws, { type: 'error', message: err + '（此技能未消耗，可重新發動）' });
-          finish();
+          pocketRunBorrowedSupporter(pRoom, G, role, op, side, oppSide, pending, msg.key, cardId, {}, ws, finish);
           return;
         }
-        pocketEnforceStatusImmunity(side, statusSnapA); pocketEnforceStatusImmunity(oppSide, statusSnapB);
-        pocketEnforceBenchImmunity(oppSide, benchSnap);
-        pocketEnforceHealBlock(G, healSnap);
-        pocketResolveBenchKOs(G, side, op); pocketResolveBenchKOs(G, oppSide, role);
-        side.discard.push(sourceCard);
-        pocketEmitCardActivation(G, role, sourceCard, '玩家技能：支援者的協助');
-        if (ctx.coinFlips?.length || ctx.healUid) {
-          G.lastEvent = { seq: ++G.eventSeq, kind: 'trainer', coinFlips: ctx.coinFlips || null, healUid: ctx.healUid || null, healAmount: ctx.healAmount || 0 };
-        }
-        if (ctx.peekHand) send(ws, { type: 'pocket_peek', title: '對手手牌', cards: ctx.peekHand, interactive: !!ctx.needsChoice });
-        if (ctx.peekDeck) send(ws, { type: 'pocket_peek', title: '牌庫頂3張', cards: ctx.peekDeck });
-        if (ctx.needsChoice) {
-          // 被借的支援者卡自己又需要選目標——接回既有的 attack_choice 流程收尾
-          G.phase = 'attack_choice';
-          G.pendingChoice = { role, ...ctx.needsChoice };
-          pocketBroadcastState(pRoom);
+        // step 'supp_target'：帶著選好的 board 目標跑 handler
+        if (pending.step === 'supp_target') {
+          if (!pending.eligibleUids || !pending.eligibleUids.includes(msg.uid)) return;
+          pocketRunBorrowedSupporter(pRoom, G, role, op, side, oppSide, pending, pending.pickedKey, pending.pickedCardId, { target: msg.uid }, ws, finish);
           return;
         }
-        if (ctx.endTurnAfter) { pocketAdvanceTurn(G); pocketBroadcastState(pRoom); return; }
-        finish();
         return;
       }
 
