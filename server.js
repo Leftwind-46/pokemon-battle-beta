@@ -7066,12 +7066,17 @@ const TRAINER_EFFECTS = {
     return null;
   },
   'A1-221': (ctx) => { ctx.side.blaineBoostNamesThisTurn = ['Ninetales', 'Rapidash', 'Magmar']; return null; },
-  'A1-222': (ctx) => { // Koga（使用者自訂調整，2026-08-18）：原本限定Muk/Weezing，改成任意惡屬性
-    // 寶可夢——把主戰的收回手牌（需要有板凳補上，否則擋下避免場上淨空）
+  'A1-222': (ctx) => { // Koga（使用者自訂調整，2026-08-18 / 2026-09-04）：任意惡屬性主戰收回手牌，
+    // 連同底下疊的進化前卡片一起收回（各自用 makePocketInstance 建乾淨實例）。收完主戰位置空了：
+    // 有板凳 → 玩家自選新主戰；沒板凳 → 場上淨空、該玩家判敗。
     if (!ctx.side.active || !(ctx.side.active.types || []).includes('Darkness')) return '主戰必須是惡屬性寶可夢';
-    if (!ctx.side.bench.length) return '沒有板凳寶可夢可以補位，無法使用';
-    ctx.side.hand.push(ctx.side.active);
-    ctx.side.active = ctx.side.bench.shift();
+    const a = ctx.side.active;
+    ctx.side.hand.push(makePocketInstance(a.id));
+    for (const s of (a.evolutionStack || [])) ctx.side.hand.push(makePocketInstance(s.id));
+    a.evolutionStack = [];
+    ctx.side.active = null;
+    if (!ctx.side.bench.length) { ctx.G.winner = ctx.op; ctx.G.phase = 'done'; return null; }
+    pocketEnterForcedSwitch(ctx.G, ctx.role, 'noEndTurn'); // 支援者卡不結束回合，玩家自選新主戰
     return null;
   },
   'A1-223': (ctx) => { ctx.side.giovanniBoostThisTurn = true; return null; },
@@ -12205,24 +12210,31 @@ async function handleMessage(ws, msg) {
       const retreatFloor = fossilStadiumDiscount > 0 ? 1 : 0;
       const cost = (pocketPassiveFreeRetreat(active, side, G, pocketIsFirstTurnFor(pRoom, G, role)) || toolRetreat.free) ? 0 : Math.max(retreatFloor,
         (active.retreat || 0) - (side.retreatDiscountThisTurn || 0) - plazaDiscount - pocketPassiveBenchRetreatDiscount(active, side) - pocketPassiveSelfRetreatDiscount(active, side) - toolRetreat.discount - fossilStadiumDiscount + pocketPassiveRetreatIncrease(oppSide) + retreatTrapIncrease);
-      if (active.energy.length < cost) { send(ws, { type: 'error', message: '能量不足，無法撤退' }); return; }
+      // 2026-09-04：Jungle Totem（君主蛇 A1a-006）生效時，草能量每個抵 2——撤退費用也適用，所以
+      // 「夠不夠付」跟「要棄幾個」都要用有效能量數，不是實體能量數（使用者回報：撤退需要 2 個草能量、
+      // 身上有 1 個草能量卻顯示無法撤退）
+      const retreatJT = pocketJungleTotemActive(active, side);
+      if (pocketEffectiveEnergyCount(active, side) < cost) { send(ws, { type: 'error', message: '能量不足，無法撤退' }); return; }
       if (cost > 0) {
         // 2026-08-12新增：主戰身上能量種類不只1種、且付完還會剩下能量時，讓玩家自選要棄哪些——
         // 原本永遠splice(0,cost)棄陣列最前面的，玩家完全沒得選要留哪種能量（使用者回報這個問題）。
-        // 只有「真的有選擇空間」時才暫停（種類>1且不是要全部棄光），全同色或全部棄光都不用問，
-        // 直接沿用原本的splice寫法。
+        // 只有「真的有選擇空間」時才暫停（種類>1且付完有剩），全同色或剛好付光都不用問。
         const distinctTypes = new Set(active.energy).size;
-        if (distinctTypes > 1 && active.energy.length > cost) {
+        if (distinctTypes > 1 && pocketEffectiveEnergyCount(active, side) > cost) {
           G.phase = 'attack_choice';
-          G.pendingChoice = { role, kind: 'retreat_discard', benchUid: msg.target, remaining: cost };
+          G.pendingChoice = { role, kind: 'retreat_discard', benchUid: msg.target, remaining: cost, jt: retreatJT };
           pocketBroadcastState(pRoom);
           return;
         }
-        // 2026-08-11修正：撤退成本付出的能量原本直接splice消失，沒有進discardEnergy——真實規則
-        // 撤退付出的能量要進棄牌堆，跟Rainbow Cave/招式效果棄能量那批（19處call site）是同一個
-        // 架構缺口，只是這處撤退成本付款當時漏掉沒一起修（使用者回報：特性拿到的能量，撤退付掉
-        // 之後沒有出現在棄牌堆）
-        side.discardEnergy.push(...active.energy.splice(0, cost));
+        // 直接付款：撤退付出的能量要進棄牌堆（2026-08-11修正）。Jungle Totem 生效時優先棄草能量
+        // （各抵 2），棄到累計價值 >= cost 為止（2026-09-04）。
+        let paid = 0;
+        const order = active.energy.map((_, i) => i);
+        if (retreatJT) order.sort((a, b) => (active.energy[b] === 'Grass' ? 1 : 0) - (active.energy[a] === 'Grass' ? 1 : 0));
+        const drop = [];
+        for (const i of order) { if (paid >= cost) break; drop.push(i); paid += (retreatJT && active.energy[i] === 'Grass') ? 2 : 1; }
+        drop.sort((a, b) => b - a);
+        for (const i of drop) side.discardEnergy.push(active.energy.splice(i, 1)[0]);
       }
       pocketFinalizeRetreat(G, role, msg.target);
       pocketBroadcastState(pRoom);
@@ -12819,7 +12831,7 @@ async function handleMessage(ws, msg) {
         if (!msg.energyType || !side.active.energy.includes(msg.energyType)) return;
         side.active.energy.splice(side.active.energy.indexOf(msg.energyType), 1);
         side.discardEnergy.push(msg.energyType);
-        pending.remaining--;
+        pending.remaining -= (pending.jt && msg.energyType === 'Grass') ? 2 : 1; // Jungle Totem：棄草能量抵 2
         if (pending.remaining > 0) { pocketBroadcastState(pRoom); return; }
         const benchUid = pending.benchUid;
         G.pendingChoice = null;

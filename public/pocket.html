@@ -3960,7 +3960,11 @@ function computeOwnBoardActions(card) {
   if (isActive && !you.retreatedThisTurn && !card.isFossil && card.status !== 'asleep' && card.status !== 'paralyzed'
       && card.cantRetreatUntilTurn !== state.turnNumber && you.bench.length) {
     const cost = pocketComputeRetreatCostClient(card, you, state.opponent, state);
-    const affordable = (card.energy?.length || 0) >= cost;
+    // 2026-09-04：Jungle Totem（君主蛇）生效時草能量各抵 2，撤退費用也適用——按鈕能不能按要用
+    // 有效能量數（跟 server pocket_retreat 的 pocketEffectiveEnergyCount 對齊）
+    const retreatJT = (card.types || []).includes('Grass') && [you.active, ...(you.bench || [])].some(p => p?.abilities?.[0]?.name === 'Jungle Totem');
+    const effEnergy = (card.energy || []).reduce((s, e) => s + (retreatJT && e === 'Grass' ? 2 : 1), 0);
+    const affordable = effEnergy >= cost;
     actions.push({
       label: `撤退（消耗 ${cost} 點能量）`, primary: true, disabled: !affordable,
       onClick: () => { selectedAction = { mode: 'retreat' }; updateActionHint(); renderBoard(); },
