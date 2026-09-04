@@ -191,6 +191,14 @@ User asked for a way to paste in a friend's deck code and quickly build the same
 
 按鈕觸發（pattern b）場地卡：`每回合可以發動一次，從你的棄牌區將最多兩張卡加入手牌`。`TRAINER_EFFECTS['FM-013']` 只設 `activeStadium`；實際邏輯在 `pocket_use_stadium` 的 `stadiumId === 'FM-013'` 分支（讀 `msg.cardUids`（≤2、去重）→ 從 `side.discard` splice 進 `side.hand` → 設 `stadiumUsedThisTurn`；選 0 張回 error 不消耗）。client 端 `STADIUM_TRIGGER_IDS`/`STADIUM_TRIGGER_LABEL`/`TRAINER_EFFECTS_IMPLEMENTED` 各加 `'FM-013'`；`triggerStadiumEffect()` 的 FM-013 分支開 `#pc-center-overlay`（toggle 多選 ≤2 + 「確認加入手牌」，`pcCenterSel` Set），確認送 `{type:'pocket_use_stadium', cardUids:[...]}`。「最多兩張」= 可選數量所以用 toggle 多選不是逐張單選。圖 `refernce files/寶可夢中心.png` → `sips -s format jpeg` → `public/fan-cards/pokemon-center.jpg`。
 
+## 2026-09-04: 從棄牌區撿回手牌的寶可夢上場，帶著上一世的髒狀態（curHp:0 殭屍）
+
+使用者回報。根因在 `pocketInstantiateBoardCard(handCard, turnNumber)`——「手牌卡 → board」的唯一 choke point（開局擺盤 active/bench + `pocket_bench_play` + Silcoon/Cascoon 那個攻擊效果）。它對**非化石**的卡直接 `const inst = handCard`，只設 `boardTurn` + `pocketApplyDoubleType`，**沒洗任何 board 狀態**。
+
+平常沒事——手牌卡都是從牌庫抽的乾淨 `makePocketInstance`（`curHp: base.hp, energy: [], status: null`）。但**寶可夢中心（FM-013）/ Fishing Net（A3-143）/ Celestic Town Elder（A2a-073）/ Fisher（A4-159）** 這四張會把「被擊倒後進棄牌區的 board instance」撿回手牌——那個物件還帶著 `curHp: 0`、殘留 `status`/`poisoned`/`burned`、舊 `boardTurn`、`_hpBonus`、時限 debuff、`disguiseUsed` 等。上場（bench-play，`pocketIsPlayableAsBasic` 不看 curHp）後 → 板凳出現 0 HP 殭屍 / 帶著上一世異常狀態。
+
+修法：`pocketInstantiateBoardCard` 的非化石分支加一段完整 reset（`hp` 用 `POCKET_CARDS_BY_ID[inst.id].hp` 防殘留 `_hpBonus`、`curHp = hp`、`energy = []`、status/poisoned/burned、`evolutionStack`、`tool`、`_realAbilities`/`_hpBonus`、cantAttack/cantRetreat/dmgDebuff、disguiseUsed/`_abilitiesLockedOff`、stackBuff）——跟 `pocketSummonToBench` 那段 reset 同一個道理（那個函式早就有，這個沒有）。對乾淨的牌庫手牌全是 no-op。uid 保留（in-place mutate），`pocket_bench_play` 事後用 `card.uid` 移出手牌照樣對得上。isolated 測：髒 instance（curHp:0 + poisoned + _hpBonus:20 + disguiseUsed + dmgDebuff）→ 上場後全歸零；乾淨手牌 → no-op。
+
 ## FM-014 退化噴霧Z (Devolution Spray Z, Fan Made Item, 2026-09-02)
 
 `選擇一張進化過的寶可夢（雙方皆可），將牠身上階級最高的進化卡放回該寶可夢持有者的手牌，使其退化。` 使用者 AskUserQuestion 確認：**雙方**場上進化過的寶可夢都能選，退化卡一律回**那隻的控制者**手牌（不是固定回使用者手牌）。

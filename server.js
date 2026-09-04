@@ -4047,7 +4047,29 @@ function pocketSummonToBench(side, card, turnNumber) {
   return card;
 }
 function pocketInstantiateBoardCard(handCard, turnNumber) {
-  const inst = POCKET_FOSSIL_IDS.has(handCard.id) ? makePocketFossilInstance(handCard.id) : handCard;
+  if (POCKET_FOSSIL_IDS.has(handCard.id)) {
+    const f = makePocketFossilInstance(handCard.id);
+    f.boardTurn = turnNumber;
+    pocketApplyDoubleType(f);
+    return f;
+  }
+  const inst = handCard;
+  // 2026-09-04：一般情況下手牌卡是「從牌庫抽來的乾淨 makePocketInstance」，這段全是 no-op。
+  // 但寶可夢中心（FM-013）/ Fishing Net（A3-143）/ Celestic Town Elder（A2a-073）/ Fisher（A4-159）
+  // 會把「被擊倒後進棄牌區的 board instance」撿回手牌——那個物件還帶著 curHp:0、殘留 status /
+  // 中毒灼傷 / 舊 boardTurn / _hpBonus / 時限 debuff 等。不洗乾淨就上場的話，板凳會出現 0 HP
+  // 殭屍、或是帶著上一世的異常狀態。上場＝一張全新的寶可夢，全部歸零。
+  inst.hp = POCKET_CARDS_BY_ID[inst.id]?.hp ?? inst.hp;
+  inst.curHp = inst.hp;
+  inst.energy = [];
+  inst.status = null; inst.poisoned = false; inst.burned = false;
+  inst.evolutionStack = [];
+  inst.tool = null;
+  inst._realAbilities = undefined; inst._hpBonus = 0;
+  inst.cantAttackUntilTurn = 0; inst.cantRetreatUntilTurn = 0;
+  inst.dmgDebuffUntilTurn = 0; inst.dmgDebuffAmount = 0;
+  inst.disguiseUsed = false; inst._abilitiesLockedOff = false;
+  inst.stackBuffName = null; inst.stackBuffAmount = 0;
   inst.boardTurn = turnNumber;
   pocketApplyDoubleType(inst);
   return inst;
