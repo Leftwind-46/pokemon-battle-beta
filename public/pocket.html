@@ -1365,6 +1365,8 @@ function pocketThumbUrl(image) {
   if (image.endsWith('_EN.png')) return image.replace('_EN.png', '_EN_SM.webp');
   // 2026-09-15新增：使用者修正過的卡圖（server掃public/card-art/，網址帶?v=快取版本），縮圖是同名-sm.jpg
   if (image.startsWith('/card-art/')) return image.replace(/\.jpg(\?|$)/, '-sm.jpg$1');
+  // 2026-09-15新增：卡圖改成自己存（public/card-img/<系列>/<卡號>.webp，scripts/card-img-sync.py產生），縮圖同名-sm.webp
+  if (image.startsWith('/card-img/')) return image.replace(/\.webp$/, '-sm.webp');
   return image;
 }
 // 2026-09-15新增：CDN少數卡沒有縮圖檔（TCGdex的A1-175臭臭泥low.webp回404，大圖正常；全卡2885張
@@ -1374,6 +1376,7 @@ function pocketFullFromThumbUrl(src) {
   if (src.endsWith('/low.webp')) return src.replace('/low.webp', '/high.webp');
   if (src.endsWith('_EN_SM.webp')) return src.replace('_EN_SM.webp', '_EN.png');
   if (src.includes('/card-art/') && /-sm\.jpg(\?|$)/.test(src)) return src.replace(/-sm\.jpg(\?|$)/, '.jpg$1');
+  if (src.includes('/card-img/') && src.endsWith('-sm.webp')) return src.replace(/-sm\.webp$/, '.webp');
   return null;
 }
 document.addEventListener('error', e => {

@@ -16,6 +16,13 @@ description: Replace a REAL Pocket TCG card's artwork with a user-edited version
   - `buildCardPatchOverlay()` 遇到 `_customArt` 直接回傳空字串：新卡圖已經印好正確文字，
     再疊遮蓋框/HP框會把正確內容蓋掉。金色外框（`has-patch`）跟下方招式列表的「⚠️已修改」照舊保留。
 - 所有卡圖都走 `/api/pocket/cards` 的 `card.image`，client 沒有另外讀 `pocket-cards.json`，所以不用改 JSON。
+- 2026-09-15 起**全部卡圖都自己存**：`public/card-img/<系列>/<卡號>.webp`（寬600）+ `-sm.webp`（寬245），
+  由 `scripts/card-img-sync.py` 產生，`pocket-cards.json` 的 `image` 指向本地、原外部網址留在 `imageSource`。
+  `public/card-art/` 修正圖是疊在這之上的覆蓋層（server 啟動時蓋掉 `image`），兩者並存：
+  - 修正過文字的真實卡 → `card-art`（本 skill，保留 `_customArt` 跳遮蓋框的語意）
+  - 新卡/外部沒圖的卡要放卡圖 → `python3 scripts/card-img-sync.py --add <圖> <卡號>`（卡片資料要先在 JSON 裡）
+  - 新系列資料匯入後（image 還是外部網址）→ 直接跑 `python3 scripts/card-img-sync.py` 抓下來轉本地
+  - `python3 scripts/card-img-sync.py --check` 檢查有沒有缺檔或還指向外部的卡
 
 ## 步驟
 
@@ -58,3 +65,5 @@ description: Replace a REAL Pocket TCG card's artwork with a user-edited version
 - 2026-09-15：A1 尼多家族（`refernce files/A1_尼多娜_修正.png`、`A1_尼多力諾_修正.png` 單檔放在根目錄，
   `A1_尼多王＿修正/` 用全形底線）：尼多娜→A1-167、尼多力諾→A1-170、尼多王一般→A1-171、一星→A1-241。
   卡面招式名跟資料 name_zh 不同（尼多娜「啃咬」vs「咬住」、尼多力諾「毒角」vs「角衝撞」），比照尼多后不處理。
+- 2026-09-15：A1 百變怪（`refernce files/A1_百變怪_修正/`）：一般→A1-205、一星→A1-247。卡面跟 override 完全一致
+  （複製一切 無無）。B1a-055 百變怪（複製夥伴）沒給修正圖，維持原圖+遮蓋框。
