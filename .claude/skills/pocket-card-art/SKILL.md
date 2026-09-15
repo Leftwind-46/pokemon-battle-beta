@@ -51,3 +51,6 @@ description: Replace a REAL Pocket TCG card's artwork with a user-edited version
 - 2026-09-15：A1a 夢幻ex 4 張（`refernce files/A1a_夢幻ex_修正/`）：
   一般→A1a-032、二星全圖→A1a-077、二星美術→A1a-083、皇冠→A1a-086。
   卡面是精神射擊（查看對手手牌發動支援者）+ 基因駭入（超無無，對手主戰/板凳/棄牌區任1招）。
+- 2026-09-15：A1 尼多后 2 張（`refernce files/A1_尼多后_修正/`）：一般→A1-168、一星→A1-240。
+  卡面加印了 override 新增的特性「母儀」。使用者的一星圖左下角印的是★★（真卡 A1-240 是★），
+  招式名印「愛之猛擊」（資料 name_zh 是「愛心一擊」）——卡圖照使用者給的放，差異回報給使用者決定。
