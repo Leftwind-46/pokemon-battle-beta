@@ -3812,6 +3812,23 @@ for (const c of POCKET_CARDS) {
   }
   if (Object.keys(patch).length) c._patch = patch;
 }
+// 2026-09-15新增：使用者自己修正過文字的真實卡卡圖（原檔在 refernce files/，例如
+// A1a_夢幻ex_修正/）。放在 public/card-art/<卡號>.jpg（+ <卡號>-sm.jpg 縮圖）就會自動
+// 取代該卡的 TCGdex/Limitless 原圖，不用改這裡的程式碼。?v=檔案修改時間 讓之後換圖時
+// 瀏覽器快取自動失效。_customArt 讓 client 的 buildCardPatchOverlay 跳過遮蓋框（新卡圖
+// 已經印好正確文字，再蓋框會把正確文字遮掉），金色外框跟下方「⚠️已修改」標記照舊。
+const POCKET_CARD_ART_DIR = path.join(__dirname, 'public', 'card-art');
+if (fs.existsSync(POCKET_CARD_ART_DIR)) {
+  for (const file of fs.readdirSync(POCKET_CARD_ART_DIR)) {
+    const m = file.match(/^(.+?)\.jpg$/);
+    if (!m || m[1].endsWith('-sm')) continue;
+    const card = POCKET_CARDS.find(c => c.id === m[1]);
+    if (!card) { console.warn(`[card-art] 找不到卡號 ${m[1]}，略過 ${file}`); continue; }
+    const v = Math.floor(fs.statSync(path.join(POCKET_CARD_ART_DIR, file)).mtimeMs);
+    card.image = `/card-art/${file}?v=${v}`;
+    card._customArt = true;
+  }
+}
 const POCKET_SETS = pocketCardsFile.sets; // [{id, name, cardCount}]，開包/圖鑑選版本用
 // 星等以上（含新系列引入的Shiny）都算「追逐卡池」——高星Trainer卡（角色支援者重印版）
 // 由匯入腳本預先算好effectId指回同系列內最早印刷的那張卡id，TRAINER_EFFECTS才查得到效果

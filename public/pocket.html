@@ -1363,6 +1363,8 @@ function pocketThumbUrl(image) {
   // 2026-08-08新增：B2b~B4改用LimitlessTCG當資料源（TCGdex還沒收錄），圖檔網址結構不一樣
   // （_EN.png/_EN_SM.webp，不是high.webp/low.webp），縮圖規則要多認一種
   if (image.endsWith('_EN.png')) return image.replace('_EN.png', '_EN_SM.webp');
+  // 2026-09-15新增：使用者修正過的卡圖（server掃public/card-art/，網址帶?v=快取版本），縮圖是同名-sm.jpg
+  if (image.startsWith('/card-art/')) return image.replace(/\.jpg(\?|$)/, '-sm.jpg$1');
   return image;
 }
 let cardById = {};
@@ -2402,6 +2404,9 @@ function pocketFindCardById(id) {
 function buildCardPatchOverlay(card) {
   const patch = card._patch;
   if (!patch) return '';
+  // 2026-09-15新增：卡圖本身已經換成使用者修正過文字的版本（server端public/card-art/），
+  // 印刷面上就是正確內容，再疊遮蓋框/HP框反而會蓋掉正確文字——只留金色外框
+  if (card._customArt) return '';
   // 2026-08-18改版：拿掉左上角文字徽章，改成外框金黃色邊框（見showCardDetail加has-patch
   // class到.detail-img-wrap），這裡不用再產生額外的badge元素
   let html = '';
