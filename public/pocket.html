@@ -1367,6 +1367,21 @@ function pocketThumbUrl(image) {
   if (image.startsWith('/card-art/')) return image.replace(/\.jpg(\?|$)/, '-sm.jpg$1');
   return image;
 }
+// 2026-09-15新增：CDN少數卡沒有縮圖檔（TCGdex的A1-175臭臭泥low.webp回404，大圖正常；全卡2885張
+// 掃過只有這張），縮圖載入失敗時自動換回原圖。縮圖渲染點有30多處，用document捕獲階段統一攔
+// img的error事件（error不冒泡，一定要capture:true），不用每個<img>各加onerror。
+function pocketFullFromThumbUrl(src) {
+  if (src.endsWith('/low.webp')) return src.replace('/low.webp', '/high.webp');
+  if (src.endsWith('_EN_SM.webp')) return src.replace('_EN_SM.webp', '_EN.png');
+  if (src.includes('/card-art/') && /-sm\.jpg(\?|$)/.test(src)) return src.replace(/-sm\.jpg(\?|$)/, '.jpg$1');
+  return null;
+}
+document.addEventListener('error', e => {
+  const img = e.target;
+  if (!(img instanceof HTMLImageElement) || img.dataset.thumbFallback) return;
+  const full = pocketFullFromThumbUrl(img.src);
+  if (full) { img.dataset.thumbFallback = '1'; img.src = full; }
+}, true);
 let cardById = {};
 let ownedCounts = {}; // cardId -> 擁有張數
 let savedDecks = []; // [{id, name, cardIds}]

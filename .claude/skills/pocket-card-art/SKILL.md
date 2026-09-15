@@ -44,6 +44,7 @@ description: Replace a REAL Pocket TCG card's artwork with a user-edited version
   override 後的實際效果一致（HP/招式費用/傷害/效果文字），有出入要先問使用者是圖錯還是資料要改。
 - 如果某個之後新增的 client 功能直接用 `card.image` 做字串判斷（例如 `endsWith('.webp')`），
   記得 `/card-art/` 網址尾巴帶 `?v=`。
+- 縮圖載入失敗（CDN 缺 low.webp/_EN_SM.webp/-sm.jpg）時，`pocket.html` 的 `pocketFullFromThumbUrl` + document 捕獲階段 error 監聽會自動換回大圖。2026-09-15 全卡掃過只有 TCGdex A1-175 臭臭泥缺縮圖。
 - 要撤回某張修正圖：刪掉 `public/card-art/<卡號>.jpg` 和 `-sm.jpg`，重啟 server 就回到原圖+遮蓋框。
 
 ## 紀錄
@@ -53,4 +54,4 @@ description: Replace a REAL Pocket TCG card's artwork with a user-edited version
   卡面是精神射擊（查看對手手牌發動支援者）+ 基因駭入（超無無，對手主戰/板凳/棄牌區任1招）。
 - 2026-09-15：A1 尼多后 2 張（`refernce files/A1_尼多后_修正/`）：一般→A1-168、一星→A1-240。
   卡面加印了 override 新增的特性「母儀」。使用者的一星圖左下角印的是★★（真卡 A1-240 是★），
-  招式名印「愛之猛擊」（資料 name_zh 是「愛心一擊」）——卡圖照使用者給的放，差異回報給使用者決定。
+  招式名印「愛之猛擊」（資料 name_zh 是「愛心一擊」）——卡圖照使用者給的放，使用者說這兩個差異不用管，維持現狀。
